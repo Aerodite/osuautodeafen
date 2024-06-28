@@ -1,0 +1,62 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:osuautodeafen"
+        mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
+        x:Class="osuautodeafen.MainWindow"
+        Title="osu!autodeafen"
+        x:DataType="local:MainWindow">
+
+        <Grid>
+                <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="0"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Main content -->
+                <StackPanel Grid.Column="0">
+                        <Button Width="50" Height="50" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" Margin="10,42,10,10" Click="SettingsButton_Click">
+                                <Image Source="avares://osuautodeafen/Icons/gear-solid.png" />
+                        </Button>
+                        <Button Content="Start" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Button Content="Stop" HorizontalAlignment="Center" VerticalAlignment="Bottom" />
+                </StackPanel>
+
+                <!-- Settings panel -->
+                <StackPanel x:Name="SettingsPanel" Grid.Column="1" Background="#171717" Width="450" IsVisible="False" Margin="10,42,10,0">
+                        <Button Width="50" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Margin="10" Click="SettingsButton_Click">
+                                <Image Source="avares://osuautodeafen/Icons/angles-left-solid.png" />
+                        </Button>
+                        <TextBlock Foreground="White" Margin="20, 0, 0, 0">
+                                <TextBlock.Text>
+                                        <MultiBinding StringFormat="Actual Min Percent: {0:F0}%">
+                                                <Binding Path="MinCompletionPercentage" />
+                                        </MultiBinding>
+                                </TextBlock.Text>
+                        </TextBlock>
+                        <Slider x:Name="CompletionPercentageSlider" Minimum="10" Maximum="90" Value="{Binding MinCompletionPercentage, Mode=TwoWay}" Width="100" Margin="75, 0, 0, 0" ValueChanged="CompletionPercentageSlider_ValueChanged" HorizontalAlignment="Left">
+                                <ToolTip.Tip>
+                                        <TextBlock Text="{Binding Path=Value, ElementName=CompletionPercentageSlider, StringFormat='Current percentage: {0:F0}%'}" />
+                                </ToolTip.Tip>
+                        </Slider>
+                        <Button Content="Reset to Default" Click="ResetButton_Click" Margin="60, 0, 0, 0" />
+
+                        <!-- SR TextBox -->
+                        <TextBlock Foreground="White" Margin="20, 0, 0, 0">Minimum Star Rating:</TextBlock>
+                        <TextBox x:Name="SRTextBox" Text="{Binding SRThreshold, Mode=TwoWay}" Width="100" Margin="20, 0, 0, 0" />
+
+                        <!-- PP TextBox -->
+                        <TextBlock Foreground="White" Margin="20, 0, 0, 0">Minimum PP:</TextBlock>
+                        <TextBox x:Name="PPTextBox" Text="{Binding PPThreshold, Mode=TwoWay}" Width="100" Margin="20, 0, 0, 0" />
+                </StackPanel>
+
+                <Grid HorizontalAlignment="Center" VerticalAlignment="Bottom">
+                        <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="1" x:Name="ErrorMessage" Foreground="Red" TextWrapping="Wrap" Margin="5,0,0,0"/>
+                </Grid>
+        </Grid>
+</Window>
