@@ -21,7 +21,7 @@ namespace osuautodeafen
         {
             Debug.WriteLine("Application is starting up...");
             _httpClient = new HttpClient();
-            _timer = new Timer(250);
+            _timer = new Timer(500);
             _timer.Elapsed += (sender, e) => ConnectAsync();
             _timer.Start();
         }
@@ -59,30 +59,10 @@ namespace osuautodeafen
                         // Calculate the completion percentage
                         double current = currentElement.GetDouble();
                         double full = fullElement.GetDouble();
-                        _completionPercentage = (current / full) * 100; // Store the completion percentage
+                        _completionPercentage = (current / full) * 100;
                     }
                 }
 
-                if (bmElement.TryGetProperty("stats", out JsonElement statsElement))
-                {
-                    if (statsElement.TryGetProperty("fullSR", out JsonElement fullSRElement))
-                    {
-                        // Extract the fullSR value
-                        double fullSR = fullSRElement.GetDouble();
-                        // Store the fullSR value
-
-                    }
-                }
-
-                if (bmElement.TryGetProperty("pp", out JsonElement ppElement))
-                {
-                    if (ppElement.TryGetProperty("100", out JsonElement pp100Element))
-                    {
-                        // Extract the 100pp value
-                        double pp100 = pp100Element.GetDouble();
-                        // Store the 100pp value
-                    }
-                }
             }
 
             if (menuElement.TryGetProperty("state", out JsonElement stateElement))
@@ -110,6 +90,7 @@ namespace osuautodeafen
         {
             return _completionPercentage;
         }
+
 
         public void Dispose()
         {

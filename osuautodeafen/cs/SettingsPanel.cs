@@ -9,25 +9,7 @@ using osuautodeafen;
 
 public class SettingsPanel : Control
 {
-    private double _minCompletionPercentage = 75; // Default value
-    public int minPP { get; set; }
-
-    public float minSR { get; set; }
-
-    public static readonly AvaloniaProperty<double> PPThresholdProperty = AvaloniaProperty.Register<SettingsPanel, double>("PPThreshold", 0);
-    public static readonly AvaloniaProperty<double> SRThresholdProperty = AvaloniaProperty.Register<SettingsPanel, double>("SRThreshold", 0);
-
-    public double SRThreshold
-    {
-        get { return (double)GetValue(SRThresholdProperty); }
-        set { SetValue(SRThresholdProperty, value); }
-    }
-
-    public double PPThreshold
-    {
-        get { return (double)(GetValue(PPThresholdProperty) ?? 0); }
-        set { SetValue(PPThresholdProperty, value); }
-    }
+    private double _minCompletionPercentage = 75;
 
     public double MinCompletionPercentage
     {
@@ -65,12 +47,6 @@ public class SettingsPanel : Control
                             case "MinCompletionPercentage":
                                 MinCompletionPercentage = value;
                                 break;
-                            case "SRThreshold":
-                                SRThreshold = value;
-                                break;
-                            case "PPThreshold":
-                                PPThreshold = value;
-                                break;
                         }
                     }
                 }
@@ -82,24 +58,18 @@ public class SettingsPanel : Control
             using (var writer = new StreamWriter(settingsFilePath))
             {
                 writer.WriteLine($"MinCompletionPercentage = {MinCompletionPercentage}");
-                writer.WriteLine($"SRThreshold = {SRThreshold}");
-                writer.WriteLine($"PPThreshold = {PPThreshold}");
             }
         }
     }
     public void ChangeMinCompletionPercentage(double newPercentage)
     {
         MinCompletionPercentage = newPercentage;
-        _deafen.UpdateMinCompletionPercentage(MinCompletionPercentage);
 
         string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "settings.txt");
 
-        // Create a dictionary with the settings
         var settings = new Dictionary<string, double>
         {
             { "MinCompletionPercentage", MinCompletionPercentage },
-            { "SRThreshold", SRThreshold },
-            { "PPThreshold", PPThreshold }
         };
 
         // Write the settings to the file

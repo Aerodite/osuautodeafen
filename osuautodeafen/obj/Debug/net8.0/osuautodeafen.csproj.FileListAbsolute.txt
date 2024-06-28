@@ -131,3 +131,4 @@ C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Debug\net8.0\Dyna
 C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Debug\net8.0\ReactiveUI.dll
 C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Debug\net8.0\Splat.dll
 C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Debug\net8.0\System.Reactive.dll
+C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\obj\Debug\net8.0\osuautodeafen.sourcelink.json

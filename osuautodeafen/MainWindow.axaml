@@ -19,8 +19,8 @@
                         <Button Width="50" Height="50" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" Margin="10,42,10,10" Click="SettingsButton_Click">
                                 <Image Source="avares://osuautodeafen/Icons/gear-solid.png" />
                         </Button>
-                        <Button Content="Start" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        <Button Content="Stop" HorizontalAlignment="Center" VerticalAlignment="Bottom" />
+                        <TextBlock Text="osu!autodeafen" FontSize="24" Margin="10,0,0,0" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                        <TextBlock Text="(app is working btw you dont have to do anything)" FontSize="12" Margin="10,0,0,0" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                 </StackPanel>
 
                 <!-- Settings panel -->
@@ -28,6 +28,8 @@
                         <Button Width="50" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Margin="10" Click="SettingsButton_Click">
                                 <Image Source="avares://osuautodeafen/Icons/angles-left-solid.png" />
                         </Button>
+                        <TextBlock Text="Remember!" FontSize="25" Margin="55,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <TextBlock Text="Set your Discord Deafen Keybind to Ctrl + P!" FontSize="10" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                         <TextBlock Foreground="White" Margin="20, 0, 0, 0">
                                 <TextBlock.Text>
                                         <MultiBinding StringFormat="Actual Min Percent: {0:F0}%">
@@ -41,14 +43,6 @@
                                 </ToolTip.Tip>
                         </Slider>
                         <Button Content="Reset to Default" Click="ResetButton_Click" Margin="60, 0, 0, 0" />
-
-                        <!-- SR TextBox -->
-                        <TextBlock Foreground="White" Margin="20, 0, 0, 0">Minimum Star Rating:</TextBlock>
-                        <TextBox x:Name="SRTextBox" Text="{Binding SRThreshold, Mode=TwoWay}" Width="100" Margin="20, 0, 0, 0" />
-
-                        <!-- PP TextBox -->
-                        <TextBlock Foreground="White" Margin="20, 0, 0, 0">Minimum PP:</TextBlock>
-                        <TextBox x:Name="PPTextBox" Text="{Binding PPThreshold, Mode=TwoWay}" Width="100" Margin="20, 0, 0, 0" />
                 </StackPanel>
 
                 <Grid HorizontalAlignment="Center" VerticalAlignment="Bottom">

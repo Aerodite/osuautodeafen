@@ -11,6 +11,7 @@ using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Visuals;
+using DynamicData.Binding;
 
 namespace osuautodeafen;
 
@@ -25,11 +26,10 @@ public partial class MainWindow : Window
 public MainWindow()
 {
     InitializeComponent();
-    this.AttachDevTools();
 
     _tosuAPI = new TosuAPI();
-    Deafen deafen = new Deafen(_tosuAPI);
-    _settingsPanel = new SettingsPanel(_tosuAPI, deafen);
+    Deafen deafen = new Deafen(_tosuAPI, _settingsPanel);
+    _settingsPanel = new SettingsPanel(_tosuAPI, new Deafen(_tosuAPI, _settingsPanel));
     this.DataContext = _settingsPanel;
     ExtendClientAreaToDecorationsHint = true;
     ExtendClientAreaTitleBarHeightHint = -1;
@@ -49,6 +49,7 @@ public MainWindow()
     };
 
     this.FindControl<Slider>("CompletionPercentageSlider").ValueChanged += CompletionPercentageSlider_ValueChanged;
+
 
     string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "settings.txt");
     if (File.Exists(settingsFilePath))
@@ -101,15 +102,11 @@ public MainWindow()
 
 
     public object MinCompletionPercentage { get; }
-    public object SRThreshold { get; }
-    public object PPThreshold { get; }
 
     private void UpdateErrorMessage(object? sender, EventArgs e)
     {
-        // Find the TextBlock by its name and cast it to the correct type
         var errorMessage = this.FindControl<TextBlock>("ErrorMessage");
 
-        // Update the Text property of the ErrorMessage TextBlock
         errorMessage.Text = _tosuAPI.GetErrorMessage();
     }
 
@@ -146,10 +143,8 @@ public MainWindow()
             }
         });
 
-        // Find the StackPanel by its name and cast it to the correct type
         var settingsPanel = this.FindControl<StackPanel>("SettingsPanel");
 
-        // Toggle the visibility of the SettingsPanel
         settingsPanel.IsVisible = !settingsPanel.IsVisible;
     }
 }
