@@ -28,8 +28,8 @@ public MainWindow()
     InitializeComponent();
 
     _tosuAPI = new TosuAPI();
-    Deafen deafen = new Deafen(_tosuAPI, _settingsPanel);
-    _settingsPanel = new SettingsPanel(_tosuAPI, new Deafen(_tosuAPI, _settingsPanel));
+    Deafen deafen = new Deafen(_tosuAPI);
+    _settingsPanel = new SettingsPanel(_tosuAPI, deafen);
     this.DataContext = _settingsPanel;
     ExtendClientAreaToDecorationsHint = true;
     ExtendClientAreaTitleBarHeightHint = -1;

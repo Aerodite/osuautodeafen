@@ -2,6 +2,13 @@
 using System.Threading;
 using AutoHotkey.Interop;
 
+/*
+ *
+ * This logic can get kinda finnicky if you're moving around menu's alot
+ * so maybe some more checks in the future would be nice
+ *
+ */
+
 namespace osuautodeafen
 {
     public class Deafen : IDisposable
@@ -9,48 +16,38 @@ namespace osuautodeafen
         private readonly TosuAPI _tosuAPI;
         private readonly AutoHotkeyEngine _ahk;
         private readonly Timer _timer;
-        private readonly SettingsPanel _settingsPanel;
-        public bool _isPlaying = false;
+        private bool _isPlaying = false;
         private bool _hasReachedMinPercent = false;
-        private double _minCompletionPercentage = 75;
+        private const double MinCompletionPercentage = 75;
 
-        public Deafen(TosuAPI tosuAPI, SettingsPanel settingsPanel)
+        public Deafen(TosuAPI tosuAPI)
         {
             _tosuAPI = tosuAPI;
             _ahk = AutoHotkeyEngine.Instance;
-            _timer = new Timer(TimerElapsed, null, 0, 500);
-            _settingsPanel = settingsPanel;
-
-            _tosuAPI.StateChanged += TosuAPI_StateChanged;
-        }
-
-        public void TosuAPI_StateChanged(int state)
-        {
-            _isPlaying = (state == 2);
+            _timer = new Timer(TimerElapsed, null, 0, 250);
+            _tosuAPI.StateChanged += (state) => _isPlaying = (state == 2);
         }
 
         private void TimerElapsed(object state)
         {
             double completionPercentage = _tosuAPI.GetCompletionPercentage();
+            Console.WriteLine($"Completion percentage: {Math.Round(completionPercentage, 2)}%");
 
-            if (_isPlaying)
+            if (_isPlaying && !_hasReachedMinPercent && completionPercentage >= MinCompletionPercentage)
             {
-                Console.WriteLine($"Completion percentage: {Math.Round(completionPercentage) + "%"}");
-
-                if (!_hasReachedMinPercent && completionPercentage >= _minCompletionPercentage)
-                {
-                    _ahk.ExecRaw("Send, ^p");
-                    Console.WriteLine("Sent Ctrl + P (deafen)");
-                    _hasReachedMinPercent = true;
-                }
+                ToggleDeafenState();
             }
-
-            if (_hasReachedMinPercent && !_isPlaying)
+            else if (!_isPlaying && _hasReachedMinPercent && completionPercentage >= 100)
             {
-                _ahk.ExecRaw("Send, ^p");
-                Console.WriteLine("Sent Ctrl + P (undeafen)");
-                _hasReachedMinPercent = false;
+                ToggleDeafenState();
             }
+        }
+
+        private void ToggleDeafenState()
+        {
+            _ahk.ExecRaw("Send, ^p");
+            Console.WriteLine(_hasReachedMinPercent ? "Sent Ctrl + P (undeafen)" : "Sent Ctrl + P (deafen)");
+            _hasReachedMinPercent = !_hasReachedMinPercent;
         }
 
         public void Dispose()
