@@ -23,11 +23,12 @@
 
     <ItemGroup>
       <None Remove="Icons\gear-solid.svg" />
-      <AvaloniaResource Include="Icons\gear-solid.svg" />
       <None Remove="Icons\gear-solid.png" />
       <AvaloniaResource Include="Icons\gear-solid.png" />
       <None Remove="Icons\angles-left-solid.png" />
       <AvaloniaResource Include="Icons\angles-left-solid.png" />
       <None Remove="Icons\jong.png" />
+      <None Remove="Icons\clock-solid.png" />
+      <AvaloniaResource Include="Icons\clock-solid.png" />
     </ItemGroup>
 </Project>

@@ -3,46 +3,57 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:osuautodeafen"
+        xmlns:global="clr-namespace:"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osu!autodeafen"
         x:DataType="local:MainWindow">
 
-        <Grid>
+        <Window.Resources>
+            <global:NotConverter x:Key="NotConverter"/>
+        </Window.Resources>
+
+        <Grid ZIndex="5">
                 <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="0"/>
                 </Grid.ColumnDefinitions>
 
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" x:Name="TextBlockPanel">
+                        <TextBlock Text="osu!autodeafen" FontSize="24" Margin="50,42,0,0" />
+                        <TextBlock Text="(app is working btw you dont have to do anything)" FontSize="12" Margin="0,0,0,0" />
+                </StackPanel>
+
                 <!-- Main content -->
-                <StackPanel Grid.Column="0">
-                        <Button Width="50" Height="50" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" Margin="10,42,10,10" Click="SettingsButton_Click">
+                <StackPanel Grid.Column="0" ZIndex="2">
+                        <Button Width="50" Height="50" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" Margin="10,42,10,10" Click="SettingsButton_Click"
+                                IsVisible="{Binding ElementName=SettingsPanel, Path=IsVisible, Converter={StaticResource NotConverter}}">
                                 <Image Source="avares://osuautodeafen/Icons/gear-solid.png" />
                         </Button>
-                        <TextBlock Text="osu!autodeafen" FontSize="24" Margin="10,0,0,0" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                        <TextBlock Text="(app is working btw you dont have to do anything)" FontSize="12" Margin="10,0,0,0" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                 </StackPanel>
 
                 <!-- Settings panel -->
-                <StackPanel x:Name="SettingsPanel" Grid.Column="1" Background="#171717" Width="450" IsVisible="False" Margin="10,42,10,0">
-                        <Button Width="50" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Margin="10" Click="SettingsButton_Click">
+                <StackPanel x:Name="SettingsPanel" Grid.Column="1" Background="#171717" Width="450" IsVisible="False" Margin="0,42,0,0" ZIndex="3"
+                            x:DataType="global:SharedViewModel">
+                        <StackPanel.DataContext>
+                                <global:SharedViewModel />
+                        </StackPanel.DataContext>
+                        <Button Width="50" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Margin="0" Click="SettingsButton_Click">
                                 <Image Source="avares://osuautodeafen/Icons/angles-left-solid.png" />
                         </Button>
-                        <TextBlock Text="Remember!" FontSize="25" Margin="55,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                        <TextBlock Text="Set your Discord Deafen Keybind to Ctrl + P!" FontSize="10" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                        <TextBlock Foreground="White" Margin="20, 0, 0, 0">
-                                <TextBlock.Text>
-                                        <MultiBinding StringFormat="Actual Min Percent: {0:F0}%">
-                                                <Binding Path="MinCompletionPercentage" />
-                                        </MultiBinding>
-                                </TextBlock.Text>
-                        </TextBlock>
-                        <Slider x:Name="CompletionPercentageSlider" Minimum="10" Maximum="90" Value="{Binding MinCompletionPercentage, Mode=TwoWay}" Width="100" Margin="75, 0, 0, 0" ValueChanged="CompletionPercentageSlider_ValueChanged" HorizontalAlignment="Left">
-                                <ToolTip.Tip>
-                                        <TextBlock Text="{Binding Path=Value, ElementName=CompletionPercentageSlider, StringFormat='Current percentage: {0:F0}%'}" />
-                                </ToolTip.Tip>
-                        </Slider>
-                        <Button Content="Reset to Default" Click="ResetButton_Click" Margin="60, 0, 0, 0" />
+                        <StackPanel Orientation="Horizontal" Margin="75, 0, 0, 0">
+                                <Image Source="avares://osuautodeafen/Icons/clock-solid.png" Width="25" Height="25" Margin="0, 0, 5, 0" />
+                                <TextBox x:Name="CompletionPercentageTextBox" Width="80"
+                                         Text="{Binding MinCompletionPercentage, Mode=TwoWay}"
+                                         LostFocus="CompletionPercentageTextBox_LostFocus"
+                                         TextInput="CompletionPercentageTextBox_TextInput"
+                                         HorizontalAlignment="Left">
+                                        <ToolTip.Tip>
+                                                <TextBlock Text="How much (in percentage) of the map you have to pass until you get deafened" />
+                                        </ToolTip.Tip>
+                                </TextBox>
+                        </StackPanel>
+                        <Button Content="Reset to Default" Click="ResetButton_Click" Margin="75, 7, 0, 0" FontSize="12"/>
                 </StackPanel>
 
                 <Grid HorizontalAlignment="Center" VerticalAlignment="Bottom">
