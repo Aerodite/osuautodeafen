@@ -237,3 +237,4 @@ C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\obj\Release\net8.0\wi
 C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\obj\Release\net8.0\win-x64\osuautod.8F71579D.Up2Date
 C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\obj\Release\net8.0\win-x64\osuautodeafen.genruntimeconfig.cache
 C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\obj\Release\net8.0\win-x64\ref\osuautodeafen.dll
+C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Release\net8.0\win-x64\Newtonsoft.Json.dll

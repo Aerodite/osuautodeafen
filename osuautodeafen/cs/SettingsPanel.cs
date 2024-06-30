@@ -1,84 +1,109 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Threading;
 using osuautodeafen;
 
 public class SettingsPanel : Control
 {
+    private static readonly string SettingsFilePath =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen",
+            "settings.txt");
+
+    public static readonly object _lock = new object();
+
     private double _minCompletionPercentage = 75;
+    private double _starRating;
+    private double _performancePoints;
 
     public double MinCompletionPercentage
     {
-        get { return _minCompletionPercentage; }
+        get => _minCompletionPercentage;
         set
         {
-            if (_minCompletionPercentage != value)
-            {
-
-            }
+            if (_minCompletionPercentage == value) return;
+            _minCompletionPercentage = value;
+            OnPropertyChanged(nameof(MinCompletionPercentage));
+            SaveSettings();
         }
     }
 
-    private TosuAPI _tosuAPI;
-    private Deafen _deafen;
-
-    public SettingsPanel(TosuAPI tosuAPI, Deafen deafen)
+    public double StarRating
     {
-        _tosuAPI = tosuAPI;
-        _deafen = deafen;
-
-        string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "settings.txt");
-        if (File.Exists(settingsFilePath))
+        get => _starRating;
+        set
         {
-            using (var reader = new StreamReader(settingsFilePath))
+            if (_starRating == value) return;
+            _starRating = value;
+            OnPropertyChanged(nameof(StarRating));
+            SaveSettings();
+        }
+    }
+
+    public double PerformancePoints
+    {
+        get => _performancePoints;
+        set
+        {
+            if (_performancePoints == value) return;
+            _performancePoints = value;
+            OnPropertyChanged(nameof(PerformancePoints));
+            SaveSettings();
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    protected virtual void OnPropertyChanged(string propertyName)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    public SettingsPanel()
+    {
+        LoadSettings();
+    }
+
+    private void LoadSettings()
+    {
+        if (!File.Exists(SettingsFilePath)) return;
+        try
+        {
+            using (var streamReader = new StreamReader(SettingsFilePath))
             {
                 string line;
-                while ((line = reader.ReadLine()) != null)
+                while ((line = streamReader.ReadLine()) != null)
                 {
                     var parts = line.Split('=');
-                    if (parts.Length == 2 && double.TryParse(parts[1], out double value))
+                    if (parts.Length != 2 || !double.TryParse(parts[1], out var value)) continue;
+                    switch (parts[0].Trim())
                     {
-                        switch (parts[0].Trim())
-                        {
-                            case "MinCompletionPercentage":
-                                MinCompletionPercentage = value;
-                                break;
-                        }
+                        case "MinCompletionPercentage":
+                            MinCompletionPercentage = value;
+                            break;
+                        case "StarRating":
+                            StarRating = value;
+                            break;
+                        case "PerformancePoints":
+                            PerformancePoints = value;
+                            break;
                     }
                 }
             }
         }
-        else
+        catch (IOException ex)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath));
-            using (var writer = new StreamWriter(settingsFilePath))
-            {
-                writer.WriteLine($"MinCompletionPercentage = {MinCompletionPercentage}");
-            }
+            Console.WriteLine($"An error occurred while loading settings: {ex.Message}");
         }
     }
-    public void ChangeMinCompletionPercentage(double newPercentage)
+
+    public void SaveSettings()
     {
-        MinCompletionPercentage = newPercentage;
-
-        string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "settings.txt");
-
-        var settings = new Dictionary<string, double>
+        lock (_lock)
         {
-            { "MinCompletionPercentage", MinCompletionPercentage },
-        };
-
-        // Write the settings to the file
-        using (var writer = new StreamWriter(settingsFilePath))
-        {
-            foreach (var setting in settings)
-            {
-                writer.WriteLine($"{setting.Key} = {setting.Value}");
-            }
+            using var fileStream = new FileStream(SettingsFilePath, FileMode.Create, FileAccess.Write, FileShare.None);
+            using var streamWriter = new StreamWriter(fileStream);
+            streamWriter.Write($"MinCompletionPercentage={MinCompletionPercentage}\nStarRating={StarRating}\nPerformancePoints={PerformancePoints}");
         }
     }
 }

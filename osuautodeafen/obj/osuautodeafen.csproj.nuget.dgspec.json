@@ -75,6 +75,10 @@
               "version": "[8.0.5, )",
               "autoReferenced": true
             },
+            "Newtonsoft.Json": {
+              "target": "Package",
+              "version": "[13.0.3, )"
+            },
             "ReactiveUI": {
               "target": "Package",
               "version": "[20.1.1, )"
@@ -98,6 +102,10 @@
           "downloadDependencies": [
             {
               "name": "Microsoft.AspNetCore.App.Runtime.win-x64",
+              "version": "[8.0.5, 8.0.5]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Crossgen2.win-x64",
               "version": "[8.0.5, 8.0.5]"
             },
             {

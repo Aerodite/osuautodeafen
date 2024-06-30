@@ -15,6 +15,12 @@ namespace osuautodeafen
         private HttpClient _httpClient;
         private Timer _timer;
         private double _completionPercentage;
+        private double _fullSR;
+        private double _maxPP;
+        private double _combo;
+        private double _maxCombo;
+        private double _missCount;
+        private double _sbCount;
         public event Action<int> StateChanged;
 
         public TosuAPI()
@@ -31,64 +37,157 @@ namespace osuautodeafen
             return _errorMessage;
         }
 
-       private async Task ConnectAsync()
-{
-    Debug.WriteLine("Attempting to connect...");
-    _errorMessage = "";
-    try
-    {
-        var response = await _httpClient.GetAsync("http://127.0.0.1:24050/json");
-        var content = await response.Content.ReadAsStringAsync();
-        var jsonDocument = JsonDocument.Parse(content);
-
-        if (jsonDocument.RootElement.TryGetProperty("error", out JsonElement errorElement) && errorElement.GetString() == "not_ready")
+        public async Task<string> ConnectAsync()
         {
-            _errorMessage = "osu! is not running!";
-            return;
-        }
-
-        if (jsonDocument.RootElement.TryGetProperty("menu", out JsonElement menuElement))
-        {
-            if (menuElement.TryGetProperty("bm", out JsonElement bmElement))
+            Debug.WriteLine("Attempting to connect...");
+            _errorMessage = "";
+            try
             {
-                if (bmElement.TryGetProperty("time", out JsonElement timeElement))
+                var response = await _httpClient.GetAsync("http://127.0.0.1:24050/json");
+                var content = await response.Content.ReadAsStringAsync();
+                var jsonDocument = JsonDocument.Parse(content);
+
+                Background background = new Background();
+                string? fullBackgroundDirectory = background.GetFullBackgroundDirectory(content);
+
+                if (jsonDocument.RootElement.TryGetProperty("error", out JsonElement errorElement) && errorElement.GetString() == "not_ready")
                 {
-                    if (timeElement.TryGetProperty("current", out JsonElement currentElement) &&
-                        timeElement.TryGetProperty("full", out JsonElement fullElement))
+                    _errorMessage = "osu! is not running!";
+                    return content;
+                }
+                if (jsonDocument.RootElement.TryGetProperty("menu", out JsonElement menuElement))
+                {
+                    if (menuElement.TryGetProperty("pp", out JsonElement ppElement))
                     {
-                        // Calculate the completion percentage
-                        double current = currentElement.GetDouble();
-                        double full = fullElement.GetDouble();
-                        _completionPercentage = (current / full) * 100;
+                        if (ppElement.TryGetProperty("100", out JsonElement maxPPElement))
+                        {
+                            if (maxPPElement.ValueKind == JsonValueKind.Number)
+                            {
+                                _maxPP = maxPPElement.GetDouble();
+                            }
+                        }
+                    }
+
+                    if (menuElement.TryGetProperty("bm", out JsonElement bmElement))
+                    {
+                        if (bmElement.TryGetProperty("time", out JsonElement timeElement))
+                        {
+                            if (timeElement.TryGetProperty("current", out JsonElement currentElement) &&
+                              timeElement.TryGetProperty("full", out JsonElement fullElement))
+                            {
+                                double current = currentElement.GetDouble();
+                                double full = fullElement.GetDouble();
+                                _completionPercentage = (current / full) * 100;
+                            }
+                        }
+                        if (bmElement.TryGetProperty("stats", out JsonElement statsElement))
+                        {
+                            if (statsElement.TryGetProperty("fullSR", out JsonElement fullSRElement))
+                            {
+                                _fullSR = fullSRElement.GetDouble();
+                            }
+                        }
+                    }
+
+                    if (jsonDocument.RootElement.TryGetProperty("gameplay", out JsonElement gameplayElement))
+                    {
+                        if (gameplayElement.TryGetProperty("combo", out JsonElement comboElement))
+                        {
+                            if (comboElement.TryGetProperty("current", out JsonElement currentComboElement))
+                            {
+                                _combo = currentComboElement.GetDouble();
+                            }
+                            if (comboElement.TryGetProperty("max", out JsonElement maxComboElement))
+                            {
+                                _maxCombo = maxComboElement.GetDouble();
+                            }
+                        }
+
+                        if (gameplayElement.TryGetProperty("hits", out JsonElement hitsElement))
+                        {
+                            if (hitsElement.ValueKind == JsonValueKind.Object && hitsElement.TryGetProperty("0", out JsonElement missElement))
+                            {
+                                if (missElement.ValueKind == JsonValueKind.Number)
+                                {
+                                    _missCount = missElement.GetDouble();
+                                    if (_missCount > 0)
+                                    {
+                                        Console.WriteLine($"Miss count: {_missCount}");
+                                    }
+                                }
+                            }
+                            if (hitsElement.ValueKind == JsonValueKind.Object && hitsElement.TryGetProperty("sliderBreaks", out JsonElement sbElement))
+                            {
+                                if (sbElement.ValueKind == JsonValueKind.Number)
+                                {
+                                    _sbCount = sbElement.GetDouble();
+                                    if (_sbCount > 0)
+                                    {
+                                        Console.WriteLine($"Slider break count: {_sbCount}");
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (jsonDocument.RootElement.TryGetProperty("userProfile", out JsonElement userProfileElement))
+                    {
+                        if (userProfileElement.TryGetProperty("rawBanchoStatus", out JsonElement rawBanchoStatusElement))
+                        {
+                            int rawBanchoStatus = rawBanchoStatusElement.GetInt32();
+
+                            StateChanged?.Invoke(rawBanchoStatus);
+
+                            if (rawBanchoStatus == 2)
+                            {
+
+                            }
+                        }
                     }
                 }
-
+                return content;
             }
-
-            if (menuElement.TryGetProperty("state", out JsonElement stateElement))
+            catch (Exception ex)
             {
-                int state = stateElement.GetInt32();
-
-                StateChanged?.Invoke(state);
-
-                if (state == 2)
-                {
-                    //debugging purposes, exact double value of percentage.
-                    //MessageReceived?.Invoke(_completionPercentage);
-                }
+                Console.WriteLine($"An error occurred: {ex.Message}");
+                _errorMessage = $"An error occurred (is tosu running?): {ex.Message}";
             }
+            return null;
         }
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"An error occurred: {ex.Message}");
-        _errorMessage = $"An error occurred (is tosu running?): {ex.Message}";
-    }
-}
 
         public double GetCompletionPercentage()
         {
             return _completionPercentage;
+        }
+
+        public double GetFullSR()
+        {
+            return _fullSR;
+        }
+
+        public double GetMaxPP()
+        {
+            return _maxPP;
+        }
+
+        public double GetCombo()
+        {
+            return _combo;
+        }
+
+        public double GetMaxCombo()
+        {
+            return _maxCombo;
+        }
+
+        public double GetMissCount()
+        {
+            return _missCount;
+        }
+
+        public double GetSBCount()
+        {
+            return _sbCount;
         }
 
 

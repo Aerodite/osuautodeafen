@@ -24,5 +24,8 @@ build_property.EnableGeneratedComInterfaceComImportInterop =
 [C:/Users/Anthony/RiderProjects/osuautodeafen/osuautodeafen/App.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
+[C:/Users/Anthony/RiderProjects/osuautodeafen/osuautodeafen/cs/UpdateNotificationWindow.axaml]
+build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
+
 [C:/Users/Anthony/RiderProjects/osuautodeafen/osuautodeafen/MainWindow.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml

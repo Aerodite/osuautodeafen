@@ -1,12 +1,18 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -19,89 +25,868 @@ public partial class MainWindow : Window
 {
 
     private readonly DispatcherTimer _timer;
+    private Grid _blackBackground;
     private readonly TosuAPI _tosuAPI;
+    private readonly FrostedGlassEffect _frostedGlassEffect;
     private SettingsPanel _settingsPanel;
     private bool _isConstructorFinished = false;
+    private double _mouseX;
+    private double _mouseY;
+    private readonly DispatcherTimer _disposeTimer;
+    private readonly DispatcherTimer _settingsUpdateTimer;
+    private TextBlock _completionPercentageText;
+    private readonly DispatcherTimer _parallaxCheckTimer;
+    public SharedViewModel ViewModel { get; } = new SharedViewModel();
+    private readonly DispatcherTimer _backgroundCheckTimer;
+    private readonly DispatcherTimer _keyInputTimer;
+    private readonly StringBuilder _keyInput;
+    private readonly DispatcherTimer _isFCRequiredCheckTimer;
 
-public MainWindow()
-{
-    InitializeComponent();
 
-    _tosuAPI = new TosuAPI();
-    Deafen deafen = new Deafen(_tosuAPI, _settingsPanel);
-    _settingsPanel = new SettingsPanel(_tosuAPI, new Deafen(_tosuAPI, _settingsPanel));
-    this.DataContext = _settingsPanel;
-    ExtendClientAreaToDecorationsHint = true;
-    ExtendClientAreaTitleBarHeightHint = -1;
-    ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
-    ExtendClientAreaToDecorationsHint = true;
-    ExtendClientAreaTitleBarHeightHint = 32;
-    ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
-    Background = Brushes.Black;
-    PointerPressed += (sender, e) =>
+
+    private Bitmap? _currentBitmap;
+    private Bitmap? _previousBitmap;
+    private BitmapHolder? _bitmapHolder;
+    private Queue<Bitmap> _bitmapQueue = new Queue<Bitmap>(2);
+
+    private readonly DispatcherTimer _backgroundUpdateTimer;
+    private string? _currentBackgroundDirectory;
+    public double MinCompletionPercentage { get; set; }
+
+    public MainWindow()
     {
-        var point = e.GetPosition(this);
-        const int titleBarHeight = 34; // Height of the title bar + an extra 2px of wiggle room
-        if (point.Y <= titleBarHeight)
+        InitializeComponent();
+
+        //UpdateChecker.OnUpdateAvailable += ShowUpdateNotification;
+
+        SettingsPanel settingsPanel = new SettingsPanel();
+
+        _settingsPanel = new SettingsPanel();
+
+        this.Icon = new WindowIcon(new Bitmap("Resources/oad.ico"));
+
+        _tosuAPI = new TosuAPI();
+
+        _backgroundUpdateTimer = new DispatcherTimer
         {
-            BeginMoveDrag(e);
+            Interval = TimeSpan.FromMilliseconds(250)
+        };
+        _backgroundUpdateTimer.Tick += UpdateBackground;
+        _backgroundUpdateTimer.Start();
+
+        _frostedGlassEffect = new FrostedGlassEffect
+        {
+            HorizontalAlignment = HorizontalAlignment,
+            VerticalAlignment = VerticalAlignment
+        };
+
+        _disposeTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(500)
+        };
+        _disposeTimer.Tick += DisposeTimer_Tick;
+
+        _parallaxCheckTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _parallaxCheckTimer.Tick += CheckParallaxSetting;
+        _parallaxCheckTimer.Start();
+
+        _backgroundCheckTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _backgroundCheckTimer.Tick += CheckBackgroundSetting;
+        _backgroundCheckTimer.Start();
+
+        _keyInputTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(250) // Adjust this value as needed
+        };
+        _keyInputTimer.Tick += KeyInputTimer_Tick;
+
+        _isFCRequiredCheckTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _isFCRequiredCheckTimer.Tick += CheckIsFCRequiredSetting;
+        _isFCRequiredCheckTimer.Start();
+
+        _keyInput = new StringBuilder();
+
+        var oldContent = this.Content;
+
+        this.Content = null;
+
+        this.Content = new Grid
+        {
+            Children =
+            {
+                _frostedGlassEffect,
+                new ContentControl { Content = oldContent },
+            }
+        };
+
+        var slider = this.FindControl<Slider>("Slider");
+
+        var sliderManager = new SliderManager(_settingsPanel, slider);
+        ;
+
+        settingsPanel.Transitions = new Transitions
+        {
+            new DoubleTransition
+            {
+                Property = OpacityProperty,
+                Duration = TimeSpan.FromSeconds(0.5),
+                Easing = new QuarticEaseInOut()
+            }
+        };
+
+        Deafen deafen = new Deafen(_tosuAPI, _settingsPanel);
+        this.DataContext = _settingsPanel;
+        ExtendClientAreaToDecorationsHint = true;
+        ExtendClientAreaTitleBarHeightHint = -1;
+        ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
+        ExtendClientAreaToDecorationsHint = true;
+        ExtendClientAreaTitleBarHeightHint = 32;
+        ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
+        Background = Brushes.Black;
+        PointerPressed += (sender, e) =>
+        {
+            var point = e.GetPosition(this);
+            const int titleBarHeight = 34; // Height of the title bar + an extra 2px of wiggle room
+            if (point.Y <= titleBarHeight)
+            {
+                BeginMoveDrag(e);
+            }
+        };
+
+        string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "settings.txt");
+        string[] settingsLines = File.ReadAllLines(settingsFilePath);
+        foreach (var line in settingsLines)
+        {
+            var settings = line.Split('=');
+            if (settings.Length == 2 && settings[0].Trim() == "Hotkey")
+            {
+                // Set the TextBox text to the loaded hotkey
+                //DeafenKeybindTextBox.Text = settings[1];
+                break;
+            }
         }
-    };
 
-    this.FindControl<Slider>("CompletionPercentageSlider").ValueChanged += CompletionPercentageSlider_ValueChanged;
-
-
-    string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "settings.txt");
-    if (File.Exists(settingsFilePath))
-    {
-        string savedPercentage = File.ReadAllText(settingsFilePath);
-        if (double.TryParse(savedPercentage, out double parsedPercentage))
+        if (File.Exists(settingsFilePath))
         {
-            _settingsPanel.ChangeMinCompletionPercentage(parsedPercentage);
+            string[] lines = File.ReadAllLines(settingsFilePath);
+            foreach (var line in lines)
+            {
+                var settings = line.Split('=');
+                if (settings.Length == 2)
+                {
+                    if (settings[0].Trim() == "MinCompletionPercentage" &&
+                        int.TryParse(settings[1], out int parsedPercentage))
+                    {
+                        ViewModel.MinCompletionPercentage = parsedPercentage;
+                    }
+                    else if (settings[0].Trim() == "StarRating" && int.TryParse(settings[1], out int parsedRating))
+                    {
+                        ViewModel.StarRating = parsedRating;
+                    }
+                    else if (settings[0].Trim() == "PerformancePoints" && int.TryParse(settings[1], out int parsedPP))
+                    {
+                        ViewModel.PerformancePoints = parsedPP;
+                    }
+                    else if (settings[0].Trim() == "IsParallaxEnabled" &&
+                             bool.TryParse(settings[1], out bool parsedIsParallaxEnabled))
+                    {
+                        ViewModel.IsParallaxEnabled = parsedIsParallaxEnabled;
+                    }
+                }
+            }
         }
         else
         {
-            _settingsPanel.ChangeMinCompletionPercentage(75);
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath));
+            ViewModel.MinCompletionPercentage = 75;
+            ViewModel.StarRating = 0;
+            ViewModel.PerformancePoints = 0;
+            ViewModel.IsParallaxEnabled = true;
+            File.WriteAllText(settingsFilePath,
+                $"MinCompletionPercentage={ViewModel.MinCompletionPercentage}\nStarRating={ViewModel.StarRating}\nPerformancePoints={ViewModel.PerformancePoints}");
+        }
+
+        CompletionPercentageTextBox.Text = ViewModel.MinCompletionPercentage.ToString();
+        StarRatingTextBox.Text = ViewModel.StarRating.ToString();
+        PPTextBox.Text = ViewModel.PerformancePoints.ToString();
+
+        if (File.Exists(settingsFilePath))
+        {
+            string[] lines = File.ReadAllLines(settingsFilePath);
+            var parallaxSettingLine = Array.Find(lines, line => line.StartsWith("IsParallaxEnabled"));
+            if (parallaxSettingLine != null)
+            {
+                var settings = parallaxSettingLine.Split('=');
+                if (settings.Length == 2 && bool.TryParse(settings[1], out bool parsedIsParallaxEnabled))
+                {
+                    ViewModel.IsParallaxEnabled = parsedIsParallaxEnabled;
+                }
+            }
+            else
+            {
+                ViewModel.IsParallaxEnabled = true;
+                SaveSettingsToFile(true, "IsParallaxEnabled");
+            }
+        }
+        else
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath));
+            ViewModel.IsParallaxEnabled = true;
+            SaveSettingsToFile(true, "IsParallaxEnabled");
+        }
+
+        if (File.Exists(settingsFilePath))
+        {
+            var lines = File.ReadAllLines(settingsFilePath);
+            bool hotkeySettingFound = false;
+            foreach (var line in lines)
+            {
+                var settings = line.Split('=');
+                if (settings.Length == 2)
+                {
+                    switch (settings[0].Trim())
+                    {
+                        case "Hotkey":
+                            hotkeySettingFound = true;
+                            break;
+                    }
+                }
+            }
+
+            if (!hotkeySettingFound)
+            {
+                File.AppendAllText(settingsFilePath, "\nHotkey=Control+P");
+            }
+        }
+        else
+        {
+            // If the settings file does not exist, create it and set the hotkey to "Control+P"
+            File.WriteAllText(settingsFilePath, "Hotkey=Control+P");
+        }
+
+    // Set the DataContext after reading the settings
+        DataContext = ViewModel;
+
+
+        ViewModel.BackgroundEnabledChanged += UpdateBackground;
+
+        BorderBrush = Brushes.Black;
+        this.Width = 600;
+        this.Height = 600;
+        this.CanResize = false;
+        this.Closing += MainWindow_Closing;
+        _timer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _timer.Tick += UpdateErrorMessage;
+        _timer.Start();
+        _isConstructorFinished = true;
+
+        // Handle the PointerPressed event on the parent control
+        //((Control)DeafenKeybindTextBox.Parent).PointerPressed += (sender, e) =>
+        {
+            // When the parent control is clicked, move the focus to the parent control
+            //((Control)sender).Focus();
+        };
+    }
+
+    private void CheckIsFCRequiredSetting(object? sender, EventArgs e)
+    {
+        {
+            string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "osuautodeafen", "settings.txt");
+
+            if (File.Exists(settingsFilePath))
+            {
+                string[] lines = File.ReadAllLines(settingsFilePath);
+                var fcSettingLine = Array.Find(lines, line => line.StartsWith("IsFCRequired"));
+                if (fcSettingLine != null)
+                {
+                    var settings = fcSettingLine.Split('=');
+                    if (settings.Length == 2 && bool.TryParse(settings[1], out bool parsedisFcRequired))
+                    {
+                        ViewModel.IsFCRequired = parsedisFcRequired;
+                        this.FindControl<CheckBox>("FCToggle").IsChecked = parsedisFcRequired;
+                    }
+                }
+                else
+                {
+                    ViewModel.IsFCRequired = false;
+                    SaveSettingsToFile(false, "IsFcRequired");
+                    this.FindControl<CheckBox>("FCToggle").IsChecked = false;
+                }
+            }
+            else
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath));
+                ViewModel.IsFCRequired = false;
+                SaveSettingsToFile(false, "IsFCRequired");
+                this.FindControl<CheckBox>("FCToggle").IsChecked = false;
+            }
         }
     }
-    else
+
+    private void ShowUpdateNotification(string latestVersion, string latestReleaseUrl)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath));
-        _settingsPanel.ChangeMinCompletionPercentage(75);
-        File.WriteAllText(settingsFilePath, "75");
+        var updateNotificationWindow = new UpdateNotificationWindow(latestVersion, latestReleaseUrl);
+        updateNotificationWindow.ShowDialog(this);
     }
 
-    BorderBrush = Brushes.Black;
-    this.Width = 600;
-    this.Height = 600;
-    this.CanResize = false;
-    this.Closing += MainWindow_Closing;
-    _timer = new DispatcherTimer
+    private void KeyInputTimer_Tick(object? sender, EventArgs e)
     {
-        Interval = TimeSpan.FromSeconds(1)
-    };
-    _timer.Tick += UpdateErrorMessage;
-    _timer.Start();
-    _isConstructorFinished = true;
-}
+        _keyInputTimer.Stop();
 
-    public void CompletionPercentageSlider_ValueChanged(object sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        //DeafenKeybindTextBox.Text = _keyInput.ToString();
+
+        _keyInput.Clear();
+    }
+
+    private void DeafenKeybindTextBox_PointerLeave(object? sender, PointerEventArgs e)
     {
-        if (_isConstructorFinished)
+        this.Focus();
+    }
+
+    public class HotKey
+    {
+        public Key Key { get; set; }
+        public KeyModifiers ModifierKeys { get; set; }
+
+        public override string ToString()
         {
-            var slider = (Slider)sender;
-            _settingsPanel.MinCompletionPercentage = slider.Value;
-            _settingsPanel.ChangeMinCompletionPercentage(slider.Value);
+            return $"{ModifierKeys} + {Key}";
+        }
+
+        public static HotKey Parse(string str)
+        {
+            if (string.IsNullOrEmpty(str))
+            {
+                throw new ArgumentException("Invalid hotkey format. Expected 'KeyModifierKey'.");
+            }
+
+            string[] parts = str.Split('+');
+            if (parts.Length != 2)
+            {
+                throw new ArgumentException("Invalid hotkey format. Expected 'KeyModifierKey'.");
+            }
+
+            if (!Enum.TryParse(parts[0], true, out KeyModifiers modifierKeys))
+            {
+                throw new ArgumentException($"Invalid modifier key: {parts[0]}");
+            }
+
+            if (!Enum.TryParse(parts[1], true, out Key key))
+            {
+                throw new ArgumentException($"Invalid key: {parts[1]}");
+            }
+
+            return new HotKey { Key = key, ModifierKeys = modifierKeys };
+        }
+        public static KeyModifiers KeyToKeyModifiers(Key key)
+        {
+            switch (key)
+            {
+                case Key.LeftCtrl:
+                case Key.RightCtrl:
+                    return KeyModifiers.Control;
+                case Key.LeftAlt:
+                case Key.RightAlt:
+                    return KeyModifiers.Alt;
+                case Key.LeftShift:
+                case Key.RightShift:
+                    return KeyModifiers.Shift;
+                default:
+                    return KeyModifiers.None;
+            }
+        }
+
+        //handle key down events
+    }
+
+    private KeyModifiers _currentKeyModifiers = KeyModifiers.None;
+
+    private void DeafenKeybindTextBox_KeyDown(object sender, Avalonia.Input.KeyEventArgs e)
+    {
+        _currentKeyModifiers = KeyModifiers.None;
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            _currentKeyModifiers |= KeyModifiers.Control;
+        }
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Alt))
+        {
+            _currentKeyModifiers |= KeyModifiers.Alt;
+        }
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            _currentKeyModifiers |= KeyModifiers.Shift;
+        }
+
+        if (e.Key != Key.LeftCtrl && e.Key != Key.RightCtrl && e.Key != Key.LeftAlt && e.Key != Key.RightAlt && e.Key != Key.LeftShift && e.Key != Key.RightShift)
+        {
+            HotKey hotKey = new HotKey { Key = e.Key, ModifierKeys = _currentKeyModifiers };
+            HandleHotkeyInput(hotKey);
+        }
+    }
+
+    private void HandleHotkeyInput(HotKey hotKey)
+    {
+        Console.WriteLine($"Hotkey {hotKey.Key} with modifiers {hotKey.ModifierKeys} pressed");
+
+        SaveSettingsToFile(hotKey.ToString(), "Hotkey");
+    }
+    private void DeafenKeybindTextBox_LostFocus(object? sender, RoutedEventArgs e)
+    {
+        // Check if the TextBox text is not null
+      //  if (!string.IsNullOrEmpty(DeafenKeybindTextBox.Text))
+        {
+            try
+            {
+               // ViewModel.DeafenKeybind = HotKey.Parse(DeafenKeybindTextBox.Text);
+
+                // Save the valid hotkey to the settings.txt file
+                SaveSettingsToFile(ViewModel.DeafenKeybind.ToString(), "DeafenKeybind");
+            }
+            catch (ArgumentException)
+            {
+
+                //DeafenKeybindTextBox.Text = ViewModel.DeafenKeybind.ToString();
+            }
+        }
+    }
+
+    private void CheckBackgroundSetting(object? sender, EventArgs e)
+    {
+        string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "settings.txt");
+
+        if (File.Exists(settingsFilePath))
+        {
+            string[] lines = File.ReadAllLines(settingsFilePath);
+            var backgroundSettingLine = Array.Find(lines, line => line.StartsWith("IsBackgroundEnabled"));
+            if (backgroundSettingLine != null)
+            {
+                var settings = backgroundSettingLine.Split('=');
+                if (settings.Length == 2 && bool.TryParse(settings[1], out bool parsedIsBackgroundEnabled))
+                {
+                    ViewModel.IsBackgroundEnabled = parsedIsBackgroundEnabled;
+                    this.FindControl<CheckBox>("BackgroundToggle").IsChecked = parsedIsBackgroundEnabled;
+                }
+            }
+            else
+            {
+                ViewModel.IsBackgroundEnabled = true;
+                SaveSettingsToFile(true, "IsBackgroundEnabled");
+                this.FindControl<CheckBox>("BackgroundToggle").IsChecked = true;
+            }
+        }
+        else
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath));
+            ViewModel.IsBackgroundEnabled = true;
+            SaveSettingsToFile(true, "IsBackgroundEnabled");
+            this.FindControl<CheckBox>("BackgroundToggle").IsChecked = true;
+        }
+    }
+
+    private void CheckParallaxSetting(object? sender, EventArgs e)
+    {
+        string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "settings.txt");
+
+        if (File.Exists(settingsFilePath))
+        {
+            string[] lines = File.ReadAllLines(settingsFilePath);
+            var parallaxSettingLine = Array.Find(lines, line => line.StartsWith("IsParallaxEnabled"));
+            if (parallaxSettingLine != null)
+            {
+                var settings = parallaxSettingLine.Split('=');
+                if (settings.Length == 2 && bool.TryParse(settings[1], out bool parsedIsParallaxEnabled))
+                {
+                    ViewModel.IsParallaxEnabled = parsedIsParallaxEnabled;
+                    this.FindControl<CheckBox>("ParallaxToggle").IsChecked = parsedIsParallaxEnabled;
+                }
+            }
+            else
+            {
+                ViewModel.IsParallaxEnabled = true;
+                SaveSettingsToFile(true, "IsParallaxEnabled");
+                this.FindControl<CheckBox>("ParallaxToggle").IsChecked = true;
+            }
+        }
+        else
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath));
+            ViewModel.IsParallaxEnabled = true;
+            SaveSettingsToFile(true, "IsParallaxEnabled");
+            this.FindControl<CheckBox>("ParallaxToggle").IsChecked = true;
+        }
+    }
+
+    private void DisposeTimer_Tick(object? sender, EventArgs e)
+    {
+        if (_bitmapQueue.Count > 0)
+        {
+            _bitmapQueue.Dequeue().Dispose();
+        }
+        _disposeTimer.Stop();
+    }
+
+    private void CompletionPercentageTextBox_TextInput(object sender, Avalonia.Input.TextInputEventArgs e)
+    {
+        Regex regex = new Regex("^[0-9]{1,2}$");
+        if (!regex.IsMatch(e.Text))
+        {
+            e.Handled = true;
+        }
+    }
+    private void CompletionPercentageTextBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (int.TryParse(CompletionPercentageTextBox.Text, out int parsedPercentage))
+        {
+            if (parsedPercentage >= 0 && parsedPercentage <= 99)
+            {
+                ViewModel.MinCompletionPercentage = parsedPercentage;
+                SaveSettingsToFile(ViewModel.MinCompletionPercentage, "MinCompletionPercentage");
+            }
+            else
+            {
+                CompletionPercentageTextBox.Text = ViewModel.MinCompletionPercentage.ToString();
+            }
+        }
+        else
+        {
+            CompletionPercentageTextBox.Text = ViewModel.MinCompletionPercentage.ToString();
+        }
+    }
+
+    private void StarRatingTextBox_TextInput(object sender, Avalonia.Input.TextInputEventArgs e)
+    {
+        Regex regex = new Regex("^[0-9]{1,2}$");
+        if (!regex.IsMatch(e.Text))
+        {
+            e.Handled = true;
+        }
+    }
+    private void StarRatingTextBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (int.TryParse(StarRatingTextBox.Text, out int parsedRating))
+        {
+            if (parsedRating >= 0 && parsedRating <= 15)
+            {
+                ViewModel.StarRating = parsedRating;
+                SaveSettingsToFile(ViewModel.StarRating, "StarRating");
+            }
+            else
+            {
+                StarRatingTextBox.Text = ViewModel.StarRating.ToString();
+            }
+        }
+        else
+        {
+            StarRatingTextBox.Text = ViewModel.StarRating.ToString();
+        }
+    }
+
+    private void PPTextBox_TextInput(object sender, Avalonia.Input.TextInputEventArgs e)
+    {
+        Regex regex = new Regex("^[0-9]{1,4}$");
+        if (!regex.IsMatch(e.Text))
+        {
+            e.Handled = true;
+        }
+    }
+    private void PPTextBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (int.TryParse(PPTextBox.Text, out int parsedPP))
+        {
+            if (parsedPP >= 0 && parsedPP <= 9999)
+            {
+                ViewModel.PerformancePoints = parsedPP;
+                SaveSettingsToFile(ViewModel.PerformancePoints, "PerformancePoints");
+            }
+            else
+            {
+                PPTextBox.Text = ViewModel.PerformancePoints.ToString();
+            }
+        }
+        else
+        {
+            PPTextBox.Text = ViewModel.PerformancePoints.ToString();
+        }
+    }
+
+    public void SaveSettingsToFile(object value, string settingName)
+    {
+        string settingsFilePath =
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen",
+                "settings.txt");
+        try
+        {
+            var lines = File.ReadAllLines(settingsFilePath);
+
+            var index = Array.FindIndex(lines, line => line.StartsWith(settingName));
+
+            string? valueString = value is bool b ? (b ? "true" : "false") : value.ToString();
+
+            if (index != -1)
+            {
+                lines[index] = $"{settingName}={valueString}";
+            }
+            else
+            {
+                var newLines = new List<string>(lines) { $"{settingName}={valueString}" };
+                lines = newLines.ToArray();
+            }
+
+            File.WriteAllLines(settingsFilePath, lines);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+    }
+
+    public async void UpdateBackground(object? sender, EventArgs e)
+    {
+        //await UpdateChecker.CheckForUpdates();
+        if (!ViewModel.IsBackgroundEnabled)
+        {
+            DisplayBlackBackground();
+            return;
+        }
+
+        if (_blackBackground != null)
+        {
+            _blackBackground.Children.Clear();
+            _blackBackground = null;
+        }
+
+        try
+        {
+            var json = await _tosuAPI.ConnectAsync();
+
+            if (json.Contains("\"error\":"))
+            {
+                Console.WriteLine("An error occurred while connecting to the API.");
+                return;
+            }
+
+
+            var background = new Background();
+            var fullBackgroundDirectory = background.GetFullBackgroundDirectory(json);
+
+            if (fullBackgroundDirectory == _currentBackgroundDirectory)
+            {
+                return;
+            }
+
+            //Console.WriteLine(fullBackgroundDirectory);
+
+            if (!File.Exists(fullBackgroundDirectory))
+            {
+                Console.WriteLine("The file does not exist: " + fullBackgroundDirectory);
+                return;
+            }
+
+            Bitmap? newBitmap = File.Exists(fullBackgroundDirectory)
+                ? new Bitmap(fullBackgroundDirectory)
+                : CreateBlackBitmap();
+
+            _currentBitmap = newBitmap;
+
+            var blur = new BlurEffect
+            {
+                Radius = 17.27,
+            };
+
+            var blurredBackground = new Image
+            {
+                Source = _currentBitmap,
+                Stretch = Stretch.UniformToFill,
+                Effect = blur,
+                Opacity = 0.5,
+                ZIndex = -1
+            };
+
+            //dont move this to a higher line or the program will crash and memory leak. lol.
+            //that was a fun 2 hours :)
+            if (this.Content is Grid mainGrid && mainGrid.Children[1] is Grid innerGrid)
+            {
+                innerGrid.Children.Clear();
+            }
+
+
+            //grid hell down below
+
+            var oldContent = this.Content;
+
+            this.Content = null;
+
+            var imageGrid = new Grid();
+
+            imageGrid.Children.Add(blurredBackground);
+
+            double offsetX = (_mouseX - this.Width / 2) / 20;
+            double offsetY = (_mouseY - this.Height / 2) / 20;
+
+            var transformGroup = new TransformGroup();
+            transformGroup.Children.Add(new ScaleTransform(1.5, 1.5));
+
+            var grid = new Grid();
+            grid.ZIndex = -1;
+
+            if (oldContent is ContentControl oldContentControl)
+            {
+                oldContentControl.Content = null;
+            }
+
+            if (_frostedGlassEffect.Parent is Grid frostedGlassParent)
+            {
+                frostedGlassParent.Children.Remove(_frostedGlassEffect);
+            }
+
+            grid.Children.Add(new ContentControl { Content = oldContent });
+            grid.Children.Add(imageGrid);
+            imageGrid.ZIndex = -1;
+
+            var frostedGlassGrid = new Grid();
+            frostedGlassGrid.ZIndex = -1;
+            frostedGlassGrid.Children.Add(_frostedGlassEffect);
+
+            grid.Children.Add(frostedGlassGrid);
+            frostedGlassGrid.ZIndex = -1;
+
+            this.Content = grid;
+            grid.ZIndex = -1;
+
+            _currentBackgroundDirectory = fullBackgroundDirectory;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+    }
+
+    public void UpdateBackground()
+    {
+        UpdateBackground(null, null);
+    }
+
+    private Bitmap? CreateBlackBitmap()
+    {
+        //im not even sure if theres a line of code that uses this as a backup. oh well.
+        var blackBitmap = new Bitmap("Resources/BlackBackground.png");
+        return blackBitmap;
+    }
+
+    private void DisplayBlackBackground()
+    {
+        var blackBitmap = CreateBlackBitmap();
+
+        var imageGrid = new Grid();
+        imageGrid.Children.Add(new Image
+        {
+            Source = blackBitmap,
+            Stretch = Stretch.UniformToFill,
+            Opacity = 0.5,
+            ZIndex = -1
+        });
+
+        if (this.Content is Grid mainGrid && mainGrid.Children[1] is Grid innerGrid)
+        {
+            innerGrid.Children.Clear();
+        }
+
+        var oldContent = this.Content;
+
+        this.Content = null;
+
+        var grid = new Grid();
+        grid.ZIndex = -1;
+
+        if (oldContent is ContentControl oldContentControl)
+        {
+            oldContentControl.Content = null;
+        }
+
+        if (_frostedGlassEffect.Parent is Grid frostedGlassParent)
+        {
+            frostedGlassParent.Children.Remove(_frostedGlassEffect);
+        }
+
+        grid.Children.Add(new ContentControl { Content = oldContent });
+        grid.Children.Add(imageGrid);
+        imageGrid.ZIndex = -1;
+
+        var frostedGlassGrid = new Grid();
+        frostedGlassGrid.ZIndex = -1;
+        frostedGlassGrid.Children.Add(_frostedGlassEffect);
+
+        grid.Children.Add(frostedGlassGrid);
+        frostedGlassGrid.ZIndex = -1;
+
+        this.Content = grid;
+        grid.ZIndex = -1;
+
+        _blackBackground = imageGrid;
+    }
+
+    protected override void OnPointerMoved(PointerEventArgs e)
+    {
+        base.OnPointerMoved(e);
+
+        if (!ViewModel.IsParallaxEnabled)
+        {
+            return;
+        }
+
+        var position = e.GetPosition(this);
+        _mouseX = position.X;
+        _mouseY = position.Y;
+
+        double offsetX = (_mouseX - this.Width / 2) / 20;
+        double offsetY = (_mouseY - this.Height / 2) / 20;
+
+        if (this.Content is Grid grid && grid.Children[1] is Grid imageGrid)
+        {
+            var transformGroup = new TransformGroup();
+
+            //without this the image will have an ugly black border if you move your cursor
+            transformGroup.Children.Add(new ScaleTransform(1.2, 1.2));
+
+            transformGroup.Children.Add(new TranslateTransform(-offsetX, -offsetY));
+
+            imageGrid.RenderTransform = transformGroup;
+
+            imageGrid.ZIndex = -1;
         }
     }
 
     public void ResetButton_Click(object sender, RoutedEventArgs e)
     {
-        _settingsPanel.ChangeMinCompletionPercentage(75);
+        ViewModel.MinCompletionPercentage = 75;
+        ViewModel.StarRating = 0;
+        ViewModel.PerformancePoints = 0;
+
+        SaveSettingsToFile(ViewModel.MinCompletionPercentage, "MinCompletionPercentage");
+        SaveSettingsToFile(ViewModel.StarRating, "StarRating");
+        SaveSettingsToFile(ViewModel.PerformancePoints, "PerformancePoints");
+        SaveSettingsToFile(ViewModel.IsParallaxEnabled ? 1 : 0, "IsParallaxEnabled");
+
+        CompletionPercentageTextBox.Text = ViewModel.MinCompletionPercentage.ToString();
+        StarRatingTextBox.Text = ViewModel.StarRating.ToString();
+        PPTextBox.Text = ViewModel.PerformancePoints.ToString();
     }
-
-
-    public object MinCompletionPercentage { get; }
 
     private void UpdateErrorMessage(object? sender, EventArgs e)
     {
@@ -112,7 +897,6 @@ public MainWindow()
 
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        _settingsPanel.ChangeMinCompletionPercentage(_settingsPanel.MinCompletionPercentage);
         _tosuAPI.Dispose();
     }
 
@@ -121,30 +905,44 @@ public MainWindow()
         Console.WriteLine("Received: {0}", completionPercentage);
     }
 
-    private void SettingsButton_Click(object? sender, RoutedEventArgs e)
+    private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
     {
-        var animation = new Animation
+        var settingsPanel = this.FindControl<StackPanel>("SettingsPanel");
+        var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
+
+        settingsPanel.Transitions = new Transitions
         {
-            Duration = TimeSpan.FromSeconds(0.5),
-            Easing = new QuarticEaseInOut(),
-            FillMode = FillMode.Forward
+            new ThicknessTransition
+            {
+                Property = MarginProperty,
+                Duration = TimeSpan.FromSeconds(0.25),
+                Easing = new LinearEasing()
+            }
         };
 
-        animation.Children.Add(new KeyFrame
+        textBlockPanel.Transitions = new Transitions
         {
-            Cue = new Cue(0),
-            Setters =
+            new ThicknessTransition
             {
-                new Setter
-                {
-                    Property = ColumnDefinition.WidthProperty,
-                    Value = new GridLength(0)
-                }
+                Property = MarginProperty,
+                Duration = TimeSpan.FromSeconds(0.25),
+                Easing = new CircularEaseInOut()
             }
-        });
+        };
 
-        var settingsPanel = this.FindControl<StackPanel>("SettingsPanel");
+        if (settingsPanel.IsVisible)
+        {
+            settingsPanel.IsVisible = false;
+            settingsPanel.Margin = new Thickness(0, 42, 0, 0);
+            textBlockPanel.Margin = new Thickness(0, 42, 0, 0);
+        }
+        else
+        {
+            settingsPanel.IsVisible = true;
+            settingsPanel.Margin = new Thickness(0, 42, 0, 0);
+            textBlockPanel.Margin = new Thickness(0, 42, 0, 0);
+        }
 
-        settingsPanel.IsVisible = !settingsPanel.IsVisible;
+        textBlockPanel.Margin = settingsPanel.IsVisible ? new Thickness(0, 42, 225, 0) : new Thickness(0, 42, 0, 0);
     }
 }

@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "CoDbSREmpjjH8TJS3VotkjyIWxNVm6IhqMA4m6BjAtL0b75NaWrYptdbiXz9HqGzyeTf76GKcVyWe/NZit3MxQ==",
+  "dgSpecHash": "8RkH8x2uZmdzOY/SVIi6n07rfBc1VlLGyCm9uVA7JvWi2Hj9m0DyJxMovT2/gcFGatUVzGtq0rSvrjrvOjk01g==",
   "success": true,
   "projectFilePath": "C:\\Users\\Anthony\\RiderProjects\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj",
   "expectedPackageFiles": [
@@ -26,6 +26,7 @@
     "C:\\Users\\Anthony\\.nuget\\packages\\inputmanager\\1.0.0\\inputmanager.1.0.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\microcom.runtime\\0.11.0\\microcom.runtime.0.11.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\microsoft.net.illink.tasks\\8.0.5\\microsoft.net.illink.tasks.8.0.5.nupkg.sha512",
+    "C:\\Users\\Anthony\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\reactiveui\\20.1.1\\reactiveui.20.1.1.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\skiasharp\\2.88.7\\skiasharp.2.88.7.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\skiasharp.nativeassets.linux\\2.88.7\\skiasharp.nativeassets.linux.2.88.7.nupkg.sha512",
@@ -41,7 +42,8 @@
     "C:\\Users\\Anthony\\.nuget\\packages\\websocketsharp\\1.0.3-rc11\\websocketsharp.1.0.3-rc11.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.5\\microsoft.netcore.app.runtime.win-x64.8.0.5.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.5\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.5.nupkg.sha512",
-    "C:\\Users\\Anthony\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.5\\microsoft.aspnetcore.app.runtime.win-x64.8.0.5.nupkg.sha512"
+    "C:\\Users\\Anthony\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.5\\microsoft.aspnetcore.app.runtime.win-x64.8.0.5.nupkg.sha512",
+    "C:\\Users\\Anthony\\.nuget\\packages\\microsoft.netcore.app.crossgen2.win-x64\\8.0.5\\microsoft.netcore.app.crossgen2.win-x64.8.0.5.nupkg.sha512"
   ],
   "logs": [
     {
