@@ -35,6 +35,7 @@ C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Debug\net8.0\Micr
 C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Debug\net8.0\Microsoft.CodeAnalysis.CSharp.dll
 C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Debug\net8.0\Microsoft.CodeAnalysis.CSharp.Scripting.dll
 C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Debug\net8.0\Microsoft.CodeAnalysis.Scripting.dll
+C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Debug\net8.0\Newtonsoft.Json.dll
 C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Debug\net8.0\ReactiveUI.dll
 C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Debug\net8.0\SkiaSharp.dll
 C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Debug\net8.0\Splat.dll

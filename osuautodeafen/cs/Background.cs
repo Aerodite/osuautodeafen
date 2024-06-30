@@ -13,7 +13,7 @@ namespace osuautodeafen
                 string settingsSongsDirectory = document.RootElement.GetProperty("settings").GetProperty("folders").GetProperty("songs").GetString();
                 string fullPath = document.RootElement.GetProperty("menu").GetProperty("bm").GetProperty("path").GetProperty("full").GetString();
 
-                Console.WriteLine(Path.Combine(settingsSongsDirectory, fullPath));
+                //Console.WriteLine(Path.Combine(settingsSongsDirectory, fullPath));
                 return Path.Combine(settingsSongsDirectory, fullPath);
             }
         }

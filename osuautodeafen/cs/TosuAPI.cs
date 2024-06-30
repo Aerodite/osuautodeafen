@@ -17,6 +17,10 @@ namespace osuautodeafen
         private double _completionPercentage;
         private double _fullSR;
         private double _maxPP;
+        private double _combo;
+        private double _maxCombo;
+        private double _missCount;
+        private double _sbCount;
         public event Action<int> StateChanged;
 
         public TosuAPI()
@@ -53,6 +57,17 @@ namespace osuautodeafen
                 }
                 if (jsonDocument.RootElement.TryGetProperty("menu", out JsonElement menuElement))
                 {
+                    if (menuElement.TryGetProperty("pp", out JsonElement ppElement))
+                    {
+                        if (ppElement.TryGetProperty("100", out JsonElement maxPPElement))
+                        {
+                            if (maxPPElement.ValueKind == JsonValueKind.Number)
+                            {
+                                _maxPP = maxPPElement.GetDouble();
+                            }
+                        }
+                    }
+
                     if (menuElement.TryGetProperty("bm", out JsonElement bmElement))
                     {
                         if (bmElement.TryGetProperty("time", out JsonElement timeElement))
@@ -60,41 +75,73 @@ namespace osuautodeafen
                             if (timeElement.TryGetProperty("current", out JsonElement currentElement) &&
                               timeElement.TryGetProperty("full", out JsonElement fullElement))
                             {
-                                // Calculate the completion percentage
-
                                 double current = currentElement.GetDouble();
                                 double full = fullElement.GetDouble();
                                 _completionPercentage = (current / full) * 100;
                             }
                         }
-                    }
-                    if (jsonDocument.RootElement.TryGetProperty("stats", out JsonElement statsElement))
-                    {
-                        if (statsElement.TryGetProperty("fullSR", out JsonElement fullSRElement))
+                        if (bmElement.TryGetProperty("stats", out JsonElement statsElement))
                         {
-                            _fullSR = fullSRElement.GetDouble();
+                            if (statsElement.TryGetProperty("fullSR", out JsonElement fullSRElement))
+                            {
+                                _fullSR = fullSRElement.GetDouble();
+                            }
                         }
                     }
 
-                    if (jsonDocument.RootElement.TryGetProperty("pp", out JsonElement ppElement))
+                    if (jsonDocument.RootElement.TryGetProperty("gameplay", out JsonElement gameplayElement))
                     {
-                        if (ppElement.TryGetProperty("100", out JsonElement maxPPElement))
+                        if (gameplayElement.TryGetProperty("combo", out JsonElement comboElement))
                         {
-                            _maxPP = maxPPElement.GetDouble();
+                            if (comboElement.TryGetProperty("current", out JsonElement currentComboElement))
+                            {
+                                _combo = currentComboElement.GetDouble();
+                            }
+                            if (comboElement.TryGetProperty("max", out JsonElement maxComboElement))
+                            {
+                                _maxCombo = maxComboElement.GetDouble();
+                            }
+                        }
+
+                        if (gameplayElement.TryGetProperty("hits", out JsonElement hitsElement))
+                        {
+                            if (hitsElement.ValueKind == JsonValueKind.Object && hitsElement.TryGetProperty("0", out JsonElement missElement))
+                            {
+                                if (missElement.ValueKind == JsonValueKind.Number)
+                                {
+                                    _missCount = missElement.GetDouble();
+                                    if (_missCount > 0)
+                                    {
+                                        Console.WriteLine($"Miss count: {_missCount}");
+                                    }
+                                }
+                            }
+                            if (hitsElement.ValueKind == JsonValueKind.Object && hitsElement.TryGetProperty("sliderBreaks", out JsonElement sbElement))
+                            {
+                                if (sbElement.ValueKind == JsonValueKind.Number)
+                                {
+                                    _sbCount = sbElement.GetDouble();
+                                    if (_sbCount > 0)
+                                    {
+                                        Console.WriteLine($"Slider break count: {_sbCount}");
+                                    }
+                                }
+                            }
                         }
                     }
 
-                    if (menuElement.TryGetProperty("state", out JsonElement stateElement))
+                    if (jsonDocument.RootElement.TryGetProperty("userProfile", out JsonElement userProfileElement))
                     {
-                        int state = stateElement.GetInt32();
-
-                        StateChanged?.Invoke(state);
-
-                        if (state == 2)
+                        if (userProfileElement.TryGetProperty("rawBanchoStatus", out JsonElement rawBanchoStatusElement))
                         {
-                            //debugging purposes, exact double value of percentage.
-                            //MessageReceived?.Invoke(_completionPercentage);
+                            int rawBanchoStatus = rawBanchoStatusElement.GetInt32();
 
+                            StateChanged?.Invoke(rawBanchoStatus);
+
+                            if (rawBanchoStatus == 2)
+                            {
+
+                            }
                         }
                     }
                 }
@@ -121,6 +168,26 @@ namespace osuautodeafen
         public double GetMaxPP()
         {
             return _maxPP;
+        }
+
+        public double GetCombo()
+        {
+            return _combo;
+        }
+
+        public double GetMaxCombo()
+        {
+            return _maxCombo;
+        }
+
+        public double GetMissCount()
+        {
+            return _missCount;
+        }
+
+        public double GetSBCount()
+        {
+            return _sbCount;
         }
 
 

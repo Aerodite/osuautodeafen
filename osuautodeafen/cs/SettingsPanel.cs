@@ -13,6 +13,9 @@ public class SettingsPanel : Control
     public static readonly object _lock = new object();
 
     private double _minCompletionPercentage = 75;
+    private double _starRating;
+    private double _performancePoints;
+
     public double MinCompletionPercentage
     {
         get => _minCompletionPercentage;
@@ -21,6 +24,30 @@ public class SettingsPanel : Control
             if (_minCompletionPercentage == value) return;
             _minCompletionPercentage = value;
             OnPropertyChanged(nameof(MinCompletionPercentage));
+            SaveSettings();
+        }
+    }
+
+    public double StarRating
+    {
+        get => _starRating;
+        set
+        {
+            if (_starRating == value) return;
+            _starRating = value;
+            OnPropertyChanged(nameof(StarRating));
+            SaveSettings();
+        }
+    }
+
+    public double PerformancePoints
+    {
+        get => _performancePoints;
+        set
+        {
+            if (_performancePoints == value) return;
+            _performancePoints = value;
+            OnPropertyChanged(nameof(PerformancePoints));
             SaveSettings();
         }
     }
@@ -36,6 +63,7 @@ public class SettingsPanel : Control
     {
         LoadSettings();
     }
+
     private void LoadSettings()
     {
         if (!File.Exists(SettingsFilePath)) return;
@@ -48,8 +76,18 @@ public class SettingsPanel : Control
                 {
                     var parts = line.Split('=');
                     if (parts.Length != 2 || !double.TryParse(parts[1], out var value)) continue;
-                    if (parts[0].Trim() == "MinCompletionPercentage")
-                        MinCompletionPercentage = value;
+                    switch (parts[0].Trim())
+                    {
+                        case "MinCompletionPercentage":
+                            MinCompletionPercentage = value;
+                            break;
+                        case "StarRating":
+                            StarRating = value;
+                            break;
+                        case "PerformancePoints":
+                            PerformancePoints = value;
+                            break;
+                    }
                 }
             }
         }
@@ -65,7 +103,7 @@ public class SettingsPanel : Control
         {
             using var fileStream = new FileStream(SettingsFilePath, FileMode.Create, FileAccess.Write, FileShare.None);
             using var streamWriter = new StreamWriter(fileStream);
-            streamWriter.Write($"MinCompletionPercentage={MinCompletionPercentage}");
+            streamWriter.Write($"MinCompletionPercentage={MinCompletionPercentage}\nStarRating={StarRating}\nPerformancePoints={PerformancePoints}");
         }
     }
 }
