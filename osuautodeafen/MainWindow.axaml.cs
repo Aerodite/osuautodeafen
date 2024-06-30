@@ -102,7 +102,7 @@ public partial class MainWindow : Window
 
         _keyInputTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(250) // Adjust this value as needed
+            Interval = TimeSpan.FromMilliseconds(250)
         };
         _keyInputTimer.Tick += KeyInputTimer_Tick;
 
