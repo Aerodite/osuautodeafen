@@ -20,8 +20,8 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" x:Name="TextBlockPanel">
-                        <TextBlock Text="osu!autodeafen" FontSize="24" Margin="50,42,0,0" />
-                        <TextBlock Text="(app is working btw you dont have to do anything)" FontSize="12" Margin="0,0,0,0" />
+                        <TextBlock Text="osu!autodeafen" FontSize="24" Margin="50,42,0,0" Foreground="White"/>
+                        <TextBlock Text="(app is working btw you dont have to do anything)" FontSize="12" Margin="0,0,0,0" Foreground="White"/>
                 </StackPanel>
 
                 <!-- Main content -->
@@ -49,7 +49,7 @@
                                          TextInput="CompletionPercentageTextBox_TextInput"
                                          HorizontalAlignment="Left">
                                         <ToolTip.Tip>
-                                                <TextBlock Text="How much (in percentage) of the map you have to pass until you get deafened" />
+                                                <TextBlock Text="How much (in percentage) of the map you have to pass until you get deafened" Foreground="White"/>
                                         </ToolTip.Tip>
                                 </TextBox>
                         </StackPanel>
@@ -61,7 +61,7 @@
                                          TextInput="StarRatingTextBox_TextInput"
                                          HorizontalAlignment="Left">
                                         <ToolTip.Tip>
-                                                <TextBlock Text="Minimum Star Rating for a deafen" />
+                                                <TextBlock Text="Minimum Star Rating for a deafen" Foreground="White"/>
                                         </ToolTip.Tip>
                                 </TextBox>
                         </StackPanel>
@@ -73,36 +73,36 @@
                                          TextInput="PPTextBox_TextInput"
                                          HorizontalAlignment="Left">
                                         <ToolTip.Tip>
-                                                <TextBlock Text="Minimum PP a map must give for a deafen" />
+                                                <TextBlock Text="Minimum PP a map must give for a deafen"/>
                                         </ToolTip.Tip>
                                 </TextBox>
                         </StackPanel>
-                        <Button Content="Reset to Default" Click="ResetButton_Click" Margin="75, 7, 0, 0" FontSize="12"/>
+                        <Button Content="Reset to Default" Click="ResetButton_Click" Margin="75, 7, 0, 0" FontSize="12" Foreground="White"/>
 
                         <StackPanel Orientation="Horizontal" Margin="75, 25, 0, 0">
                                 <Image Source="avares://osuautodeafen/Icons/crown-solid.png" Width="25" Height="25" Margin="0, 0, 5, 0" />
-                                <CheckBox x:Name="FCToggle" Content="FC Required?"
+                                <CheckBox x:Name="FCToggle" Content="FC Required?" Foreground="White"
                                           IsChecked="{Binding IsFCRequired, Mode=TwoWay}"
                                           HorizontalAlignment="Left" Margin="0,0,0,0">
                                         <ToolTip.Tip>
-                                                <TextBlock Text="Do you have to FC to get deafened?" />
+                                                <TextBlock Text="Toggle if an FC is required to deafen"/>
                                         </ToolTip.Tip>
                                 </CheckBox>
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="75, 7, 0, 0">
                                 <Image Source="avares://osuautodeafen/Icons/arrows.png" Width="25" Height="25" Margin="0, 0, 5, 0" />
-                                <CheckBox x:Name="ParallaxToggle" Content="Parallax"
+                                <CheckBox x:Name="ParallaxToggle" Content="Parallax" Foreground="White"
                                           IsChecked="{Binding IsParallaxEnabled, Mode=TwoWay}"
                                           HorizontalAlignment="Left" Margin="0,0,0,0">
                                         <ToolTip.Tip>
-                                                <TextBlock Text="Enable or disable the parallax effect" />
+                                                <TextBlock Text="Enable or disable the parallax effect"/>
                                         </ToolTip.Tip>
                                 </CheckBox>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="75, 7, 0, 0">
                                 <Image Source="avares://osuautodeafen/Icons/image-solid.png" Width="25" Height="25" Margin="0, 0, 5, 0" />
-                                <CheckBox x:Name="BackgroundToggle" Content="Background"
+                                <CheckBox x:Name="BackgroundToggle" Content="Background" Foreground="White"
                                           IsChecked="{Binding IsBackgroundEnabled, Mode=TwoWay}"
                                           HorizontalAlignment="Left" Margin="0,0,0,0">
                                         <ToolTip.Tip>

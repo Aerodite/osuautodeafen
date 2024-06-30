@@ -21,6 +21,9 @@ namespace osuautodeafen
         private double _maxCombo;
         private double _missCount;
         private double _sbCount;
+        private double _current;
+        private double _full;
+        private double _firstObj;
         public event Action<int> StateChanged;
 
         public TosuAPI()
@@ -72,12 +75,21 @@ namespace osuautodeafen
                     {
                         if (bmElement.TryGetProperty("time", out JsonElement timeElement))
                         {
-                            if (timeElement.TryGetProperty("current", out JsonElement currentElement) &&
-                              timeElement.TryGetProperty("full", out JsonElement fullElement))
+                            if(timeElement.TryGetProperty("firstObj", out JsonElement firstObjElement))
+                            {
+                                double firstObj = firstObjElement.GetDouble();
+                                Console.WriteLine($"First object time: {firstObj}");
+                                _firstObj = firstObj;
+                            }
+                            if (timeElement.TryGetProperty("current", out JsonElement currentElement))
                             {
                                 double current = currentElement.GetDouble();
+                                _current = current;
+                            }
+                            if (timeElement.TryGetProperty("full", out JsonElement fullElement))
+                            {
                                 double full = fullElement.GetDouble();
-                                _completionPercentage = (current / full) * 100;
+                                _full = full;
                             }
                         }
                         if (bmElement.TryGetProperty("stats", out JsonElement statsElement))
@@ -157,6 +169,16 @@ namespace osuautodeafen
 
         public double GetCompletionPercentage()
         {
+            if (_current < _firstObj)
+            {
+                _completionPercentage = 0;
+            }
+            else
+            {
+                double _totalObjTime = _full - _firstObj;
+                double _relativeCurrentTime = _current - _firstObj;
+                _completionPercentage = (_relativeCurrentTime / _totalObjTime) * 100;
+            }
             return _completionPercentage;
         }
 

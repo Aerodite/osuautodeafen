@@ -129,6 +129,17 @@ namespace osuautodeafen
             var completionPercentage = _tosuAPI.GetCompletionPercentage();
             var currentSR = _tosuAPI.GetFullSR();
             var currentPP = _tosuAPI.GetMaxPP();
+            var maxCombo = _tosuAPI.GetMaxCombo();
+            bool hitOneCircle;
+
+            if (maxCombo == 0)
+            {
+                hitOneCircle = false;
+            }
+            else
+            {
+                hitOneCircle = true;
+            }
 
             bool isStarRatingMet = currentSR >= StarRating;
             bool isPerformancePointsMet = currentPP >= PerformancePoints;
@@ -136,7 +147,7 @@ namespace osuautodeafen
 
             if (_viewModel.IsFCRequired)
             {
-                if (_isPlaying && isFullCombo && completionPercentage >= MinCompletionPercentage && !_deafened && isStarRatingMet && isPerformancePointsMet && !_deafened)
+                if (_isPlaying && isFullCombo && completionPercentage >= MinCompletionPercentage && !_deafened && isStarRatingMet && isPerformancePointsMet && !_deafened && hitOneCircle)
                 {
                     ToggleDeafenState();
                     _deafened = true;
@@ -160,7 +171,7 @@ namespace osuautodeafen
             }
             else
             {
-                if (_isPlaying && !_deafened && completionPercentage >= MinCompletionPercentage && isStarRatingMet && isPerformancePointsMet)
+                if (_isPlaying && !_deafened && completionPercentage >= MinCompletionPercentage && isStarRatingMet && isPerformancePointsMet && hitOneCircle)
                 {
                     ToggleDeafenState();
                     _deafened = true;
