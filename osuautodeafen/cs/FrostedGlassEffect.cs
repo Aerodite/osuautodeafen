@@ -7,7 +7,7 @@ public class FrostedGlassEffect : UserControl
 {
     public FrostedGlassEffect()
     {
-        var noiseImage = new Bitmap("Resources/noise.png"); // Replace with the path to your noise image
+        var noiseImage = new Bitmap("Resources/noise.png");
         this.Background = new ImageBrush(noiseImage)
         {
             Opacity = 0.09727,
