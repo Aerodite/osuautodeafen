@@ -24,11 +24,11 @@ namespace osuautodeafen
         private double _current;
         private double _full;
         private double _firstObj;
+        private double _rankedStatus;
         public event Action<int> StateChanged;
 
         public TosuAPI()
         {
-            Debug.WriteLine("Application is starting up...");
             _httpClient = new HttpClient();
             _timer = new Timer(500);
             _timer.Elapsed += (sender, e) => ConnectAsync();
@@ -78,7 +78,6 @@ namespace osuautodeafen
                             if(timeElement.TryGetProperty("firstObj", out JsonElement firstObjElement))
                             {
                                 double firstObj = firstObjElement.GetDouble();
-                                Console.WriteLine($"First object time: {firstObj}");
                                 _firstObj = firstObj;
                             }
                             if (timeElement.TryGetProperty("current", out JsonElement currentElement))
@@ -97,6 +96,13 @@ namespace osuautodeafen
                             if (statsElement.TryGetProperty("fullSR", out JsonElement fullSRElement))
                             {
                                 _fullSR = fullSRElement.GetDouble();
+                            }
+                        }
+                        if (bmElement.TryGetProperty("rankedStatus", out JsonElement rankedStatusElement))
+                        {
+                            if (rankedStatusElement.ValueKind == JsonValueKind.Number)
+                            {
+                                _rankedStatus = rankedStatusElement.GetDouble();
                             }
                         }
                     }
@@ -210,6 +216,11 @@ namespace osuautodeafen
         public double GetSBCount()
         {
             return _sbCount;
+        }
+
+        public double GetRankedStatus()
+        {
+            return _rankedStatus;
         }
 
 

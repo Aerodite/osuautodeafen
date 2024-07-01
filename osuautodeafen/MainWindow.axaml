@@ -54,7 +54,7 @@
                                 </TextBox>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="75, 0, 0, 0">
-                                <Image Source="avares://osuautodeafen/Icons/star-solid.png" Width="25" Height="25" Margin="0, 7, 5, 0" />
+                                <Image Source="avares://osuautodeafen/Icons/star-solid.png" Width="25" Height="25" Margin="0, 5, 5, 0" />
                                 <TextBox x:Name="StarRatingTextBox" Width="80"
                                          Text="{Binding StarRating, Mode=TwoWay}"
                                          LostFocus="StarRatingTextBox_LostFocus"

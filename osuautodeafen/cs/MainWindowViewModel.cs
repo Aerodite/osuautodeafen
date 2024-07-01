@@ -70,7 +70,16 @@ public class SharedViewModel : INotifyPropertyChanged
                     var newLines = new List<string>(lines) { $"IsFCRequired={value}" };
                     lines = newLines.ToArray();
                 }
-                File.WriteAllLines(settingsFilePath, lines);
+
+                // Use FileStream with FileShare.ReadWrite
+                using (var fileStream = new FileStream(settingsFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite))
+                using (var writer = new StreamWriter(fileStream))
+                {
+                    foreach (var line in lines)
+                    {
+                        writer.WriteLine(line);
+                    }
+                }
             }
         }
     }
