@@ -83,8 +83,6 @@ public partial class MainWindow : Window
         };
         _parallaxCheckTimer.Tick += CheckParallaxSetting;
         _parallaxCheckTimer.Start();
-
-        _mainTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(100)
         };
