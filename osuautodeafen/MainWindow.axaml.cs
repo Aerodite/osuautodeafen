@@ -24,7 +24,9 @@ namespace osuautodeafen;
 public partial class MainWindow : Window
 {
 
-    private readonly DispatcherTimer _timer;
+    private readonly DispatcherTimer _mainTimer;
+    private readonly DispatcherTimer _disposeTimer;
+    private readonly DispatcherTimer _parallaxCheckTimer;
     private Grid _blackBackground;
     private readonly TosuAPI _tosuAPI;
     private readonly FrostedGlassEffect _frostedGlassEffect;
@@ -32,16 +34,11 @@ public partial class MainWindow : Window
     private bool _isConstructorFinished = false;
     private double _mouseX;
     private double _mouseY;
-    private readonly DispatcherTimer _disposeTimer;
-    private readonly DispatcherTimer _settingsUpdateTimer;
     private TextBlock _completionPercentageText;
-    private readonly DispatcherTimer _parallaxCheckTimer;
     public SharedViewModel ViewModel { get; } = new SharedViewModel();
-    private readonly DispatcherTimer _backgroundCheckTimer;
-    private readonly DispatcherTimer _keyInputTimer;
     private readonly StringBuilder _keyInput;
-    private readonly DispatcherTimer _isFCRequiredCheckTimer;
-
+    private bool IsBlackBackgroundDisplayed { get; set; }
+    private DateTime _lastUpdate = DateTime.Now;
 
 
     private Bitmap? _currentBitmap;
@@ -49,7 +46,6 @@ public partial class MainWindow : Window
     private BitmapHolder? _bitmapHolder;
     private Queue<Bitmap> _bitmapQueue = new Queue<Bitmap>(2);
 
-    private readonly DispatcherTimer _backgroundUpdateTimer;
     private string? _currentBackgroundDirectory;
     public double MinCompletionPercentage { get; set; }
 
@@ -63,16 +59,11 @@ public partial class MainWindow : Window
 
         _settingsPanel = new SettingsPanel();
 
+        LoadSettings();
+
         this.Icon = new WindowIcon(new Bitmap("Resources/oad.ico"));
 
         _tosuAPI = new TosuAPI();
-
-        _backgroundUpdateTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(250)
-        };
-        _backgroundUpdateTimer.Tick += UpdateBackground;
-        _backgroundUpdateTimer.Start();
 
         _frostedGlassEffect = new FrostedGlassEffect
         {
@@ -92,26 +83,11 @@ public partial class MainWindow : Window
         };
         _parallaxCheckTimer.Tick += CheckParallaxSetting;
         _parallaxCheckTimer.Start();
-
-        _backgroundCheckTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(1)
+            Interval = TimeSpan.FromMilliseconds(100)
         };
-        _backgroundCheckTimer.Tick += CheckBackgroundSetting;
-        _backgroundCheckTimer.Start();
-
-        _keyInputTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(250)
-        };
-        _keyInputTimer.Tick += KeyInputTimer_Tick;
-
-        _isFCRequiredCheckTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(1)
-        };
-        _isFCRequiredCheckTimer.Tick += CheckIsFCRequiredSetting;
-        _isFCRequiredCheckTimer.Start();
+        _mainTimer.Tick += MainTimer_Tick;
+        _mainTimer.Start();
 
         _keyInput = new StringBuilder();
 
@@ -127,6 +103,11 @@ public partial class MainWindow : Window
                 new ContentControl { Content = oldContent },
             }
         };
+
+        // Set the DataContext after reading the settings
+        DataContext = ViewModel;
+
+        ViewModel.BackgroundEnabledChanged += UpdateBackground;
 
         var slider = this.FindControl<Slider>("Slider");
 
@@ -162,135 +143,15 @@ public partial class MainWindow : Window
             }
         };
 
-        string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.txt");
-        string[] settingsLines = File.ReadAllLines(settingsFilePath);
-        foreach (var line in settingsLines)
-        {
-            var settings = line.Split('=');
-            if (settings.Length == 2 && settings[0].Trim() == "Hotkey")
-            {
-                // Set the TextBox text to the loaded hotkey
-                //DeafenKeybindTextBox.Text = settings[1];
-                break;
-            }
-        }
-
-        if (File.Exists(settingsFilePath))
-        {
-            string[] lines = File.ReadAllLines(settingsFilePath);
-            foreach (var line in lines)
-            {
-                var settings = line.Split('=');
-                if (settings.Length == 2)
-                {
-                    if (settings[0].Trim() == "MinCompletionPercentage" &&
-                        int.TryParse(settings[1], out int parsedPercentage))
-                    {
-                        ViewModel.MinCompletionPercentage = parsedPercentage;
-                    }
-                    else if (settings[0].Trim() == "StarRating" && int.TryParse(settings[1], out int parsedRating))
-                    {
-                        ViewModel.StarRating = parsedRating;
-                    }
-                    else if (settings[0].Trim() == "PerformancePoints" && int.TryParse(settings[1], out int parsedPP))
-                    {
-                        ViewModel.PerformancePoints = parsedPP;
-                    }
-                    else if (settings[0].Trim() == "IsParallaxEnabled" &&
-                             bool.TryParse(settings[1], out bool parsedIsParallaxEnabled))
-                    {
-                        ViewModel.IsParallaxEnabled = parsedIsParallaxEnabled;
-                    }
-                }
-            }
-        }
-        else
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath));
-            ViewModel.MinCompletionPercentage = 75;
-            ViewModel.StarRating = 0;
-            ViewModel.PerformancePoints = 0;
-            ViewModel.IsParallaxEnabled = true;
-            File.WriteAllText(settingsFilePath,
-                $"MinCompletionPercentage={ViewModel.MinCompletionPercentage}\nStarRating={ViewModel.StarRating}\nPerformancePoints={ViewModel.PerformancePoints}");
-        }
-
         CompletionPercentageTextBox.Text = ViewModel.MinCompletionPercentage.ToString();
         StarRatingTextBox.Text = ViewModel.StarRating.ToString();
         PPTextBox.Text = ViewModel.PerformancePoints.ToString();
-
-        if (File.Exists(settingsFilePath))
-        {
-            string[] lines = File.ReadAllLines(settingsFilePath);
-            var parallaxSettingLine = Array.Find(lines, line => line.StartsWith("IsParallaxEnabled"));
-            if (parallaxSettingLine != null)
-            {
-                var settings = parallaxSettingLine.Split('=');
-                if (settings.Length == 2 && bool.TryParse(settings[1], out bool parsedIsParallaxEnabled))
-                {
-                    ViewModel.IsParallaxEnabled = parsedIsParallaxEnabled;
-                }
-            }
-            else
-            {
-                ViewModel.IsParallaxEnabled = true;
-                SaveSettingsToFile(true, "IsParallaxEnabled");
-            }
-        }
-        else
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath));
-            ViewModel.IsParallaxEnabled = true;
-            SaveSettingsToFile(true, "IsParallaxEnabled");
-        }
-
-        if (File.Exists(settingsFilePath))
-        {
-            var lines = File.ReadAllLines(settingsFilePath);
-            bool hotkeySettingFound = false;
-            foreach (var line in lines)
-            {
-                var settings = line.Split('=');
-                if (settings.Length == 2)
-                {
-                    switch (settings[0].Trim())
-                    {
-                        case "Hotkey":
-                            hotkeySettingFound = true;
-                            break;
-                    }
-                }
-            }
-
-            if (!hotkeySettingFound)
-            {
-                File.AppendAllText(settingsFilePath, "\nHotkey=Control+P");
-            }
-        }
-        else
-        {
-            // If the settings file does not exist, create it and set the hotkey to "Control+P"
-            File.WriteAllText(settingsFilePath, "Hotkey=Control+P");
-        }
-
-    // Set the DataContext after reading the settings
-        DataContext = ViewModel;
-
-
-        ViewModel.BackgroundEnabledChanged += UpdateBackground;
 
         BorderBrush = Brushes.Black;
         this.Width = 600;
         this.Height = 600;
         this.CanResize = false;
         this.Closing += MainWindow_Closing;
-        _timer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(1)
-        };
-        _timer.Tick += UpdateErrorMessage;
-        _timer.Start();
         _isConstructorFinished = true;
 
         // Handle the PointerPressed event on the parent control
@@ -301,7 +162,15 @@ public partial class MainWindow : Window
         };
     }
 
-    private void CheckIsFCRequiredSetting(object? sender, EventArgs e)
+    private void MainTimer_Tick(object? sender, EventArgs? e)
+    {
+        Dispatcher.UIThread.InvokeAsync(() => UpdateBackground(sender, e));
+        Dispatcher.UIThread.InvokeAsync(() => CheckIsFCRequiredSetting(sender, e));
+        Dispatcher.UIThread.InvokeAsync(() => CheckBackgroundSetting(sender, e));
+        Dispatcher.UIThread.InvokeAsync(() => CheckParallaxSetting(sender, e));
+        Dispatcher.UIThread.InvokeAsync(() => UpdateErrorMessage(sender, e));
+    }
+    private void CheckIsFCRequiredSetting(object? sender, EventArgs? e)
     {
         {
             string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -337,19 +206,85 @@ public partial class MainWindow : Window
         }
     }
 
+    private void LoadSettings()
+    {
+    string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "osuautodeafen", "settings.txt");
+
+    if (!File.Exists(settingsFilePath))
+    {
+        // If the settings file does not exist, create it with default settings
+        ViewModel.MinCompletionPercentage = 75;
+        ViewModel.StarRating = 0;
+        ViewModel.PerformancePoints = 0;
+        ViewModel.IsParallaxEnabled = true;
+        SaveSettingsToFile();
+        return;
+    }
+
+    string[] settingsLines = File.ReadAllLines(settingsFilePath);
+    foreach (var line in settingsLines)
+    {
+        var settings = line.Split('=');
+        if (settings.Length != 2) continue;
+
+        switch (settings[0].Trim())
+        {
+            case "Hotkey":
+                // Set the TextBox text to the loaded hotkey
+                //DeafenKeybindTextBox.Text = settings[1];
+                break;
+            case "MinCompletionPercentage":
+                if (int.TryParse(settings[1], out int parsedPercentage))
+                {
+                    ViewModel.MinCompletionPercentage = parsedPercentage;
+                }
+                break;
+            case "StarRating":
+                if (int.TryParse(settings[1], out int parsedRating))
+                {
+                    ViewModel.StarRating = parsedRating;
+                }
+                break;
+            case "PerformancePoints":
+                if (int.TryParse(settings[1], out int parsedPP))
+                {
+                    ViewModel.PerformancePoints = parsedPP;
+                }
+                break;
+            case "IsParallaxEnabled":
+                if (bool.TryParse(settings[1], out bool parsedIsParallaxEnabled))
+                {
+                    ViewModel.IsParallaxEnabled = parsedIsParallaxEnabled;
+                }
+                break;
+        }
+    }
+}
+
+private void SaveSettingsToFile()
+{
+    string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "osuautodeafen", "settings.txt");
+
+    Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath));
+
+    string[] settingsLines = new string[]
+    {
+        $"MinCompletionPercentage={ViewModel.MinCompletionPercentage}",
+        $"StarRating={ViewModel.StarRating}",
+        $"PerformancePoints={ViewModel.PerformancePoints}",
+        $"IsParallaxEnabled={ViewModel.IsParallaxEnabled}",
+        "Hotkey=Control+P"
+    };
+
+    File.WriteAllLines(settingsFilePath, settingsLines);
+}
+
     private void ShowUpdateNotification(string latestVersion, string latestReleaseUrl)
     {
         var updateNotificationWindow = new UpdateNotificationWindow(latestVersion, latestReleaseUrl);
         updateNotificationWindow.ShowDialog(this);
-    }
-
-    private void KeyInputTimer_Tick(object? sender, EventArgs e)
-    {
-        _keyInputTimer.Stop();
-
-        //DeafenKeybindTextBox.Text = _keyInput.ToString();
-
-        _keyInput.Clear();
     }
 
     private void DeafenKeybindTextBox_PointerLeave(object? sender, PointerEventArgs e)
@@ -464,7 +399,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void CheckBackgroundSetting(object? sender, EventArgs e)
+    private void CheckBackgroundSetting(object? sender, EventArgs? e)
     {
         string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen", "settings.txt");
@@ -498,7 +433,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void CheckParallaxSetting(object? sender, EventArgs e)
+    private void CheckParallaxSetting(object? sender, EventArgs? e)
     {
         string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen", "settings.txt");
@@ -656,12 +591,16 @@ public partial class MainWindow : Window
         }
     }
 
-    public async void UpdateBackground(object? sender, EventArgs e)
+    public async void UpdateBackground(object? sender, EventArgs? e)
     {
         //await UpdateChecker.CheckForUpdates();
         if (!ViewModel.IsBackgroundEnabled)
         {
-            DisplayBlackBackground();
+            if (!IsBlackBackgroundDisplayed)
+            {
+                DisplayBlackBackground();
+                IsBlackBackgroundDisplayed = true;
+            }
             return;
         }
 
@@ -670,7 +609,6 @@ public partial class MainWindow : Window
             _blackBackground.Children.Clear();
             _blackBackground = null;
         }
-
         try
         {
             var json = await _tosuAPI.ConnectAsync();
@@ -698,11 +636,18 @@ public partial class MainWindow : Window
                 return;
             }
 
+            if (fullBackgroundDirectory == null)
+            {
+                return;
+            }
+
             Bitmap? newBitmap = File.Exists(fullBackgroundDirectory)
                 ? new Bitmap(fullBackgroundDirectory)
                 : CreateBlackBitmap();
 
             _currentBitmap = newBitmap;
+
+            IsBlackBackgroundDisplayed = false;
 
             var blur = new BlurEffect
             {
@@ -850,6 +795,11 @@ public partial class MainWindow : Window
             return;
         }
 
+        if ((DateTime.Now - _lastUpdate).TotalMilliseconds < 25)
+        {
+            return;
+        }
+
         var position = e.GetPosition(this);
         _mouseX = position.X;
         _mouseY = position.Y;
@@ -870,6 +820,8 @@ public partial class MainWindow : Window
 
             imageGrid.ZIndex = -1;
         }
+
+        _lastUpdate = DateTime.Now;
     }
 
     public void ResetButton_Click(object sender, RoutedEventArgs e)

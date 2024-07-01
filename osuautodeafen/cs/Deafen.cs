@@ -130,16 +130,13 @@ namespace osuautodeafen
             var currentSR = _tosuAPI.GetFullSR();
             var currentPP = _tosuAPI.GetMaxPP();
             var maxCombo = _tosuAPI.GetMaxCombo();
+            var rankedStatus = _tosuAPI.GetRankedStatus();
             bool hitOneCircle;
+            bool isPracticeDifficulty;
 
-            if (maxCombo == 0)
-            {
-                hitOneCircle = false;
-            }
-            else
-            {
-                hitOneCircle = true;
-            }
+            hitOneCircle = maxCombo != 0;
+
+            isPracticeDifficulty = rankedStatus == 1;
 
             bool isStarRatingMet = currentSR >= StarRating;
             bool isPerformancePointsMet = currentPP >= PerformancePoints;
@@ -147,14 +144,14 @@ namespace osuautodeafen
 
             if (_viewModel.IsFCRequired)
             {
-                if (_isPlaying && isFullCombo && completionPercentage >= MinCompletionPercentage && !_deafened && isStarRatingMet && isPerformancePointsMet && !_deafened && hitOneCircle)
+                if (_isPlaying && isFullCombo && completionPercentage >= MinCompletionPercentage && !_deafened && isStarRatingMet && isPerformancePointsMet && !_deafened && hitOneCircle && !isPracticeDifficulty)
                 {
                     ToggleDeafenState();
                     _deafened = true;
                     _wasFullCombo = true;
                     Console.WriteLine("1");
                 }
-                else if (_wasFullCombo && !isFullCombo && _deafened)
+                else if (_wasFullCombo && !isFullCombo && _deafened && !isPracticeDifficulty)
                 {
                     ToggleDeafenState();
                     _deafened = false;
@@ -171,7 +168,7 @@ namespace osuautodeafen
             }
             else
             {
-                if (_isPlaying && !_deafened && completionPercentage >= MinCompletionPercentage && isStarRatingMet && isPerformancePointsMet && hitOneCircle)
+                if (_isPlaying && !_deafened && completionPercentage >= MinCompletionPercentage && isStarRatingMet && isPerformancePointsMet && hitOneCircle && !isPracticeDifficulty)
                 {
                     ToggleDeafenState();
                     _deafened = true;
