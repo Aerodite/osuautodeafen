@@ -2,7 +2,8 @@
 using System.ComponentModel;
 using System.IO;
 using Avalonia.Controls;
-using osuautodeafen;
+
+namespace osuautodeafen.cs;
 
 public class SettingsPanel : Control
 {
@@ -10,7 +11,7 @@ public class SettingsPanel : Control
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen",
             "settings.txt");
 
-    public static readonly object _lock = new object();
+    public static readonly object Lock = new object();
 
     private double _minCompletionPercentage = 75;
     private double _starRating;
@@ -52,7 +53,7 @@ public class SettingsPanel : Control
         }
     }
 
-    public event PropertyChangedEventHandler? PropertyChanged;
+    public new event PropertyChangedEventHandler? PropertyChanged;
 
     protected virtual void OnPropertyChanged(string propertyName)
     {
@@ -66,28 +67,36 @@ public class SettingsPanel : Control
 
     private void LoadSettings()
     {
-        if (!File.Exists(SettingsFilePath)) return;
+        if (!File.Exists(SettingsFilePath))
+        {
+            /*
+        Create the settings file and entries for pp, sr, and mcp because turns out I broke
+        the settings logic somehow 💀
+        */
+            Directory.CreateDirectory(Path.GetDirectoryName(SettingsFilePath)!);
+            File.Create(SettingsFilePath).Close();
+            using var streamWriter = new StreamWriter(SettingsFilePath);
+            streamWriter.Write("MinCompletionPercentage=75\nStarRating=0\nPerformancePoints=0");
+        }
         try
         {
-            using (var streamReader = new StreamReader(SettingsFilePath))
+            using var streamReader = new StreamReader(SettingsFilePath);
+            string? line;
+            while ((line = streamReader.ReadLine()) != null)
             {
-                string line;
-                while ((line = streamReader.ReadLine()) != null)
+                var parts = line.Split('=');
+                if (parts.Length != 2 || !double.TryParse(parts[1], out var value)) continue;
+                switch (parts[0].Trim())
                 {
-                    var parts = line.Split('=');
-                    if (parts.Length != 2 || !double.TryParse(parts[1], out var value)) continue;
-                    switch (parts[0].Trim())
-                    {
-                        case "MinCompletionPercentage":
-                            MinCompletionPercentage = value;
-                            break;
-                        case "StarRating":
-                            StarRating = value;
-                            break;
-                        case "PerformancePoints":
-                            PerformancePoints = value;
-                            break;
-                    }
+                    case "MinCompletionPercentage":
+                        MinCompletionPercentage = value;
+                        break;
+                    case "StarRating":
+                        StarRating = value;
+                        break;
+                    case "PerformancePoints":
+                        PerformancePoints = value;
+                        break;
                 }
             }
         }
@@ -99,7 +108,7 @@ public class SettingsPanel : Control
 
     public void SaveSettings()
     {
-        lock (_lock)
+        lock (Lock)
         {
             using var fileStream = new FileStream(SettingsFilePath, FileMode.Create, FileAccess.Write, FileShare.None);
             using var streamWriter = new StreamWriter(fileStream);

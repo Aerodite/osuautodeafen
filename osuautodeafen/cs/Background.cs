@@ -6,7 +6,7 @@ namespace osuautodeafen
 {
     public class Background
     {
-        public string? GetFullBackgroundDirectory(string json)
+        public string? GetFullBackgroundDirectory(string? json)
         {
             using (JsonDocument document = JsonDocument.Parse(json))
             {

@@ -1,10 +1,11 @@
 ﻿using osuautodeafen;
+using osuautodeafen.cs;
 
 public class FCCalc
 {
-    private TosuAPI _tosuAPI;
+    private TosuApi _tosuAPI;
 
-    public FCCalc(TosuAPI tosuAPI)
+    public FCCalc(TosuApi tosuAPI)
     {
         _tosuAPI = tosuAPI;
     }

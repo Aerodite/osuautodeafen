@@ -1,5 +1,6 @@
 ﻿using System;
 using Avalonia.Controls;
+using osuautodeafen.cs;
 
 public class SliderManager
 {

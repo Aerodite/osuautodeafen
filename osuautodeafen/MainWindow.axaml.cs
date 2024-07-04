@@ -3,21 +3,17 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
-using Avalonia.Styling;
 using Avalonia.Threading;
-using Avalonia.Visuals;
-using DynamicData.Binding;
+using osuautodeafen.cs;
 
 namespace osuautodeafen;
 
@@ -28,7 +24,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _disposeTimer;
     private readonly DispatcherTimer _parallaxCheckTimer;
     private Grid _blackBackground;
-    private readonly TosuAPI _tosuAPI;
+    private readonly TosuApi _tosuAPI;
     private readonly FrostedGlassEffect _frostedGlassEffect;
     private SettingsPanel _settingsPanel;
     private bool _isConstructorFinished = false;
@@ -45,6 +41,8 @@ public partial class MainWindow : Window
     private Bitmap? _previousBitmap;
     private BitmapHolder? _bitmapHolder;
     private Queue<Bitmap> _bitmapQueue = new Queue<Bitmap>(2);
+
+    public TimeSpan Interval { get; set; }
 
     private string? _currentBackgroundDirectory;
     public double MinCompletionPercentage { get; set; }
@@ -63,7 +61,7 @@ public partial class MainWindow : Window
 
         this.Icon = new WindowIcon(new Bitmap("Resources/oad.ico"));
 
-        _tosuAPI = new TosuAPI();
+        _tosuAPI = new TosuApi();
 
         _frostedGlassEffect = new FrostedGlassEffect
         {
@@ -83,6 +81,10 @@ public partial class MainWindow : Window
         };
         _parallaxCheckTimer.Tick += CheckParallaxSetting;
         _parallaxCheckTimer.Start();
+        {
+            Interval = TimeSpan.FromMilliseconds(100);
+        };
+        _mainTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(100)
         };
@@ -161,6 +163,7 @@ public partial class MainWindow : Window
             //((Control)sender).Focus();
         };
     }
+
 
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {

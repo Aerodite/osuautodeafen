@@ -5,12 +5,13 @@ using AutoHotkey.Interop;
 using Timer = System.Timers.Timer;
 using System.Timers;
 using Avalonia.Input;
+using osuautodeafen.cs;
 
 namespace osuautodeafen
 {
     public class Deafen : IDisposable
     {
-        private readonly TosuAPI _tosuAPI;
+        private readonly TosuApi _tosuAPI;
         private readonly AutoHotkeyEngine _ahk;
         private readonly Timer _timer;
         private readonly SharedViewModel _viewModel;
@@ -24,7 +25,7 @@ namespace osuautodeafen
         public double PerformancePoints;
         private bool _wasFullCombo;
 
-        public Deafen(TosuAPI tosuAPI, SettingsPanel settingsPanel)
+        public Deafen(TosuApi tosuAPI, SettingsPanel settingsPanel)
         {
             _tosuAPI = tosuAPI;
             _ahk = AutoHotkeyEngine.Instance;

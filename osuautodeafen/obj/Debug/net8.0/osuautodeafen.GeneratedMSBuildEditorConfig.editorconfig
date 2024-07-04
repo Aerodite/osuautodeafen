@@ -1,8 +1,4 @@
 is_global = true
-build_property.EnableAotAnalyzer = 
-build_property.EnableSingleFileAnalyzer = 
-build_property.EnableTrimAnalyzer = 
-build_property.IncludeAllContentForSelfExtract = 
 build_property.AvaloniaNameGeneratorIsEnabled = true
 build_property.AvaloniaNameGeneratorBehavior = InitializeComponent
 build_property.AvaloniaNameGeneratorDefaultFieldModifier = internal
@@ -17,15 +13,15 @@ build_property.PlatformNeutralAssembly =
 build_property.EnforceExtendedAnalyzerRules = 
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = osuautodeafen
-build_property.ProjectDir = C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\
+build_property.ProjectDir = C:\Users\ACER\Documents\GitHub\osuautodeafen\osuautodeafen\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
 
-[C:/Users/Anthony/RiderProjects/osuautodeafen/osuautodeafen/App.axaml]
+[C:/Users/ACER/Documents/GitHub/osuautodeafen/osuautodeafen/App.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[C:/Users/Anthony/RiderProjects/osuautodeafen/osuautodeafen/cs/UpdateNotificationWindow.axaml]
+[C:/Users/ACER/Documents/GitHub/osuautodeafen/osuautodeafen/cs/UpdateNotificationWindow.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[C:/Users/Anthony/RiderProjects/osuautodeafen/osuautodeafen/MainWindow.axaml]
+[C:/Users/ACER/Documents/GitHub/osuautodeafen/osuautodeafen/MainWindow.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml

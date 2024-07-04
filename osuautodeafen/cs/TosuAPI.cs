@@ -5,12 +5,12 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Timers;
 
-namespace osuautodeafen
+namespace osuautodeafen.cs
 {
-    public class TosuAPI : IDisposable
+    public class TosuApi : IDisposable
     {
         private string _errorMessage = "";
-        public event Action<double> MessageReceived;
+        public event Action<double>? MessageReceived;
 
         private HttpClient _httpClient;
         private Timer _timer;
@@ -25,13 +25,13 @@ namespace osuautodeafen
         private double _full;
         private double _firstObj;
         private double _rankedStatus;
-        public event Action<int> StateChanged;
+        public event Action<int>? StateChanged;
 
-        public TosuAPI()
+        public TosuApi()
         {
             _httpClient = new HttpClient();
             _timer = new Timer(500);
-            _timer.Elapsed += (sender, e) => ConnectAsync();
+            _timer.Elapsed += (sender, e) => _ = ConnectAsync();
             _timer.Start();
         }
 
@@ -40,7 +40,7 @@ namespace osuautodeafen
             return _errorMessage;
         }
 
-        public async Task<string> ConnectAsync()
+        public async Task<string?> ConnectAsync()
         {
             Debug.WriteLine("Attempting to connect...");
             _errorMessage = "";
@@ -181,9 +181,9 @@ namespace osuautodeafen
             }
             else
             {
-                double _totalObjTime = _full - _firstObj;
-                double _relativeCurrentTime = _current - _firstObj;
-                _completionPercentage = (_relativeCurrentTime / _totalObjTime) * 100;
+                double totalObjTime = _full - _firstObj;
+                double relativeCurrentTime = _current - _firstObj;
+                _completionPercentage = (relativeCurrentTime / totalObjTime) * 100;
             }
             return _completionPercentage;
         }
@@ -229,6 +229,11 @@ namespace osuautodeafen
             Console.WriteLine("Application is closing...");
             _timer.Dispose();
             _httpClient.Dispose();
+        }
+
+        protected virtual void OnMessageReceived(double obj)
+        {
+            MessageReceived?.Invoke(obj);
         }
     }
 }

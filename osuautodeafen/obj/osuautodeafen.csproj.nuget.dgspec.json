@@ -1,27 +1,25 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Anthony\\RiderProjects\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj": {}
+    "C:\\Users\\ACER\\Documents\\GitHub\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Anthony\\RiderProjects\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj": {
+    "C:\\Users\\ACER\\Documents\\GitHub\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Anthony\\RiderProjects\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj",
+        "projectUniqueName": "C:\\Users\\ACER\\Documents\\GitHub\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj",
         "projectName": "osuautodeafen",
-        "projectPath": "C:\\Users\\Anthony\\RiderProjects\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj",
-        "packagesPath": "C:\\Users\\Anthony\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Anthony\\RiderProjects\\osuautodeafen\\osuautodeafen\\obj\\",
+        "projectPath": "C:\\Users\\ACER\\Documents\\GitHub\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj",
+        "packagesPath": "C:\\Users\\ACER\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\ACER\\Documents\\GitHub\\osuautodeafen\\osuautodeafen\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\Anthony\\AppData\\Roaming\\NuGet\\NuGet.Config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+          "C:\\Users\\ACER\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
         ],
         "sources": {
-          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -49,6 +47,10 @@
               "version": "[11.0.10, )"
             },
             "Avalonia.Desktop": {
+              "target": "Package",
+              "version": "[11.0.10, )"
+            },
+            "Avalonia.Diagnostics": {
               "target": "Package",
               "version": "[11.0.10, )"
             },
@@ -93,7 +95,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.205/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.302/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

@@ -1,11 +1,12 @@
 ﻿using System.Threading.Tasks;
 using osuautodeafen;
+using osuautodeafen.cs;
 
 public class SR
 {
-    private readonly TosuAPI _tosuAPI;
+    private readonly TosuApi _tosuAPI;
 
-    public SR(TosuAPI tosuAPI)
+    public SR(TosuApi tosuAPI)
     {
         _tosuAPI = tosuAPI;
     }
