@@ -1,28 +1,58 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Avalonia;
-using Avalonia.Styling;
 using Newtonsoft.Json.Linq;
-using osuautodeafen;
+
+namespace osuautodeafen.cs;
 
 public class UpdateChecker
 {
     private static readonly HttpClient client = new HttpClient();
-    private const string currentVersion = "1.0.0";
-    private static bool updateChecked = false;
+    public const string currentVersion = "1.0.3";
+    private bool _hasCheckedVersion = false;
+    public string latestVersion { get; set; }
+    public bool updateFound = true;
+    private static DateTime? lastSuccessfulCheck = null;
+    private static TimeSpan cacheDuration = TimeSpan.FromMinutes(1);
+
+    private static UpdateChecker _instance;
+    private static readonly object _lock = new object();
+    public string LatestVersion { get; private set; }
+
 
     public delegate void UpdateAvailableHandler(string latestVersion, string latestReleaseUrl);
 
     public static event UpdateAvailableHandler OnUpdateAvailable;
 
-    public static async Task CheckForUpdates()
+    private UpdateChecker()
     {
-        if (updateChecked)
+    }
+
+    public static UpdateChecker GetInstance()
+    {
+        if (_instance == null)
         {
-            return;
+            lock (_lock)
+            {
+                if (_instance == null)
+                {
+                    _instance = new UpdateChecker();
+                }
+            }
+        }
+
+        return _instance;
+    }
+
+    public async Task<bool> FetchLatestVersionAsync()
+    {
+        //This is mainly to stop rate limiting github api
+        if (lastSuccessfulCheck.HasValue && (DateTime.Now - lastSuccessfulCheck.Value) < cacheDuration)
+        {
+            Console.WriteLine("Using cached version data.");
+            return false; // Cached data is being used, no new fetch
         }
 
         var url = $"https://api.github.com/repos/Aerodite/osuautodeafen/releases";
@@ -35,24 +65,15 @@ public class UpdateChecker
             if (releases.Count > 0)
             {
                 var latestRelease = releases[0];
-                var latestVersion = latestRelease["tag_name"].ToString();
-
-                if (Version.Parse(latestVersion) > Version.Parse(currentVersion))
-                {
-                    var latestReleaseUrl = latestRelease["html_url"].ToString();
-                    OnUpdateAvailable?.Invoke(latestVersion, latestReleaseUrl);
-                }
-                else if (Version.Parse(latestVersion) == Version.Parse(currentVersion))
-                {
-                    Console.WriteLine("You are using the latest version.");
-                }
-                else
-                {
-                    Console.WriteLine("No releases found.");
-                }
+                latestVersion = latestRelease["tag_name"].ToString().TrimStart('v');
+                lastSuccessfulCheck = DateTime.Now;
+                return true;
             }
-
-            updateChecked = true;
+            else
+            {
+                Console.WriteLine("No releases found.");
+                return false;
+            }
         }
         catch (HttpRequestException ex)
         {
@@ -64,10 +85,74 @@ public class UpdateChecker
             {
                 Console.WriteLine($"An error occurred: {ex.Message}");
             }
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+            return false;
+        }
+    }
+
+public static event Action<bool> UpdateCheckCompleted;
+
+    public async Task CheckForUpdates()
+    {
+        Console.WriteLine("Checking for updates...");
+
+        var url = $"https://api.github.com/repos/Aerodite/osuautodeafen/releases";
+        client.DefaultRequestHeaders.Add("User-Agent", "C# App");
+
+        try
+        {
+            var response = await client.GetStringAsync(url);
+            var releases = JArray.Parse(response);
+            if (releases.Count > 0)
+            {
+                var latestRelease = releases[0];
+                var latestVersion = latestRelease["tag_name"].ToString().TrimStart('v'); // Remove the "v" prefix
+
+                if (Version.Parse(latestVersion) > Version.Parse(currentVersion))
+                {
+                    var latestReleaseUrl = latestRelease["html_url"].ToString();
+                    latestRelease = latestRelease["name"].ToString();
+                    Console.WriteLine($"Update available: {latestVersion}");
+                    updateFound = true;
+                    OnUpdateAvailable?.Invoke(latestVersion, latestReleaseUrl);
+                    UpdateCheckCompleted?.Invoke(updateFound);
+                }
+                else if (Version.Parse(latestVersion) == Version.Parse(currentVersion))
+                {
+                    latestRelease = latestRelease["name"].ToString();
+                    Console.WriteLine("You are using the latest version.");
+                }
+                else
+                {
+                    latestRelease = "No releases found (???)";
+                    Console.WriteLine("No releases found.");
+                }
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            if (ex.StatusCode == HttpStatusCode.Forbidden)
+            {
+                Console.WriteLine("Rate limit exceeded");
+            }
+            else
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
         }
         catch (Exception e)
         {
             Console.WriteLine(e.Message);
         }
+    }
+    public static class UpdateEvents
+    {
+        public static event Action UpdateFoundEvent;
+
+        public static void OnUpdateFound() => UpdateFoundEvent?.Invoke();
     }
 }

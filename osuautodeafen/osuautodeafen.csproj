@@ -44,10 +44,4 @@
       <None Remove="Icons\crown-solid.png" />
       <AvaloniaResource Include="Icons\crown-solid.png" />
     </ItemGroup>
-
-    <ItemGroup>
-      <Compile Update="cs\UpdateNotificationWindow.cs">
-        <DependentUpon>UpdateNotificationWindow.axaml</DependentUpon>
-      </Compile>
-    </ItemGroup>
 </Project>

@@ -33,15 +33,20 @@
                 </StackPanel>
 
                 <!-- Settings panel -->
-                <StackPanel x:Name="SettingsPanel" Grid.Column="1" Background="#171717" Width="450" IsVisible="False" Margin="0,42,0,0" ZIndex="3"
-                            x:DataType="global:SharedViewModel">
+                <DockPanel x:Name="SettingsPanel" Grid.Column="1" Background="#171717" Width="450" IsVisible="False" Margin="0,42,0,0" ZIndex="3"
+                           x:DataType="global:SharedViewModel">
+                        <DockPanel.DataContext>
+                                <global:SharedViewModel />
+                        </DockPanel.DataContext>
+                        <StackPanel DockPanel.Dock="Top"
+                                    x:DataType="global:SharedViewModel">
                         <StackPanel.DataContext>
                                 <global:SharedViewModel />
                         </StackPanel.DataContext>
                         <Button Width="50" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Margin="0" Click="SettingsButton_Click">
                                 <Image Source="avares://osuautodeafen/Icons/angles-left-solid.png" />
                         </Button>
-                        <StackPanel Orientation="Horizontal" Margin="75, 0, 0, 0">
+                        <StackPanel Orientation="Horizontal" Margin="55, 0, 0, 0">
                                 <Image Source="avares://osuautodeafen/Icons/clock-solid.png" Width="25" Height="25" Margin="0, 0, 5, 0" />
                                 <TextBox x:Name="CompletionPercentageTextBox" Width="80"
                                          Text="{Binding MinCompletionPercentage, Mode=TwoWay}"
@@ -53,7 +58,7 @@
                                         </ToolTip.Tip>
                                 </TextBox>
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="75, 0, 0, 0">
+                        <StackPanel Orientation="Horizontal" Margin="55, 0, 0, 0">
                                 <Image Source="avares://osuautodeafen/Icons/star-solid.png" Width="25" Height="25" Margin="0, 5, 5, 0" />
                                 <TextBox x:Name="StarRatingTextBox" Width="80"
                                          Text="{Binding StarRating, Mode=TwoWay}"
@@ -65,7 +70,7 @@
                                         </ToolTip.Tip>
                                 </TextBox>
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="75, 0, 0, 0">
+                        <StackPanel Orientation="Horizontal" Margin="55, 0, 0, 0">
                                 <Image Source="avares://osuautodeafen/Icons/medal-solid.png" Width="25" Height="25" Margin="0, 7, 5, 0" />
                                 <TextBox x:Name="PPTextBox" Width="80"
                                          Text="{Binding PerformancePoints, Mode=TwoWay}"
@@ -77,9 +82,9 @@
                                         </ToolTip.Tip>
                                 </TextBox>
                         </StackPanel>
-                        <Button Content="Reset to Default" Click="ResetButton_Click" Margin="75, 7, 0, 0" FontSize="12" Foreground="White"/>
+                        <Button Content="Reset to Default" Click="ResetButton_Click" Margin="65, 7, 0, 0" FontSize="12" Foreground="White"/>
 
-                        <StackPanel Orientation="Horizontal" Margin="75, 25, 0, 0">
+                        <StackPanel Orientation="Horizontal" Margin="55, 25, 0, 0">
                                 <Image Source="avares://osuautodeafen/Icons/crown-solid.png" Width="25" Height="25" Margin="0, 0, 5, 0" />
                                 <CheckBox x:Name="FCToggle" Content="FC Required?" Foreground="White"
                                           IsChecked="{Binding IsFCRequired, Mode=TwoWay}"
@@ -90,7 +95,7 @@
                                 </CheckBox>
                         </StackPanel>
 
-                        <StackPanel Orientation="Horizontal" Margin="75, 7, 0, 0">
+                        <StackPanel Orientation="Horizontal" Margin="55, 7, 0, 0">
                                 <Image Source="avares://osuautodeafen/Icons/arrows.png" Width="25" Height="25" Margin="0, 0, 5, 0" />
                                 <CheckBox x:Name="ParallaxToggle" Content="Parallax" Foreground="White"
                                           IsChecked="{Binding IsParallaxEnabled, Mode=TwoWay}"
@@ -100,7 +105,7 @@
                                         </ToolTip.Tip>
                                 </CheckBox>
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="75, 7, 0, 0">
+                        <StackPanel Orientation="Horizontal" Margin="55, 7, 0, 0">
                                 <Image Source="avares://osuautodeafen/Icons/image-solid.png" Width="25" Height="25" Margin="0, 0, 5, 0" />
                                 <CheckBox x:Name="BackgroundToggle" Content="Background" Foreground="White"
                                           IsChecked="{Binding IsBackgroundEnabled, Mode=TwoWay}"
@@ -125,14 +130,27 @@
                                 </TextBox>
                         </StackPanel>-->
 
-                        <TextBlock Text="Deafen Keybind: Ctrl + P" Foreground="White" Margin="75,0,0,0" FontSize="12"/>
+                        <TextBlock Text="Deafen Keybind: Ctrl + P" Foreground="White" Margin="55,0,0,0" FontSize="12"/>
+                    <!--update checker-->
+
+                        <Button Content="Check for updates" Click="CheckForUpdatesButton_Click" Margin="55, 16.5, 0, 0" FontSize="12" Foreground="White" VerticalAlignment="Bottom"/>
+                        <TextBlock Text="{Binding UpdateStatusMessage}" Margin="55,0,0,0" FontSize="12"/>
                 </StackPanel>
-                <Grid HorizontalAlignment="Center" VerticalAlignment="Bottom">
+                        <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom" VerticalAlignment="Bottom" Margin="40,0,0,8" Foreground="White" FontSize="14"/>
+                </DockPanel>
+
+                <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Bottom">
                         <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="1" x:Name="ErrorMessage" Foreground="Red" TextWrapping="Wrap" Margin="5,0,0,0"/>
+                </Grid>
+                <Grid HorizontalAlignment="Stretch" VerticalAlignment="Bottom" x:Name="UpdateNotificationGrid" Grid.ColumnSpan="2">
+                        <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="UpdateNotificationBar" Content="A new update is available!" HorizontalContentAlignment="Center" Click="UpdateNotificationBar_Click" IsVisible="False" HorizontalAlignment="Stretch" FontSize="12" Foreground="White"/>
                 </Grid>
         </Grid>
 </Window>

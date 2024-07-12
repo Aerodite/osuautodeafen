@@ -3,7 +3,11 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using System.Windows.Input;
+using Avalonia;
 using osuautodeafen;
+using osuautodeafen.cs;
 
 public class SharedViewModel : INotifyPropertyChanged
 {
@@ -12,8 +16,12 @@ public class SharedViewModel : INotifyPropertyChanged
     private int _performancePoints;
     private bool _isParallaxEnabled;
     private bool _isBackgroundEnabled;
-     private MainWindow.HotKey _deafenKeybind;
+    public string CurrentAppVersion => $"Current Version: v{UpdateChecker.currentVersion}";
+    private MainWindow.HotKey _deafenKeybind;
     public bool _isFCRequired;
+
+
+    private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     public bool IsParallaxEnabled
     {
         get { return _isParallaxEnabled; }
@@ -44,6 +52,31 @@ public class SharedViewModel : INotifyPropertyChanged
             }
         }
     }
+
+    public void MainWindowViewModel()
+    {
+        UpdateChecker.OnUpdateAvailable += UpdateChecker_OnUpdateAvailable;
+        UpdateChecker.UpdateCheckCompleted += UpdateChecker_UpdateCheckCompleted;
+    }
+
+    public async Task InitializeAsync()
+    {
+        await _updateChecker.FetchLatestVersionAsync();
+        UpdateChecker.OnUpdateAvailable += UpdateChecker_OnUpdateAvailable;
+        UpdateChecker.UpdateCheckCompleted += UpdateChecker_UpdateCheckCompleted;
+    }
+
+    private void UpdateChecker_UpdateCheckCompleted(bool updateFound)
+    {
+        CheckAndUpdateStatusMessage();
+    }
+
+    private void UpdateChecker_OnUpdateAvailable(string latestVersion, string latestReleaseUrl)
+    {
+        _updateChecker.latestVersion = latestVersion;
+        CheckAndUpdateStatusMessage();
+    }
+
 
     public bool IsFCRequired
     {
@@ -191,10 +224,93 @@ public class SharedViewModel : INotifyPropertyChanged
             Console.WriteLine("Settings file does not exist");
         }
     }
+
+    private string _updateStatusMessage;
+
+    private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
+
+    public string UpdateUrl
+    {
+        get => _updateUrl;
+        set
+        {
+            if (_updateUrl != value)
+            {
+                _updateUrl = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public void CheckAndUpdateStatusMessage()
+    {
+        Version currentVersionObj = new Version(UpdateChecker.currentVersion);
+        Version latestVersionObj;
+
+        if (string.IsNullOrEmpty(_updateChecker.latestVersion) || !Version.TryParse(_updateChecker.latestVersion, out latestVersionObj))
+        {
+            Console.WriteLine("Invalid or missing latest version. Unable to compare versions.");
+            return;
+        }
+
+        Console.WriteLine($"Current Version: {currentVersionObj}, Latest Version: {latestVersionObj}");
+
+        string message;
+        string url;
+
+        if (currentVersionObj < latestVersionObj)
+        {
+            message = "A new update is available!" + $"\n(v{latestVersionObj})";
+        }
+        else
+        {
+            message = "No updates available";
+            url = null;
+        }
+
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            UpdateStatusMessage = message;
+        });
+    }
+
+    public ICommand OpenUpdateUrlCommand { get; private set; }
+
+    public SharedViewModel()
+    {
+        OpenUpdateUrlCommand = new RelayCommand(OpenUpdateUrl);
+        Task.Run(InitializeAsync);
+    }
+
+    private void OpenUpdateUrl()
+    {
+        if (!string.IsNullOrEmpty(UpdateUrl))
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = UpdateUrl,
+                UseShellExecute = true
+            });
+        }
+    }
+
     public event PropertyChangedEventHandler PropertyChanged;
 
     protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    public string UpdateStatusMessage
+    {
+        get => _updateStatusMessage;
+        set
+        {
+            if (_updateStatusMessage != value)
+            {
+                _updateStatusMessage = value;
+                OnPropertyChanged(nameof(UpdateStatusMessage));
+            }
+        }
     }
 }

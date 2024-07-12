@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
@@ -31,12 +32,15 @@ public partial class MainWindow : Window
     private double _mouseX;
     private double _mouseY;
     private TextBlock _completionPercentageText;
-    public SharedViewModel ViewModel { get; } = new SharedViewModel();
+    public SharedViewModel ViewModel { get; set; } = new SharedViewModel();
     private readonly StringBuilder _keyInput;
+    public static bool updateButtonClicked = false;
     private bool IsBlackBackgroundDisplayed { get; set; }
     private DateTime _lastUpdate = DateTime.Now;
+    private DateTime _lastUpdateCheck = DateTime.MinValue;
 
 
+    private UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private Bitmap? _currentBitmap;
     private Bitmap? _previousBitmap;
     private BitmapHolder? _bitmapHolder;
@@ -46,12 +50,11 @@ public partial class MainWindow : Window
 
     private string? _currentBackgroundDirectory;
     public double MinCompletionPercentage { get; set; }
+    public object UpdateUrl { get; private set; }
 
     public MainWindow()
     {
         InitializeComponent();
-
-        //UpdateChecker.OnUpdateAvailable += ShowUpdateNotification;
 
         SettingsPanel settingsPanel = new SettingsPanel();
 
@@ -106,15 +109,13 @@ public partial class MainWindow : Window
             }
         };
 
-        // Set the DataContext after reading the settings
-        DataContext = ViewModel;
+        InitializeViewModel();
 
-        ViewModel.BackgroundEnabledChanged += UpdateBackground;
+        DataContext = ViewModel;
 
         var slider = this.FindControl<Slider>("Slider");
 
         var sliderManager = new SliderManager(_settingsPanel, slider);
-        ;
 
         settingsPanel.Transitions = new Transitions
         {
@@ -164,6 +165,64 @@ public partial class MainWindow : Window
         };
     }
 
+    private async void InitializeViewModel()
+    {
+        await _updateChecker.FetchLatestVersionAsync();
+
+        var viewModel = new SharedViewModel();
+        {
+           //UpdateStatusMessage = "v" + UpdateChecker.currentVersion,
+        };
+
+        DataContext = ViewModel;
+    }
+    private async void CheckForUpdatesIfNeeded()
+    {
+        // Avoid checking for updates too frequently
+        if ((DateTime.Now - _lastUpdateCheck).TotalMinutes > 20)
+        {
+            _lastUpdateCheck = DateTime.Now;
+            await _updateChecker.FetchLatestVersionAsync();
+
+            if (string.IsNullOrEmpty(_updateChecker.latestVersion))
+            {
+                Console.WriteLine("Latest version string is null or empty.");
+                return;
+            }
+
+            Version currentVersion = new Version(UpdateChecker.currentVersion);
+            Version latestVersion = new Version(_updateChecker.latestVersion);
+
+            if (latestVersion > currentVersion)
+            {
+                ShowUpdateNotification();
+            }
+        }
+    }
+
+    public void ShowUpdateNotification()
+    {
+        var notificationBar = this.FindControl<Button>("UpdateNotificationBar");
+        if (notificationBar != null)
+        {
+            notificationBar.IsVisible = true;
+        }
+        else
+        {
+            Console.WriteLine("Notification bar control not found.");
+        }
+    }
+    private void UpdateNotificationBar_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(ViewModel.UpdateUrl))
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = ViewModel.UpdateUrl,
+                UseShellExecute = true
+            });
+        }
+    }
 
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
@@ -172,6 +231,7 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(() => CheckBackgroundSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(() => CheckParallaxSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(() => UpdateErrorMessage(sender, e));
+        Dispatcher.UIThread.InvokeAsync(CheckForUpdatesIfNeeded);
     }
     private void CheckIsFCRequiredSetting(object? sender, EventArgs? e)
     {
@@ -206,6 +266,37 @@ public partial class MainWindow : Window
                 SaveSettingsToFile(false, "IsFCRequired");
                 this.FindControl<CheckBox>("FCToggle").IsChecked = false;
             }
+        }
+    }
+
+    public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _updateChecker.FetchLatestVersionAsync();
+
+        if (string.IsNullOrEmpty(_updateChecker.latestVersion))
+        {
+            Console.WriteLine("Latest version string is null or empty.");
+            return;
+        }
+
+        Version currentVersion = new Version(UpdateChecker.currentVersion);
+        Version latestVersion = new Version(_updateChecker.latestVersion);
+
+        if (latestVersion > currentVersion)
+        {
+            ShowUpdateNotification();
+        }
+        if (string.IsNullOrEmpty(_updateChecker.latestVersion))
+        {
+            ViewModel.UpdateStatusMessage = "Failed to check for updates.";
+        }
+        else if (latestVersion > currentVersion)
+        {
+            ViewModel.UpdateStatusMessage = $"Update available: v{_updateChecker.latestVersion}";
+        }
+        else
+        {
+            ViewModel.UpdateStatusMessage = "No updates available.";
         }
     }
 
@@ -286,8 +377,6 @@ private void SaveSettingsToFile()
 
     private void ShowUpdateNotification(string latestVersion, string latestReleaseUrl)
     {
-        var updateNotificationWindow = new UpdateNotificationWindow(latestVersion, latestReleaseUrl);
-        updateNotificationWindow.ShowDialog(this);
     }
 
     private void DeafenKeybindTextBox_PointerLeave(object? sender, PointerEventArgs e)
@@ -862,8 +951,13 @@ private void SaveSettingsToFile()
 
     private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
     {
-        var settingsPanel = this.FindControl<StackPanel>("SettingsPanel");
+        var updateBar = this.FindControl<Button>("UpdateNotificationBar");
+        bool isUpdateBarVisible = updateBar != null && updateBar.IsVisible;
+        var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
         var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
+        Thickness settingsPanelMargin = settingsPanel.Margin;
+        Thickness textBlockPanelMargin = textBlockPanel.Margin;
+
 
         settingsPanel.Transitions = new Transitions
         {
@@ -888,14 +982,30 @@ private void SaveSettingsToFile()
         if (settingsPanel.IsVisible)
         {
             settingsPanel.IsVisible = false;
-            settingsPanel.Margin = new Thickness(0, 42, 0, 0);
-            textBlockPanel.Margin = new Thickness(0, 42, 0, 0);
+            if (isUpdateBarVisible)
+            {
+                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top, settingsPanelMargin.Right, 28);
+                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top, textBlockPanelMargin.Right, 28);
+            }
+            else
+            {
+                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top, settingsPanelMargin.Right, 0);
+                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top, textBlockPanelMargin.Right, 0);
+            }
         }
         else
         {
             settingsPanel.IsVisible = true;
-            settingsPanel.Margin = new Thickness(0, 42, 0, 0);
-            textBlockPanel.Margin = new Thickness(0, 42, 0, 0);
+            if (isUpdateBarVisible)
+            {
+                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top, settingsPanelMargin.Right, 28);
+                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top, textBlockPanelMargin.Right, 28);
+            }
+            else
+            {
+                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top, settingsPanelMargin.Right, 0);
+                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top, textBlockPanelMargin.Right, 0);
+            }
         }
 
         textBlockPanel.Margin = settingsPanel.IsVisible ? new Thickness(0, 42, 225, 0) : new Thickness(0, 42, 0, 0);
