@@ -13,7 +13,7 @@ public class SettingsPanel : Control
 
     public static readonly object Lock = new object();
 
-    private double _minCompletionPercentage = 75;
+    private double _minCompletionPercentage = 60;
     private double _starRating;
     private double _performancePoints;
 
@@ -76,7 +76,7 @@ public class SettingsPanel : Control
             Directory.CreateDirectory(Path.GetDirectoryName(SettingsFilePath)!);
             File.Create(SettingsFilePath).Close();
             using var streamWriter = new StreamWriter(SettingsFilePath);
-            streamWriter.Write("MinCompletionPercentage=75\nStarRating=0\nPerformancePoints=0");
+            streamWriter.Write("MinCompletionPercentage=60\nStarRating=0\nPerformancePoints=0");
         }
         try
         {

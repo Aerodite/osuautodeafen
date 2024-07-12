@@ -43,5 +43,7 @@
       <AvaloniaResource Include="Icons\keyboard-solid.png" />
       <None Remove="Icons\crown-solid.png" />
       <AvaloniaResource Include="Icons\crown-solid.png" />
+      <None Remove="Icons\images-solid.png" />
+      <AvaloniaResource Include="Icons\images-solid.png" />
     </ItemGroup>
 </Project>

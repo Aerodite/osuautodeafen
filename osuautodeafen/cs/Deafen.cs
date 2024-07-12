@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Timers;
 using AutoHotkey.Interop;
 using Timer = System.Timers.Timer;
@@ -33,6 +35,7 @@ namespace osuautodeafen
             _fcCalc = new FCCalc(tosuAPI);
             _timer = new System.Timers.Timer(250);
             _timer.Elapsed += TimerElapsed;
+            _timer.Elapsed += (sender, e) => ReadSettings();
             _timer.AutoReset = true;
             _timer.Start();
 
@@ -73,7 +76,7 @@ namespace osuautodeafen
             }
             else
             {
-                MinCompletionPercentage = 75;
+                MinCompletionPercentage = 60;
                 StarRating = 0;
                 PerformancePoints = 0;
             }
@@ -192,70 +195,80 @@ namespace osuautodeafen
                 }
             }
         }
-        //this is for custom hotkeys. not ready yet at all lol
-       /* private void ToggleDeafenState()
+
+        private string _customKeybind = "^p";
+
+        private void ReadSettings()
         {
             string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "osuautodeafen", "settings.txt");
-            string hotkeyString = File.ReadAllText(settingsFilePath);
-
-            string[] parts = hotkeyString.Split(new[] { '=' }, 2);
-            if (parts.Length != 2 || parts[0].Trim() != "Hotkey")
+            if (File.Exists(settingsFilePath))
             {
-                throw new FormatException("Invalid hotkey setting format.");
-            }
-
-            string[] keys = parts[1].Split('+');
-            KeyModifiers modifiers = KeyModifiers.None;
-            Key key = Key.None;
-
-            foreach (string k in keys)
-            {
-                string keyString = k.Trim();
-                switch (keyString)
+                var lines = File.ReadAllLines(settingsFilePath);
+                foreach (var line in lines)
                 {
-                    case "Control":
-                        modifiers |= KeyModifiers.Control;
-                        break;
-                    case "Alt":
-                        modifiers |= KeyModifiers.Alt;
-                        break;
-                    case "Shift":
-                        modifiers |= KeyModifiers.Shift;
-                        break;
-                    default:
-                        key = (Key)Enum.Parse(typeof(Key), keyString);
-                        break;
+                    var settings = line.Split('=');
+                    if (settings.Length == 2)
+                    {
+                        switch (settings[0].Trim())
+                        {
+                            case "Hotkey":
+                                _customKeybind = ConvertToAHKSyntax(settings[1]);
+                                break;
+                        }
+                    }
+                }
+            }
+        }
+
+        private string ConvertToAHKSyntax(string keybind)
+        {
+            var parts = keybind.Split('+');
+            string ahkKeybind = "";
+            var specialKeys = new HashSet<string> { "Control", "Ctrl", "Alt", "Shift", "Win", "Tab", "Enter", "Escape", "Esc", "Space", "Backspace", "Delete", "Insert", "Home", "End", "PgUp", "PgDn", "Up", "Down", "Left", "Right" };
+            var functionKeys = Enumerable.Range(1, 24).Select(i => $"F{i}").ToHashSet();
+            var mediaKeys = new HashSet<string> { "Volume_Up", "Volume_Down", "Media_Play_Pause", "Media_Next", "Media_Prev", "Media_Stop" };
+            var numpadKeys = Enumerable.Range(0, 10).Select(i => $"NumPad{i}").ToHashSet();
+
+            foreach (var part in parts)
+            {
+                var trimmedPart = part.Trim();
+                if (specialKeys.Contains(trimmedPart) || functionKeys.Contains(trimmedPart) || mediaKeys.Contains(trimmedPart) || numpadKeys.Contains(trimmedPart))
+                {
+                    ahkKeybind += $"{{{trimmedPart}}}";
+                }
+                else
+                {
+                    switch (trimmedPart)
+                    {
+                        case "Control":
+                        case "Ctrl":
+                            ahkKeybind += "^";
+                            break;
+                        case "Alt":
+                            ahkKeybind += "!";
+                            break;
+                        case "Shift":
+                            ahkKeybind += "+";
+                            break;
+                        case "Win":
+                            ahkKeybind += "#";
+                            break;
+                        default:
+                            ahkKeybind += trimmedPart;
+                            break;
+                    }
                 }
             }
 
-            MainWindow.HotKey hotkey = new MainWindow.HotKey { Key = key, ModifierKeys = modifiers };
-
-            string ahkCommand = "Send, ";
-            if (hotkey.ModifierKeys.HasFlag(KeyModifiers.Control))
-            {
-                ahkCommand += "^";
-            }
-            if (hotkey.ModifierKeys.HasFlag(KeyModifiers.Alt))
-            {
-                ahkCommand += "!";
-            }
-            if (hotkey.ModifierKeys.HasFlag(KeyModifiers.Shift))
-            {
-                ahkCommand += "+";
-            }
-            ahkCommand += hotkey.Key.ToString().ToLower(); // Convert the key to lowercase
-
-            _ahk.ExecRaw(ahkCommand);
-
+            return ahkKeybind;
+        }
+        private void ToggleDeafenState()
+        {
+            _ahk.ExecRaw($"Send, {ConvertToAHKSyntax(_customKeybind)}");
+            Console.WriteLine(_hasReachedMinPercent ? $"Sent {ConvertToAHKSyntax(_customKeybind)} (undeafen)" : $"Sent {ConvertToAHKSyntax(_customKeybind)} (deafen)");
             _hasReachedMinPercent = !_hasReachedMinPercent;
-        }*/
-       private void ToggleDeafenState()
-       {
-           _ahk.ExecRaw("Send, ^p");
-           Console.WriteLine(_hasReachedMinPercent ? "Sent Ctrl + P (undeafen)" : "Sent Ctrl + P (deafen)");
-           _hasReachedMinPercent = !_hasReachedMinPercent;
-       }
+        }
 
         public void Dispose()
         {

@@ -27,6 +27,10 @@
       },
       "runtimepack.Microsoft.NETCore.App.Runtime.win-x64/8.0.5": {
         "runtime": {
+          "Microsoft.CSharp.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.524.21615"
+          },
           "Microsoft.Win32.Registry.dll": {
             "assemblyVersion": "8.0.0.0",
             "fileVersion": "8.0.524.21615"
@@ -71,7 +75,15 @@
             "assemblyVersion": "8.0.0.0",
             "fileVersion": "8.0.524.21615"
           },
+          "System.Data.Common.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.524.21615"
+          },
           "System.Diagnostics.DiagnosticSource.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.524.21615"
+          },
+          "System.Diagnostics.Process.dll": {
             "assemblyVersion": "8.0.0.0",
             "fileVersion": "8.0.524.21615"
           },
@@ -81,6 +93,14 @@
           },
           "System.Diagnostics.TraceSource.dll": {
             "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.524.21615"
+          },
+          "System.Drawing.Primitives.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.524.21615"
+          },
+          "System.Drawing.dll": {
+            "assemblyVersion": "4.0.0.0",
             "fileVersion": "8.0.524.21615"
           },
           "System.Formats.Asn1.dll": {
@@ -135,6 +155,18 @@
             "assemblyVersion": "8.0.0.0",
             "fileVersion": "8.0.524.21615"
           },
+          "System.Net.WebHeaderCollection.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.524.21615"
+          },
+          "System.Net.WebSockets.Client.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.524.21615"
+          },
+          "System.Net.WebSockets.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.524.21615"
+          },
           "System.ObjectModel.dll": {
             "assemblyVersion": "8.0.0.0",
             "fileVersion": "8.0.524.21615"
@@ -147,6 +179,14 @@
             "assemblyVersion": "8.0.0.0",
             "fileVersion": "8.0.524.21615"
           },
+          "System.Private.Xml.Linq.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.524.21615"
+          },
+          "System.Private.Xml.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.524.21615"
+          },
           "System.Reflection.Metadata.dll": {
             "assemblyVersion": "8.0.0.0",
             "fileVersion": "8.0.524.21615"
@@ -156,6 +196,14 @@
             "fileVersion": "8.0.524.21615"
           },
           "System.Runtime.Numerics.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.524.21615"
+          },
+          "System.Runtime.Serialization.Formatters.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.524.21615"
+          },
+          "System.Runtime.Serialization.Primitives.dll": {
             "assemblyVersion": "8.0.0.0",
             "fileVersion": "8.0.524.21615"
           },
@@ -181,6 +229,10 @@
           },
           "System.Threading.Channels.dll": {
             "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.524.21615"
+          },
+          "System.Xml.Linq.dll": {
+            "assemblyVersion": "4.0.0.0",
             "fileVersion": "8.0.524.21615"
           },
           "System.dll": {
@@ -374,7 +426,14 @@
         }
       },
       "Microsoft.NET.ILLink.Tasks/8.0.5": {},
-      "Newtonsoft.Json/13.0.3": {},
+      "Newtonsoft.Json/13.0.3": {
+        "runtime": {
+          "lib/net6.0/Newtonsoft.Json.dll": {
+            "assemblyVersion": "13.0.0.0",
+            "fileVersion": "13.0.3.27908"
+          }
+        }
+      },
       "ReactiveUI/20.1.1": {
         "dependencies": {
           "DynamicData": "8.4.1",

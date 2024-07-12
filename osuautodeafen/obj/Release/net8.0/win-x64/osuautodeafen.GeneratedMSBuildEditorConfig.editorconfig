@@ -24,8 +24,5 @@ build_property.EnableGeneratedComInterfaceComImportInterop = false
 [C:/Users/Anthony/Documents/GitHub/osuautodeafen2/osuautodeafen/App.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[C:/Users/Anthony/Documents/GitHub/osuautodeafen2/osuautodeafen/cs/UpdateNotificationWindow.axaml]
-build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
-
 [C:/Users/Anthony/Documents/GitHub/osuautodeafen2/osuautodeafen/MainWindow.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml

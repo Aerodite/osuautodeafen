@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices.JavaScript;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Avalonia;
@@ -20,11 +24,13 @@ namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
-
+    Image blackBackground;
+    private bool BlurEffectUpdate { get; set; }
     private readonly DispatcherTimer _mainTimer;
     private readonly DispatcherTimer _disposeTimer;
     private readonly DispatcherTimer _parallaxCheckTimer;
     private Grid _blackBackground;
+    private HotKey _deafenKeybind;
     private readonly TosuApi _tosuAPI;
     private readonly FrostedGlassEffect _frostedGlassEffect;
     private SettingsPanel _settingsPanel;
@@ -38,7 +44,10 @@ public partial class MainWindow : Window
     private bool IsBlackBackgroundDisplayed { get; set; }
     private DateTime _lastUpdate = DateTime.Now;
     private DateTime _lastUpdateCheck = DateTime.MinValue;
-
+    private DispatcherTimer _visibilityCheckTimer;
+    private Image blurredBackground;
+    private Image normalBackground;
+    bool hasDisplayed = false;
 
     private UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private Bitmap? _currentBitmap;
@@ -94,6 +103,8 @@ public partial class MainWindow : Window
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
 
+        InitializeVisibilityCheckTimer();
+
         _keyInput = new StringBuilder();
 
         var oldContent = this.Content;
@@ -146,6 +157,9 @@ public partial class MainWindow : Window
             }
         };
 
+        InitializeKeybindButtonText();
+        UpdateDeafenKeybindDisplay();
+
         CompletionPercentageTextBox.Text = ViewModel.MinCompletionPercentage.ToString();
         StarRatingTextBox.Text = ViewModel.StarRating.ToString();
         PPTextBox.Text = ViewModel.PerformancePoints.ToString();
@@ -157,12 +171,23 @@ public partial class MainWindow : Window
         this.Closing += MainWindow_Closing;
         _isConstructorFinished = true;
 
-        // Handle the PointerPressed event on the parent control
-        //((Control)DeafenKeybindTextBox.Parent).PointerPressed += (sender, e) =>
+
+    }
+
+    private void InitializeVisibilityCheckTimer()
+    {
+        _visibilityCheckTimer = new DispatcherTimer
         {
-            // When the parent control is clicked, move the focus to the parent control
-            //((Control)sender).Focus();
+            Interval = TimeSpan.FromSeconds(0.5)
         };
+        _visibilityCheckTimer.Tick += VisibilityCheckTimer_Tick;
+        _visibilityCheckTimer.Start();
+    }
+
+    private void VisibilityCheckTimer_Tick(object? sender, EventArgs e)
+    {
+        blurredBackground.IsVisible = ViewModel.IsBlurEffectEnabled;
+        normalBackground.IsVisible = !ViewModel.IsBlurEffectEnabled;
     }
 
     private async void InitializeViewModel()
@@ -200,6 +225,143 @@ public partial class MainWindow : Window
         }
     }
 
+    private void UpdateDeafenKeybindDisplay()
+    {
+        var currentKeybind = RetrieveKeybindFromSettings();
+        DeafenKeybindButton.Content = currentKeybind.ToString();
+    }
+
+    private void DeafenKeybindButton_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.IsKeybindCaptureFlyoutOpen = !ViewModel.IsKeybindCaptureFlyoutOpen;
+        var flyout = this.Resources["KeybindCaptureFlyout"] as Flyout;
+        if (flyout != null)
+        {
+            if (ViewModel.IsKeybindCaptureFlyoutOpen)
+            {
+                flyout.ShowAt(DeafenKeybindButton);
+            }
+            else
+            {
+                flyout.Hide();
+            }
+        }
+    }
+    private Key _lastKeyPressed = Key.None;
+    private DateTime _lastKeyPressTime = DateTime.MinValue;
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+
+        if (!ViewModel.IsKeybindCaptureFlyoutOpen)
+        {
+            return;
+        }
+
+        if(e.Key == Key.NumLock)
+        {
+            return;
+        }
+
+        Flyout? flyout;
+        if(e.Key == Key.Escape)
+        {
+            ViewModel.IsKeybindCaptureFlyoutOpen = false;
+            flyout = this.Resources["KeybindCaptureFlyout"] as Flyout;
+            if (flyout != null)
+            {
+                flyout.Hide();
+            }
+            return;
+        }
+
+        var currentTime = DateTime.Now;
+
+        if (e.Key == _lastKeyPressed && (currentTime - _lastKeyPressTime).TotalMilliseconds < 2500)
+        {
+            return; // Considered a repeat key press, ignore it
+        }
+
+        _lastKeyPressed = e.Key;
+        _lastKeyPressTime = currentTime;
+
+        if (IsModifierKey(e.Key))
+        {
+            return;
+        }
+
+        // Capture the key and its modifiers
+        KeyModifiers modifiers = KeyModifiers.None;
+        if (e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control))
+        {
+            modifiers |= KeyModifiers.Control;
+        }
+        if (e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Alt))
+        {
+            modifiers |= KeyModifiers.Alt;
+        }
+        if (e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Shift))
+        {
+            modifiers |= KeyModifiers.Shift;
+        }
+
+        // Create and set the new hotkey
+        ViewModel.DeafenKeybind = new HotKey { Key = e.Key, ModifierKeys = modifiers };
+
+        // Save the new hotkey to settings
+        SaveSettingsToFile(ViewModel.DeafenKeybind.ToString(), "Hotkey");
+
+        e.Handled = true;
+
+    }
+
+    private void InitializeKeybindButtonText()
+    {
+        var currentKeybind = RetrieveKeybindFromSettings();
+        DeafenKeybindButton.Content = currentKeybind.ToString();
+    }
+
+    private string RetrieveKeybindFromSettings()
+    {
+        string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "settings.txt");
+        if (File.Exists(settingsFilePath))
+        {
+            var lines = File.ReadAllLines(settingsFilePath);
+            var keybindLine = lines.FirstOrDefault(line => line.StartsWith("Hotkey="));
+            if (keybindLine != null)
+            {
+                return keybindLine.Split('=')[1];
+            }
+        }
+        return "Set Keybind";
+    }
+
+    public event PropertyChangedEventHandler PropertyChanged;
+    protected virtual void OnPropertyChanged(string propertyName)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+
+    public HotKey DeafenKeybind
+    {
+        get { return _deafenKeybind; }
+        set
+        {
+            if (_deafenKeybind != value)
+            {
+                _deafenKeybind = value;
+                OnPropertyChanged(nameof(DeafenKeybind));
+                var button = this.FindControl<Button>("DeafenKeybindButton");
+                if (button != null)
+                {
+                    button.Content = value.ToString();
+                }
+            }
+        }
+    }
+
     public void ShowUpdateNotification()
     {
         var notificationBar = this.FindControl<Button>("UpdateNotificationBar");
@@ -231,6 +393,8 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(() => CheckBackgroundSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(() => CheckParallaxSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(() => UpdateErrorMessage(sender, e));
+        Dispatcher.UIThread.InvokeAsync(() => CheckBlurEffectSetting(sender, e));
+        Dispatcher.UIThread.InvokeAsync(() => UpdateDeafenKeybindDisplay());
         Dispatcher.UIThread.InvokeAsync(CheckForUpdatesIfNeeded);
     }
     private void CheckIsFCRequiredSetting(object? sender, EventArgs? e)
@@ -307,11 +471,12 @@ public partial class MainWindow : Window
 
     if (!File.Exists(settingsFilePath))
     {
-        // If the settings file does not exist, create it with default settings
-        ViewModel.MinCompletionPercentage = 75;
+        ViewModel.MinCompletionPercentage = 60;
         ViewModel.StarRating = 0;
         ViewModel.PerformancePoints = 0;
         ViewModel.IsParallaxEnabled = true;
+        ViewModel.IsBlurEffectEnabled = true;
+        ViewModel.IsFCRequired = true;
         SaveSettingsToFile();
         return;
     }
@@ -325,8 +490,6 @@ public partial class MainWindow : Window
         switch (settings[0].Trim())
         {
             case "Hotkey":
-                // Set the TextBox text to the loaded hotkey
-                //DeafenKeybindTextBox.Text = settings[1];
                 break;
             case "MinCompletionPercentage":
                 if (int.TryParse(settings[1], out int parsedPercentage))
@@ -352,6 +515,12 @@ public partial class MainWindow : Window
                     ViewModel.IsParallaxEnabled = parsedIsParallaxEnabled;
                 }
                 break;
+            case "IsBlurEffectEnabled":
+                if (bool.TryParse(settings[1], out bool parsedIsBlurEffectEnabled))
+                {
+                    ViewModel.IsBlurEffectEnabled = parsedIsBlurEffectEnabled;
+                }
+                break;
         }
     }
 }
@@ -369,31 +538,40 @@ private void SaveSettingsToFile()
         $"StarRating={ViewModel.StarRating}",
         $"PerformancePoints={ViewModel.PerformancePoints}",
         $"IsParallaxEnabled={ViewModel.IsParallaxEnabled}",
-        "Hotkey=Control+P"
+        $"IsBlurEffectEnabled={ViewModel.IsBlurEffectEnabled}",
+        $"Hotkey={ViewModel.DeafenKeybind}"
     };
+
+    //update updatedeafenkeybinddisplay with hotkey
+    if (ViewModel.DeafenKeybind != null)
+    {
+        UpdateDeafenKeybindDisplay();
+    }
+
 
     File.WriteAllLines(settingsFilePath, settingsLines);
 }
 
-    private void ShowUpdateNotification(string latestVersion, string latestReleaseUrl)
-    {
-    }
-
-    private void DeafenKeybindTextBox_PointerLeave(object? sender, PointerEventArgs e)
-    {
-        this.Focus();
-    }
 
     public class HotKey
     {
         public Key Key { get; set; }
         public KeyModifiers ModifierKeys { get; set; }
-
         public override string ToString()
         {
-            return $"{ModifierKeys} + {Key}";
-        }
+            List<string> parts = new List<string>();
 
+            if (ModifierKeys.HasFlag(KeyModifiers.Control))
+                parts.Add("Ctrl");
+            if (ModifierKeys.HasFlag(KeyModifiers.Alt))
+                parts.Add("Alt");
+            if (ModifierKeys.HasFlag(KeyModifiers.Shift))
+                parts.Add("Shift");
+
+            parts.Add(Key.ToString()); // Always add the key last
+
+            return string.Join("+", parts); // Join all parts with '+'
+        }
         public static HotKey Parse(string str)
         {
             if (string.IsNullOrEmpty(str))
@@ -419,76 +597,17 @@ private void SaveSettingsToFile()
 
             return new HotKey { Key = key, ModifierKeys = modifierKeys };
         }
-        public static KeyModifiers KeyToKeyModifiers(Key key)
-        {
-            switch (key)
-            {
-                case Key.LeftCtrl:
-                case Key.RightCtrl:
-                    return KeyModifiers.Control;
-                case Key.LeftAlt:
-                case Key.RightAlt:
-                    return KeyModifiers.Alt;
-                case Key.LeftShift:
-                case Key.RightShift:
-                    return KeyModifiers.Shift;
-                default:
-                    return KeyModifiers.None;
-            }
-        }
 
-        //handle key down events
     }
 
     private KeyModifiers _currentKeyModifiers = KeyModifiers.None;
 
-    private void DeafenKeybindTextBox_KeyDown(object sender, Avalonia.Input.KeyEventArgs e)
+
+    private bool IsModifierKey(Key key)
     {
-        _currentKeyModifiers = KeyModifiers.None;
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
-        {
-            _currentKeyModifiers |= KeyModifiers.Control;
-        }
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Alt))
-        {
-            _currentKeyModifiers |= KeyModifiers.Alt;
-        }
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
-        {
-            _currentKeyModifiers |= KeyModifiers.Shift;
-        }
-
-        if (e.Key != Key.LeftCtrl && e.Key != Key.RightCtrl && e.Key != Key.LeftAlt && e.Key != Key.RightAlt && e.Key != Key.LeftShift && e.Key != Key.RightShift)
-        {
-            HotKey hotKey = new HotKey { Key = e.Key, ModifierKeys = _currentKeyModifiers };
-            HandleHotkeyInput(hotKey);
-        }
-    }
-
-    private void HandleHotkeyInput(HotKey hotKey)
-    {
-        Console.WriteLine($"Hotkey {hotKey.Key} with modifiers {hotKey.ModifierKeys} pressed");
-
-        SaveSettingsToFile(hotKey.ToString(), "Hotkey");
-    }
-    private void DeafenKeybindTextBox_LostFocus(object? sender, RoutedEventArgs e)
-    {
-        // Check if the TextBox text is not null
-      //  if (!string.IsNullOrEmpty(DeafenKeybindTextBox.Text))
-        {
-            try
-            {
-               // ViewModel.DeafenKeybind = HotKey.Parse(DeafenKeybindTextBox.Text);
-
-                // Save the valid hotkey to the settings.txt file
-                SaveSettingsToFile(ViewModel.DeafenKeybind.ToString(), "DeafenKeybind");
-            }
-            catch (ArgumentException)
-            {
-
-                //DeafenKeybindTextBox.Text = ViewModel.DeafenKeybind.ToString();
-            }
-        }
+        return key == Key.LeftCtrl || key == Key.RightCtrl ||
+               key == Key.LeftAlt || key == Key.RightAlt ||
+               key == Key.LeftShift || key == Key.RightShift;
     }
 
     private void CheckBackgroundSetting(object? sender, EventArgs? e)
@@ -559,6 +678,50 @@ private void SaveSettingsToFile()
         }
     }
 
+    private void CheckBlurEffectSetting(object? sender, EventArgs? e)
+    {
+        string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "settings.txt");
+
+        bool defaultBlurEffectEnabled = true;
+
+        if (File.Exists(settingsFilePath))
+        {
+            try
+            {
+                string[] lines = File.ReadAllLines(settingsFilePath);
+                string blurEffectSettingLine = Array.Find(lines, line => line.StartsWith("IsBlurEffectEnabled"));
+                if (blurEffectSettingLine != null)
+                {
+                    string[] parts = blurEffectSettingLine.Split('=');
+                    if (parts.Length == 2 && bool.TryParse(parts[1], out bool parsedIsBlurEffectEnabled))
+                    {
+                        ViewModel.IsBlurEffectEnabled = parsedIsBlurEffectEnabled;
+                    }
+                    else
+                    {
+                        ViewModel.IsBlurEffectEnabled = defaultBlurEffectEnabled;
+                    }
+                }
+                else
+                {
+                    ViewModel.IsBlurEffectEnabled = defaultBlurEffectEnabled;
+                }
+            }
+            catch
+            {
+                ViewModel.IsBlurEffectEnabled = defaultBlurEffectEnabled;
+            }
+        }
+        else
+        {
+            ViewModel.IsBlurEffectEnabled = defaultBlurEffectEnabled;
+        }
+
+        this.FindControl<CheckBox>("BlurEffectToggle").IsChecked = ViewModel.IsBlurEffectEnabled;
+
+        UpdateBackground();
+    }
     private void DisposeTimer_Tick(object? sender, EventArgs e)
     {
         if (_bitmapQueue.Count > 0)
@@ -683,39 +846,34 @@ private void SaveSettingsToFile()
         }
     }
 
-    public async void UpdateBackground(object? sender, EventArgs? e)
+     public async void UpdateBackground(object? sender, EventArgs? e)
     {
         //await UpdateChecker.CheckForUpdates();
         if (!ViewModel.IsBackgroundEnabled)
         {
-            if (!IsBlackBackgroundDisplayed)
+            if (!ViewModel.IsBackgroundEnabled && !IsBlackBackgroundDisplayed)
             {
                 DisplayBlackBackground();
                 IsBlackBackgroundDisplayed = true;
+
             }
             return;
         }
+
 
         if (_blackBackground != null)
         {
             _blackBackground.Children.Clear();
             _blackBackground = null;
         }
+
         try
         {
-            var json = await _tosuAPI.ConnectAsync();
-
-            if (json.Contains("\"error\":"))
-            {
-                Console.WriteLine("An error occurred while connecting to the API.");
-                return;
-            }
-
 
             var background = new Background();
-            var fullBackgroundDirectory = background.GetFullBackgroundDirectory(json);
+            var fullBackgroundDirectory = _tosuAPI.GetBackgroundPath();
 
-            if (fullBackgroundDirectory == _currentBackgroundDirectory)
+            if ((fullBackgroundDirectory == _currentBackgroundDirectory) && !IsBlackBackgroundDisplayed)
             {
                 return;
             }
@@ -741,16 +899,28 @@ private void SaveSettingsToFile()
 
             IsBlackBackgroundDisplayed = false;
 
-            var blur = new BlurEffect
-            {
-                Radius = 17.27,
-            };
+            BlurEffect blur = null;
 
-            var blurredBackground = new Image
+
+                blur = new BlurEffect
+                {
+                    Radius = 17.27,
+                };
+
+
+            blurredBackground = new Image
             {
                 Source = _currentBitmap,
                 Stretch = Stretch.UniformToFill,
+                Opacity = 0.5,
                 Effect = blur,
+                ZIndex = -1
+            };
+
+            normalBackground = new Image
+            {
+                Source = _currentBitmap,
+                Stretch = Stretch.UniformToFill,
                 Opacity = 0.5,
                 ZIndex = -1
             };
@@ -771,7 +941,19 @@ private void SaveSettingsToFile()
 
             var imageGrid = new Grid();
 
+            if (_blackBackground != null)
+            {
+                _blackBackground.Children.Clear();
+                _blackBackground = null;
+            }
+            
+            
             imageGrid.Children.Add(blurredBackground);
+            imageGrid.Children.Add(normalBackground);
+
+            blurredBackground.IsVisible = ViewModel.IsBlurEffectEnabled;
+            normalBackground.IsVisible = !ViewModel.IsBlurEffectEnabled;
+
 
             double offsetX = (_mouseX - this.Width / 2) / 20;
             double offsetY = (_mouseY - this.Height / 2) / 20;
@@ -813,7 +995,6 @@ private void SaveSettingsToFile()
             Console.WriteLine(ex);
         }
     }
-
     public void UpdateBackground()
     {
         UpdateBackground(null, null);
@@ -880,14 +1061,14 @@ private void SaveSettingsToFile()
 
     protected override void OnPointerMoved(PointerEventArgs e)
     {
-        base.OnPointerMoved(e);
-
         if (!ViewModel.IsParallaxEnabled)
         {
             return;
         }
 
-        if ((DateTime.Now - _lastUpdate).TotalMilliseconds < 25)
+        base.OnPointerMoved(e);
+
+        if ((DateTime.Now - _lastUpdate).TotalMilliseconds < 20)
         {
             return;
         }
@@ -918,14 +1099,15 @@ private void SaveSettingsToFile()
 
     public void ResetButton_Click(object sender, RoutedEventArgs e)
     {
-        ViewModel.MinCompletionPercentage = 75;
+        ViewModel.MinCompletionPercentage = 60;
         ViewModel.StarRating = 0;
         ViewModel.PerformancePoints = 0;
 
         SaveSettingsToFile(ViewModel.MinCompletionPercentage, "MinCompletionPercentage");
         SaveSettingsToFile(ViewModel.StarRating, "StarRating");
         SaveSettingsToFile(ViewModel.PerformancePoints, "PerformancePoints");
-        SaveSettingsToFile(ViewModel.IsParallaxEnabled ? 1 : 0, "IsParallaxEnabled");
+        SaveSettingsToFile(ViewModel.IsParallaxEnabled ? true : false, "IsParallaxEnabled");
+        SaveSettingsToFile(ViewModel.IsBlurEffectEnabled ? true : false, "IsBlurEffectEnabled");
 
         CompletionPercentageTextBox.Text = ViewModel.MinCompletionPercentage.ToString();
         StarRatingTextBox.Text = ViewModel.StarRating.ToString();

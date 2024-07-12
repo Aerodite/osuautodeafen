@@ -11,6 +11,9 @@
 
         <Window.Resources>
             <global:NotConverter x:Key="NotConverter"/>
+            <Flyout x:Key="keybindCaptureFlyout">
+                    <TextBlock Text="Press any key for the keybind..." />
+            </Flyout>
         </Window.Resources>
 
         <Grid ZIndex="5">
@@ -94,17 +97,6 @@
                                         </ToolTip.Tip>
                                 </CheckBox>
                         </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Margin="55, 7, 0, 0">
-                                <Image Source="avares://osuautodeafen/Icons/arrows.png" Width="25" Height="25" Margin="0, 0, 5, 0" />
-                                <CheckBox x:Name="ParallaxToggle" Content="Parallax" Foreground="White"
-                                          IsChecked="{Binding IsParallaxEnabled, Mode=TwoWay}"
-                                          HorizontalAlignment="Left" Margin="0,0,0,0">
-                                        <ToolTip.Tip>
-                                                <TextBlock Text="Enable or disable the parallax effect"/>
-                                        </ToolTip.Tip>
-                                </CheckBox>
-                        </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="55, 7, 0, 0">
                                 <Image Source="avares://osuautodeafen/Icons/image-solid.png" Width="25" Height="25" Margin="0, 0, 5, 0" />
                                 <CheckBox x:Name="BackgroundToggle" Content="Background" Foreground="White"
@@ -115,22 +107,50 @@
                                         </ToolTip.Tip>
                                 </CheckBox>
                         </StackPanel>
-
-                        <!--<StackPanel Orientation="Horizontal" Margin="75, 0, 0, 0">
-                                <Image Source="avares://osuautodeafen/Icons/keyboard-solid.png" Width="25" Height="25" Margin="0, 7, 5, 0" />
-                                <TextBox x:Name="DeafenKeybindTextBox" Width="80"
-                                         Text="{Binding DeafenKeybind, Mode=TwoWay}"
-                                         KeyDown="DeafenKeybindTextBox_KeyDown"
-                                         LostFocus="DeafenKeybindTextBox_LostFocus"
-                                         PointerExited="DeafenKeybindTextBox_PointerLeave"
-                                         HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal" Margin="70, 0, 0, 0">
+                                <Image Source="avares://osuautodeafen/Icons/arrows.png" Width="19" Height="19" Margin="0, 0, 5, 0" />
+                                <CheckBox x:Name="ParallaxToggle" Content="Parallax" Foreground="White"
+                                          IsChecked="{Binding IsParallaxEnabled, Mode=TwoWay}"
+                                          IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
+                                          HorizontalAlignment="Left" Margin="0,0,0,0">
                                         <ToolTip.Tip>
-                                                <TextBlock Text="Set this to your Discord Toggle Deafen keybind, it wont show for now (cuz textblocks are dumb) but it works" />
+                                                <TextBlock Text="Enable or disable the parallax effect"/>
                                         </ToolTip.Tip>
-                                </TextBox>
-                        </StackPanel>-->
+                                </CheckBox>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="70, 0, 0, 0">
+                                <Image Source="avares://osuautodeafen/Icons/images-solid.png" Width="19" Height="19" Margin="0, 0, 5, 0" />
+                                <CheckBox x:Name="BlurEffectToggle" Content="Blur" Foreground="White"
+                                          IsChecked="{Binding IsBlurEffectEnabled, Mode=TwoWay}"
+                                          IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
+                                          HorizontalAlignment="Left" Margin="0,0,0,0">
+                                        <ToolTip.Tip>
+                                                <TextBlock Text="Enable or disable the blur effect"/>
+                                        </ToolTip.Tip>
+                                </CheckBox>
+                        </StackPanel>
+                        <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="55, 10, 0, 0">
+                                        <Image Source="avares://osuautodeafen/Icons/keyboard-solid.png" Width="27"
+                                               Height="27" Margin="0, 0, 5, 0" />
+                                        <Button x:Name="DeafenKeybindButton" Width="91" Height="40"
+                                                HorizontalAlignment="Left" FontSize="11" Margin="0,0,0,0"
+                                                Content="{Binding DeafenKeybindDisplay}"
+                                                HorizontalContentAlignment="Center"
+                                                VerticalContentAlignment="Center"
+                                                Click="DeafenKeybindButton_Click">
+                                                <ToolTip.Tip>
+                                                        <TextBlock
+                                                                Text="Click to set your Discord Toggle Deafen keybind" />
+                                                </ToolTip.Tip>
+                                                <Button.Flyout>
+                                                        <Flyout>
+                                                                <TextBlock Text="Press any key for the keybind..." />
+                                                        </Flyout>
+                                                </Button.Flyout>
+                                        </Button>
+                                </StackPanel></StackPanel>
 
-                        <TextBlock Text="Deafen Keybind: Ctrl + P" Foreground="White" Margin="55,0,0,0" FontSize="12"/>
                     <!--update checker-->
 
                         <Button Content="Check for updates" Click="CheckForUpdatesButton_Click" Margin="55, 16.5, 0, 0" FontSize="12" Foreground="White" VerticalAlignment="Bottom"/>

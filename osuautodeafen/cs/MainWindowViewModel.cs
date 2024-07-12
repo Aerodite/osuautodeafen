@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia;
+using Avalonia.Controls;
 using osuautodeafen;
 using osuautodeafen.cs;
 
@@ -77,6 +78,34 @@ public class SharedViewModel : INotifyPropertyChanged
         CheckAndUpdateStatusMessage();
     }
 
+    private bool _isKeybindCaptureFlyoutOpen;
+    public bool IsKeybindCaptureFlyoutOpen
+    {
+        get => _isKeybindCaptureFlyoutOpen;
+        set
+        {
+            if (_isKeybindCaptureFlyoutOpen != value)
+            {
+                _isKeybindCaptureFlyoutOpen = value;
+                OnPropertyChanged(nameof(IsKeybindCaptureFlyoutOpen));
+            }
+        }
+    }
+
+    private string _deafenKeybindDisplay;
+
+    public string DeafenKeybindDisplay
+    {
+        get => _deafenKeybindDisplay;
+        set
+        {
+            if (_deafenKeybindDisplay != value)
+            {
+                _deafenKeybindDisplay = value;
+                OnPropertyChanged(nameof(DeafenKeybindDisplay));
+            }
+        }
+    }
 
     public bool IsFCRequired
     {
@@ -113,6 +142,39 @@ public class SharedViewModel : INotifyPropertyChanged
                         writer.WriteLine(line);
                     }
                 }
+            }
+        }
+    }
+
+    private bool _isBlurEffectEnabled;
+
+    public bool IsBlurEffectEnabled
+    {
+        get { return _isBlurEffectEnabled; }
+        set
+        {
+            if (_isBlurEffectEnabled != value)
+            {
+                _isBlurEffectEnabled = value;
+                OnPropertyChanged();
+
+                string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "settings.txt");
+
+                var lines = File.ReadAllLines(settingsFilePath);
+
+                var index = Array.FindIndex(lines, line => line.StartsWith("IsBlurEffectEnabled"));
+
+                if (index != -1)
+                {
+                    lines[index] = $"IsBlurEffectEnabled={value}";
+                }
+                else
+                {
+                    var newLines = new List<string>(lines) { $"IsBlurEffectEnabled={value}" };
+                    lines = newLines.ToArray();
+                }
+
+                File.WriteAllLines(settingsFilePath, lines);
             }
         }
     }
