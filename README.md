@@ -11,7 +11,7 @@ osu!autodeafen is a tool that uses osu! memory data from either [Tosu](https://g
 
 # Dependencies
 * [Tosu](https://github.com/KotRikD/tosu) < Preferred
-* [Gosumemory](https://github.com/l3lackShark/gosumemory/) < Backup
+* [Gosumemory](https://github.com/l3lackShark/gosumemory/) < Backup ([v1.0.2](https://github.com/Aerodite/osuautodeafen/releases/v1.0.2) and earlier)
 
 # Credits
 Thank you [Jurme](https://osu.ppy.sh/users/6282195) for testing (and discovering) a bunch of edge cases
