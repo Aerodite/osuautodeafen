@@ -2,10 +2,11 @@ osu!autodeafen is a tool that uses osu! memory data from either [Tosu](https://g
 
 # Installation Steps
 1. Download the [latest release](https://github.com/Aerodite/osuautodeafen/releases/latest) and unzip it.
-1. Set your Discord "Toggle Deafen" keybind to Ctrl+P
 1. Launch osu!
-1. Launch either Tosu or Gosumemory
-1. Launch "osuautodeafen.exe" and wait for it to start.
+1. Download (and launch) Tosu
+1. Launch "osuautodeafen.exe" and wait for it to start
+1. Set the Deafen Keybind in the app to your Discord "Toggle Deafen" keybind
+1. Modify the settings in the app to what you want!
 
 
 # Dependencies
