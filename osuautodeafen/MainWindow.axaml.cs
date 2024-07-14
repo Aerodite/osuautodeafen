@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices.JavaScript;
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Avalonia;
@@ -24,42 +22,41 @@ namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
-    Image blackBackground;
     private bool BlurEffectUpdate { get; set; }
     private readonly DispatcherTimer _mainTimer;
     private readonly DispatcherTimer _disposeTimer;
     private readonly DispatcherTimer _parallaxCheckTimer;
-    private Grid _blackBackground;
-    private HotKey _deafenKeybind;
-    private readonly TosuApi _tosuAPI;
-    private readonly FrostedGlassEffect _frostedGlassEffect;
-    private SettingsPanel _settingsPanel;
+    private Grid? _blackBackground;
+    private HotKey? _deafenKeybind;
+    private readonly TosuApi _tosuApi;
     private bool _isConstructorFinished = false;
     private double _mouseX;
     private double _mouseY;
-    private TextBlock _completionPercentageText;
-    public SharedViewModel ViewModel { get; set; } = new SharedViewModel();
-    private readonly StringBuilder _keyInput;
-    public static bool updateButtonClicked = false;
+    private SharedViewModel ViewModel { get; } = new();
     private bool IsBlackBackgroundDisplayed { get; set; }
     private DateTime _lastUpdate = DateTime.Now;
     private DateTime _lastUpdateCheck = DateTime.MinValue;
-    private DispatcherTimer _visibilityCheckTimer;
-    private Image blurredBackground;
-    private Image normalBackground;
-    bool hasDisplayed = false;
+    private DispatcherTimer? _visibilityCheckTimer;
+    private Image? _blurredBackground;
+    private Image? _normalBackground;
+    private bool _hasDisplayed = false;
 
     private UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private Bitmap? _currentBitmap;
-    private Bitmap? _previousBitmap;
-    private BitmapHolder? _bitmapHolder;
-    private Queue<Bitmap> _bitmapQueue = new Queue<Bitmap>(2);
+    //testing out a capacity of 0 for now, this means a ram-usage reduction of 50% 🤯
+    private readonly Queue<Bitmap> _bitmapQueue = new(0);
 
     public TimeSpan Interval { get; set; }
 
     private string? _currentBackgroundDirectory;
     public double MinCompletionPercentage { get; set; }
-    public object UpdateUrl { get; private set; }
+    public object? UpdateUrl { get; private set; }
+
+    private Key _lastKeyPressed = Key.None;
+    private DateTime _lastKeyPressTime = DateTime.MinValue;
+    private KeyModifiers _currentKeyModifiers = KeyModifiers.None;
+
+
 
     public MainWindow()
     {
@@ -67,19 +64,13 @@ public partial class MainWindow : Window
 
         SettingsPanel settingsPanel = new SettingsPanel();
 
-        _settingsPanel = new SettingsPanel();
+        var settingsPanel1 = new SettingsPanel();
 
         LoadSettings();
 
-        this.Icon = new WindowIcon(new Bitmap("Resources/oad.ico"));
+        this.Icon = new WindowIcon(new Bitmap(Path.Combine("Resources", "oad.ico")));
 
-        _tosuAPI = new TosuApi();
-
-        _frostedGlassEffect = new FrostedGlassEffect
-        {
-            HorizontalAlignment = HorizontalAlignment,
-            VerticalAlignment = VerticalAlignment
-        };
+        _tosuApi = new TosuApi();
 
         _disposeTimer = new DispatcherTimer
         {
@@ -93,19 +84,16 @@ public partial class MainWindow : Window
         };
         _parallaxCheckTimer.Tick += CheckParallaxSetting;
         _parallaxCheckTimer.Start();
-        {
-            Interval = TimeSpan.FromMilliseconds(100);
-        };
         _mainTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(100)
+            Interval = TimeSpan.FromMilliseconds(200)
         };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
 
         InitializeVisibilityCheckTimer();
 
-        _keyInput = new StringBuilder();
+        new StringBuilder();
 
         var oldContent = this.Content;
 
@@ -115,18 +103,21 @@ public partial class MainWindow : Window
         {
             Children =
             {
-                _frostedGlassEffect,
                 new ContentControl { Content = oldContent },
             }
         };
 
         InitializeViewModel();
 
+        this.PointerMoved += OnMouseMove;
+
         DataContext = ViewModel;
 
-        var slider = this.FindControl<Slider>("Slider");
+        //dogshit slider logic that i would rather not reimplement
 
-        var sliderManager = new SliderManager(_settingsPanel, slider);
+        // var slider = this.FindControl<Slider>("Slider");
+        //
+        // var sliderManager = new SliderManager(settingsPanel1, slider);
 
         settingsPanel.Transitions = new Transitions
         {
@@ -138,8 +129,8 @@ public partial class MainWindow : Window
             }
         };
 
-        Deafen deafen = new Deafen(_tosuAPI, _settingsPanel);
-        this.DataContext = _settingsPanel;
+        Deafen deafen = new Deafen(_tosuApi, settingsPanel1);
+        this.DataContext = settingsPanel1;
         ExtendClientAreaToDecorationsHint = true;
         ExtendClientAreaTitleBarHeightHint = -1;
         ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
@@ -170,8 +161,6 @@ public partial class MainWindow : Window
         this.CanResize = false;
         this.Closing += MainWindow_Closing;
         _isConstructorFinished = true;
-
-
     }
 
     private void InitializeVisibilityCheckTimer()
@@ -186,10 +175,11 @@ public partial class MainWindow : Window
 
     private void VisibilityCheckTimer_Tick(object? sender, EventArgs e)
     {
-        blurredBackground.IsVisible = ViewModel.IsBlurEffectEnabled;
-        normalBackground.IsVisible = !ViewModel.IsBlurEffectEnabled;
+        _blurredBackground.IsVisible = ViewModel.IsBlurEffectEnabled;
+        _normalBackground.IsVisible = !ViewModel.IsBlurEffectEnabled;
     }
 
+    //Show the update notification bar if an update is available
     private async void InitializeViewModel()
     {
         await _updateChecker.FetchLatestVersionAsync();
@@ -201,6 +191,8 @@ public partial class MainWindow : Window
 
         DataContext = ViewModel;
     }
+
+    //Fetch updates every 20 minutes
     private async void CheckForUpdatesIfNeeded()
     {
         // Avoid checking for updates too frequently
@@ -225,12 +217,14 @@ public partial class MainWindow : Window
         }
     }
 
+    //Grab the keybind from the settings file and update the display
     private void UpdateDeafenKeybindDisplay()
     {
         var currentKeybind = RetrieveKeybindFromSettings();
         DeafenKeybindButton.Content = currentKeybind.ToString();
     }
 
+    //Save the keybind to the settings file
     private void DeafenKeybindButton_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.IsKeybindCaptureFlyoutOpen = !ViewModel.IsKeybindCaptureFlyoutOpen;
@@ -247,9 +241,8 @@ public partial class MainWindow : Window
             }
         }
     }
-    private Key _lastKeyPressed = Key.None;
-    private DateTime _lastKeyPressTime = DateTime.MinValue;
 
+    //Capture the keybind and save it to the settings file
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
@@ -337,14 +330,14 @@ public partial class MainWindow : Window
         return "Set Keybind";
     }
 
-    public event PropertyChangedEventHandler PropertyChanged;
+    public event PropertyChangedEventHandler? PropertyChanged;
     protected virtual void OnPropertyChanged(string propertyName)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
 
-    public HotKey DeafenKeybind
+    public HotKey? DeafenKeybind
     {
         get { return _deafenKeybind; }
         set
@@ -413,14 +406,14 @@ public partial class MainWindow : Window
                     if (settings.Length == 2 && bool.TryParse(settings[1], out bool parsedisFcRequired))
                     {
                         ViewModel.IsFCRequired = parsedisFcRequired;
-                        this.FindControl<CheckBox>("FCToggle").IsChecked = parsedisFcRequired;
+                        this.FindControl<CheckBox>("FCToggle")!.IsChecked = parsedisFcRequired;
                     }
                 }
                 else
                 {
                     ViewModel.IsFCRequired = false;
                     SaveSettingsToFile(false, "IsFcRequired");
-                    this.FindControl<CheckBox>("FCToggle").IsChecked = false;
+                    this.FindControl<CheckBox>("FCToggle")!.IsChecked = false;
                 }
             }
             else
@@ -530,7 +523,7 @@ private void SaveSettingsToFile()
     string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "osuautodeafen", "settings.txt");
 
-    Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath));
+    Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath) ?? throw new InvalidOperationException());
 
     string[] settingsLines = new string[]
     {
@@ -543,10 +536,7 @@ private void SaveSettingsToFile()
     };
 
     //update updatedeafenkeybinddisplay with hotkey
-    if (ViewModel.DeafenKeybind != null)
-    {
-        UpdateDeafenKeybindDisplay();
-    }
+    UpdateDeafenKeybindDisplay();
 
 
     File.WriteAllLines(settingsFilePath, settingsLines);
@@ -555,11 +545,11 @@ private void SaveSettingsToFile()
 
     public class HotKey
     {
-        public Key Key { get; set; }
-        public KeyModifiers ModifierKeys { get; set; }
+        public Key Key { get; init; }
+        public KeyModifiers ModifierKeys { get; init; }
         public override string ToString()
         {
-            List<string> parts = new List<string>();
+            List<string> parts = [];
 
             if (ModifierKeys.HasFlag(KeyModifiers.Control))
                 parts.Add("Ctrl");
@@ -600,9 +590,6 @@ private void SaveSettingsToFile()
 
     }
 
-    private KeyModifiers _currentKeyModifiers = KeyModifiers.None;
-
-
     private bool IsModifierKey(Key key)
     {
         return key == Key.LeftCtrl || key == Key.RightCtrl ||
@@ -625,22 +612,31 @@ private void SaveSettingsToFile()
                 if (settings.Length == 2 && bool.TryParse(settings[1], out bool parsedIsBackgroundEnabled))
                 {
                     ViewModel.IsBackgroundEnabled = parsedIsBackgroundEnabled;
-                    this.FindControl<CheckBox>("BackgroundToggle").IsChecked = parsedIsBackgroundEnabled;
+                    this.FindControl<CheckBox>("BackgroundToggle")!.IsChecked = parsedIsBackgroundEnabled;
                 }
             }
             else
             {
                 ViewModel.IsBackgroundEnabled = true;
                 SaveSettingsToFile(true, "IsBackgroundEnabled");
-                this.FindControl<CheckBox>("BackgroundToggle").IsChecked = true;
+                this.FindControl<CheckBox>("BackgroundToggle")!.IsChecked = true;
             }
         }
         else
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath));
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath) ?? throw new InvalidOperationException());
             ViewModel.IsBackgroundEnabled = true;
             SaveSettingsToFile(true, "IsBackgroundEnabled");
-            this.FindControl<CheckBox>("BackgroundToggle").IsChecked = true;
+            this.FindControl<CheckBox>("BackgroundToggle")!.IsChecked = true;
+        }
+
+        if (!ViewModel.IsBackgroundEnabled)
+        {
+            _currentBitmap?.Dispose();
+            _currentBitmap = null; // Ensure _currentBitmap is null after disposal to avoid accessing a disposed object
+
+            var newBitmap = DisplayBlackBackground(); // Create a new Bitmap and assign it to _currentBitmap inside DisplayBlackBackground
+            UpdateUIWithNewBackground(newBitmap); // Pass the new Bitmap to UpdateUIWithNewBackground
         }
     }
 
@@ -659,22 +655,22 @@ private void SaveSettingsToFile()
                 if (settings.Length == 2 && bool.TryParse(settings[1], out bool parsedIsParallaxEnabled))
                 {
                     ViewModel.IsParallaxEnabled = parsedIsParallaxEnabled;
-                    this.FindControl<CheckBox>("ParallaxToggle").IsChecked = parsedIsParallaxEnabled;
+                    this.FindControl<CheckBox>("ParallaxToggle")!.IsChecked = parsedIsParallaxEnabled;
                 }
             }
             else
             {
                 ViewModel.IsParallaxEnabled = true;
                 SaveSettingsToFile(true, "IsParallaxEnabled");
-                this.FindControl<CheckBox>("ParallaxToggle").IsChecked = true;
+                this.FindControl<CheckBox>("ParallaxToggle")!.IsChecked = true;
             }
         }
         else
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath));
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath) ?? throw new InvalidOperationException());
             ViewModel.IsParallaxEnabled = true;
             SaveSettingsToFile(true, "IsParallaxEnabled");
-            this.FindControl<CheckBox>("ParallaxToggle").IsChecked = true;
+            this.FindControl<CheckBox>("ParallaxToggle")!.IsChecked = true;
         }
     }
 
@@ -689,8 +685,8 @@ private void SaveSettingsToFile()
         {
             try
             {
-                string[] lines = File.ReadAllLines(settingsFilePath);
-                string blurEffectSettingLine = Array.Find(lines, line => line.StartsWith("IsBlurEffectEnabled"));
+                string?[] lines = File.ReadAllLines(settingsFilePath);
+                string? blurEffectSettingLine = Array.Find(lines, line => line != null && line.StartsWith("IsBlurEffectEnabled"));
                 if (blurEffectSettingLine != null)
                 {
                     string[] parts = blurEffectSettingLine.Split('=');
@@ -718,9 +714,9 @@ private void SaveSettingsToFile()
             ViewModel.IsBlurEffectEnabled = defaultBlurEffectEnabled;
         }
 
-        this.FindControl<CheckBox>("BlurEffectToggle").IsChecked = ViewModel.IsBlurEffectEnabled;
+        this.FindControl<CheckBox>("BlurEffectToggle")!.IsChecked = ViewModel.IsBlurEffectEnabled;
 
-        UpdateBackground();
+        UpdateUIWithNewBackground(_currentBitmap);
     }
     private void DisposeTimer_Tick(object? sender, EventArgs e)
     {
@@ -734,7 +730,7 @@ private void SaveSettingsToFile()
     private void CompletionPercentageTextBox_TextInput(object sender, Avalonia.Input.TextInputEventArgs e)
     {
         Regex regex = new Regex("^[0-9]{1,2}$");
-        if (!regex.IsMatch(e.Text))
+        if (e.Text != null && !regex.IsMatch(e.Text))
         {
             e.Handled = true;
         }
@@ -762,7 +758,7 @@ private void SaveSettingsToFile()
     private void StarRatingTextBox_TextInput(object sender, Avalonia.Input.TextInputEventArgs e)
     {
         Regex regex = new Regex("^[0-9]{1,2}$");
-        if (!regex.IsMatch(e.Text))
+        if (e.Text != null && !regex.IsMatch(e.Text))
         {
             e.Handled = true;
         }
@@ -790,14 +786,14 @@ private void SaveSettingsToFile()
     private void PPTextBox_TextInput(object sender, Avalonia.Input.TextInputEventArgs e)
     {
         Regex regex = new Regex("^[0-9]{1,4}$");
-        if (!regex.IsMatch(e.Text))
+        if (e.Text != null && !regex.IsMatch(e.Text))
         {
             e.Handled = true;
         }
     }
     private void PPTextBox_LostFocus(object sender, RoutedEventArgs e)
     {
-        if (int.TryParse(PPTextBox.Text, out int parsedPP))
+        if (int.TryParse(PPTextBox.Text, out var parsedPP))
         {
             if (parsedPP >= 0 && parsedPP <= 9999)
             {
@@ -815,7 +811,7 @@ private void SaveSettingsToFile()
         }
     }
 
-    public void SaveSettingsToFile(object value, string settingName)
+    private void SaveSettingsToFile(object value, string settingName)
     {
         string settingsFilePath =
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen",
@@ -846,255 +842,182 @@ private void SaveSettingsToFile()
         }
     }
 
-     public async void UpdateBackground(object? sender, EventArgs? e)
+    private void UpdateBackground(object? sender, EventArgs? e)
     {
-        //await UpdateChecker.CheckForUpdates();
         if (!ViewModel.IsBackgroundEnabled)
         {
-            if (!ViewModel.IsBackgroundEnabled && !IsBlackBackgroundDisplayed)
+            if (_blurredBackground != null)
             {
-                DisplayBlackBackground();
-                IsBlackBackgroundDisplayed = true;
-
+                _blurredBackground.IsVisible = false;
             }
-            return;
+            if (_normalBackground != null)
+            {
+                _normalBackground.IsVisible = false;
+            }
+            _currentBitmap?.Dispose();
+            _currentBitmap = null;
         }
-
-
-        if (_blackBackground != null)
+        else
         {
-            _blackBackground.Children.Clear();
-            _blackBackground = null;
-        }
-
-        try
-        {
-
-            var background = new Background();
-            var fullBackgroundDirectory = _tosuAPI.GetBackgroundPath();
-
-            if ((fullBackgroundDirectory == _currentBackgroundDirectory) && !IsBlackBackgroundDisplayed)
+            // If the background is enabled, check if a new background needs to be loaded
+            var backgroundPath = _tosuApi.GetBackgroundPath();
+            if (_currentBitmap == null || backgroundPath != _currentBackgroundDirectory)
             {
-                return;
-            }
-
-            //Console.WriteLine(fullBackgroundDirectory);
-
-            if (!File.Exists(fullBackgroundDirectory))
-            {
-                Console.WriteLine("The file does not exist: " + fullBackgroundDirectory);
-                return;
-            }
-
-            if (fullBackgroundDirectory == null)
-            {
-                return;
-            }
-
-            Bitmap? newBitmap = File.Exists(fullBackgroundDirectory)
-                ? new Bitmap(fullBackgroundDirectory)
-                : CreateBlackBitmap();
-
-            _currentBitmap = newBitmap;
-
-            IsBlackBackgroundDisplayed = false;
-
-            BlurEffect blur = null;
-
-
-                blur = new BlurEffect
+                if (!File.Exists(backgroundPath))
                 {
-                    Radius = 17.27,
-                };
+                    Console.WriteLine($"The file does not exist: {backgroundPath}");
+                    DisplayBlackBackground(); // Fallback to black background
+                    return;
+                }
 
+                Bitmap newBitmap;
+                try
+                {
+                    newBitmap = new Bitmap(backgroundPath);
+                }
+                catch
+                {
+                    DisplayBlackBackground(); // Fallback to black background
+                    return;
+                }
 
-            blurredBackground = new Image
-            {
-                Source = _currentBitmap,
-                Stretch = Stretch.UniformToFill,
-                Opacity = 0.5,
-                Effect = blur,
-                ZIndex = -1
-            };
-
-            normalBackground = new Image
-            {
-                Source = _currentBitmap,
-                Stretch = Stretch.UniformToFill,
-                Opacity = 0.5,
-                ZIndex = -1
-            };
-
-            //dont move this to a higher line or the program will crash and memory leak. lol.
-            //that was a fun 2 hours :)
-            if (this.Content is Grid mainGrid && mainGrid.Children[1] is Grid innerGrid)
-            {
-                innerGrid.Children.Clear();
+                _currentBitmap?.Dispose();
+                _currentBitmap = newBitmap;
+                IsBlackBackgroundDisplayed = false;
+                _currentBackgroundDirectory = backgroundPath;
+                UpdateUIWithNewBackground(newBitmap);
             }
 
-
-            //grid hell down below
-
-            var oldContent = this.Content;
-
-            this.Content = null;
-
-            var imageGrid = new Grid();
-
-            if (_blackBackground != null)
+            if (_blurredBackground != null && _normalBackground != null)
             {
-                _blackBackground.Children.Clear();
-                _blackBackground = null;
+                _blurredBackground.IsVisible = ViewModel.IsBlurEffectEnabled;
+                _normalBackground.IsVisible = !ViewModel.IsBlurEffectEnabled;
             }
-            
-            
-            imageGrid.Children.Add(blurredBackground);
-            imageGrid.Children.Add(normalBackground);
-
-            blurredBackground.IsVisible = ViewModel.IsBlurEffectEnabled;
-            normalBackground.IsVisible = !ViewModel.IsBlurEffectEnabled;
-
-
-            double offsetX = (_mouseX - this.Width / 2) / 20;
-            double offsetY = (_mouseY - this.Height / 2) / 20;
-
-            var transformGroup = new TransformGroup();
-            transformGroup.Children.Add(new ScaleTransform(1.5, 1.5));
-
-            var grid = new Grid();
-            grid.ZIndex = -1;
-
-            if (oldContent is ContentControl oldContentControl)
-            {
-                oldContentControl.Content = null;
-            }
-
-            if (_frostedGlassEffect.Parent is Grid frostedGlassParent)
-            {
-                frostedGlassParent.Children.Remove(_frostedGlassEffect);
-            }
-
-            grid.Children.Add(new ContentControl { Content = oldContent });
-            grid.Children.Add(imageGrid);
-            imageGrid.ZIndex = -1;
-
-            var frostedGlassGrid = new Grid();
-            frostedGlassGrid.ZIndex = -1;
-            frostedGlassGrid.Children.Add(_frostedGlassEffect);
-
-            grid.Children.Add(frostedGlassGrid);
-            frostedGlassGrid.ZIndex = -1;
-
-            this.Content = grid;
-            grid.ZIndex = -1;
-
-            _currentBackgroundDirectory = fullBackgroundDirectory;
         }
-        catch (Exception ex)
+    }
+
+    private void UpdateUIWithNewBackground(Bitmap bitmap)
+    {
+        var imageControl = new Image
         {
-            Console.WriteLine(ex);
+            Source = bitmap,
+            Stretch = Stretch.UniformToFill,
+            Opacity = 0.5,
+            ZIndex = -1,
+        };
+
+        if (ViewModel.IsBlurEffectEnabled)
+        {
+            imageControl.Effect = new BlurEffect { Radius = 17.27 };
+        }
+
+        if (this.Content is Grid mainGrid)
+        {
+            Grid? backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
+            if (backgroundLayer == null)
+            {
+                backgroundLayer = new Grid { Name = "BackgroundLayer", ZIndex = -1 };
+                mainGrid.Children.Insert(0, backgroundLayer);
+            }
+            else
+            {
+                backgroundLayer.Children.Clear();
+            }
+
+            backgroundLayer.Children.Add(imageControl);
+            backgroundLayer.RenderTransform = new ScaleTransform(1.05, 1.05);
+        }
+        else
+        {
+            // Fallback: If the main content is not a Grid or not structured as expected, replace it entirely
+            var newContentGrid = new Grid();
+            newContentGrid.Children.Add(imageControl);
+            this.Content = newContentGrid;
+        }
+        if(ParallaxToggle.IsChecked == true){
+            ApplyParallax(_mouseX, _mouseY);
         }
     }
-    public void UpdateBackground()
+
+    private Bitmap CreateBlackBitmap(int width = 600, int height = 600)
     {
-        UpdateBackground(null, null);
+        var renderTargetBitmap = new RenderTargetBitmap(new PixelSize(width, height), new Vector(96, 96));
+        using (var drawingContext = renderTargetBitmap.CreateDrawingContext())
+        {
+            var rect = new Rect(0, 0, width, height);
+            var brush = new SolidColorBrush(Colors.Black);
+            drawingContext.FillRectangle(brush, rect);
+        }
+
+        using (var stream = new MemoryStream())
+        {
+            renderTargetBitmap.Save(stream);
+            stream.Position = 0; // Reset stream position to the beginning
+
+            return new Bitmap(stream);
+        }
     }
 
-    private Bitmap? CreateBlackBitmap()
+    private Bitmap DisplayBlackBackground()
     {
-        //im not even sure if theres a line of code that uses this as a backup. oh well.
-        var blackBitmap = new Bitmap("Resources/BlackBackground.png");
+        var blackBitmap = CreateBlackBitmap();
+        _currentBitmap = blackBitmap;
+        UpdateUIWithNewBackground(blackBitmap);
+        IsBlackBackgroundDisplayed = true;
         return blackBitmap;
     }
 
-    private void DisplayBlackBackground()
+    private void ApplyParallax(double mouseX, double mouseY)
     {
-        var blackBitmap = CreateBlackBitmap();
-
-        var imageGrid = new Grid();
-        imageGrid.Children.Add(new Image
+        if (_currentBitmap == null || ParallaxToggle.IsChecked == false)
         {
-            Source = blackBitmap,
-            Stretch = Stretch.UniformToFill,
-            Opacity = 0.5,
-            ZIndex = -1
-        });
-
-        if (this.Content is Grid mainGrid && mainGrid.Children[1] is Grid innerGrid)
-        {
-            innerGrid.Children.Clear();
+            return;
         }
+        double windowWidth = this.Width;
+        double windowHeight = this.Height;
+        double backgroundWidth = _currentBitmap.PixelSize.Width;
+        double backgroundHeight = _currentBitmap.PixelSize.Height;
 
-        var oldContent = this.Content;
+        double centerX = windowWidth / 2;
+        double centerY = windowHeight / 2;
 
-        this.Content = null;
+        double relativeMouseX = mouseX - centerX;
+        double relativeMouseY = mouseY - centerY;
 
-        var grid = new Grid();
-        grid.ZIndex = -1;
+        // Scaling factor to reduce movement intensity
+        double scaleFactor = 0.03;
 
-        if (oldContent is ContentControl oldContentControl)
+        double movementX = -(relativeMouseX * scaleFactor);
+        double movementY = -(relativeMouseY * scaleFactor);
+
+        // Ensure movement doesn't exceed maximum allowed movement
+        double maxMovement = 15;
+        movementX = Math.Max(-maxMovement, Math.Min(maxMovement, movementX));
+        movementY = Math.Max(-maxMovement, Math.Min(maxMovement, movementY));
+
+
+        if (this.Content is Grid mainGrid)
         {
-            oldContentControl.Content = null;
+            Grid? backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
+            if (backgroundLayer != null && backgroundLayer.Children.Count > 0)
+            {
+                var background = backgroundLayer.Children[0] as Image;
+                if (background != null)
+                {
+                    TranslateTransform translateTransform = new TranslateTransform(movementX, movementY);
+                    background.RenderTransform = translateTransform;
+                }
+            }
         }
-
-        if (_frostedGlassEffect.Parent is Grid frostedGlassParent)
-        {
-            frostedGlassParent.Children.Remove(_frostedGlassEffect);
-        }
-
-        grid.Children.Add(new ContentControl { Content = oldContent });
-        grid.Children.Add(imageGrid);
-        imageGrid.ZIndex = -1;
-
-        var frostedGlassGrid = new Grid();
-        frostedGlassGrid.ZIndex = -1;
-        frostedGlassGrid.Children.Add(_frostedGlassEffect);
-
-        grid.Children.Add(frostedGlassGrid);
-        frostedGlassGrid.ZIndex = -1;
-
-        this.Content = grid;
-        grid.ZIndex = -1;
-
-        _blackBackground = imageGrid;
     }
 
-    protected override void OnPointerMoved(PointerEventArgs e)
+    private void OnMouseMove(object sender, PointerEventArgs e)
     {
-        if (!ViewModel.IsParallaxEnabled)
-        {
-            return;
-        }
-
-        base.OnPointerMoved(e);
-
-        if ((DateTime.Now - _lastUpdate).TotalMilliseconds < 20)
-        {
-            return;
-        }
-
         var position = e.GetPosition(this);
         _mouseX = position.X;
         _mouseY = position.Y;
 
-        double offsetX = (_mouseX - this.Width / 2) / 20;
-        double offsetY = (_mouseY - this.Height / 2) / 20;
-
-        if (this.Content is Grid grid && grid.Children[1] is Grid imageGrid)
-        {
-            var transformGroup = new TransformGroup();
-
-            //without this the image will have an ugly black border if you move your cursor
-            transformGroup.Children.Add(new ScaleTransform(1.2, 1.2));
-
-            transformGroup.Children.Add(new TranslateTransform(-offsetX, -offsetY));
-
-            imageGrid.RenderTransform = transformGroup;
-
-            imageGrid.ZIndex = -1;
-        }
-
-        _lastUpdate = DateTime.Now;
+        ApplyParallax(_mouseX, _mouseY);
     }
 
     public void ResetButton_Click(object sender, RoutedEventArgs e)
@@ -1118,12 +1041,12 @@ private void SaveSettingsToFile()
     {
         var errorMessage = this.FindControl<TextBlock>("ErrorMessage");
 
-        errorMessage.Text = _tosuAPI.GetErrorMessage();
+        if (errorMessage != null) errorMessage.Text = _tosuApi.GetErrorMessage();
     }
 
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        _tosuAPI.Dispose();
+        _tosuApi.Dispose();
     }
 
     private void TosuAPI_MessageReceived(double completionPercentage)

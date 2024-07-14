@@ -6,6 +6,7 @@
         <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
         <ApplicationManifest>app.manifest</ApplicationManifest>
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <ItemGroup>
@@ -45,5 +46,7 @@
       <AvaloniaResource Include="Icons\crown-solid.png" />
       <None Remove="Icons\images-solid.png" />
       <AvaloniaResource Include="Icons\images-solid.png" />
+      <None Remove="Resources\oad.ico" />
+      <AvaloniaResource Include="Resources\oad.ico" />
     </ItemGroup>
 </Project>
