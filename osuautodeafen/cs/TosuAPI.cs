@@ -12,7 +12,6 @@ namespace osuautodeafen.cs
     public class TosuApi : IDisposable
     {
         private string _errorMessage = "";
-        public event Action<double>? MessageReceived;
         private ClientWebSocket _webSocket;
         private List<byte> _dynamicBuffer;
         private const int ChunkSize = 100000;
@@ -28,19 +27,26 @@ namespace osuautodeafen.cs
         private double _full;
         private double _firstObj;
         private double _rankedStatus;
-        private string settingsSongsDirectory;
-        private string fullPath;
-        private StringBuilder messageAccumulator = new StringBuilder();
+        private string? _settingsSongsDirectory;
+        private string? _fullPath;
+        private readonly StringBuilder _messageAccumulator = new StringBuilder();
 
         public event Action<int>? StateChanged;
         private const string WebSocketUri = "ws://127.0.0.1:24050/websocket/v2";
 
         public TosuApi()
         {
+            _timer = new Timer(Callback, null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
             _webSocket = new ClientWebSocket();
             _dynamicBuffer = new List<byte>();
-            ConnectAsync();
+            _ = ConnectAsync();
         }
+
+        private async void Callback(object? _)
+        {
+            await ConnectAsync();
+        }
+
         public string GetErrorMessage()
         {
             return _errorMessage;
@@ -48,6 +54,7 @@ namespace osuautodeafen.cs
 
         public async Task ConnectAsync()
         {
+            Console.WriteLine("Connecting to WebSocket...");
             if (_webSocket.State != WebSocketState.Open)
             {
                 try
@@ -79,8 +86,8 @@ namespace osuautodeafen.cs
                 {
                     try
                     {
-                        messageAccumulator.Append(Encoding.UTF8.GetString(_dynamicBuffer.ToArray(), 0, _dynamicBuffer.Count));
-                        var completeMessage = messageAccumulator.ToString();
+                        _messageAccumulator.Append(Encoding.UTF8.GetString(_dynamicBuffer.ToArray(), 0, _dynamicBuffer.Count));
+                        var completeMessage = _messageAccumulator.ToString();
                         var root = JsonDocument.Parse(completeMessage).RootElement;
                         string jsonString =
                             await Task.FromResult(
@@ -201,15 +208,15 @@ namespace osuautodeafen.cs
                         if (root.TryGetProperty("folders", out var folders) &&
                             folders.TryGetProperty("songs", out var songs))
                         {
-                            settingsSongsDirectory = songs.GetString();
+                            _settingsSongsDirectory = songs.GetString();
                         }
 
                         if (root.TryGetProperty("directPath", out var directPath) &&
                             directPath.TryGetProperty("beatmapBackground", out var beatmapBackground))
                         {
-                            fullPath = beatmapBackground.GetString();
+                            _fullPath = beatmapBackground.GetString();
                         }
-                        string combinedPath = settingsSongsDirectory + "\\" + fullPath;
+                        string combinedPath = _settingsSongsDirectory + "\\" + _fullPath;
 
                     var jsonDocument = JsonDocument.Parse(jsonString);
                     var rootElement = jsonDocument.RootElement;
@@ -224,7 +231,7 @@ namespace osuautodeafen.cs
                     }
                     finally
                     {
-                        messageAccumulator.Clear();
+                        _messageAccumulator.Clear();
                     }
                     /////////////////////////////////////////////////////////////////
 
@@ -300,7 +307,7 @@ namespace osuautodeafen.cs
 
         public string GetBackgroundPath()
         {
-            return settingsSongsDirectory + "\\" + fullPath;
+            return _settingsSongsDirectory + "\\" + _fullPath;
         }
 
 
