@@ -387,7 +387,8 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(() => CheckParallaxSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(() => UpdateErrorMessage(sender, e));
         Dispatcher.UIThread.InvokeAsync(() => CheckBlurEffectSetting(sender, e));
-        Dispatcher.UIThread.InvokeAsync(() => UpdateDeafenKeybindDisplay());
+        Dispatcher.UIThread.InvokeAsync(UpdateDeafenKeybindDisplay);
+        Dispatcher.UIThread.InvokeAsync(() => CheckMissUndeafenSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(CheckForUpdatesIfNeeded);
     }
     private void CheckIsFCRequiredSetting(object? sender, EventArgs? e)
@@ -470,6 +471,7 @@ public partial class MainWindow : Window
         ViewModel.IsParallaxEnabled = true;
         ViewModel.IsBlurEffectEnabled = true;
         ViewModel.IsFCRequired = true;
+        ViewModel.UndeafenAfterMiss = false;
         SaveSettingsToFile();
         return;
     }
@@ -489,32 +491,44 @@ public partial class MainWindow : Window
                 {
                     ViewModel.MinCompletionPercentage = parsedPercentage;
                 }
+
                 break;
             case "StarRating":
                 if (int.TryParse(settings[1], out int parsedRating))
                 {
                     ViewModel.StarRating = parsedRating;
                 }
+
                 break;
             case "PerformancePoints":
                 if (int.TryParse(settings[1], out int parsedPP))
                 {
                     ViewModel.PerformancePoints = parsedPP;
                 }
+
                 break;
             case "IsParallaxEnabled":
                 if (bool.TryParse(settings[1], out bool parsedIsParallaxEnabled))
                 {
                     ViewModel.IsParallaxEnabled = parsedIsParallaxEnabled;
                 }
+
                 break;
             case "IsBlurEffectEnabled":
                 if (bool.TryParse(settings[1], out bool parsedIsBlurEffectEnabled))
                 {
                     ViewModel.IsBlurEffectEnabled = parsedIsBlurEffectEnabled;
                 }
+
                 break;
-        }
+            case "UndeafenAfterMiss":
+                if (bool.TryParse(settings[1], out bool parsedUndeafenAfterMiss))
+                {
+                    ViewModel.UndeafenAfterMiss = parsedUndeafenAfterMiss;
+                }
+
+                break;
+    }
     }
 }
 
@@ -637,6 +651,40 @@ private void SaveSettingsToFile()
 
             var newBitmap = DisplayBlackBackground(); // Create a new Bitmap and assign it to _currentBitmap inside DisplayBlackBackground
             UpdateUIWithNewBackground(newBitmap); // Pass the new Bitmap to UpdateUIWithNewBackground
+        }
+    }
+
+    private void CheckMissUndeafenSetting(object? sender, EventArgs? e)
+    {
+        string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "settings.txt");
+
+        if (File.Exists(settingsFilePath))
+        {
+            string[] lines = File.ReadAllLines(settingsFilePath);
+            var missUndeafenSettingLine = Array.Find(lines, line => line.StartsWith("UndeafenAfterMiss"));
+            if (missUndeafenSettingLine != null)
+            {
+                var settings = missUndeafenSettingLine.Split('=');
+                if (settings.Length == 2 && bool.TryParse(settings[1], out bool parsedUndeafenAfterMiss))
+                {
+                    ViewModel.UndeafenAfterMiss = parsedUndeafenAfterMiss;
+                    this.FindControl<CheckBox>("UndeafenOnMiss")!.IsChecked = parsedUndeafenAfterMiss;
+                }
+            }
+            else
+            {
+                ViewModel.UndeafenAfterMiss = true;
+                SaveSettingsToFile(true, "UndeafenAfterMiss");
+                this.FindControl<CheckBox>("UndeafenOnMiss")!.IsChecked = true;
+            }
+        }
+        else
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath) ?? throw new InvalidOperationException());
+            ViewModel.UndeafenAfterMiss = true;
+            SaveSettingsToFile(true, "UndeafenAfterMiss");
+            this.FindControl<CheckBox>("UndeafenOnMiss")!.IsChecked = true;
         }
     }
 
@@ -934,7 +982,9 @@ private void SaveSettingsToFile()
             newContentGrid.Children.Add(imageControl);
             this.Content = newContentGrid;
         }
-        if(ParallaxToggle.IsChecked == true){
+
+        if (ParallaxToggle.IsChecked == true && BackgroundToggle.IsChecked == true)
+        {
             ApplyParallax(_mouseX, _mouseY);
         }
     }
@@ -969,14 +1019,17 @@ private void SaveSettingsToFile()
 
     private void ApplyParallax(double mouseX, double mouseY)
     {
-        if (_currentBitmap == null || ParallaxToggle.IsChecked == false)
+        if (_currentBitmap == null || ParallaxToggle.IsChecked == false || BackgroundToggle.IsChecked == false)
+        {
+            return;
+        }
+        //if cursor isnt on window return
+        if (mouseX < 0 || mouseY < 0 || mouseX > this.Width || mouseY > this.Height)
         {
             return;
         }
         double windowWidth = this.Width;
         double windowHeight = this.Height;
-        double backgroundWidth = _currentBitmap.PixelSize.Width;
-        double backgroundHeight = _currentBitmap.PixelSize.Height;
 
         double centerX = windowWidth / 2;
         double centerY = windowHeight / 2;
@@ -1013,6 +1066,11 @@ private void SaveSettingsToFile()
 
     private void OnMouseMove(object sender, PointerEventArgs e)
     {
+        if (ParallaxToggle.IsChecked == false || BackgroundToggle.IsChecked == false)
+        {
+            return;
+        }
+
         var position = e.GetPosition(this);
         _mouseX = position.X;
         _mouseY = position.Y;

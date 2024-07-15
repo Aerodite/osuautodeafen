@@ -85,6 +85,7 @@ namespace osuautodeafen
         private void FileCheckTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
             _viewModel.UpdateIsFCRequired();
+            _viewModel.UpdateUndeafenAfterMiss();
             string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "osuautodeafen", "settings.txt");
             if (File.Exists(settingsFilePath))
@@ -112,7 +113,7 @@ namespace osuautodeafen
             }
             else
             {
-                MinCompletionPercentage = 75;
+                MinCompletionPercentage = 60;
                 StarRating = 0;
                 PerformancePoints = 0;
             }
@@ -137,8 +138,9 @@ namespace osuautodeafen
             var rankedStatus = _tosuAPI.GetRankedStatus();
             bool hitOneCircle;
             bool isPracticeDifficulty;
-
+            bool didHitOneCircle = false;
             hitOneCircle = maxCombo != 0;
+
 
             isPracticeDifficulty = rankedStatus == 1;
 
@@ -148,40 +150,52 @@ namespace osuautodeafen
 
             if (_viewModel.IsFCRequired)
             {
+                // If the user wants to deafen after a full combo
                 if (_isPlaying && isFullCombo && completionPercentage >= MinCompletionPercentage && !_deafened && isStarRatingMet && isPerformancePointsMet && !_deafened && hitOneCircle && !isPracticeDifficulty)
                 {
                     ToggleDeafenState();
                     _deafened = true;
                     _wasFullCombo = true;
                     Console.WriteLine("1");
+                    didHitOneCircle = true;
                 }
-                else if (_wasFullCombo && !isFullCombo && _deafened && !isPracticeDifficulty)
+                // If the user wants to undeafen after a combo break
+                if (_viewModel.UndeafenAfterMiss)
                 {
-                    ToggleDeafenState();
-                    _deafened = false;
-                    _wasFullCombo = false;
-                    Console.WriteLine("2");
+                    if (_wasFullCombo && !isFullCombo && _deafened && !isPracticeDifficulty)
+                    {
+                        ToggleDeafenState();
+                        _deafened = false;
+                        _wasFullCombo = false;
+                        Console.WriteLine("2");
+                        didHitOneCircle = true;
+                    }
                 }
+                // If the playing state was exited during a full combo run
                 if (!_isPlaying && _wasFullCombo && _deafened)
                 {
                     ToggleDeafenState();
                     _deafened = false;
                     _wasFullCombo = false;
                     Console.WriteLine("6");
+                    didHitOneCircle = false;
                 }
             }
             else
             {
+                // If the user wants to deafen after a certain percentage
                 if (_isPlaying && !_deafened && completionPercentage >= MinCompletionPercentage && isStarRatingMet && isPerformancePointsMet && hitOneCircle && !isPracticeDifficulty)
                 {
                     ToggleDeafenState();
                     _deafened = true;
                     Console.WriteLine("3");
+                    didHitOneCircle = true;
                 }
             }
 
             if (!_isPlaying && _deafened)
             {
+                didHitOneCircle = false;
                 if (!_viewModel.IsFCRequired)
                 {
                     ToggleDeafenState();
@@ -193,6 +207,14 @@ namespace osuautodeafen
                     _deafened = false;
                     Console.WriteLine("5");
                 }
+            }
+
+            // This is assuming a restart occured.
+            if (0 >= completionPercentage && _deafened)
+            {
+                ToggleDeafenState();
+                _deafened = false;
+                Console.WriteLine("7");
             }
         }
 

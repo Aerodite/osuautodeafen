@@ -14,7 +14,6 @@ namespace osuautodeafen.cs
         private string _errorMessage = "";
         private ClientWebSocket _webSocket;
         private List<byte> _dynamicBuffer;
-        private const int ChunkSize = 100000;
         private Timer _timer;
         private double _completionPercentage;
         private double _fullSR;
@@ -30,21 +29,50 @@ namespace osuautodeafen.cs
         private string? _settingsSongsDirectory;
         private string? _fullPath;
         private readonly StringBuilder _messageAccumulator = new StringBuilder();
+        private Timer _reconnectTimer;
+        private int _rawBanchoStatus = -1; // Default to -1 to indicate uninitialized
+
 
         public event Action<int>? StateChanged;
         private const string WebSocketUri = "ws://127.0.0.1:24050/websocket/v2";
 
         public TosuApi()
         {
-            _timer = new Timer(Callback, null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
             _webSocket = new ClientWebSocket();
             _dynamicBuffer = new List<byte>();
+            _reconnectTimer = new Timer(ReconnectTimerCallback, null, Timeout.Infinite, 300000);
             _ = ConnectAsync();
         }
 
-        private async void Callback(object? _)
+        private async void ReconnectTimerCallback(object state)
         {
-            await ConnectAsync();
+            if (_rawBanchoStatus != 2)
+            {
+                if (_webSocket != null && _webSocket.State == WebSocketState.Open)
+                {
+                    try
+                    {
+                        await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Reconnecting", CancellationToken.None);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error closing WebSocket: {ex.Message}");
+                    }
+                }
+
+                _webSocket?.Dispose();
+                _webSocket = new ClientWebSocket();
+
+                try
+                {
+                    Console.WriteLine("Attempting to reconnect...");
+                    await ConnectAsync();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to reconnect: {ex.Message}");
+                }
+            }
         }
 
         public string GetErrorMessage()
@@ -52,33 +80,53 @@ namespace osuautodeafen.cs
             return _errorMessage;
         }
 
-        public async Task ConnectAsync()
+        public async Task ConnectAsync(CancellationToken cancellationToken = default)
         {
+            TosuLauncher.EnsureTosuRunning();
+
             Console.WriteLine("Connecting to WebSocket...");
-            if (_webSocket.State != WebSocketState.Open)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                try
+                if (_webSocket == null || _webSocket.State != WebSocketState.Open)
                 {
-                    await _webSocket.ConnectAsync(new Uri(WebSocketUri), CancellationToken.None);
-                    await ReceiveAsync();
+                    try
+                    {
+                        _webSocket?.Dispose();
+                        _webSocket = new ClientWebSocket();
+                        await _webSocket.ConnectAsync(new Uri(WebSocketUri), cancellationToken);
+                        Console.WriteLine("Connected to WebSocket.");
+                        _reconnectTimer.Change(300000, Timeout.Infinite);
+                        await ReceiveAsync();
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to connect: {ex.Message}. Retrying in 2 seconds...");
+                        await Task.Delay(2000, cancellationToken);
+                        TosuLauncher.EnsureTosuRunning();
+                    }
                 }
-                catch (Exception ex)
+                else
                 {
-                    _errorMessage = $"Failed to connect: {ex.Message}";
+                    break;
                 }
             }
         }
 
         public async Task<JsonDocument?> ReceiveAsync()
         {
-            var temporaryBuffer = new byte[ChunkSize];
+            const int bufferSize = 4096;
+            byte[] buffer = new byte[bufferSize];
+            var memoryBuffer = new Memory<byte>(buffer);
+            ValueWebSocketReceiveResult result;
+
             while (_webSocket.State == WebSocketState.Open)
             {
-                WebSocketReceiveResult result;
+                _dynamicBuffer.Clear(); // Ensure the buffer is clear before receiving new data
                 do
                 {
-                    result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(temporaryBuffer), CancellationToken.None);
-                    _dynamicBuffer.AddRange(new ArraySegment<byte>(temporaryBuffer, 0, result.Count));
+                    result = await _webSocket.ReceiveAsync(memoryBuffer, CancellationToken.None);
+                    _dynamicBuffer.AddRange(new ArraySegment<byte>(buffer, 0, result.Count));
                 }
                 while (!result.EndOfMessage);
 
@@ -198,6 +246,7 @@ namespace osuautodeafen.cs
                                 {
                                     int rawBanchoStatus = banchoStatusNumber.GetInt32();
                                     StateChanged?.Invoke(rawBanchoStatus);
+                                    _rawBanchoStatus = rawBanchoStatus;
                                     if (rawBanchoStatus == 2)
                                     {
 
@@ -313,6 +362,7 @@ namespace osuautodeafen.cs
 
         public void Dispose()
         {
+            _reconnectTimer?.Dispose();
             _timer?.Dispose();
             if (_webSocket != null)
             {

@@ -48,5 +48,7 @@
       <AvaloniaResource Include="Icons\images-solid.png" />
       <None Remove="Resources\oad.ico" />
       <AvaloniaResource Include="Resources\oad.ico" />
+      <None Remove="Icons\shooting-star-solid.png" />
+      <AvaloniaResource Include="Icons\shooting-star-solid.png" />
     </ItemGroup>
 </Project>
