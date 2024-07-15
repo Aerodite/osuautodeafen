@@ -146,6 +146,62 @@ public class SharedViewModel : INotifyPropertyChanged
         }
     }
 
+    private bool _UndeafenAfterMiss;
+
+    public bool UndeafenAfterMiss
+    {
+        get { return _UndeafenAfterMiss; }
+        set
+        {
+            if (_UndeafenAfterMiss != value)
+            {
+                _UndeafenAfterMiss = value;
+                OnPropertyChanged();
+
+                string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "settings.txt");
+
+                var lines = File.ReadAllLines(settingsFilePath);
+
+                var index = Array.FindIndex(lines, line => line.StartsWith("UndeafenAfterMiss"));
+
+                if (index != -1)
+                {
+                    lines[index] = $"UndeafenAfterMiss={value}";
+                }
+                else
+                {
+                    var newLines = new List<string>(lines) { $"UndeafenAfterMiss={value}" };
+                    lines = newLines.ToArray();
+                }
+
+                File.WriteAllLines(settingsFilePath, lines);
+            }
+        }
+
+    }
+
+    public void UpdateUndeafenAfterMiss()
+    {
+        string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "settings.txt");
+        if (File.Exists(settingsFilePath))
+        {
+            foreach (var line in File.ReadLines(settingsFilePath))
+            {
+                var settings = line.Split('=');
+                if (settings.Length == 2 && settings[0].Trim() == "UndeafenAfterMiss")
+                {
+                    UndeafenAfterMiss = bool.Parse(settings[1].Trim());
+                    Console.WriteLine($"Updated UndeafenAfterMiss to {UndeafenAfterMiss}");
+                    break;
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine("Settings file does not exist");
+        }
+    }
+
     private bool _isBlurEffectEnabled;
 
     public bool IsBlurEffectEnabled
