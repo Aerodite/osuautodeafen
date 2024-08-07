@@ -21,7 +21,7 @@ namespace osuautodeafen
         private bool _isPlaying = false;
         private bool _hasReachedMinPercent = false;
         private bool _deafened = false;
-        private double MinCompletionPercentage;
+        public double MinCompletionPercentage;
         private Timer _fileCheckTimer;
         public double StarRating;
         public double PerformancePoints;
@@ -42,9 +42,9 @@ namespace osuautodeafen
 
             _tosuAPI.StateChanged += TosuAPI_StateChanged;
 
-            _fileCheckTimer = new Timer(5000);
-            _fileCheckTimer.Elapsed += FileCheckTimer_Elapsed;
-            _fileCheckTimer.Start();
+            // _fileCheckTimer = new Timer(12500);
+            // _fileCheckTimer.Elapsed += FileCheckTimer_Elapsed;
+            // _fileCheckTimer.Start();
 
             string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "osuautodeafen", "settings.txt");
@@ -117,6 +117,10 @@ namespace osuautodeafen
                 StarRating = 0;
                 PerformancePoints = 0;
             }
+        }
+        public double GetMinCompletionPercentage()
+        {
+            return MinCompletionPercentage;
         }
 
         private void TosuAPI_StateChanged(int state)

@@ -183,11 +183,11 @@
                         <avalonia1:CartesianChart
                                 x:Name="PlotView"
                                 HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Width="400"
-                                Height="400"
-                                Margin="0,100,0,0"
-                                Background="Black"
+                                VerticalAlignment="Bottom"
+                                Width="370"
+                                Height="140"
+                                Margin="0,0,0,10"
+                                Background="#80000000"
                                 Foreground="White">
                                 <avalonia1:CartesianChart.XAxes>
                                         <skiaSharpView:Axis>
@@ -199,7 +199,7 @@
                                 <avalonia1:CartesianChart.YAxes>
                                         <skiaSharpView:Axis>
                                                 <skiaSharpView:Axis.LabelsPaint>
-                                                        <painting:SolidColorPaint Color="#FFFFFF" />
+                                                        <painting:SolidColorPaint Color="#000000" />
                                                 </skiaSharpView:Axis.LabelsPaint>
                                         </skiaSharpView:Axis>
                                 </avalonia1:CartesianChart.YAxes>

@@ -527,6 +527,12 @@ namespace osuautodeafen.cs
                     Graph = newGraph;
                     GraphDataUpdated?.Invoke(Graph);
                 }
+                else if(MainWindow.isCompPctLostFocus)
+                {
+                    Graph = newGraph;
+                    GraphDataUpdated?.Invoke(Graph);
+                    MainWindow.isCompPctLostFocus = false;
+                }
             }
             catch (Exception ex)
             {

@@ -19,6 +19,7 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
+using LiveChartsCore.Drawing;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
@@ -28,6 +29,13 @@ namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
+    private Deafen _deafen;
+
+    public static bool isCompPctLostFocus = false;
+    private LineSeries<ObservablePoint> _deafenMarker;
+    private double deafenProgressPercentage;
+    private double deafenTimestamp;
+    private SettingsPanel settingsPanel1;
     private bool BlurEffectUpdate { get; set; }
     private readonly DispatcherTimer _mainTimer;
     private readonly DispatcherTimer _disposeTimer;
@@ -47,6 +55,7 @@ public partial class MainWindow : Window
     private Image? _blurredBackground;
     private Image? _normalBackground;
     private bool _hasDisplayed = false;
+
     public GraphData? Graph { get; set; }
     public ISeries[] Series { get; set; }
     public Axis[] XAxes { get; set; }
@@ -62,7 +71,6 @@ public partial class MainWindow : Window
     public TimeSpan Interval { get; set; }
 
     private string? _currentBackgroundDirectory;
-    public double MinCompletionPercentage { get; set; }
     public object? UpdateUrl { get; private set; }
 
     private Key _lastKeyPressed = Key.None;
@@ -98,6 +106,7 @@ public partial class MainWindow : Window
         };
         _parallaxCheckTimer.Tick += CheckParallaxSetting;
         _parallaxCheckTimer.Start();
+
         _mainTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(200)
@@ -107,7 +116,7 @@ public partial class MainWindow : Window
 
         InitializeVisibilityCheckTimer();
 
-        new StringBuilder();
+        var stringBuilder = new StringBuilder();
 
         var oldContent = this.Content;
 
@@ -173,7 +182,6 @@ public partial class MainWindow : Window
             }
         };
 
-        Deafen deafen = new Deafen(_tosuApi, settingsPanel1);
         this.DataContext = settingsPanel1;
         ExtendClientAreaToDecorationsHint = true;
         ExtendClientAreaTitleBarHeightHint = -1;
@@ -207,11 +215,6 @@ public partial class MainWindow : Window
         _isConstructorFinished = true;
     }
 
-    public void UpdateGraphData(GraphData? graphData)
-    {
-        Graph = graphData;
-        UpdateChart(graphData);
-    }
 
     private void InitializeGraphDataThread()
     {
@@ -244,72 +247,92 @@ public partial class MainWindow : Window
     }
 
     // i hope i never have to touch arrays or graphs again due to this function alone.
-    public void UpdateChart(GraphData graphData)
+   public void UpdateChart(GraphData graphData)
+   {
+    var seriesList = new List<ISeries>();
+
+    foreach (var series in graphData.Series)
     {
-        var seriesList = new List<ISeries>();
+        var updatedValues = series.Data.ToList();
 
-        foreach (var series in graphData.Series)
+        var color = series.Name == "aim" ? new SKColor(0x00, 0xFF, 0x00, 192) : new SKColor(0x00, 0x00, 0xFF, 140); // Adjust transparency
+        var name = series.Name == "aim" ? "Aim" : "Speed";
+
+        var lineSeries = new LineSeries<ObservablePoint>
         {
-            var updatedValues = series.Data.ToList();
-
-            var color = series.Name == "aim" ? new SKColor(0xFF, 0x00, 0x00, 192) : new SKColor(0x00, 0x00, 0xFF, 140); // Adjust transparency
-            var name = series.Name == "aim" ? "Aim" : "Speed";
-
-            var lineSeries = new LineSeries<ObservablePoint>
-            {
-                Values = updatedValues.Select((value, index) => new ObservablePoint(index, value)).ToList(),
-                Fill = new SolidColorPaint { Color = color },
-                Stroke = new SolidColorPaint { Color = color },
-                Name = name,
-                GeometryFill = null,
-                GeometryStroke = null,
-                LineSmoothness = 1
-            };
-            seriesList.Add(lineSeries);
-        }
-
-
-        // round up the last value in the updated xa-xis array
-        double maxLimit = Math.Ceiling((double)graphData.XAxis.Last() / 1000);
-
-        Series = seriesList.ToArray();
-        XAxes = new Axis[]
-        {
-            new Axis
-            {
-                LabelsPaint = new SolidColorPaint(SKColors.White),
-                MinLimit = 0, // ensure the x-axis starts from 0
-                MaxLimit = maxLimit,
-                Labeler = value =>
-                {
-                    var timeSpan = TimeSpan.FromMinutes(value/60);
-                    return $"{(int)timeSpan.TotalMinutes}:{timeSpan.Seconds:D2}";
-                }
-            }
+            Values = updatedValues.Select((value, index) => new ObservablePoint(index, value)).ToList(),
+            Fill = new SolidColorPaint { Color = color },
+            Stroke = new SolidColorPaint { Color = color },
+            Name = name,
+            GeometryFill = null,
+            GeometryStroke = null,
+            LineSmoothness = 1,
+            EasingFunction = EasingFunctions.ExponentialOut,
+            TooltipLabelFormatter = value => $"{name}: {value}",
         };
-        YAxes = new Axis[]
-        {
-            new Axis { LabelsPaint = new SolidColorPaint(SKColors.White) }
-        };
-
-        PlotView.Series = Series;
-        PlotView.XAxes = XAxes;
-        PlotView.YAxes = YAxes;
+        seriesList.Add(lineSeries);
     }
 
-    public static ObservableCollection<ObservablePoint> Series1Values { get; } = new ObservableCollection<ObservablePoint>
+    // round up the last value in the updated x-axis array
+    double maxLimit = Math.Ceiling((double)graphData.XAxis.Last() / 1000);
+
+    Deafen deafen = new Deafen(_tosuApi, settingsPanel1);
+    deafenProgressPercentage = deafen.MinCompletionPercentage / 100.0;
+    double graphDuration = maxLimit;
+    deafenTimestamp = graphDuration * deafenProgressPercentage;
+
+    double maxYValue = graphData.Series.SelectMany(series => series.Data).Max();
+
+    var deafenMarker = new LineSeries<ObservablePoint>
     {
-        new ObservablePoint(0, 3),
-        new ObservablePoint(1, 5),
-        new ObservablePoint(2, 7)
+        Values = new List<ObservablePoint>
+        {
+            new ObservablePoint(deafenTimestamp, 0), // bottom-left corner
+            new ObservablePoint(deafenTimestamp, maxYValue), // top-left corner
+            new ObservablePoint(maxLimit, maxYValue), // top-right corner
+            new ObservablePoint(maxLimit, 0), // bottom-right corner
+            new ObservablePoint(deafenTimestamp, 0) // close the rectangle by returning to the bottom-left corner
+        },
+        Name = "Deafen Point",
+        Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00, 110), StrokeThickness = 3 }, // 70% opacity red
+        GeometryFill = null,
+        GeometryStroke = null,
+        LineSmoothness = 0
     };
 
-    public static ObservableCollection<ObservablePoint> Series2Values { get; } = new ObservableCollection<ObservablePoint>
+    seriesList.Add(deafenMarker);
+
+    Series = seriesList.ToArray();
+    XAxes = new Axis[]
     {
-        new ObservablePoint(0, 2),
-        new ObservablePoint(1, 4),
-        new ObservablePoint(2, 6)
+        new Axis
+        {
+            LabelsPaint = new SolidColorPaint(SKColors.White),
+            MinLimit = 0, // ensure the x-axis starts from 0
+            MaxLimit = maxLimit,
+            Padding = new Padding(2),
+            TextSize = 12,
+            Labeler = value =>
+            {
+                var timeSpan = TimeSpan.FromMinutes(value/60);
+                return $"{(int)timeSpan.TotalMinutes}:{timeSpan.Seconds:D2}";
+            }
+        }
     };
+    YAxes = new Axis[]
+    {
+        new Axis
+        {
+            LabelsPaint = new SolidColorPaint(SKColors.Transparent),
+            SeparatorsPaint = new SolidColorPaint(SKColors.Transparent)
+        }
+    };
+
+    PlotView.Series = Series;
+    PlotView.XAxes = XAxes;
+    PlotView.YAxes = YAxes;
+}
+
 
     //initialize the visibility check timer
     private void InitializeVisibilityCheckTimer()
@@ -538,6 +561,7 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(() => CheckMissUndeafenSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(CheckForUpdatesIfNeeded);
     }
+
     private void CheckIsFCRequiredSetting(object? sender, EventArgs? e)
     {
         {
@@ -822,7 +846,7 @@ private void SaveSettingsToFile()
             else
             {
                 ViewModel.UndeafenAfterMiss = true;
-                SaveSettingsToFile(true, "UndeafenAfterMiss");
+                SaveSettingsToFile(true, "UnAfterMiss");
                 this.FindControl<CheckBox>("UndeafenOnMiss")!.IsChecked = true;
             }
         }
@@ -948,6 +972,12 @@ private void SaveSettingsToFile()
         {
             CompletionPercentageTextBox.Text = ViewModel.MinCompletionPercentage.ToString();
         }
+
+        if (Graph != null)
+        {
+            UpdateChart(Graph);
+        }
+        isCompPctLostFocus = true;
     }
 
     private void StarRatingTextBox_TextInput(object sender, Avalonia.Input.TextInputEventArgs e)

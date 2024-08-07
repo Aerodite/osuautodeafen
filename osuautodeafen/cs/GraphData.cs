@@ -6,6 +6,7 @@ namespace osuautodeafen.cs
     {
         public List<Series> Series { get; set; }
         public List<int> XAxis { get; set; }
+        public List<double> YAxis { get; set; }
     }
 
     public class Series
