@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -11,10 +11,8 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
-using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -25,6 +23,7 @@ using LiveChartsCore.Drawing;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
+using osuautodeafen.cs.Screen;
 using SkiaSharp;
 using Path = System.IO.Path;
 
@@ -32,53 +31,42 @@ namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
-    private Deafen _deafen;
+    public static bool isCompPctLostFocus;
 
-    public static bool isCompPctLostFocus = false;
-    private LineSeries<ObservablePoint> _deafenMarker;
-    private double deafenProgressPercentage;
-    private double deafenTimestamp;
-    private SettingsPanel settingsPanel1;
-    private bool BlurEffectUpdate { get; set; }
-    private readonly DispatcherTimer _mainTimer;
-    private readonly DispatcherTimer _disposeTimer;
-    private readonly DispatcherTimer _parallaxCheckTimer;
-    private Grid? _blackBackground;
-    private HotKey? _deafenKeybind;
-    private readonly TosuApi _tosuApi;
-    private bool _isConstructorFinished = false;
-    private double _mouseX;
-    private double _mouseY;
-    private Thread _graphDataThread;
-    private SharedViewModel ViewModel { get; } = new();
-    private bool IsBlackBackgroundDisplayed { get; set; }
-    private DateTime _lastUpdate = DateTime.Now;
-    private DateTime _lastUpdateCheck = DateTime.MinValue;
-    private DispatcherTimer? _visibilityCheckTimer;
-    private Image? _blurredBackground;
-    private Image? _normalBackground;
-    private bool _hasDisplayed = false;
-
-    public GraphData? Graph { get; set; }
-    public ISeries[] Series { get; set; }
-    public Axis[] XAxes { get; set; }
-    public Axis[] YAxes { get; set; }
-
-
-
-    private UpdateChecker _updateChecker = UpdateChecker.GetInstance();
-    private Bitmap? _currentBitmap;
     //testing out a capacity of 0 for now, this means a ram-usage reduction of 50% 🤯
     private readonly Queue<Bitmap> _bitmapQueue = new(0);
-
-    public TimeSpan Interval { get; set; }
+    private readonly DispatcherTimer _disposeTimer;
+    private readonly DispatcherTimer _mainTimer;
+    private readonly DispatcherTimer _parallaxCheckTimer;
+    private readonly TosuApi _tosuApi;
+    private Grid? _blackBackground;
+    private Image? _blurredBackground;
+    private ScreenBlanker _screenBlanker;
 
     private string? _currentBackgroundDirectory;
-    public object? UpdateUrl { get; private set; }
+    private Bitmap? _currentBitmap;
+    private KeyModifiers _currentKeyModifiers = KeyModifiers.None;
+    private readonly Deafen _deafen;
+    private HotKey? _deafenKeybind;
+    private LineSeries<ObservablePoint> _deafenMarker;
+    private Thread _graphDataThread;
+    private bool _hasDisplayed = false;
+    private bool _isConstructorFinished;
 
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
-    private KeyModifiers _currentKeyModifiers = KeyModifiers.None;
+    private DateTime _lastUpdate = DateTime.Now;
+    private DateTime _lastUpdateCheck = DateTime.MinValue;
+    private double _mouseX;
+    private double _mouseY;
+    private Image? _normalBackground;
+
+
+    private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
+    private DispatcherTimer? _visibilityCheckTimer;
+    private double deafenProgressPercentage;
+    private double deafenTimestamp;
+    private SettingsPanel settingsPanel1;
 
     //<summary>
     // constructor for the ui and subsequent panels
@@ -87,17 +75,19 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        SettingsPanel settingsPanel = new SettingsPanel();
+        var settingsPanel = new SettingsPanel();
 
         var settingsPanel1 = new SettingsPanel();
 
         LoadSettings();
 
-        this.Icon = new WindowIcon("Resources/oad.ico");
+        Icon = new WindowIcon("Resources/oad.ico");
 
         _tosuApi = new TosuApi();
 
         _deafen = new Deafen(_tosuApi, settingsPanel1);
+
+        _screenBlanker = new ScreenBlanker(this);
 
         _disposeTimer = new DispatcherTimer
         {
@@ -123,11 +113,11 @@ public partial class MainWindow : Window
 
         var stringBuilder = new StringBuilder();
 
-        var oldContent = this.Content;
+        var oldContent = Content;
 
-        this.Content = null;
+        Content = null;
 
-        this.Content = new Grid
+        Content = new Grid
         {
             Children =
             {
@@ -137,7 +127,7 @@ public partial class MainWindow : Window
 
         InitializeViewModel();
 
-        this.PointerMoved += OnMouseMove;
+        PointerMoved += OnMouseMove;
 
         DataContext = ViewModel;
 
@@ -147,8 +137,8 @@ public partial class MainWindow : Window
 
 
         Series = new ISeries[] { };
-        XAxes = new Axis[] { new Axis { LabelsPaint = new SolidColorPaint(SKColors.White) } };
-        YAxes = new Axis[] { new Axis { LabelsPaint = new SolidColorPaint(SKColors.White) } };
+        XAxes = new Axis[] { new() { LabelsPaint = new SolidColorPaint(SKColors.White) } };
+        YAxes = new Axis[] { new() { LabelsPaint = new SolidColorPaint(SKColors.White) } };
         PlotView.Series = Series;
         PlotView.XAxes = XAxes;
         PlotView.YAxes = YAxes;
@@ -156,15 +146,15 @@ public partial class MainWindow : Window
         var series1 = new StackedAreaSeries<ObservablePoint>
         {
             Values = ChartData.Series1Values,
-            Fill = new SolidColorPaint { Color = new SkiaSharp.SKColor(0xFF, 0x00, 0x00) },
-            Stroke = new SolidColorPaint { Color = new SkiaSharp.SKColor(0xFF, 0x00, 0x00) }
+            Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00) },
+            Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00) }
         };
 
         var series2 = new StackedAreaSeries<ObservablePoint>
         {
             Values = ChartData.Series2Values,
-            Fill = new SolidColorPaint { Color = new SkiaSharp.SKColor(0x00, 0xFF, 0x00) },
-            Stroke = new SolidColorPaint { Color = new SkiaSharp.SKColor(0x00, 0xFF, 0x00) }
+            Fill = new SolidColorPaint { Color = new SKColor(0x00, 0xFF, 0x00) },
+            Stroke = new SolidColorPaint { Color = new SKColor(0x00, 0xFF, 0x00) }
         };
 
 
@@ -187,7 +177,7 @@ public partial class MainWindow : Window
             }
         };
 
-        this.DataContext = settingsPanel1;
+        DataContext = settingsPanel1;
         ExtendClientAreaToDecorationsHint = true;
         ExtendClientAreaTitleBarHeightHint = -1;
         ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
@@ -199,10 +189,7 @@ public partial class MainWindow : Window
         {
             var point = e.GetPosition(this);
             const int titleBarHeight = 34; // height of the title bar + an extra 2px of wiggle room
-            if (point.Y <= titleBarHeight)
-            {
-                BeginMoveDrag(e);
-            }
+            if (point.Y <= titleBarHeight) BeginMoveDrag(e);
         };
 
         InitializeKeybindButtonText();
@@ -213,11 +200,62 @@ public partial class MainWindow : Window
         PPTextBox.Text = ViewModel.PerformancePoints.ToString();
 
         BorderBrush = Brushes.Black;
-        this.Width = 600;
-        this.Height = 600;
-        this.CanResize = false;
-        this.Closing += MainWindow_Closing;
+        Width = 600;
+        Height = 600;
+        CanResize = false;
+        Closing += MainWindow_Closing;
         _isConstructorFinished = true;
+    }
+
+    private bool BlurEffectUpdate { get; set; }
+    private SharedViewModel ViewModel { get; } = new();
+    private bool IsBlackBackgroundDisplayed { get; set; }
+
+    public GraphData? Graph { get; set; }
+    public ISeries[] Series { get; set; }
+    public Axis[] XAxes { get; set; }
+    public Axis[] YAxes { get; set; }
+
+    public TimeSpan Interval { get; set; }
+    public object? UpdateUrl { get; }
+
+
+    public HotKey? DeafenKeybind
+    {
+        get => _deafenKeybind;
+        set
+        {
+            if (_deafenKeybind != value)
+            {
+                _deafenKeybind = value;
+                OnPropertyChanged(nameof(DeafenKeybind));
+                var button = this.FindControl<Button>("DeafenKeybindButton");
+                if (button != null) button.Content = value.ToString();
+            }
+        }
+    }
+
+    public void BlankEffectToggle_Checked(object sender, RoutedEventArgs e)
+    {
+            _screenBlanker.BlankScreens();
+    }
+
+    public void BlankEffectToggle_Unchecked(object sender, RoutedEventArgs e)
+    {
+            _screenBlanker.UnblankScreens();
+    }
+
+    public void BlankEffectToggle_IsCheckChanged(object sender, RoutedEventArgs e)
+    {
+        switch (_deafen._blankScreen)
+        {
+            case true:
+                _screenBlanker.BlankScreens();
+                break;
+            default:
+                _screenBlanker.UnblankScreens();
+                break;
+        }
     }
 
 
@@ -232,10 +270,7 @@ public partial class MainWindow : Window
     {
         while (true)
         {
-            if (Graph != null)
-            {
-                await Dispatcher.UIThread.InvokeAsync(() => UpdateChart(Graph));
-            }
+            if (Graph != null) await Dispatcher.UIThread.InvokeAsync(() => UpdateChart(Graph));
             Thread.Sleep(1000);
         }
     }
@@ -245,8 +280,10 @@ public partial class MainWindow : Window
         graphData.Series[0].Name = "aim";
         graphData.Series[1].Name = "speed";
 
-        ChartData.Series1Values = graphData.Series[0].Data.Select((value, index) => new ObservablePoint(index, value)).ToList();
-        ChartData.Series2Values = graphData.Series[1].Data.Select((value, index) => new ObservablePoint(index, value)).ToList();
+        ChartData.Series1Values = graphData.Series[0].Data.Select((value, index) => new ObservablePoint(index, value))
+            .ToList();
+        ChartData.Series2Values = graphData.Series[1].Data.Select((value, index) => new ObservablePoint(index, value))
+            .ToList();
 
         Dispatcher.UIThread.InvokeAsync(() => UpdateChart(graphData));
 
@@ -254,90 +291,93 @@ public partial class MainWindow : Window
     }
 
     // i hope i never have to touch arrays or graphs again due to this function alone.
-   public void UpdateChart(GraphData graphData)
-   {
-    var seriesList = new List<ISeries>();
-
-    foreach (var series in graphData.Series)
+    public void UpdateChart(GraphData graphData)
     {
-        var updatedValues = series.Data.ToList();
+        var seriesList = new List<ISeries>();
 
-        var color = series.Name == "aim" ? new SKColor(0x00, 0xFF, 0x00, 192) : new SKColor(0x00, 0x00, 0xFF, 140); // Adjust transparency
-        var name = series.Name == "aim" ? "Aim" : "Speed";
-
-        var lineSeries = new LineSeries<ObservablePoint>
+        foreach (var series in graphData.Series)
         {
-            Values = updatedValues.Select((value, index) => new ObservablePoint(index, value)).ToList(),
-            Fill = new SolidColorPaint { Color = color },
-            Stroke = new SolidColorPaint { Color = color },
-            Name = name,
+            var updatedValues = series.Data.ToList();
+
+            var color = series.Name == "aim"
+                ? new SKColor(0x00, 0xFF, 0x00, 192)
+                : new SKColor(0x00, 0x00, 0xFF, 140); // Adjust transparency
+            var name = series.Name == "aim" ? "Aim" : "Speed";
+
+            var lineSeries = new LineSeries<ObservablePoint>
+            {
+                Values = updatedValues.Select((value, index) => new ObservablePoint(index, value)).ToList(),
+                Fill = new SolidColorPaint { Color = color },
+                Stroke = new SolidColorPaint { Color = color },
+                Name = name,
+                GeometryFill = null,
+                GeometryStroke = null,
+                LineSmoothness = 1,
+                EasingFunction = EasingFunctions.ExponentialOut,
+                TooltipLabelFormatter = value => $"{name}: {value}"
+            };
+            seriesList.Add(lineSeries);
+        }
+
+        // round up the last value in the updated x-axis array
+        var maxLimit = Math.Ceiling((double)graphData.XAxis.Last() / 1000);
+
+        deafenProgressPercentage = _deafen.MinCompletionPercentage / 100.0;
+        var graphDuration = maxLimit;
+        deafenTimestamp = graphDuration * deafenProgressPercentage;
+
+        var maxYValue = graphData.Series.SelectMany(series => series.Data).Max();
+
+        var deafenMarker = new LineSeries<ObservablePoint>
+        {
+            Values = new List<ObservablePoint>
+            {
+                new(deafenTimestamp, 0), // bottom-left corner
+                new(deafenTimestamp, maxYValue), // top-left corner
+                new(maxLimit, maxYValue), // top-right corner
+                new(maxLimit, 0), // bottom-right corner
+                new(deafenTimestamp, 0) // close the rectangle by returning to the bottom-left corner
+            },
+            Name = "Deafen Point",
+            Stroke = new SolidColorPaint
+                { Color = new SKColor(0xFF, 0x00, 0x00, 110), StrokeThickness = 3 }, // 70% opacity red
             GeometryFill = null,
             GeometryStroke = null,
-            LineSmoothness = 1,
-            EasingFunction = EasingFunctions.ExponentialOut,
-            TooltipLabelFormatter = value => $"{name}: {value}",
+            LineSmoothness = 0
         };
-        seriesList.Add(lineSeries);
-    }
 
-    // round up the last value in the updated x-axis array
-    double maxLimit = Math.Ceiling((double)graphData.XAxis.Last() / 1000);
+        seriesList.Add(deafenMarker);
 
-    deafenProgressPercentage = _deafen.MinCompletionPercentage / 100.0;
-    double graphDuration = maxLimit;
-    deafenTimestamp = graphDuration * deafenProgressPercentage;
-
-    double maxYValue = graphData.Series.SelectMany(series => series.Data).Max();
-
-    var deafenMarker = new LineSeries<ObservablePoint>
-    {
-        Values = new List<ObservablePoint>
+        Series = seriesList.ToArray();
+        XAxes = new Axis[]
         {
-            new ObservablePoint(deafenTimestamp, 0), // bottom-left corner
-            new ObservablePoint(deafenTimestamp, maxYValue), // top-left corner
-            new ObservablePoint(maxLimit, maxYValue), // top-right corner
-            new ObservablePoint(maxLimit, 0), // bottom-right corner
-            new ObservablePoint(deafenTimestamp, 0) // close the rectangle by returning to the bottom-left corner
-        },
-        Name = "Deafen Point",
-        Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00, 110), StrokeThickness = 3 }, // 70% opacity red
-        GeometryFill = null,
-        GeometryStroke = null,
-        LineSmoothness = 0
-    };
-
-    seriesList.Add(deafenMarker);
-
-    Series = seriesList.ToArray();
-    XAxes = new Axis[]
-    {
-        new Axis
-        {
-            LabelsPaint = new SolidColorPaint(SKColors.White),
-            MinLimit = 0, // ensure the x-axis starts from 0
-            MaxLimit = maxLimit,
-            Padding = new Padding(2),
-            TextSize = 12,
-            Labeler = value =>
+            new()
             {
-                var timeSpan = TimeSpan.FromMinutes(value/60);
-                return $"{(int)timeSpan.TotalMinutes}:{timeSpan.Seconds:D2}";
+                LabelsPaint = new SolidColorPaint(SKColors.White),
+                MinLimit = 0, // ensure the x-axis starts from 0
+                MaxLimit = maxLimit,
+                Padding = new Padding(2),
+                TextSize = 12,
+                Labeler = value =>
+                {
+                    var timeSpan = TimeSpan.FromMinutes(value / 60);
+                    return $"{(int)timeSpan.TotalMinutes}:{timeSpan.Seconds:D2}";
+                }
             }
-        }
-    };
-    YAxes = new Axis[]
-    {
-        new Axis
+        };
+        YAxes = new Axis[]
         {
-            LabelsPaint = new SolidColorPaint(SKColors.Transparent),
-            SeparatorsPaint = new SolidColorPaint(SKColors.Transparent)
-        }
-    };
+            new()
+            {
+                LabelsPaint = new SolidColorPaint(SKColors.Transparent),
+                SeparatorsPaint = new SolidColorPaint(SKColors.Transparent)
+            }
+        };
 
-    PlotView.Series = Series;
-    PlotView.XAxes = XAxes;
-    PlotView.YAxes = YAxes;
-}
+        PlotView.Series = Series;
+        PlotView.XAxes = XAxes;
+        PlotView.YAxes = YAxes;
+    }
 
 
     //initialize the visibility check timer
@@ -364,8 +404,9 @@ public partial class MainWindow : Window
 
         var viewModel = new SharedViewModel();
         {
-           //UpdateStatusMessage = "v" + UpdateChecker.currentVersion,
-        };
+            //UpdateStatusMessage = "v" + UpdateChecker.currentVersion,
+        }
+        ;
 
         DataContext = ViewModel;
     }
@@ -383,13 +424,10 @@ public partial class MainWindow : Window
                 return;
             }
 
-            Version currentVersion = new Version(UpdateChecker.currentVersion);
-            Version latestVersion = new Version(_updateChecker.latestVersion);
+            var currentVersion = new Version(UpdateChecker.currentVersion);
+            var latestVersion = new Version(_updateChecker.latestVersion);
 
-            if (latestVersion > currentVersion)
-            {
-                ShowUpdateNotification();
-            }
+            if (latestVersion > currentVersion) ShowUpdateNotification();
         }
     }
 
@@ -397,24 +435,20 @@ public partial class MainWindow : Window
     private void UpdateDeafenKeybindDisplay()
     {
         var currentKeybind = RetrieveKeybindFromSettings();
-        DeafenKeybindButton.Content = currentKeybind.ToString();
+        DeafenKeybindButton.Content = currentKeybind;
     }
 
     // save the keybind to the settings file
     private void DeafenKeybindButton_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.IsKeybindCaptureFlyoutOpen = !ViewModel.IsKeybindCaptureFlyoutOpen;
-        var flyout = this.Resources["KeybindCaptureFlyout"] as Flyout;
+        var flyout = Resources["KeybindCaptureFlyout"] as Flyout;
         if (flyout != null)
         {
             if (ViewModel.IsKeybindCaptureFlyoutOpen)
-            {
                 flyout.ShowAt(DeafenKeybindButton);
-            }
             else
-            {
                 flyout.Hide();
-            }
         }
     }
 
@@ -423,57 +457,35 @@ public partial class MainWindow : Window
     {
         base.OnKeyDown(e);
 
-        if (!ViewModel.IsKeybindCaptureFlyoutOpen)
-        {
-            return;
-        }
+        if (!ViewModel.IsKeybindCaptureFlyoutOpen) return;
 
-        if(e.Key == Key.NumLock)
-        {
-            return;
-        }
+        if (e.Key == Key.NumLock) return;
 
         Flyout? flyout;
-        if(e.Key == Key.Escape)
+        if (e.Key == Key.Escape)
         {
             ViewModel.IsKeybindCaptureFlyoutOpen = false;
-            flyout = this.Resources["KeybindCaptureFlyout"] as Flyout;
-            if (flyout != null)
-            {
-                flyout.Hide();
-            }
+            flyout = Resources["KeybindCaptureFlyout"] as Flyout;
+            if (flyout != null) flyout.Hide();
             return;
         }
 
         var currentTime = DateTime.Now;
 
-        if (e.Key == _lastKeyPressed && (currentTime - _lastKeyPressTime).TotalMilliseconds < 2500)
-        {
-            return; // considered a repeat key press, ignore it
-        }
+        if (e.Key == _lastKeyPressed &&
+            (currentTime - _lastKeyPressTime).TotalMilliseconds <
+            2500) return; // considered a repeat key press, ignore it
 
         _lastKeyPressed = e.Key;
         _lastKeyPressTime = currentTime;
 
-        if (IsModifierKey(e.Key))
-        {
-            return;
-        }
+        if (IsModifierKey(e.Key)) return;
 
         // capture the key and its modifiers
-        KeyModifiers modifiers = KeyModifiers.None;
-        if (e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control))
-        {
-            modifiers |= KeyModifiers.Control;
-        }
-        if (e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Alt))
-        {
-            modifiers |= KeyModifiers.Alt;
-        }
-        if (e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Shift))
-        {
-            modifiers |= KeyModifiers.Shift;
-        }
+        var modifiers = KeyModifiers.None;
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control)) modifiers |= KeyModifiers.Control;
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Alt)) modifiers |= KeyModifiers.Alt;
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) modifiers |= KeyModifiers.Shift;
 
         // create and set the new hotkey
         ViewModel.DeafenKeybind = new HotKey { Key = e.Key, ModifierKeys = modifiers };
@@ -482,77 +494,52 @@ public partial class MainWindow : Window
         SaveSettingsToFile(ViewModel.DeafenKeybind.ToString(), "Hotkey");
 
         e.Handled = true;
-
     }
 
     private void InitializeKeybindButtonText()
     {
         var currentKeybind = RetrieveKeybindFromSettings();
-        DeafenKeybindButton.Content = currentKeybind.ToString();
+        DeafenKeybindButton.Content = currentKeybind;
     }
 
     private string RetrieveKeybindFromSettings()
     {
-        string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "settings.txt");
+        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "settings.txt");
         if (File.Exists(settingsFilePath))
         {
             var lines = File.ReadAllLines(settingsFilePath);
             var keybindLine = lines.FirstOrDefault(line => line.StartsWith("Hotkey="));
-            if (keybindLine != null)
-            {
-                return keybindLine.Split('=')[1];
-            }
+            if (keybindLine != null) return keybindLine.Split('=')[1];
         }
+
         return "Set Keybind";
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
     protected virtual void OnPropertyChanged(string propertyName)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-
-
-    public HotKey? DeafenKeybind
-    {
-        get { return _deafenKeybind; }
-        set
-        {
-            if (_deafenKeybind != value)
-            {
-                _deafenKeybind = value;
-                OnPropertyChanged(nameof(DeafenKeybind));
-                var button = this.FindControl<Button>("DeafenKeybindButton");
-                if (button != null)
-                {
-                    button.Content = value.ToString();
-                }
-            }
-        }
     }
 
     public void ShowUpdateNotification()
     {
         var notificationBar = this.FindControl<Button>("UpdateNotificationBar");
         if (notificationBar != null)
-        {
             notificationBar.IsVisible = true;
-        }
         else
-        {
             Console.WriteLine("Notification bar control not found.");
-        }
     }
+
     private void UpdateNotificationBar_Click(object sender, RoutedEventArgs e)
     {
         if (!string.IsNullOrEmpty(ViewModel.UpdateUrl))
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            Process.Start(new ProcessStartInfo
             {
                 FileName = ViewModel.UpdateUrl,
                 UseShellExecute = true
             });
-        }
     }
 
     private void MainTimer_Tick(object? sender, EventArgs? e)
@@ -566,22 +553,23 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(UpdateDeafenKeybindDisplay);
         Dispatcher.UIThread.InvokeAsync(() => CheckMissUndeafenSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(CheckForUpdatesIfNeeded);
+        Dispatcher.UIThread.InvokeAsync(() => CheckBlankSetting(sender, e));
     }
 
     private void CheckIsFCRequiredSetting(object? sender, EventArgs? e)
     {
         {
-            string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "osuautodeafen", "settings.txt");
 
             if (File.Exists(settingsFilePath))
             {
-                string[] lines = File.ReadAllLines(settingsFilePath);
+                var lines = File.ReadAllLines(settingsFilePath);
                 var fcSettingLine = Array.Find(lines, line => line.StartsWith("IsFCRequired"));
                 if (fcSettingLine != null)
                 {
                     var settings = fcSettingLine.Split('=');
-                    if (settings.Length == 2 && bool.TryParse(settings[1], out bool parsedisFcRequired))
+                    if (settings.Length == 2 && bool.TryParse(settings[1], out var parsedisFcRequired))
                     {
                         ViewModel.IsFCRequired = parsedisFcRequired;
                         this.FindControl<CheckBox>("FCToggle")!.IsChecked = parsedisFcRequired;
@@ -614,171 +602,105 @@ public partial class MainWindow : Window
             return;
         }
 
-        Version currentVersion = new Version(UpdateChecker.currentVersion);
-        Version latestVersion = new Version(_updateChecker.latestVersion);
+        var currentVersion = new Version(UpdateChecker.currentVersion);
+        var latestVersion = new Version(_updateChecker.latestVersion);
 
-        if (latestVersion > currentVersion)
-        {
-            ShowUpdateNotification();
-        }
+        if (latestVersion > currentVersion) ShowUpdateNotification();
         if (string.IsNullOrEmpty(_updateChecker.latestVersion))
-        {
             ViewModel.UpdateStatusMessage = "Failed to check for updates.";
-        }
         else if (latestVersion > currentVersion)
-        {
             ViewModel.UpdateStatusMessage = $"Update available: v{_updateChecker.latestVersion}";
-        }
         else
-        {
             ViewModel.UpdateStatusMessage = "No updates available.";
-        }
     }
 
     private void LoadSettings()
     {
-    string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "osuautodeafen", "settings.txt");
+        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "settings.txt");
 
-    if (!File.Exists(settingsFilePath))
-    {
-        ViewModel.MinCompletionPercentage = 60;
-        ViewModel.StarRating = 0;
-        ViewModel.PerformancePoints = 0;
-        ViewModel.IsParallaxEnabled = true;
-        ViewModel.IsBlurEffectEnabled = true;
-        ViewModel.IsFCRequired = true;
-        ViewModel.UndeafenAfterMiss = false;
-        SaveSettingsToFile();
-        return;
-    }
-
-    string[] settingsLines = File.ReadAllLines(settingsFilePath);
-    foreach (var line in settingsLines)
-    {
-        var settings = line.Split('=');
-        if (settings.Length != 2) continue;
-
-        switch (settings[0].Trim())
+        if (!File.Exists(settingsFilePath))
         {
-            case "Hotkey":
-                break;
-            case "MinCompletionPercentage":
-                if (int.TryParse(settings[1], out int parsedPercentage))
-                {
-                    ViewModel.MinCompletionPercentage = parsedPercentage;
-                }
-
-                break;
-            case "StarRating":
-                if (int.TryParse(settings[1], out int parsedRating))
-                {
-                    ViewModel.StarRating = parsedRating;
-                }
-
-                break;
-            case "PerformancePoints":
-                if (int.TryParse(settings[1], out int parsedPP))
-                {
-                    ViewModel.PerformancePoints = parsedPP;
-                }
-
-                break;
-            case "IsParallaxEnabled":
-                if (bool.TryParse(settings[1], out bool parsedIsParallaxEnabled))
-                {
-                    ViewModel.IsParallaxEnabled = parsedIsParallaxEnabled;
-                }
-
-                break;
-            case "IsBlurEffectEnabled":
-                if (bool.TryParse(settings[1], out bool parsedIsBlurEffectEnabled))
-                {
-                    ViewModel.IsBlurEffectEnabled = parsedIsBlurEffectEnabled;
-                }
-
-                break;
-            case "UndeafenAfterMiss":
-                if (bool.TryParse(settings[1], out bool parsedUndeafenAfterMiss))
-                {
-                    ViewModel.UndeafenAfterMiss = parsedUndeafenAfterMiss;
-                }
-
-                break;
-    }
-    }
-}
-
-private void SaveSettingsToFile()
-{
-    string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "osuautodeafen", "settings.txt");
-
-    Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath) ?? throw new InvalidOperationException());
-
-    string[] settingsLines = new string[]
-    {
-        $"MinCompletionPercentage={ViewModel.MinCompletionPercentage}",
-        $"StarRating={ViewModel.StarRating}",
-        $"PerformancePoints={ViewModel.PerformancePoints}",
-        $"IsParallaxEnabled={ViewModel.IsParallaxEnabled}",
-        $"IsBlurEffectEnabled={ViewModel.IsBlurEffectEnabled}",
-        $"Hotkey={ViewModel.DeafenKeybind}"
-    };
-
-    // update updatedeafenkeybinddisplay with hotkey
-    UpdateDeafenKeybindDisplay();
-
-
-    File.WriteAllLines(settingsFilePath, settingsLines);
-}
-
-
-    public class HotKey
-    {
-        public Key Key { get; init; }
-        public KeyModifiers ModifierKeys { get; init; }
-        public override string ToString()
-        {
-            List<string> parts = [];
-
-            if (ModifierKeys.HasFlag(KeyModifiers.Control))
-                parts.Add("Ctrl");
-            if (ModifierKeys.HasFlag(KeyModifiers.Alt))
-                parts.Add("Alt");
-            if (ModifierKeys.HasFlag(KeyModifiers.Shift))
-                parts.Add("Shift");
-
-            parts.Add(Key.ToString()); // always add the key last
-
-            return string.Join("+", parts); // join all parts with '+'
-        }
-        public static HotKey Parse(string str)
-        {
-            if (string.IsNullOrEmpty(str))
-            {
-                throw new ArgumentException("Invalid hotkey format. Expected 'KeyModifierKey'.");
-            }
-
-            string[] parts = str.Split('+');
-            if (parts.Length != 2)
-            {
-                throw new ArgumentException("Invalid hotkey format. Expected 'KeyModifierKey'.");
-            }
-
-            if (!Enum.TryParse(parts[0], true, out KeyModifiers modifierKeys))
-            {
-                throw new ArgumentException($"Invalid modifier key: {parts[0]}");
-            }
-
-            if (!Enum.TryParse(parts[1], true, out Key key))
-            {
-                throw new ArgumentException($"Invalid key: {parts[1]}");
-            }
-
-            return new HotKey { Key = key, ModifierKeys = modifierKeys };
+            ViewModel.MinCompletionPercentage = 60;
+            ViewModel.StarRating = 0;
+            ViewModel.PerformancePoints = 0;
+            ViewModel.IsParallaxEnabled = true;
+            ViewModel.IsBlurEffectEnabled = true;
+            ViewModel.IsFCRequired = true;
+            ViewModel.UndeafenAfterMiss = false;
+            SaveSettingsToFile();
+            return;
         }
 
+        var settingsLines = File.ReadAllLines(settingsFilePath);
+        foreach (var line in settingsLines)
+        {
+            var settings = line.Split('=');
+            if (settings.Length != 2) continue;
+
+            switch (settings[0].Trim())
+            {
+                case "Hotkey":
+                    break;
+                case "MinCompletionPercentage":
+                    if (int.TryParse(settings[1], out var parsedPercentage))
+                        ViewModel.MinCompletionPercentage = parsedPercentage;
+
+                    break;
+                case "StarRating":
+                    if (int.TryParse(settings[1], out var parsedRating)) ViewModel.StarRating = parsedRating;
+
+                    break;
+                case "PerformancePoints":
+                    if (int.TryParse(settings[1], out var parsedPP)) ViewModel.PerformancePoints = parsedPP;
+
+                    break;
+                case "IsParallaxEnabled":
+                    if (bool.TryParse(settings[1], out var parsedIsParallaxEnabled))
+                        ViewModel.IsParallaxEnabled = parsedIsParallaxEnabled;
+
+                    break;
+                case "IsBlurEffectEnabled":
+                    if (bool.TryParse(settings[1], out var parsedIsBlurEffectEnabled))
+                        ViewModel.IsBlurEffectEnabled = parsedIsBlurEffectEnabled;
+
+                    break;
+                case "UndeafenAfterMiss":
+                    if (bool.TryParse(settings[1], out var parsedUndeafenAfterMiss))
+                        ViewModel.UndeafenAfterMiss = parsedUndeafenAfterMiss;
+
+                    break;
+                case "IsBlankScreenEnabled":
+                    if (bool.TryParse(settings[1], out var parsedIsBlankScreenEnabled))
+                        ViewModel.IsBlankScreenEnabled = parsedIsBlankScreenEnabled;
+                    break;
+            }
+        }
+    }
+
+    private void SaveSettingsToFile()
+    {
+        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "settings.txt");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath) ?? throw new InvalidOperationException());
+
+        string[] settingsLines =
+        {
+            $"MinCompletionPercentage={ViewModel.MinCompletionPercentage}",
+            $"StarRating={ViewModel.StarRating}",
+            $"PerformancePoints={ViewModel.PerformancePoints}",
+            $"IsParallaxEnabled={ViewModel.IsParallaxEnabled}",
+            $"IsBlurEffectEnabled={ViewModel.IsBlurEffectEnabled}",
+            $"Hotkey={ViewModel.DeafenKeybind}",
+            $"IsBlankScreenEnabled={ViewModel.IsBlankScreenEnabled}"
+        };
+
+        // update updatedeafenkeybinddisplay with hotkey
+        UpdateDeafenKeybindDisplay();
+
+
+        File.WriteAllLines(settingsFilePath, settingsLines);
     }
 
     private bool IsModifierKey(Key key)
@@ -790,17 +712,17 @@ private void SaveSettingsToFile()
 
     private void CheckBackgroundSetting(object? sender, EventArgs? e)
     {
-        string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen", "settings.txt");
 
         if (File.Exists(settingsFilePath))
         {
-            string[] lines = File.ReadAllLines(settingsFilePath);
+            var lines = File.ReadAllLines(settingsFilePath);
             var backgroundSettingLine = Array.Find(lines, line => line.StartsWith("IsBackgroundEnabled"));
             if (backgroundSettingLine != null)
             {
                 var settings = backgroundSettingLine.Split('=');
-                if (settings.Length == 2 && bool.TryParse(settings[1], out bool parsedIsBackgroundEnabled))
+                if (settings.Length == 2 && bool.TryParse(settings[1], out var parsedIsBackgroundEnabled))
                 {
                     ViewModel.IsBackgroundEnabled = parsedIsBackgroundEnabled;
                     this.FindControl<CheckBox>("BackgroundToggle")!.IsChecked = parsedIsBackgroundEnabled;
@@ -826,24 +748,25 @@ private void SaveSettingsToFile()
             _currentBitmap?.Dispose();
             _currentBitmap = null; // ensure _currentBitmap is null after disposal to avoid accessing a disposed object
 
-            var newBitmap = DisplayBlackBackground(); // create a new Bitmap and assign it to _currentBitmap inside DisplayBlackBackground
+            var newBitmap =
+                DisplayBlackBackground(); // create a new Bitmap and assign it to _currentBitmap inside DisplayBlackBackground
             UpdateUIWithNewBackground(newBitmap); // pass the new Bitmap to UpdateUIWithNewBackground
         }
     }
 
     private void CheckMissUndeafenSetting(object? sender, EventArgs? e)
     {
-        string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen", "settings.txt");
 
         if (File.Exists(settingsFilePath))
         {
-            string[] lines = File.ReadAllLines(settingsFilePath);
+            var lines = File.ReadAllLines(settingsFilePath);
             var missUndeafenSettingLine = Array.Find(lines, line => line.StartsWith("UndeafenAfterMiss"));
             if (missUndeafenSettingLine != null)
             {
                 var settings = missUndeafenSettingLine.Split('=');
-                if (settings.Length == 2 && bool.TryParse(settings[1], out bool parsedUndeafenAfterMiss))
+                if (settings.Length == 2 && bool.TryParse(settings[1], out var parsedUndeafenAfterMiss))
                 {
                     ViewModel.UndeafenAfterMiss = parsedUndeafenAfterMiss;
                     this.FindControl<CheckBox>("UndeafenOnMiss")!.IsChecked = parsedUndeafenAfterMiss;
@@ -865,19 +788,53 @@ private void SaveSettingsToFile()
         }
     }
 
-    private void CheckParallaxSetting(object? sender, EventArgs? e)
+    private void CheckBlankSetting(object? sender, EventArgs? e)
     {
-        string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen", "settings.txt");
 
         if (File.Exists(settingsFilePath))
         {
-            string[] lines = File.ReadAllLines(settingsFilePath);
+            var lines = File.ReadAllLines(settingsFilePath);
+            var blankSettingLine = Array.Find(lines, line => line.StartsWith("IsBlankScreenEnabled"));
+            if (blankSettingLine != null)
+            {
+                var settings = blankSettingLine.Split('=');
+                if (settings.Length == 2 && bool.TryParse(settings[1], out var parsedIsBlankScreenEnabled))
+                {
+                    ViewModel.IsBlankScreenEnabled = parsedIsBlankScreenEnabled;
+                    this.FindControl<CheckBox>("BlankEffectToggle")!.IsChecked = parsedIsBlankScreenEnabled;
+                }
+            }
+            else
+            {
+                ViewModel.IsBlankScreenEnabled = true;
+                SaveSettingsToFile(true, "IsBlankScreenEnabled");
+                this.FindControl<CheckBox>("BlankEffectToggle")!.IsChecked = true;
+            }
+        }
+        else
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath) ?? throw new InvalidOperationException());
+            ViewModel.IsBlankScreenEnabled = true;
+            SaveSettingsToFile(true, "IsBlankScreenEnabled");
+            this.FindControl<CheckBox>("BlankEffectToggle")!.IsChecked = true;
+        }
+    }
+
+    private void CheckParallaxSetting(object? sender, EventArgs? e)
+    {
+        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "settings.txt");
+
+        if (File.Exists(settingsFilePath))
+        {
+            var lines = File.ReadAllLines(settingsFilePath);
             var parallaxSettingLine = Array.Find(lines, line => line.StartsWith("IsParallaxEnabled"));
             if (parallaxSettingLine != null)
             {
                 var settings = parallaxSettingLine.Split('=');
-                if (settings.Length == 2 && bool.TryParse(settings[1], out bool parsedIsParallaxEnabled))
+                if (settings.Length == 2 && bool.TryParse(settings[1], out var parsedIsParallaxEnabled))
                 {
                     ViewModel.IsParallaxEnabled = parsedIsParallaxEnabled;
                     this.FindControl<CheckBox>("ParallaxToggle")!.IsChecked = parsedIsParallaxEnabled;
@@ -901,28 +858,24 @@ private void SaveSettingsToFile()
 
     private void CheckBlurEffectSetting(object? sender, EventArgs? e)
     {
-        string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen", "settings.txt");
 
-        bool defaultBlurEffectEnabled = true;
+        var defaultBlurEffectEnabled = true;
 
         if (File.Exists(settingsFilePath))
-        {
             try
             {
                 string?[] lines = File.ReadAllLines(settingsFilePath);
-                string? blurEffectSettingLine = Array.Find(lines, line => line != null && line.StartsWith("IsBlurEffectEnabled"));
+                var blurEffectSettingLine =
+                    Array.Find(lines, line => line != null && line.StartsWith("IsBlurEffectEnabled"));
                 if (blurEffectSettingLine != null)
                 {
-                    string[] parts = blurEffectSettingLine.Split('=');
-                    if (parts.Length == 2 && bool.TryParse(parts[1], out bool parsedIsBlurEffectEnabled))
-                    {
+                    var parts = blurEffectSettingLine.Split('=');
+                    if (parts.Length == 2 && bool.TryParse(parts[1], out var parsedIsBlurEffectEnabled))
                         ViewModel.IsBlurEffectEnabled = parsedIsBlurEffectEnabled;
-                    }
                     else
-                    {
                         ViewModel.IsBlurEffectEnabled = defaultBlurEffectEnabled;
-                    }
                 }
                 else
                 {
@@ -933,36 +886,29 @@ private void SaveSettingsToFile()
             {
                 ViewModel.IsBlurEffectEnabled = defaultBlurEffectEnabled;
             }
-        }
         else
-        {
             ViewModel.IsBlurEffectEnabled = defaultBlurEffectEnabled;
-        }
 
         this.FindControl<CheckBox>("BlurEffectToggle")!.IsChecked = ViewModel.IsBlurEffectEnabled;
 
         UpdateUIWithNewBackground(_currentBitmap);
     }
+
     private void DisposeTimer_Tick(object? sender, EventArgs e)
     {
-        if (_bitmapQueue.Count > 0)
-        {
-            _bitmapQueue.Dequeue().Dispose();
-        }
+        if (_bitmapQueue.Count > 0) _bitmapQueue.Dequeue().Dispose();
         _disposeTimer.Stop();
     }
 
-    private void CompletionPercentageTextBox_TextInput(object sender, Avalonia.Input.TextInputEventArgs e)
+    private void CompletionPercentageTextBox_TextInput(object sender, TextInputEventArgs e)
     {
-        Regex regex = new Regex("^[0-9]{1,2}$");
-        if (e.Text != null && !regex.IsMatch(e.Text))
-        {
-            e.Handled = true;
-        }
+        var regex = new Regex("^[0-9]{1,2}$");
+        if (e.Text != null && !regex.IsMatch(e.Text)) e.Handled = true;
     }
+
     private void CompletionPercentageTextBox_LostFocus(object sender, RoutedEventArgs e)
     {
-        if (int.TryParse(CompletionPercentageTextBox.Text, out int parsedPercentage))
+        if (int.TryParse(CompletionPercentageTextBox.Text, out var parsedPercentage))
         {
             if (parsedPercentage >= 0 && parsedPercentage <= 99)
             {
@@ -979,24 +925,19 @@ private void SaveSettingsToFile()
             CompletionPercentageTextBox.Text = ViewModel.MinCompletionPercentage.ToString();
         }
 
-        if (Graph != null)
-        {
-            UpdateChart(Graph);
-        }
+        if (Graph != null) UpdateChart(Graph);
         isCompPctLostFocus = true;
     }
 
-    private void StarRatingTextBox_TextInput(object sender, Avalonia.Input.TextInputEventArgs e)
+    private void StarRatingTextBox_TextInput(object sender, TextInputEventArgs e)
     {
-        Regex regex = new Regex("^[0-9]{1,2}$");
-        if (e.Text != null && !regex.IsMatch(e.Text))
-        {
-            e.Handled = true;
-        }
+        var regex = new Regex("^[0-9]{1,2}$");
+        if (e.Text != null && !regex.IsMatch(e.Text)) e.Handled = true;
     }
+
     private void StarRatingTextBox_LostFocus(object sender, RoutedEventArgs e)
     {
-        if (int.TryParse(StarRatingTextBox.Text, out int parsedRating))
+        if (int.TryParse(StarRatingTextBox.Text, out var parsedRating))
         {
             if (parsedRating >= 0 && parsedRating <= 15)
             {
@@ -1014,14 +955,12 @@ private void SaveSettingsToFile()
         }
     }
 
-    private void PPTextBox_TextInput(object sender, Avalonia.Input.TextInputEventArgs e)
+    private void PPTextBox_TextInput(object sender, TextInputEventArgs e)
     {
-        Regex regex = new Regex("^[0-9]{1,4}$");
-        if (e.Text != null && !regex.IsMatch(e.Text))
-        {
-            e.Handled = true;
-        }
+        var regex = new Regex("^[0-9]{1,4}$");
+        if (e.Text != null && !regex.IsMatch(e.Text)) e.Handled = true;
     }
+
     private void PPTextBox_LostFocus(object sender, RoutedEventArgs e)
     {
         if (int.TryParse(PPTextBox.Text, out var parsedPP))
@@ -1044,7 +983,7 @@ private void SaveSettingsToFile()
 
     private void SaveSettingsToFile(object value, string settingName)
     {
-        string settingsFilePath =
+        var settingsFilePath =
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen",
                 "settings.txt");
         try
@@ -1053,7 +992,7 @@ private void SaveSettingsToFile()
 
             var index = Array.FindIndex(lines, line => line.StartsWith(settingName));
 
-            string? valueString = value is bool b ? (b ? "true" : "false") : value.ToString();
+            var valueString = value is bool b ? b ? "true" : "false" : value.ToString();
 
             if (index != -1)
             {
@@ -1077,14 +1016,8 @@ private void SaveSettingsToFile()
     {
         if (!ViewModel.IsBackgroundEnabled)
         {
-            if (_blurredBackground != null)
-            {
-                _blurredBackground.IsVisible = false;
-            }
-            if (_normalBackground != null)
-            {
-                _normalBackground.IsVisible = false;
-            }
+            if (_blurredBackground != null) _blurredBackground.IsVisible = false;
+            if (_normalBackground != null) _normalBackground.IsVisible = false;
             _currentBitmap?.Dispose();
             _currentBitmap = null;
         }
@@ -1134,17 +1067,14 @@ private void SaveSettingsToFile()
             Source = bitmap,
             Stretch = Stretch.UniformToFill,
             Opacity = 0.5,
-            ZIndex = -1,
+            ZIndex = -1
         };
 
-        if (ViewModel.IsBlurEffectEnabled)
-        {
-            imageControl.Effect = new BlurEffect { Radius = 17.27 };
-        }
+        if (ViewModel.IsBlurEffectEnabled) imageControl.Effect = new BlurEffect { Radius = 17.27 };
 
-        if (this.Content is Grid mainGrid)
+        if (Content is Grid mainGrid)
         {
-            Grid? backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
+            var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
             if (backgroundLayer == null)
             {
                 backgroundLayer = new Grid { Name = "BackgroundLayer", ZIndex = -1 };
@@ -1163,13 +1093,10 @@ private void SaveSettingsToFile()
             // fallback: If the main content is not a grid or not structured as expected, replace it entirely
             var newContentGrid = new Grid();
             newContentGrid.Children.Add(imageControl);
-            this.Content = newContentGrid;
+            Content = newContentGrid;
         }
 
-        if (ParallaxToggle.IsChecked == true && BackgroundToggle.IsChecked == true)
-        {
-            ApplyParallax(_mouseX, _mouseY);
-        }
+        if (ParallaxToggle.IsChecked == true && BackgroundToggle.IsChecked == true) ApplyParallax(_mouseX, _mouseY);
     }
 
     private Bitmap CreateBlackBitmap(int width = 600, int height = 600)
@@ -1202,29 +1129,23 @@ private void SaveSettingsToFile()
 
     private void ApplyParallax(double mouseX, double mouseY)
     {
-        if (_currentBitmap == null || ParallaxToggle.IsChecked == false || BackgroundToggle.IsChecked == false)
-        {
-            return;
-        }
+        if (_currentBitmap == null || ParallaxToggle.IsChecked == false || BackgroundToggle.IsChecked == false) return;
         // if cursor isnt on window return
-        if (mouseX < 0 || mouseY < 0 || mouseX > this.Width || mouseY > this.Height)
-        {
-            return;
-        }
-        double windowWidth = this.Width;
-        double windowHeight = this.Height;
+        if (mouseX < 0 || mouseY < 0 || mouseX > Width || mouseY > Height) return;
+        var windowWidth = Width;
+        var windowHeight = Height;
 
-        double centerX = windowWidth / 2;
-        double centerY = windowHeight / 2;
+        var centerX = windowWidth / 2;
+        var centerY = windowHeight / 2;
 
-        double relativeMouseX = mouseX - centerX;
-        double relativeMouseY = mouseY - centerY;
+        var relativeMouseX = mouseX - centerX;
+        var relativeMouseY = mouseY - centerY;
 
         // scaling factor to reduce movement intensity
-        double scaleFactor = 0.015;
+        var scaleFactor = 0.015;
 
-        double movementX = -(relativeMouseX * scaleFactor);
-        double movementY = -(relativeMouseY * scaleFactor);
+        var movementX = -(relativeMouseX * scaleFactor);
+        var movementY = -(relativeMouseY * scaleFactor);
 
         // ensure movement doesn't exceed maximum allowed movement
         double maxMovement = 15;
@@ -1232,15 +1153,15 @@ private void SaveSettingsToFile()
         movementY = Math.Max(-maxMovement, Math.Min(maxMovement, movementY));
 
 
-        if (this.Content is Grid mainGrid)
+        if (Content is Grid mainGrid)
         {
-            Grid? backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
+            var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
             if (backgroundLayer != null && backgroundLayer.Children.Count > 0)
             {
                 var background = backgroundLayer.Children[0] as Image;
                 if (background != null)
                 {
-                    TranslateTransform translateTransform = new TranslateTransform(movementX, movementY);
+                    var translateTransform = new TranslateTransform(movementX, movementY);
                     background.RenderTransform = translateTransform;
                 }
             }
@@ -1249,10 +1170,7 @@ private void SaveSettingsToFile()
 
     private void OnMouseMove(object sender, PointerEventArgs e)
     {
-        if (ParallaxToggle.IsChecked == false || BackgroundToggle.IsChecked == false)
-        {
-            return;
-        }
+        if (ParallaxToggle.IsChecked == false || BackgroundToggle.IsChecked == false) return;
 
         var position = e.GetPosition(this);
         _mouseX = position.X;
@@ -1277,10 +1195,7 @@ private void SaveSettingsToFile()
         StarRatingTextBox.Text = ViewModel.StarRating.ToString();
         PPTextBox.Text = ViewModel.PerformancePoints.ToString();
 
-        if (Graph != null)
-        {
-            UpdateChart(Graph);
-        }
+        if (Graph != null) UpdateChart(Graph);
         isCompPctLostFocus = true;
     }
 
@@ -1291,7 +1206,7 @@ private void SaveSettingsToFile()
         if (errorMessage != null) errorMessage.Text = _tosuApi.GetErrorMessage();
     }
 
-    private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
         _tosuApi.Dispose();
     }
@@ -1304,11 +1219,11 @@ private void SaveSettingsToFile()
     private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
     {
         var updateBar = this.FindControl<Button>("UpdateNotificationBar");
-        bool isUpdateBarVisible = updateBar != null && updateBar.IsVisible;
+        var isUpdateBarVisible = updateBar != null && updateBar.IsVisible;
         var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
         var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
-        Thickness settingsPanelMargin = settingsPanel.Margin;
-        Thickness textBlockPanelMargin = textBlockPanel.Margin;
+        var settingsPanelMargin = settingsPanel.Margin;
+        var textBlockPanelMargin = textBlockPanel.Margin;
 
 
         settingsPanel.Transitions = new Transitions
@@ -1336,13 +1251,17 @@ private void SaveSettingsToFile()
             settingsPanel.IsVisible = false;
             if (isUpdateBarVisible)
             {
-                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top, settingsPanelMargin.Right, 28);
-                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top, textBlockPanelMargin.Right, 28);
+                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
+                    settingsPanelMargin.Right, 28);
+                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
+                    textBlockPanelMargin.Right, 28);
             }
             else
             {
-                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top, settingsPanelMargin.Right, 0);
-                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top, textBlockPanelMargin.Right, 0);
+                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
+                    settingsPanelMargin.Right, 0);
+                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
+                    textBlockPanelMargin.Right, 0);
             }
         }
         else
@@ -1350,16 +1269,105 @@ private void SaveSettingsToFile()
             settingsPanel.IsVisible = true;
             if (isUpdateBarVisible)
             {
-                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top, settingsPanelMargin.Right, 28);
-                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top, textBlockPanelMargin.Right, 28);
+                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
+                    settingsPanelMargin.Right, 28);
+                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
+                    textBlockPanelMargin.Right, 28);
             }
             else
             {
-                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top, settingsPanelMargin.Right, 0);
-                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top, textBlockPanelMargin.Right, 0);
+                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
+                    settingsPanelMargin.Right, 0);
+                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
+                    textBlockPanelMargin.Right, 0);
             }
         }
 
         textBlockPanel.Margin = settingsPanel.IsVisible ? new Thickness(0, 42, 225, 0) : new Thickness(0, 42, 0, 0);
+    }
+
+    private async void SecondPage_Click(object sender, RoutedEventArgs e)
+    {
+        var secondPage = this.FindControl<DockPanel>("SettingsPanel2");
+        var firstPage = this.FindControl<DockPanel>("SettingsPanel");
+
+        secondPage.IsVisible = true;
+        firstPage.IsVisible = false;
+    }
+
+    private async void FirstPage_Click(object sender, RoutedEventArgs e)
+    {
+        var secondPage = this.FindControl<DockPanel>("SettingsPanel2");
+        var firstPage = this.FindControl<DockPanel>("SettingsPanel");
+
+        secondPage.IsVisible = false;
+        firstPage.IsVisible = true;
+    }
+
+
+    public class HotKey
+    {
+        public Key Key { get; init; }
+        public KeyModifiers ModifierKeys { get; init; }
+
+        public override string ToString()
+        {
+            List<string> parts = [];
+
+            if (ModifierKeys.HasFlag(KeyModifiers.Control))
+                parts.Add("Ctrl");
+            if (ModifierKeys.HasFlag(KeyModifiers.Alt))
+                parts.Add("Alt");
+            if (ModifierKeys.HasFlag(KeyModifiers.Shift))
+                parts.Add("Shift");
+
+            parts.Add(Key.ToString()); // always add the key last
+
+            return string.Join("+", parts); // join all parts with '+'
+        }
+
+        public static HotKey Parse(string str)
+        {
+            if (string.IsNullOrEmpty(str))
+                throw new ArgumentException("Invalid hotkey format. Expected 'KeyModifierKey'.");
+
+            var parts = str.Split('+');
+            if (parts.Length != 2) throw new ArgumentException("Invalid hotkey format. Expected 'KeyModifierKey'.");
+
+            if (!Enum.TryParse(parts[0], true, out KeyModifiers modifierKeys))
+                throw new ArgumentException($"Invalid modifier key: {parts[0]}");
+
+            if (!Enum.TryParse(parts[1], true, out Key key)) throw new ArgumentException($"Invalid key: {parts[1]}");
+
+            return new HotKey { Key = key, ModifierKeys = modifierKeys };
+        }
+    }
+
+    public void BlankEffectToggleDeafen()
+    {
+        var blankEffectToggle = this.FindControl<CheckBox>("BlankEffectToggle");
+        blankEffectToggle.IsChecked = _deafen._blankScreen;
+
+        if (_deafen._blankScreen)
+        {
+            _screenBlanker.BlankScreens();
+        }
+        else
+        {
+            _screenBlanker.UnblankScreens();
+        }
+    }
+
+    public void BlankEffectToggle_IsCheckedChanged(object? sender, RoutedEventArgs e)
+    {
+        switch (_deafen._blankScreen)
+        {
+            case true:
+                _screenBlanker.BlankScreens();
+                break;
+            default:
+                _screenBlanker.UnblankScreens();
+                break;
+        }
     }
 }

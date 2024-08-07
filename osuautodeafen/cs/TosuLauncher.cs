@@ -6,14 +6,14 @@ namespace osuautodeafen.cs;
 
 public abstract class TosuLauncher
 {
-    public static bool IsTosuRunning { get; set; } = false;
+    public static bool IsTosuRunning { get; set; }
 
     //<summary>
     // ensures that tosu is running, if not, it will attempt to start it
     //</summary>
     public static void EnsureTosuRunning()
     {
-        string tosuPath = GetTosuPathFromRegistry();
+        var tosuPath = GetTosuPathFromRegistry();
 
         if (string.IsNullOrEmpty(tosuPath))
         {
@@ -54,10 +54,9 @@ public abstract class TosuLauncher
         const string keyPath = @"SOFTWARE\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache";
         string tosuPath = null;
 
-        using (RegistryKey key = Registry.CurrentUser.OpenSubKey(keyPath))
+        using (var key = Registry.CurrentUser.OpenSubKey(keyPath))
         {
             if (key != null)
-            {
                 foreach (var valueName in key.GetValueNames())
                 {
                     var value = key.GetValue(valueName) as string;
@@ -67,7 +66,6 @@ public abstract class TosuLauncher
                         break;
                     }
                 }
-            }
         }
 
         return tosuPath;

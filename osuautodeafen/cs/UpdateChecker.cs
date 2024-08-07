@@ -2,46 +2,40 @@
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Avalonia;
 using Newtonsoft.Json.Linq;
 
 namespace osuautodeafen.cs;
 
 public class UpdateChecker
 {
-    private static readonly HttpClient client = new HttpClient();
-    public const string currentVersion = "1.0.5";
-    private bool _hasCheckedVersion = false;
-    public string? latestVersion { get; set; }
-    public bool updateFound = true;
-    private static DateTime? lastSuccessfulCheck = null;
-    private static TimeSpan cacheDuration = TimeSpan.FromMinutes(1);
-
-    private static UpdateChecker _instance;
-    private static readonly object _lock = new object();
-    public string? LatestVersion { get; private set; }
-
-
     public delegate void UpdateAvailableHandler(string latestVersion, string latestReleaseUrl);
 
-    public static event UpdateAvailableHandler? OnUpdateAvailable;
+    public const string currentVersion = "1.0.5";
+    private static readonly HttpClient client = new();
+    private static DateTime? lastSuccessfulCheck;
+    private static readonly TimeSpan cacheDuration = TimeSpan.FromMinutes(1);
+
+    private static UpdateChecker _instance;
+    private static readonly object _lock = new();
+    private bool _hasCheckedVersion = false;
+    public bool updateFound = true;
 
     private UpdateChecker()
     {
     }
 
+    public string? latestVersion { get; set; }
+    public string? LatestVersion { get; }
+
+    public static event UpdateAvailableHandler? OnUpdateAvailable;
+
     public static UpdateChecker GetInstance()
     {
         if (_instance == null)
-        {
             lock (_lock)
             {
-                if (_instance == null)
-                {
-                    _instance = new UpdateChecker();
-                }
+                if (_instance == null) _instance = new UpdateChecker();
             }
-        }
 
         return _instance;
     }
@@ -50,13 +44,13 @@ public class UpdateChecker
     {
         // this is mainly to stop rate limiting github api
         //TODO: this is kinda unnecessary now so get rid in future
-        if (lastSuccessfulCheck.HasValue && (DateTime.Now - lastSuccessfulCheck.Value) < cacheDuration)
+        if (lastSuccessfulCheck.HasValue && DateTime.Now - lastSuccessfulCheck.Value < cacheDuration)
         {
             Console.WriteLine("Using cached version data.");
             return false; // cached data is being used, no new fetch
         }
 
-        var url = $"https://api.github.com/repos/Aerodite/osuautodeafen/releases";
+        var url = "https://api.github.com/repos/Aerodite/osuautodeafen/releases";
         client.DefaultRequestHeaders.Add("User-Agent", "C# App");
 
         try
@@ -104,7 +98,7 @@ public class UpdateChecker
     {
         Console.WriteLine("Checking for updates...");
 
-        var url = $"https://api.github.com/repos/Aerodite/osuautodeafen/releases";
+        var url = "https://api.github.com/repos/Aerodite/osuautodeafen/releases";
         client.DefaultRequestHeaders.Add("User-Agent", "C# App");
 
         try
@@ -140,23 +134,23 @@ public class UpdateChecker
         catch (HttpRequestException ex)
         {
             if (ex.StatusCode == HttpStatusCode.Forbidden)
-            {
                 Console.WriteLine("Rate limit exceeded");
-            }
             else
-            {
                 Console.WriteLine($"An error occurred: {ex.Message}");
-            }
         }
         catch (Exception e)
         {
             Console.WriteLine(e.Message);
         }
     }
+
     public static class UpdateEvents
     {
         public static event Action UpdateFoundEvent;
 
-        public static void OnUpdateFound() => UpdateFoundEvent?.Invoke();
+        public static void OnUpdateFound()
+        {
+            UpdateFoundEvent?.Invoke();
+        }
     }
 }

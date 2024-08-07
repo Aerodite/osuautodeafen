@@ -5,11 +5,17 @@ namespace osuautodeafen;
 
 public class BitmapHolder : IDisposable
 {
-    public Bitmap CurrentBitmap { get; private set; }
-
     public BitmapHolder(string path)
     {
         CurrentBitmap = new Bitmap(path);
+    }
+
+    public Bitmap CurrentBitmap { get; private set; }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
     }
 
     ~BitmapHolder()
@@ -23,17 +29,8 @@ public class BitmapHolder : IDisposable
         CurrentBitmap = new Bitmap(path);
     }
 
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
     protected virtual void Dispose(bool disposing)
     {
-        if (disposing)
-        {
-            CurrentBitmap?.Dispose();
-        }
+        if (disposing) CurrentBitmap?.Dispose();
     }
 }

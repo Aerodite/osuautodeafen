@@ -1,5 +1,6 @@
 ﻿using System;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using osuautodeafen.cs;
 
 public class SliderManager
@@ -18,7 +19,7 @@ public class SliderManager
         _slider.ValueChanged += Slider_ValueChanged;
     }
 
-    private void Slider_ValueChanged(object sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    private void Slider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
         _settingsPanel.MinCompletionPercentage = _slider.Value;
         _settingsPanel.SaveSettings();
