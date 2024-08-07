@@ -4,6 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:osuautodeafen"
         xmlns:global="clr-namespace:"
+        xmlns:cs="clr-namespace:osuautodeafen.cs"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osu!autodeafen"
@@ -37,14 +38,14 @@
 
                 <!-- Settings panel -->
                 <DockPanel x:Name="SettingsPanel" Grid.Column="1" Background="#171717" Width="450" IsVisible="False" Margin="0,42,0,0" ZIndex="3"
-                           x:DataType="global:SharedViewModel">
+                           x:DataType="cs:SharedViewModel">
                         <DockPanel.DataContext>
-                                <global:SharedViewModel />
+                                <cs:SharedViewModel />
                         </DockPanel.DataContext>
                         <StackPanel DockPanel.Dock="Top"
-                                    x:DataType="global:SharedViewModel">
+                                    x:DataType="cs:SharedViewModel">
                         <StackPanel.DataContext>
-                                <global:SharedViewModel />
+                                <cs:SharedViewModel />
                         </StackPanel.DataContext>
                         <Button Width="50" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Margin="0" Click="SettingsButton_Click">
                                 <Image Source="avares://osuautodeafen/Icons/angles-left-solid.png" />

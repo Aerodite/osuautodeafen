@@ -2,10 +2,15 @@
 using System.Diagnostics;
 using Microsoft.Win32;
 
-public class TosuLauncher
-{
-    public static bool isTosuRunning = false;
+namespace osuautodeafen.cs;
 
+public abstract class TosuLauncher
+{
+    public static bool IsTosuRunning { get; set; } = false;
+
+    //<summary>
+    // ensures that tosu is running, if not, it will attempt to start it
+    //</summary>
     public static void EnsureTosuRunning()
     {
         string tosuPath = GetTosuPathFromRegistry();
@@ -22,12 +27,12 @@ public class TosuLauncher
         if (tosuProcesses.Length == 0)
         {
             Console.WriteLine("Tosu is not running. Attempting to start Tosu...");
-            isTosuRunning = false;
+            IsTosuRunning = false;
             try
             {
                 Process.Start(tosuPath);
                 Console.WriteLine("Tosu started successfully.");
-                isTosuRunning = true;
+                IsTosuRunning = true;
             }
             catch (Exception ex)
             {
@@ -37,10 +42,13 @@ public class TosuLauncher
         else
         {
             Console.WriteLine("Tosu is already running.");
-            isTosuRunning = true;
+            IsTosuRunning = true;
         }
     }
 
+    //<remarks>
+    // for the record this might be a bit fucky if for whatever reason tosu changes it's value. but oh well
+    //</remarks>
     private static string GetTosuPathFromRegistry()
     {
         const string keyPath = @"SOFTWARE\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache";

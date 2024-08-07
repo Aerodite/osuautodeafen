@@ -31,6 +31,7 @@ namespace osuautodeafen.cs
         private readonly StringBuilder _messageAccumulator = new StringBuilder();
         private Timer _reconnectTimer;
         private int _rawBanchoStatus = -1; // Default to -1 to indicate uninitialized
+        private static readonly object ConnectionLock = new object();
 
 
         public event Action<int>? StateChanged;
@@ -38,12 +39,20 @@ namespace osuautodeafen.cs
 
         public TosuApi()
         {
+            _timer = new Timer(async _ => await ConnectAsync(), null, Timeout.Infinite, Timeout.Infinite);
             _webSocket = new ClientWebSocket();
             _dynamicBuffer = new List<byte>();
             _reconnectTimer = new Timer(ReconnectTimerCallback, null, Timeout.Infinite, 300000);
-            _ = ConnectAsync();
+            lock (ConnectionLock)
+            {
+                _ = ConnectAsync();
+            }
         }
 
+        //<summary>
+        // callback for the reconnect timer
+        // this will attempt to reconnect to the websocket if the connection is lost
+        //</summary>
         private async void ReconnectTimerCallback(object state)
         {
             if (_rawBanchoStatus != 2)
@@ -80,6 +89,9 @@ namespace osuautodeafen.cs
             return _errorMessage;
         }
 
+        //<summary>
+        // attempts to connect to the websocket along with assuring Tosu is running
+        //</summary>
         public async Task ConnectAsync(CancellationToken cancellationToken = default)
         {
             TosuLauncher.EnsureTosuRunning();
@@ -113,6 +125,9 @@ namespace osuautodeafen.cs
             }
         }
 
+        //<summary>
+        // Receives data from the WebSocket and parses it
+        //</summary>
         public async Task<JsonDocument?> ReceiveAsync()
         {
             const int bufferSize = 4096;
@@ -360,27 +375,27 @@ namespace osuautodeafen.cs
         }
 
 
+        //<summary>
+        // Closes and tidies up for websocket closure
+        //</summary>
         public void Dispose()
         {
             _reconnectTimer?.Dispose();
             _timer?.Dispose();
-            if (_webSocket != null)
+            if (_webSocket.State == WebSocketState.Open)
             {
-                if (_webSocket.State == WebSocketState.Open)
+                try
                 {
-                    try
-                    {
-                        _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None)
-                            .GetAwaiter().GetResult();
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Exception while closing WebSocket: {ex.Message}");
-                    }
+                    _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None)
+                        .GetAwaiter().GetResult();
                 }
-
-                _webSocket.Dispose();
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Exception while closing WebSocket: {ex.Message}");
+                }
             }
+
+            _webSocket.Dispose();
         }
     }
 }

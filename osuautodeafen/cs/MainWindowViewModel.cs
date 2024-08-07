@@ -5,12 +5,10 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using Avalonia;
-using Avalonia.Controls;
-using osuautodeafen;
-using osuautodeafen.cs;
 
-public class SharedViewModel : INotifyPropertyChanged
+namespace osuautodeafen.cs;
+
+public sealed class SharedViewModel : INotifyPropertyChanged
 {
     private int _minCompletionPercentage;
     private int _starRating;
@@ -20,9 +18,13 @@ public class SharedViewModel : INotifyPropertyChanged
     public string CurrentAppVersion => $"Current Version: v{UpdateChecker.currentVersion}";
     private MainWindow.HotKey _deafenKeybind;
     public bool _isFCRequired;
-
-
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
+
+    //<remarks>
+    // this file might be the worst organized file in this entire app but most of everything depends on it.
+    // TODO: rewrite basically this entire file
+    //</remarks>
+
     public bool IsParallaxEnabled
     {
         get { return _isParallaxEnabled; }
@@ -72,7 +74,7 @@ public class SharedViewModel : INotifyPropertyChanged
         CheckAndUpdateStatusMessage();
     }
 
-    private void UpdateChecker_OnUpdateAvailable(string latestVersion, string latestReleaseUrl)
+    private void UpdateChecker_OnUpdateAvailable(string? latestVersion, string latestReleaseUrl)
     {
         _updateChecker.latestVersion = latestVersion;
         CheckAndUpdateStatusMessage();
@@ -414,7 +416,7 @@ public class SharedViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler PropertyChanged;
 
-    protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+    private void OnPropertyChanged([CallerMemberName] string propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }

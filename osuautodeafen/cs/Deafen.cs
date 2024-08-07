@@ -148,9 +148,13 @@ namespace osuautodeafen
             bool isPerformancePointsMet = currentPP >= PerformancePoints;
             bool isFullCombo = _fcCalc.IsFullCombo();
 
+            // dogshit code up ahead you've been warned.
+            // i might have to rewrite a lot of this
+            // any more toggles and this might be unmaintainable
+
             if (_viewModel.IsFCRequired)
             {
-                // If the user wants to deafen after a full combo
+                // if the user wants to deafen after a full combo
                 if (_isPlaying && isFullCombo && completionPercentage >= MinCompletionPercentage && !_deafened && isStarRatingMet && isPerformancePointsMet && !_deafened && hitOneCircle && !isPracticeDifficulty)
                 {
                     ToggleDeafenState();
@@ -159,7 +163,7 @@ namespace osuautodeafen
                     Console.WriteLine("1");
                     didHitOneCircle = true;
                 }
-                // If the user wants to undeafen after a combo break
+                // if the user wants to undeafen after a combo break
                 if (_viewModel.UndeafenAfterMiss)
                 {
                     if (_wasFullCombo && !isFullCombo && _deafened && !isPracticeDifficulty)
@@ -171,7 +175,7 @@ namespace osuautodeafen
                         didHitOneCircle = true;
                     }
                 }
-                // If the playing state was exited during a full combo run
+                // if the playing state was exited during a full combo run
                 if (!_isPlaying && _wasFullCombo && _deafened)
                 {
                     ToggleDeafenState();
@@ -183,7 +187,7 @@ namespace osuautodeafen
             }
             else
             {
-                // If the user wants to deafen after a certain percentage
+                // if the user wants to deafen after a certain percentage
                 if (_isPlaying && !_deafened && completionPercentage >= MinCompletionPercentage && isStarRatingMet && isPerformancePointsMet && hitOneCircle && !isPracticeDifficulty)
                 {
                     ToggleDeafenState();
@@ -209,7 +213,7 @@ namespace osuautodeafen
                 }
             }
 
-            // This is assuming a restart occured.
+            // this is assuming a retry occured.
             if (0 >= completionPercentage && _deafened)
             {
                 ToggleDeafenState();

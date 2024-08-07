@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
@@ -56,8 +55,9 @@ public partial class MainWindow : Window
     private DateTime _lastKeyPressTime = DateTime.MinValue;
     private KeyModifiers _currentKeyModifiers = KeyModifiers.None;
 
-
-
+    //<summary>
+    // constructor for the ui and subsequent panels
+    //</summary>
     public MainWindow()
     {
         InitializeComponent();
@@ -179,7 +179,7 @@ public partial class MainWindow : Window
         _normalBackground.IsVisible = !ViewModel.IsBlurEffectEnabled;
     }
 
-    //Show the update notification bar if an update is available
+    // show the update notification bar if an update is available
     private async void InitializeViewModel()
     {
         await _updateChecker.FetchLatestVersionAsync();
@@ -192,10 +192,8 @@ public partial class MainWindow : Window
         DataContext = ViewModel;
     }
 
-    //Fetch updates every 20 minutes
     private async void CheckForUpdatesIfNeeded()
     {
-        // Avoid checking for updates too frequently
         if ((DateTime.Now - _lastUpdateCheck).TotalMinutes > 20)
         {
             _lastUpdateCheck = DateTime.Now;
@@ -217,14 +215,14 @@ public partial class MainWindow : Window
         }
     }
 
-    //Grab the keybind from the settings file and update the display
+    // grab the keybind from the settings file and update the display
     private void UpdateDeafenKeybindDisplay()
     {
         var currentKeybind = RetrieveKeybindFromSettings();
         DeafenKeybindButton.Content = currentKeybind.ToString();
     }
 
-    //Save the keybind to the settings file
+    // save the keybind to the settings file
     private void DeafenKeybindButton_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.IsKeybindCaptureFlyoutOpen = !ViewModel.IsKeybindCaptureFlyoutOpen;
@@ -242,7 +240,7 @@ public partial class MainWindow : Window
         }
     }
 
-    //Capture the keybind and save it to the settings file
+    // capture the keybind and save it to the settings file
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
@@ -273,7 +271,7 @@ public partial class MainWindow : Window
 
         if (e.Key == _lastKeyPressed && (currentTime - _lastKeyPressTime).TotalMilliseconds < 2500)
         {
-            return; // Considered a repeat key press, ignore it
+            return; // considered a repeat key press, ignore it
         }
 
         _lastKeyPressed = e.Key;
@@ -284,7 +282,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Capture the key and its modifiers
+        // capture the key and its modifiers
         KeyModifiers modifiers = KeyModifiers.None;
         if (e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control))
         {
@@ -299,10 +297,10 @@ public partial class MainWindow : Window
             modifiers |= KeyModifiers.Shift;
         }
 
-        // Create and set the new hotkey
+        // create and set the new hotkey
         ViewModel.DeafenKeybind = new HotKey { Key = e.Key, ModifierKeys = modifiers };
 
-        // Save the new hotkey to settings
+        // save the new hotkey to settings
         SaveSettingsToFile(ViewModel.DeafenKeybind.ToString(), "Hotkey");
 
         e.Handled = true;
@@ -549,7 +547,7 @@ private void SaveSettingsToFile()
         $"Hotkey={ViewModel.DeafenKeybind}"
     };
 
-    //update updatedeafenkeybinddisplay with hotkey
+    // update updatedeafenkeybinddisplay with hotkey
     UpdateDeafenKeybindDisplay();
 
 
@@ -572,9 +570,9 @@ private void SaveSettingsToFile()
             if (ModifierKeys.HasFlag(KeyModifiers.Shift))
                 parts.Add("Shift");
 
-            parts.Add(Key.ToString()); // Always add the key last
+            parts.Add(Key.ToString()); // always add the key last
 
-            return string.Join("+", parts); // Join all parts with '+'
+            return string.Join("+", parts); // join all parts with '+'
         }
         public static HotKey Parse(string str)
         {
@@ -647,10 +645,10 @@ private void SaveSettingsToFile()
         if (!ViewModel.IsBackgroundEnabled)
         {
             _currentBitmap?.Dispose();
-            _currentBitmap = null; // Ensure _currentBitmap is null after disposal to avoid accessing a disposed object
+            _currentBitmap = null; // ensure _currentBitmap is null after disposal to avoid accessing a disposed object
 
-            var newBitmap = DisplayBlackBackground(); // Create a new Bitmap and assign it to _currentBitmap inside DisplayBlackBackground
-            UpdateUIWithNewBackground(newBitmap); // Pass the new Bitmap to UpdateUIWithNewBackground
+            var newBitmap = DisplayBlackBackground(); // create a new Bitmap and assign it to _currentBitmap inside DisplayBlackBackground
+            UpdateUIWithNewBackground(newBitmap); // pass the new Bitmap to UpdateUIWithNewBackground
         }
     }
 
@@ -907,14 +905,14 @@ private void SaveSettingsToFile()
         }
         else
         {
-            // If the background is enabled, check if a new background needs to be loaded
+            // if the background is enabled, check if a new background needs to be loaded
             var backgroundPath = _tosuApi.GetBackgroundPath();
             if (_currentBitmap == null || backgroundPath != _currentBackgroundDirectory)
             {
                 if (!File.Exists(backgroundPath))
                 {
                     Console.WriteLine($"The file does not exist: {backgroundPath}");
-                    DisplayBlackBackground(); // Fallback to black background
+                    DisplayBlackBackground(); // fallback to black background
                     return;
                 }
 
@@ -925,7 +923,7 @@ private void SaveSettingsToFile()
                 }
                 catch
                 {
-                    DisplayBlackBackground(); // Fallback to black background
+                    DisplayBlackBackground(); // fallback to black background
                     return;
                 }
 
@@ -977,7 +975,7 @@ private void SaveSettingsToFile()
         }
         else
         {
-            // Fallback: If the main content is not a Grid or not structured as expected, replace it entirely
+            // fallback: If the main content is not a grid or not structured as expected, replace it entirely
             var newContentGrid = new Grid();
             newContentGrid.Children.Add(imageControl);
             this.Content = newContentGrid;
@@ -1002,7 +1000,7 @@ private void SaveSettingsToFile()
         using (var stream = new MemoryStream())
         {
             renderTargetBitmap.Save(stream);
-            stream.Position = 0; // Reset stream position to the beginning
+            stream.Position = 0; // reset stream position to the beginning
 
             return new Bitmap(stream);
         }
@@ -1023,7 +1021,7 @@ private void SaveSettingsToFile()
         {
             return;
         }
-        //if cursor isnt on window return
+        // if cursor isnt on window return
         if (mouseX < 0 || mouseY < 0 || mouseX > this.Width || mouseY > this.Height)
         {
             return;
@@ -1037,13 +1035,13 @@ private void SaveSettingsToFile()
         double relativeMouseX = mouseX - centerX;
         double relativeMouseY = mouseY - centerY;
 
-        // Scaling factor to reduce movement intensity
-        double scaleFactor = 0.03;
+        // scaling factor to reduce movement intensity
+        double scaleFactor = 0.015;
 
         double movementX = -(relativeMouseX * scaleFactor);
         double movementY = -(relativeMouseY * scaleFactor);
 
-        // Ensure movement doesn't exceed maximum allowed movement
+        // ensure movement doesn't exceed maximum allowed movement
         double maxMovement = 15;
         movementX = Math.Max(-maxMovement, Math.Min(maxMovement, movementX));
         movementY = Math.Max(-maxMovement, Math.Min(maxMovement, movementY));
