@@ -93,7 +93,7 @@ public partial class MainWindow : Window
 
         LoadSettings();
 
-        this.Icon = new WindowIcon(new Bitmap(Path.Combine("Resources", "oad.ico")));
+        this.Icon = new WindowIcon("Resources/oad.ico");
 
         _tosuApi = new TosuApi();
 
