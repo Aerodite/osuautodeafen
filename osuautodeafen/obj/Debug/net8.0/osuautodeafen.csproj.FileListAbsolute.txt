@@ -403,3 +403,7 @@ C:\Users\Anthony\Documents\GitHub\osuautodeafen2\osuautodeafen\obj\Debug\net8.0\
 C:\Users\Anthony\Documents\GitHub\osuautodeafen2\osuautodeafen\obj\Debug\net8.0\osuautod.8F71579D.Up2Date
 C:\Users\Anthony\Documents\GitHub\osuautodeafen2\osuautodeafen\obj\Debug\net8.0\osuautodeafen.genruntimeconfig.cache
 C:\Users\Anthony\Documents\GitHub\osuautodeafen2\osuautodeafen\obj\Debug\net8.0\ref\osuautodeafen.dll
+C:\Users\Anthony\Documents\GitHub\osuautodeafen2\osuautodeafen\bin\Debug\net8.0\LiveChartsCore.dll
+C:\Users\Anthony\Documents\GitHub\osuautodeafen2\osuautodeafen\bin\Debug\net8.0\LiveChartsCore.SkiaSharpView.dll
+C:\Users\Anthony\Documents\GitHub\osuautodeafen2\osuautodeafen\bin\Debug\net8.0\LiveChartsCore.SkiaSharpView.Avalonia.dll
+C:\Users\Anthony\Documents\GitHub\osuautodeafen2\osuautodeafen\bin\Debug\net8.0\SkiaSharp.HarfBuzz.dll

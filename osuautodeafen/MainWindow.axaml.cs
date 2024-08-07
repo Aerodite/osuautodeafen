@@ -15,7 +15,11 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using LiveChartsCore;
+using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
+using SkiaSharp;
 
 namespace osuautodeafen;
 
@@ -39,6 +43,13 @@ public partial class MainWindow : Window
     private Image? _blurredBackground;
     private Image? _normalBackground;
     private bool _hasDisplayed = false;
+    public GraphData? Graph { get; set; }
+    public ISeries[] Series { get; set; }
+    public Axis[] XAxes { get; set; }
+    public Axis[] YAxes { get; set; }
+
+
+
 
     private UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private Bitmap? _currentBitmap;
@@ -113,6 +124,15 @@ public partial class MainWindow : Window
 
         DataContext = ViewModel;
 
+        Series = new ISeries[] { };
+        XAxes = new Axis[] { new Axis { LabelsPaint = new SolidColorPaint(SKColors.White) } };
+        YAxes = new Axis[] { new Axis { LabelsPaint = new SolidColorPaint(SKColors.White) } };
+        PlotView.Series = Series;
+        PlotView.XAxes = XAxes;
+        PlotView.YAxes = YAxes;
+
+        _tosuApi.GraphDataUpdated += OnGraphDataUpdated;
+
         //dogshit slider logic that i would rather not reimplement
 
         // var slider = this.FindControl<Slider>("Slider");
@@ -163,11 +183,61 @@ public partial class MainWindow : Window
         _isConstructorFinished = true;
     }
 
+    public void UpdateGraphData(GraphData? graphData)
+    {
+        Graph = graphData;
+        // Update the chart control with the new data
+        UpdateChart(graphData);
+    }
+
+    private void OnGraphDataUpdated(GraphData graphData)
+    {
+        UpdateChart(graphData);
+    }
+
+    public void UpdateChart(GraphData graphData)
+    {
+        var seriesList = new List<ISeries>();
+
+        foreach (var series in graphData.Series)
+        {
+            var lineSeries = new LineSeries<double>
+            {
+                Values = series.Data.ToArray(),
+                Name = series.Name,
+                Stroke = new SolidColorPaint(SKColors.White)
+            };
+            seriesList.Add(lineSeries);
+        }
+
+        Series = seriesList.ToArray();
+        XAxes = new Axis[]
+        {
+            new Axis
+            {
+                Labels = graphData.XAxis.ConvertAll(x => x.ToString()).ToArray(),
+                LabelsPaint = new SolidColorPaint(SKColors.White)
+            }
+        };
+        YAxes = new Axis[]
+        {
+            new Axis
+            {
+                LabelsPaint = new SolidColorPaint(SKColors.White)
+            }
+        };
+
+        PlotView.Series = Series;
+        PlotView.XAxes = XAxes;
+        PlotView.YAxes = YAxes;
+    }
+
+    //initialize the visibility check timer
     private void InitializeVisibilityCheckTimer()
     {
         _visibilityCheckTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(0.5)
+            Interval = TimeSpan.FromMilliseconds(100)
         };
         _visibilityCheckTimer.Tick += VisibilityCheckTimer_Tick;
         _visibilityCheckTimer.Start();

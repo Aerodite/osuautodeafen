@@ -27,9 +27,11 @@ namespace osuautodeafen.cs
         private double _firstObj;
         private double _rankedStatus;
         private string? _settingsSongsDirectory;
+        public event Action<GraphData>? GraphDataUpdated;
         private string? _fullPath;
         private readonly StringBuilder _messageAccumulator = new StringBuilder();
         private Timer _reconnectTimer;
+        public GraphData Graph { get; private set; }
         private int _rawBanchoStatus = -1; // Default to -1 to indicate uninitialized
         private static readonly object ConnectionLock = new object();
 
@@ -107,6 +109,8 @@ namespace osuautodeafen.cs
                         _webSocket = new ClientWebSocket();
                         await _webSocket.ConnectAsync(new Uri(WebSocketUri), cancellationToken);
                         Console.WriteLine("Connected to WebSocket.");
+                        // this reconnects every 5 minutes incase tosu does that dumb stuff where it
+                        // doesn't want to refresh data anymore (which is quite frankly annoying as fuck).
                         _reconnectTimer.Change(300000, Timeout.Infinite);
                         await ReceiveAsync();
                         break;
@@ -252,6 +256,13 @@ namespace osuautodeafen.cs
                                 }
                             }
                         }
+                        if (root.TryGetProperty("performance", out var performance))
+                        {
+                            if (performance.TryGetProperty("graph", out var graphs))
+                            {
+                                ParseGraphData(graphs);
+                            }
+                        }
 
                         if (root.TryGetProperty("profile", out var profile))
                         {
@@ -374,6 +385,101 @@ namespace osuautodeafen.cs
             return _settingsSongsDirectory + "\\" + _fullPath;
         }
 
+        private bool IsXAxisChanged(List<int> newXAxis)
+        {
+            if (Graph == null || Graph.XAxis == null)
+            {
+                return true;
+            }
+
+            if (Graph.XAxis.Count != newXAxis.Count)
+            {
+                return true;
+            }
+
+            for (int i = 0; i < Graph.XAxis.Count; i++)
+            {
+                if (Graph.XAxis[i] != newXAxis[i])
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void ParseGraphData(JsonElement graphElement)
+        {
+            try
+            {
+                var newGraph = new GraphData
+                {
+                    Series = new List<Series>(),
+                    XAxis = new List<int>()
+                };
+
+                if (graphElement.TryGetProperty("series", out var seriesArray))
+                {
+                    foreach (var seriesElement in seriesArray.EnumerateArray())
+                    {
+                        var series = new Series
+                        {
+                            Name = seriesElement.GetProperty("name").GetString(),
+                            Data = new List<double>()
+                        };
+
+                        if (seriesElement.TryGetProperty("data", out var dataArray))
+                        {
+                            foreach (var dataElement in dataArray.EnumerateArray())
+                            {
+                                if (dataElement.ValueKind == JsonValueKind.Number)
+                                {
+                                    double value = dataElement.GetDouble();
+                                    series.Data.Add(value == -100 ? 0 : value);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Data property not found in series element.");
+                        }
+
+                        newGraph.Series.Add(series);
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Series property not found in graph element.");
+                }
+
+                if (graphElement.TryGetProperty("xaxis", out var xAxisArray))
+                {
+                    foreach (var xElement in xAxisArray.EnumerateArray())
+                    {
+                        if (xElement.ValueKind == JsonValueKind.Number)
+                        {
+                            int xValue = xElement.GetInt32();
+                            newGraph.XAxis.Add(xValue / 100);
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("X-Axis property not found in graph element.");
+                }
+
+                if (IsXAxisChanged(newGraph.XAxis))
+                {
+                    Graph = newGraph;
+                   // Console.WriteLine($"X-Axis: {string.Join(", ", Graph.XAxis)}");
+                    GraphDataUpdated?.Invoke(Graph);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred while parsing graph data: {ex.Message}");
+            }
+        }
 
         //<summary>
         // Closes and tidies up for websocket closure

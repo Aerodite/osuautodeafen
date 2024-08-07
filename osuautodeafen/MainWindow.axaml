@@ -5,6 +5,10 @@
         xmlns:local="clr-namespace:osuautodeafen"
         xmlns:global="clr-namespace:"
         xmlns:cs="clr-namespace:osuautodeafen.cs"
+        xmlns:avalonia="http://oxyplot.org/avalonia"
+        xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
+        xmlns:skiaSharpView="clr-namespace:LiveChartsCore.SkiaSharpView;assembly=LiveChartsCore.SkiaSharpView"
+        xmlns:painting="clr-namespace:LiveChartsCore.SkiaSharpView.Painting;assembly=LiveChartsCore.SkiaSharpView"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osu!autodeafen"
@@ -161,7 +165,8 @@
                                                         </Flyout>
                                                 </Button.Flyout>
                                         </Button>
-                                </StackPanel></StackPanel>
+                                </StackPanel>
+                        </StackPanel>
 
                     <!--update checker-->
 
@@ -170,6 +175,36 @@
                 </StackPanel>
                         <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom" VerticalAlignment="Bottom" Margin="40,0,0,8" Foreground="White" FontSize="14"/>
                 </DockPanel>
+
+                <Grid Grid.Column="0">
+                        <avalonia1:CartesianChart
+                                x:Name="PlotView"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Width="400"
+                                Height="400"
+                                Margin="0,100,0,0"
+                                Background="Black"
+                                Foreground="White">
+                                <avalonia1:CartesianChart.Series>
+                                        <!-- Define your series here with white line color -->
+                                </avalonia1:CartesianChart.Series>
+                                <avalonia1:CartesianChart.XAxes>
+                                        <skiaSharpView:Axis>
+                                                <skiaSharpView:Axis.LabelsPaint>
+                                                        <painting:SolidColorPaint Color="#FFFFFF" />
+                                                </skiaSharpView:Axis.LabelsPaint>
+                                        </skiaSharpView:Axis>
+                                </avalonia1:CartesianChart.XAxes>
+                                <avalonia1:CartesianChart.YAxes>
+                                        <skiaSharpView:Axis>
+                                                <skiaSharpView:Axis.LabelsPaint>
+                                                        <painting:SolidColorPaint Color="#FFFFFF" />
+                                                </skiaSharpView:Axis.LabelsPaint>
+                                        </skiaSharpView:Axis>
+                                </avalonia1:CartesianChart.YAxes>
+                        </avalonia1:CartesianChart>
+                </Grid>
 
                 <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Bottom">
                         <Grid.ColumnDefinitions>
