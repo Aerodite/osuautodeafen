@@ -11,8 +11,10 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -24,6 +26,7 @@ using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
 using SkiaSharp;
+using Path = System.IO.Path;
 
 namespace osuautodeafen;
 
@@ -94,6 +97,8 @@ public partial class MainWindow : Window
 
         _tosuApi = new TosuApi();
 
+        _deafen = new Deafen(_tosuApi, settingsPanel1);
+
         _disposeTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(500)
@@ -126,7 +131,7 @@ public partial class MainWindow : Window
         {
             Children =
             {
-                new ContentControl { Content = oldContent },
+                new ContentControl { Content = oldContent }
             }
         };
 
@@ -244,6 +249,8 @@ public partial class MainWindow : Window
         ChartData.Series2Values = graphData.Series[1].Data.Select((value, index) => new ObservablePoint(index, value)).ToList();
 
         Dispatcher.UIThread.InvokeAsync(() => UpdateChart(graphData));
+
+        _deafen.MinCompletionPercentage = ViewModel.MinCompletionPercentage;
     }
 
     // i hope i never have to touch arrays or graphs again due to this function alone.
@@ -276,8 +283,7 @@ public partial class MainWindow : Window
     // round up the last value in the updated x-axis array
     double maxLimit = Math.Ceiling((double)graphData.XAxis.Last() / 1000);
 
-    Deafen deafen = new Deafen(_tosuApi, settingsPanel1);
-    deafenProgressPercentage = deafen.MinCompletionPercentage / 100.0;
+    deafenProgressPercentage = _deafen.MinCompletionPercentage / 100.0;
     double graphDuration = maxLimit;
     deafenTimestamp = graphDuration * deafenProgressPercentage;
 
@@ -1270,6 +1276,12 @@ private void SaveSettingsToFile()
         CompletionPercentageTextBox.Text = ViewModel.MinCompletionPercentage.ToString();
         StarRatingTextBox.Text = ViewModel.StarRating.ToString();
         PPTextBox.Text = ViewModel.PerformancePoints.ToString();
+
+        if (Graph != null)
+        {
+            UpdateChart(Graph);
+        }
+        isCompPctLostFocus = true;
     }
 
     private void UpdateErrorMessage(object? sender, EventArgs e)

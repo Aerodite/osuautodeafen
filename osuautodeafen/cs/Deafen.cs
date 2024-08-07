@@ -26,6 +26,7 @@ namespace osuautodeafen
         public double StarRating;
         public double PerformancePoints;
         private bool _wasFullCombo;
+        private bool _isFileCheckTimerRunning = false;
 
         public Deafen(TosuApi tosuAPI, SettingsPanel settingsPanel)
         {
@@ -34,6 +35,7 @@ namespace osuautodeafen
             _viewModel = new SharedViewModel();
             _fcCalc = new FCCalc(tosuAPI);
             _timer = new System.Timers.Timer(250);
+
             _timer.Elapsed += TimerElapsed;
             _timer.Elapsed += (sender, e) => ReadSettings();
             _timer.AutoReset = true;
@@ -42,9 +44,9 @@ namespace osuautodeafen
 
             _tosuAPI.StateChanged += TosuAPI_StateChanged;
 
-            // _fileCheckTimer = new Timer(12500);
-            // _fileCheckTimer.Elapsed += FileCheckTimer_Elapsed;
-            // _fileCheckTimer.Start();
+            _fileCheckTimer = new Timer(12500);
+            _fileCheckTimer.Elapsed += FileCheckTimer_Elapsed;
+            _fileCheckTimer.Start();
 
             string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "osuautodeafen", "settings.txt");
@@ -84,38 +86,48 @@ namespace osuautodeafen
 
         private void FileCheckTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
-            _viewModel.UpdateIsFCRequired();
-            _viewModel.UpdateUndeafenAfterMiss();
-            string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "osuautodeafen", "settings.txt");
-            if (File.Exists(settingsFilePath))
+            if (_isFileCheckTimerRunning) return;
+            _isFileCheckTimerRunning = true;
+
+            try
             {
-                var lines = File.ReadAllLines(settingsFilePath);
-                foreach (var line in lines)
+                _viewModel.UpdateIsFCRequired();
+                _viewModel.UpdateUndeafenAfterMiss();
+                string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "osuautodeafen", "settings.txt");
+                if (File.Exists(settingsFilePath))
                 {
-                    var settings = line.Split('=');
-                    if (settings.Length == 2)
+                    var lines = File.ReadAllLines(settingsFilePath);
+                    foreach (var line in lines)
                     {
-                        switch (settings[0].Trim())
+                        var settings = line.Split('=');
+                        if (settings.Length == 2)
                         {
-                            case "MinCompletionPercentage" when double.TryParse(settings[1], out double parsedPercentage):
-                                MinCompletionPercentage = parsedPercentage;
-                                break;
-                            case "StarRating" when double.TryParse(settings[1], out double parsedStarRating):
-                                StarRating = parsedStarRating;
-                                break;
-                            case "PerformancePoints" when double.TryParse(settings[1], out double parsedPerformancePoints):
-                                PerformancePoints = parsedPerformancePoints;
-                                break;
+                            switch (settings[0].Trim())
+                            {
+                                case "MinCompletionPercentage" when double.TryParse(settings[1], out double parsedPercentage):
+                                    MinCompletionPercentage = parsedPercentage;
+                                    break;
+                                case "StarRating" when double.TryParse(settings[1], out double parsedStarRating):
+                                    StarRating = parsedStarRating;
+                                    break;
+                                case "PerformancePoints" when double.TryParse(settings[1], out double parsedPerformancePoints):
+                                    PerformancePoints = parsedPerformancePoints;
+                                    break;
+                            }
                         }
                     }
                 }
+                else
+                {
+                    MinCompletionPercentage = 60;
+                    StarRating = 0;
+                    PerformancePoints = 0;
+                }
             }
-            else
+            finally
             {
-                MinCompletionPercentage = 60;
-                StarRating = 0;
-                PerformancePoints = 0;
+                _isFileCheckTimerRunning = false;
             }
         }
         public double GetMinCompletionPercentage()

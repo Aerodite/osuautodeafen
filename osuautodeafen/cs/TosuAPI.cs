@@ -384,23 +384,34 @@ namespace osuautodeafen.cs
             return _settingsSongsDirectory + "\\" + _fullPath;
         }
 
-        private bool IsXAxisChanged(List<int> newXAxis)
+        private bool IsYAxisChanged(List<Series> newSeries)
         {
-            if (Graph?.XAxis == null)
+            if (Graph?.Series == null)
             {
                 return true;
             }
 
-            if (Graph.XAxis.Count != newXAxis.Count)
+            if (Graph.Series.Count != newSeries.Count)
             {
                 return true;
             }
 
-            for (int i = 0; i < Graph.XAxis.Count; i++)
+            for (int i = 0; i < Graph.Series.Count; i++)
             {
-                if (Graph.XAxis[i] != newXAxis[i])
+                var currentSeries = Graph.Series[i];
+                var newSeriesData = newSeries[i].Data;
+
+                if (currentSeries.Data.Count != newSeriesData.Count)
                 {
                     return true;
+                }
+
+                for (int j = 0; j < currentSeries.Data.Count; j++)
+                {
+                    if (currentSeries.Data[j] != newSeriesData[j])
+                    {
+                        return true;
+                    }
                 }
             }
 
@@ -411,7 +422,7 @@ namespace osuautodeafen.cs
         // organizes the array data from tosu
         // also this was a massive nightmare :)
         //</summary>
-       private void ParseGraphData(JsonElement graphElement)
+        private void ParseGraphData(JsonElement graphElement)
         {
             try
             {
@@ -479,7 +490,8 @@ namespace osuautodeafen.cs
 
                 foreach (var series in newGraph.Series)
                 {
-                    if (series.Name == "aim") // only processing one of them just so it doesnt delete twice the amount necessary
+                    if (series.Name ==
+                        "aim") // only processing one of them just so it doesnt delete twice the amount necessary
                     {
                         var updatedValues = new List<double>(series.Data);
                         var updatedXAxis = new List<int>(newGraph.XAxis);
@@ -500,9 +512,16 @@ namespace osuautodeafen.cs
                             }
                         }
 
+                        // round up each value in the series.Data list
+                        for (int i = 0; i < updatedValues.Count; i++)
+                        {
+                            updatedValues[i] = Math.Ceiling(updatedValues[i]);
+                        }
+
                         series.Data = updatedValues;
                         newGraph.XAxis = updatedXAxis;
                     }
+
                     if (series.Name == "speed")
                     {
                         var updatedValues = new List<double>(series.Data);
@@ -518,16 +537,22 @@ namespace osuautodeafen.cs
                             updatedValues.RemoveAt(updatedValues.Count - 1);
                         }
 
+                        // round up each value in the series.Data list
+                        for (int i = 0; i < updatedValues.Count; i++)
+                        {
+                            updatedValues[i] = Math.Ceiling(updatedValues[i]);
+                        }
+
                         series.Data = updatedValues;
                     }
                 }
 
-                if (IsXAxisChanged(newGraph.XAxis))
+                if (IsYAxisChanged(newGraph.Series))
                 {
                     Graph = newGraph;
                     GraphDataUpdated?.Invoke(Graph);
                 }
-                else if(MainWindow.isCompPctLostFocus)
+                else if (MainWindow.isCompPctLostFocus)
                 {
                     Graph = newGraph;
                     GraphDataUpdated?.Invoke(Graph);
@@ -539,6 +564,7 @@ namespace osuautodeafen.cs
                 Console.WriteLine($"An error occurred while parsing graph data: {ex.Message}");
             }
         }
+
         //<summary>
         // Closes and tidies up for websocket closure
         //</summary>

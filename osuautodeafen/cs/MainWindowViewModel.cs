@@ -4,7 +4,9 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
+
 using System.Threading.Tasks;
+using System.Timers;
 using System.Windows.Input;
 using LiveChartsCore.Defaults;
 
@@ -17,6 +19,9 @@ public sealed partial class SharedViewModel : INotifyPropertyChanged
     private int _performancePoints;
     private bool _isParallaxEnabled;
     private bool _isBackgroundEnabled;
+    public Timer _debounceTimer;
+    private bool _canUpdateSettings = true;
+
 
     public string CurrentAppVersion => $"Current Version: v{UpdateChecker.currentVersion}";
     private MainWindow.HotKey _deafenKeybind;
@@ -117,6 +122,7 @@ public sealed partial class SharedViewModel : INotifyPropertyChanged
         get { return _isFCRequired; }
         set
         {
+            if (!_canUpdateSettings) return;
             if (_isFCRequired != value)
             {
                 _isFCRequired = value;
@@ -328,6 +334,7 @@ public sealed partial class SharedViewModel : INotifyPropertyChanged
 
     public void UpdateIsFCRequired()
     {
+        if (!_canUpdateSettings) return;
         string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "settings.txt");
         if (File.Exists(settingsFilePath))
         {
@@ -401,6 +408,9 @@ public sealed partial class SharedViewModel : INotifyPropertyChanged
 
     public SharedViewModel()
     {
+        _debounceTimer = new Timer(2000);
+        _debounceTimer.Elapsed += (sender, e) => _canUpdateSettings = true;
+        _debounceTimer.AutoReset = false;
         OpenUpdateUrlCommand = new RelayCommand(OpenUpdateUrl);
         Task.Run(InitializeAsync);
     }
