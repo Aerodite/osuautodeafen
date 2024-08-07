@@ -27,10 +27,13 @@ namespace osuautodeafen.cs
         private double _firstObj;
         private double _rankedStatus;
         private string? _settingsSongsDirectory;
+        public event Action<GraphData>? GraphDataUpdated;
         private string? _fullPath;
         private readonly StringBuilder _messageAccumulator = new StringBuilder();
         private Timer _reconnectTimer;
+        public GraphData Graph { get; private set; }
         private int _rawBanchoStatus = -1; // Default to -1 to indicate uninitialized
+        private static readonly object ConnectionLock = new object();
 
 
         public event Action<int>? StateChanged;
@@ -38,12 +41,21 @@ namespace osuautodeafen.cs
 
         public TosuApi()
         {
+            _timer = new Timer(async _ => await ConnectAsync(), null, Timeout.Infinite, Timeout.Infinite);
             _webSocket = new ClientWebSocket();
             _dynamicBuffer = new List<byte>();
             _reconnectTimer = new Timer(ReconnectTimerCallback, null, Timeout.Infinite, 300000);
-            _ = ConnectAsync();
+            TosuLauncher.EnsureTosuRunning();
+            lock (ConnectionLock)
+            {
+                _ = ConnectAsync();
+            }
         }
 
+        //<summary>
+        // callback for the reconnect timer
+        // this will attempt to reconnect to the websocket if the connection is lost
+        //</summary>
         private async void ReconnectTimerCallback(object state)
         {
             if (_rawBanchoStatus != 2)
@@ -80,10 +92,11 @@ namespace osuautodeafen.cs
             return _errorMessage;
         }
 
+        //<summary>
+        // attempts to connect to the websocket along with assuring Tosu is running
+        //</summary>
         public async Task ConnectAsync(CancellationToken cancellationToken = default)
         {
-            TosuLauncher.EnsureTosuRunning();
-
             Console.WriteLine("Connecting to WebSocket...");
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -95,6 +108,8 @@ namespace osuautodeafen.cs
                         _webSocket = new ClientWebSocket();
                         await _webSocket.ConnectAsync(new Uri(WebSocketUri), cancellationToken);
                         Console.WriteLine("Connected to WebSocket.");
+                        // this reconnects every 5 minutes incase tosu does that dumb stuff where it
+                        // doesn't want to refresh data anymore (which is quite frankly annoying as fuck).
                         _reconnectTimer.Change(300000, Timeout.Infinite);
                         await ReceiveAsync();
                         break;
@@ -113,6 +128,9 @@ namespace osuautodeafen.cs
             }
         }
 
+        //<summary>
+        // Receives data from the WebSocket and parses it
+        //</summary>
         public async Task<JsonDocument?> ReceiveAsync()
         {
             const int bufferSize = 4096;
@@ -237,6 +255,13 @@ namespace osuautodeafen.cs
                                 }
                             }
                         }
+                        if (root.TryGetProperty("performance", out var performance))
+                        {
+                            if (performance.TryGetProperty("graph", out var graphs))
+                            {
+                                ParseGraphData(graphs);
+                            }
+                        }
 
                         if (root.TryGetProperty("profile", out var profile))
                         {
@@ -359,28 +384,208 @@ namespace osuautodeafen.cs
             return _settingsSongsDirectory + "\\" + _fullPath;
         }
 
+        private bool IsYAxisChanged(List<Series> newSeries)
+        {
+            if (Graph?.Series == null)
+            {
+                return true;
+            }
 
+            if (Graph.Series.Count != newSeries.Count)
+            {
+                return true;
+            }
+
+            for (int i = 0; i < Graph.Series.Count; i++)
+            {
+                var currentSeries = Graph.Series[i];
+                var newSeriesData = newSeries[i].Data;
+
+                if (currentSeries.Data.Count != newSeriesData.Count)
+                {
+                    return true;
+                }
+
+                for (int j = 0; j < currentSeries.Data.Count; j++)
+                {
+                    if (currentSeries.Data[j] != newSeriesData[j])
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        //<summary>
+        // organizes the array data from tosu
+        // also this was a massive nightmare :)
+        //</summary>
+        private void ParseGraphData(JsonElement graphElement)
+        {
+            try
+            {
+                var newGraph = new GraphData
+                {
+                    Series = new List<Series>(),
+                    XAxis = new List<int>()
+                };
+
+                if (graphElement.TryGetProperty("series", out var seriesArray))
+                {
+                    foreach (var seriesElement in seriesArray.EnumerateArray())
+                    {
+                        var seriesName = seriesElement.GetProperty("name").GetString();
+                        if (seriesName == "flashlight" || seriesName == "aimNoSliders")
+                        {
+                            continue; // just ignoring these for now they aren't really needed imo
+                        }
+
+                        var series = new Series
+                        {
+                            Name = seriesName,
+                            Data = new List<double>()
+                        };
+
+                        if (seriesElement.TryGetProperty("data", out var dataArray))
+                        {
+                            foreach (var dataElement in dataArray.EnumerateArray())
+                            {
+                                if (dataElement.ValueKind == JsonValueKind.Number)
+                                {
+                                    double value = dataElement.GetDouble();
+                                    series.Data.Add(value);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Data property not found in series element.");
+                        }
+
+                        newGraph.Series.Add(series);
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Series property not found in graph element.");
+                }
+
+                if (graphElement.TryGetProperty("xaxis", out var xAxisArray))
+                {
+                    foreach (var xElement in xAxisArray.EnumerateArray())
+                    {
+                        if (xElement.ValueKind == JsonValueKind.Number)
+                        {
+                            int xValue = xElement.GetInt32();
+                            newGraph.XAxis.Add(xValue); // ensure no unintended scaling or limiting
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("X-Axis property not found in graph element.");
+                }
+
+                foreach (var series in newGraph.Series)
+                {
+                    if (series.Name ==
+                        "aim") // only processing one of them just so it doesnt delete twice the amount necessary
+                    {
+                        var updatedValues = new List<double>(series.Data);
+                        var updatedXAxis = new List<int>(newGraph.XAxis);
+
+                        // set -100 values at the beginning to 0
+                        for (int i = 0; i < updatedValues.Count && updatedValues[i] == -100; i++)
+                        {
+                            updatedValues[i] = 0;
+                        }
+
+                        // remove trailing -100 values from the end
+                        while (updatedValues.Count > 0 && updatedValues[updatedValues.Count - 1] == -100)
+                        {
+                            updatedValues.RemoveAt(updatedValues.Count - 1);
+                            if (updatedXAxis.Count > 0)
+                            {
+                                updatedXAxis.RemoveAt(updatedXAxis.Count - 1);
+                            }
+                        }
+
+                        // round up each value in the series.Data list
+                        for (int i = 0; i < updatedValues.Count; i++)
+                        {
+                            updatedValues[i] = Math.Ceiling(updatedValues[i]);
+                        }
+
+                        series.Data = updatedValues;
+                        newGraph.XAxis = updatedXAxis;
+                    }
+
+                    if (series.Name == "speed")
+                    {
+                        var updatedValues = new List<double>(series.Data);
+
+                        // set -100 values at the beginning to 0
+                        for (int i = 0; i < updatedValues.Count && updatedValues[i] == -100; i++)
+                        {
+                            updatedValues[i] = 0;
+                        }
+
+                        while (updatedValues.Count > 0 && updatedValues[updatedValues.Count - 1] == -100)
+                        {
+                            updatedValues.RemoveAt(updatedValues.Count - 1);
+                        }
+
+                        // round up each value in the series.Data list
+                        for (int i = 0; i < updatedValues.Count; i++)
+                        {
+                            updatedValues[i] = Math.Ceiling(updatedValues[i]);
+                        }
+
+                        series.Data = updatedValues;
+                    }
+                }
+
+                if (IsYAxisChanged(newGraph.Series))
+                {
+                    Graph = newGraph;
+                    GraphDataUpdated?.Invoke(Graph);
+                }
+                else if (MainWindow.isCompPctLostFocus)
+                {
+                    Graph = newGraph;
+                    GraphDataUpdated?.Invoke(Graph);
+                    MainWindow.isCompPctLostFocus = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred while parsing graph data: {ex.Message}");
+            }
+        }
+
+        //<summary>
+        // Closes and tidies up for websocket closure
+        //</summary>
         public void Dispose()
         {
             _reconnectTimer?.Dispose();
             _timer?.Dispose();
-            if (_webSocket != null)
+            if (_webSocket.State == WebSocketState.Open)
             {
-                if (_webSocket.State == WebSocketState.Open)
+                try
                 {
-                    try
-                    {
-                        _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None)
-                            .GetAwaiter().GetResult();
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Exception while closing WebSocket: {ex.Message}");
-                    }
+                    _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None)
+                        .GetAwaiter().GetResult();
                 }
-
-                _webSocket.Dispose();
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Exception while closing WebSocket: {ex.Message}");
+                }
             }
+
+            _webSocket.Dispose();
         }
     }
 }

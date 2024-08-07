@@ -21,11 +21,12 @@ namespace osuautodeafen
         private bool _isPlaying = false;
         private bool _hasReachedMinPercent = false;
         private bool _deafened = false;
-        private double MinCompletionPercentage;
+        public double MinCompletionPercentage;
         private Timer _fileCheckTimer;
         public double StarRating;
         public double PerformancePoints;
         private bool _wasFullCombo;
+        private bool _isFileCheckTimerRunning = false;
 
         public Deafen(TosuApi tosuAPI, SettingsPanel settingsPanel)
         {
@@ -34,6 +35,7 @@ namespace osuautodeafen
             _viewModel = new SharedViewModel();
             _fcCalc = new FCCalc(tosuAPI);
             _timer = new System.Timers.Timer(250);
+
             _timer.Elapsed += TimerElapsed;
             _timer.Elapsed += (sender, e) => ReadSettings();
             _timer.AutoReset = true;
@@ -42,7 +44,7 @@ namespace osuautodeafen
 
             _tosuAPI.StateChanged += TosuAPI_StateChanged;
 
-            _fileCheckTimer = new Timer(5000);
+            _fileCheckTimer = new Timer(12500);
             _fileCheckTimer.Elapsed += FileCheckTimer_Elapsed;
             _fileCheckTimer.Start();
 
@@ -84,39 +86,53 @@ namespace osuautodeafen
 
         private void FileCheckTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
-            _viewModel.UpdateIsFCRequired();
-            _viewModel.UpdateUndeafenAfterMiss();
-            string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "osuautodeafen", "settings.txt");
-            if (File.Exists(settingsFilePath))
+            if (_isFileCheckTimerRunning) return;
+            _isFileCheckTimerRunning = true;
+
+            try
             {
-                var lines = File.ReadAllLines(settingsFilePath);
-                foreach (var line in lines)
+                _viewModel.UpdateIsFCRequired();
+                _viewModel.UpdateUndeafenAfterMiss();
+                string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "osuautodeafen", "settings.txt");
+                if (File.Exists(settingsFilePath))
                 {
-                    var settings = line.Split('=');
-                    if (settings.Length == 2)
+                    var lines = File.ReadAllLines(settingsFilePath);
+                    foreach (var line in lines)
                     {
-                        switch (settings[0].Trim())
+                        var settings = line.Split('=');
+                        if (settings.Length == 2)
                         {
-                            case "MinCompletionPercentage" when double.TryParse(settings[1], out double parsedPercentage):
-                                MinCompletionPercentage = parsedPercentage;
-                                break;
-                            case "StarRating" when double.TryParse(settings[1], out double parsedStarRating):
-                                StarRating = parsedStarRating;
-                                break;
-                            case "PerformancePoints" when double.TryParse(settings[1], out double parsedPerformancePoints):
-                                PerformancePoints = parsedPerformancePoints;
-                                break;
+                            switch (settings[0].Trim())
+                            {
+                                case "MinCompletionPercentage" when double.TryParse(settings[1], out double parsedPercentage):
+                                    MinCompletionPercentage = parsedPercentage;
+                                    break;
+                                case "StarRating" when double.TryParse(settings[1], out double parsedStarRating):
+                                    StarRating = parsedStarRating;
+                                    break;
+                                case "PerformancePoints" when double.TryParse(settings[1], out double parsedPerformancePoints):
+                                    PerformancePoints = parsedPerformancePoints;
+                                    break;
+                            }
                         }
                     }
                 }
+                else
+                {
+                    MinCompletionPercentage = 60;
+                    StarRating = 0;
+                    PerformancePoints = 0;
+                }
             }
-            else
+            finally
             {
-                MinCompletionPercentage = 60;
-                StarRating = 0;
-                PerformancePoints = 0;
+                _isFileCheckTimerRunning = false;
             }
+        }
+        public double GetMinCompletionPercentage()
+        {
+            return MinCompletionPercentage;
         }
 
         private void TosuAPI_StateChanged(int state)
@@ -148,9 +164,13 @@ namespace osuautodeafen
             bool isPerformancePointsMet = currentPP >= PerformancePoints;
             bool isFullCombo = _fcCalc.IsFullCombo();
 
+            // dogshit code up ahead you've been warned.
+            // i might have to rewrite a lot of this
+            // any more toggles and this might be unmaintainable
+
             if (_viewModel.IsFCRequired)
             {
-                // If the user wants to deafen after a full combo
+                // if the user wants to deafen after a full combo
                 if (_isPlaying && isFullCombo && completionPercentage >= MinCompletionPercentage && !_deafened && isStarRatingMet && isPerformancePointsMet && !_deafened && hitOneCircle && !isPracticeDifficulty)
                 {
                     ToggleDeafenState();
@@ -159,7 +179,7 @@ namespace osuautodeafen
                     Console.WriteLine("1");
                     didHitOneCircle = true;
                 }
-                // If the user wants to undeafen after a combo break
+                // if the user wants to undeafen after a combo break
                 if (_viewModel.UndeafenAfterMiss)
                 {
                     if (_wasFullCombo && !isFullCombo && _deafened && !isPracticeDifficulty)
@@ -171,7 +191,7 @@ namespace osuautodeafen
                         didHitOneCircle = true;
                     }
                 }
-                // If the playing state was exited during a full combo run
+                // if the playing state was exited during a full combo run
                 if (!_isPlaying && _wasFullCombo && _deafened)
                 {
                     ToggleDeafenState();
@@ -183,7 +203,7 @@ namespace osuautodeafen
             }
             else
             {
-                // If the user wants to deafen after a certain percentage
+                // if the user wants to deafen after a certain percentage
                 if (_isPlaying && !_deafened && completionPercentage >= MinCompletionPercentage && isStarRatingMet && isPerformancePointsMet && hitOneCircle && !isPracticeDifficulty)
                 {
                     ToggleDeafenState();
@@ -209,7 +229,7 @@ namespace osuautodeafen
                 }
             }
 
-            // This is assuming a restart occured.
+            // this is assuming a retry occured.
             if (0 >= completionPercentage && _deafened)
             {
                 ToggleDeafenState();

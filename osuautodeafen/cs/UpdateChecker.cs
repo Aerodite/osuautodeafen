@@ -10,21 +10,21 @@ namespace osuautodeafen.cs;
 public class UpdateChecker
 {
     private static readonly HttpClient client = new HttpClient();
-    public const string currentVersion = "1.0.4";
+    public const string currentVersion = "1.0.5";
     private bool _hasCheckedVersion = false;
-    public string latestVersion { get; set; }
+    public string? latestVersion { get; set; }
     public bool updateFound = true;
     private static DateTime? lastSuccessfulCheck = null;
     private static TimeSpan cacheDuration = TimeSpan.FromMinutes(1);
 
     private static UpdateChecker _instance;
     private static readonly object _lock = new object();
-    public string LatestVersion { get; private set; }
+    public string? LatestVersion { get; private set; }
 
 
     public delegate void UpdateAvailableHandler(string latestVersion, string latestReleaseUrl);
 
-    public static event UpdateAvailableHandler OnUpdateAvailable;
+    public static event UpdateAvailableHandler? OnUpdateAvailable;
 
     private UpdateChecker()
     {
@@ -48,11 +48,12 @@ public class UpdateChecker
 
     public async Task<bool> FetchLatestVersionAsync()
     {
-        //This is mainly to stop rate limiting github api
+        // this is mainly to stop rate limiting github api
+        //TODO: this is kinda unnecessary now so get rid in future
         if (lastSuccessfulCheck.HasValue && (DateTime.Now - lastSuccessfulCheck.Value) < cacheDuration)
         {
             Console.WriteLine("Using cached version data.");
-            return false; // Cached data is being used, no new fetch
+            return false; // cached data is being used, no new fetch
         }
 
         var url = $"https://api.github.com/repos/Aerodite/osuautodeafen/releases";
@@ -62,29 +63,32 @@ public class UpdateChecker
         {
             var response = await client.GetStringAsync(url);
             var releases = JArray.Parse(response);
-            if (releases.Count > 0)
+            switch (releases.Count)
             {
-                var latestRelease = releases[0];
-                latestVersion = latestRelease["tag_name"].ToString().TrimStart('v');
-                lastSuccessfulCheck = DateTime.Now;
-                return true;
-            }
-            else
-            {
-                Console.WriteLine("No releases found.");
-                return false;
+                case > 0:
+                {
+                    var latestRelease = releases[0];
+                    latestVersion = latestRelease["tag_name"]?.ToString().TrimStart('v');
+                    lastSuccessfulCheck = DateTime.Now;
+                    return true;
+                }
+                default:
+                    Console.WriteLine("No releases found.");
+                    return false;
             }
         }
         catch (HttpRequestException ex)
         {
-            if (ex.StatusCode == HttpStatusCode.Forbidden)
+            switch (ex.StatusCode)
             {
-                Console.WriteLine("Rate limit exceeded. Please wait and try again later.");
+                case HttpStatusCode.Forbidden:
+                    Console.WriteLine("Rate limit exceeded. Please wait and try again later.");
+                    break;
+                default:
+                    Console.WriteLine($"An error occurred: {ex.Message}");
+                    break;
             }
-            else
-            {
-                Console.WriteLine($"An error occurred: {ex.Message}");
-            }
+
             return false;
         }
         catch (Exception ex)
@@ -94,7 +98,7 @@ public class UpdateChecker
         }
     }
 
-public static event Action<bool> UpdateCheckCompleted;
+    public static event Action<bool>? UpdateCheckCompleted;
 
     public async Task CheckForUpdates()
     {
@@ -110,20 +114,20 @@ public static event Action<bool> UpdateCheckCompleted;
             if (releases.Count > 0)
             {
                 var latestRelease = releases[0];
-                var latestVersion = latestRelease["tag_name"].ToString().TrimStart('v'); // Remove the "v" prefix
+                var latestVersion = latestRelease["tag_name"]?.ToString().TrimStart('v'); // remove the "v" prefix
 
                 if (Version.Parse(latestVersion) > Version.Parse(currentVersion))
                 {
-                    var latestReleaseUrl = latestRelease["html_url"].ToString();
-                    latestRelease = latestRelease["name"].ToString();
+                    var latestReleaseUrl = latestRelease["html_url"]?.ToString();
+                    latestRelease = latestRelease["name"]?.ToString();
                     Console.WriteLine($"Update available: {latestVersion}");
                     updateFound = true;
-                    OnUpdateAvailable?.Invoke(latestVersion, latestReleaseUrl);
+                    if (latestReleaseUrl != null) OnUpdateAvailable?.Invoke(latestVersion, latestReleaseUrl);
                     UpdateCheckCompleted?.Invoke(updateFound);
                 }
                 else if (Version.Parse(latestVersion) == Version.Parse(currentVersion))
                 {
-                    latestRelease = latestRelease["name"].ToString();
+                    latestRelease = latestRelease["name"]?.ToString();
                     Console.WriteLine("You are using the latest version.");
                 }
                 else

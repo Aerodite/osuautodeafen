@@ -4,19 +4,27 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:osuautodeafen"
         xmlns:global="clr-namespace:"
+        xmlns:cs="clr-namespace:osuautodeafen.cs"
+        xmlns:avalonia="http://oxyplot.org/avalonia"
+        xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
+        xmlns:skiaSharpView="clr-namespace:LiveChartsCore.SkiaSharpView;assembly=LiveChartsCore.SkiaSharpView"
+        xmlns:painting="clr-namespace:LiveChartsCore.SkiaSharpView.Painting;assembly=LiveChartsCore.SkiaSharpView"
+        xmlns:defaults="clr-namespace:LiveChartsCore.Defaults;assembly=LiveChartsCore"
+        xmlns:generic="clr-namespace:System.Collections.Generic;assembly=System.Runtime"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osu!autodeafen"
         x:DataType="local:MainWindow">
 
+
         <Window.Resources>
-            <global:NotConverter x:Key="NotConverter"/>
+                <global:NotConverter x:Key="NotConverter"/>
             <Flyout x:Key="keybindCaptureFlyout">
                     <TextBlock Text="Press any key for the keybind..." />
             </Flyout>
         </Window.Resources>
 
-        <Grid ZIndex="5">
+       <Grid ZIndex="5">
                 <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="0"/>
@@ -37,14 +45,14 @@
 
                 <!-- Settings panel -->
                 <DockPanel x:Name="SettingsPanel" Grid.Column="1" Background="#171717" Width="450" IsVisible="False" Margin="0,42,0,0" ZIndex="3"
-                           x:DataType="global:SharedViewModel">
+                           x:DataType="cs:SharedViewModel">
                         <DockPanel.DataContext>
-                                <global:SharedViewModel />
+                                <cs:SharedViewModel />
                         </DockPanel.DataContext>
                         <StackPanel DockPanel.Dock="Top"
-                                    x:DataType="global:SharedViewModel">
+                                    x:DataType="cs:SharedViewModel">
                         <StackPanel.DataContext>
-                                <global:SharedViewModel />
+                                <cs:SharedViewModel />
                         </StackPanel.DataContext>
                         <Button Width="50" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" Margin="0" Click="SettingsButton_Click">
                                 <Image Source="avares://osuautodeafen/Icons/angles-left-solid.png" />
@@ -160,7 +168,8 @@
                                                         </Flyout>
                                                 </Button.Flyout>
                                         </Button>
-                                </StackPanel></StackPanel>
+                                </StackPanel>
+                        </StackPanel>
 
                     <!--update checker-->
 
@@ -169,6 +178,33 @@
                 </StackPanel>
                         <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom" VerticalAlignment="Bottom" Margin="40,0,0,8" Foreground="White" FontSize="14"/>
                 </DockPanel>
+
+                <Grid>
+                        <avalonia1:CartesianChart
+                                x:Name="PlotView"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                Width="370"
+                                Height="140"
+                                Margin="0,0,0,10"
+                                Background="#80000000"
+                                Foreground="White">
+                                <avalonia1:CartesianChart.XAxes>
+                                        <skiaSharpView:Axis>
+                                                <skiaSharpView:Axis.LabelsPaint>
+                                                        <painting:SolidColorPaint Color="#FFFFFF" />
+                                                </skiaSharpView:Axis.LabelsPaint>
+                                        </skiaSharpView:Axis>
+                                </avalonia1:CartesianChart.XAxes>
+                                <avalonia1:CartesianChart.YAxes>
+                                        <skiaSharpView:Axis>
+                                                <skiaSharpView:Axis.LabelsPaint>
+                                                        <painting:SolidColorPaint Color="#000000" />
+                                                </skiaSharpView:Axis.LabelsPaint>
+                                        </skiaSharpView:Axis>
+                                </avalonia1:CartesianChart.YAxes>
+                        </avalonia1:CartesianChart>
+                </Grid>
 
                 <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Bottom">
                         <Grid.ColumnDefinitions>

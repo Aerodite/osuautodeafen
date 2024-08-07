@@ -1,27 +1,44 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using System.Threading;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using LiveChartsCore;
+using LiveChartsCore.Defaults;
+using LiveChartsCore.Drawing;
+using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
+using SkiaSharp;
+using Path = System.IO.Path;
 
 namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
+    private Deafen _deafen;
+
+    public static bool isCompPctLostFocus = false;
+    private LineSeries<ObservablePoint> _deafenMarker;
+    private double deafenProgressPercentage;
+    private double deafenTimestamp;
+    private SettingsPanel settingsPanel1;
     private bool BlurEffectUpdate { get; set; }
     private readonly DispatcherTimer _mainTimer;
     private readonly DispatcherTimer _disposeTimer;
@@ -32,6 +49,7 @@ public partial class MainWindow : Window
     private bool _isConstructorFinished = false;
     private double _mouseX;
     private double _mouseY;
+    private Thread _graphDataThread;
     private SharedViewModel ViewModel { get; } = new();
     private bool IsBlackBackgroundDisplayed { get; set; }
     private DateTime _lastUpdate = DateTime.Now;
@@ -41,6 +59,13 @@ public partial class MainWindow : Window
     private Image? _normalBackground;
     private bool _hasDisplayed = false;
 
+    public GraphData? Graph { get; set; }
+    public ISeries[] Series { get; set; }
+    public Axis[] XAxes { get; set; }
+    public Axis[] YAxes { get; set; }
+
+
+
     private UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private Bitmap? _currentBitmap;
     //testing out a capacity of 0 for now, this means a ram-usage reduction of 50% 🤯
@@ -49,15 +74,15 @@ public partial class MainWindow : Window
     public TimeSpan Interval { get; set; }
 
     private string? _currentBackgroundDirectory;
-    public double MinCompletionPercentage { get; set; }
     public object? UpdateUrl { get; private set; }
 
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
     private KeyModifiers _currentKeyModifiers = KeyModifiers.None;
 
-
-
+    //<summary>
+    // constructor for the ui and subsequent panels
+    //</summary>
     public MainWindow()
     {
         InitializeComponent();
@@ -68,9 +93,11 @@ public partial class MainWindow : Window
 
         LoadSettings();
 
-        this.Icon = new WindowIcon(new Bitmap(Path.Combine("Resources", "oad.ico")));
+        this.Icon = new WindowIcon("Resources/oad.ico");
 
         _tosuApi = new TosuApi();
+
+        _deafen = new Deafen(_tosuApi, settingsPanel1);
 
         _disposeTimer = new DispatcherTimer
         {
@@ -84,6 +111,7 @@ public partial class MainWindow : Window
         };
         _parallaxCheckTimer.Tick += CheckParallaxSetting;
         _parallaxCheckTimer.Start();
+
         _mainTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(200)
@@ -93,7 +121,7 @@ public partial class MainWindow : Window
 
         InitializeVisibilityCheckTimer();
 
-        new StringBuilder();
+        var stringBuilder = new StringBuilder();
 
         var oldContent = this.Content;
 
@@ -103,7 +131,7 @@ public partial class MainWindow : Window
         {
             Children =
             {
-                new ContentControl { Content = oldContent },
+                new ContentControl { Content = oldContent }
             }
         };
 
@@ -112,6 +140,36 @@ public partial class MainWindow : Window
         this.PointerMoved += OnMouseMove;
 
         DataContext = ViewModel;
+
+        InitializeGraphDataThread();
+
+        _tosuApi.GraphDataUpdated += OnGraphDataUpdated;
+
+
+        Series = new ISeries[] { };
+        XAxes = new Axis[] { new Axis { LabelsPaint = new SolidColorPaint(SKColors.White) } };
+        YAxes = new Axis[] { new Axis { LabelsPaint = new SolidColorPaint(SKColors.White) } };
+        PlotView.Series = Series;
+        PlotView.XAxes = XAxes;
+        PlotView.YAxes = YAxes;
+
+        var series1 = new StackedAreaSeries<ObservablePoint>
+        {
+            Values = ChartData.Series1Values,
+            Fill = new SolidColorPaint { Color = new SkiaSharp.SKColor(0xFF, 0x00, 0x00) },
+            Stroke = new SolidColorPaint { Color = new SkiaSharp.SKColor(0xFF, 0x00, 0x00) }
+        };
+
+        var series2 = new StackedAreaSeries<ObservablePoint>
+        {
+            Values = ChartData.Series2Values,
+            Fill = new SolidColorPaint { Color = new SkiaSharp.SKColor(0x00, 0xFF, 0x00) },
+            Stroke = new SolidColorPaint { Color = new SkiaSharp.SKColor(0x00, 0xFF, 0x00) }
+        };
+
+
+        PlotView.Series = new ISeries[] { series1, series2 };
+
 
         //dogshit slider logic that i would rather not reimplement
 
@@ -129,7 +187,6 @@ public partial class MainWindow : Window
             }
         };
 
-        Deafen deafen = new Deafen(_tosuApi, settingsPanel1);
         this.DataContext = settingsPanel1;
         ExtendClientAreaToDecorationsHint = true;
         ExtendClientAreaTitleBarHeightHint = -1;
@@ -141,7 +198,7 @@ public partial class MainWindow : Window
         PointerPressed += (sender, e) =>
         {
             var point = e.GetPosition(this);
-            const int titleBarHeight = 34; // Height of the title bar + an extra 2px of wiggle room
+            const int titleBarHeight = 34; // height of the title bar + an extra 2px of wiggle room
             if (point.Y <= titleBarHeight)
             {
                 BeginMoveDrag(e);
@@ -163,11 +220,132 @@ public partial class MainWindow : Window
         _isConstructorFinished = true;
     }
 
+
+    private void InitializeGraphDataThread()
+    {
+        _graphDataThread = new Thread(GraphDataThreadStart);
+        _graphDataThread.IsBackground = true;
+        _graphDataThread.Start();
+    }
+
+    private async void GraphDataThreadStart()
+    {
+        while (true)
+        {
+            if (Graph != null)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => UpdateChart(Graph));
+            }
+            Thread.Sleep(1000);
+        }
+    }
+
+    private void OnGraphDataUpdated(GraphData graphData)
+    {
+        graphData.Series[0].Name = "aim";
+        graphData.Series[1].Name = "speed";
+
+        ChartData.Series1Values = graphData.Series[0].Data.Select((value, index) => new ObservablePoint(index, value)).ToList();
+        ChartData.Series2Values = graphData.Series[1].Data.Select((value, index) => new ObservablePoint(index, value)).ToList();
+
+        Dispatcher.UIThread.InvokeAsync(() => UpdateChart(graphData));
+
+        _deafen.MinCompletionPercentage = ViewModel.MinCompletionPercentage;
+    }
+
+    // i hope i never have to touch arrays or graphs again due to this function alone.
+   public void UpdateChart(GraphData graphData)
+   {
+    var seriesList = new List<ISeries>();
+
+    foreach (var series in graphData.Series)
+    {
+        var updatedValues = series.Data.ToList();
+
+        var color = series.Name == "aim" ? new SKColor(0x00, 0xFF, 0x00, 192) : new SKColor(0x00, 0x00, 0xFF, 140); // Adjust transparency
+        var name = series.Name == "aim" ? "Aim" : "Speed";
+
+        var lineSeries = new LineSeries<ObservablePoint>
+        {
+            Values = updatedValues.Select((value, index) => new ObservablePoint(index, value)).ToList(),
+            Fill = new SolidColorPaint { Color = color },
+            Stroke = new SolidColorPaint { Color = color },
+            Name = name,
+            GeometryFill = null,
+            GeometryStroke = null,
+            LineSmoothness = 1,
+            EasingFunction = EasingFunctions.ExponentialOut,
+            TooltipLabelFormatter = value => $"{name}: {value}",
+        };
+        seriesList.Add(lineSeries);
+    }
+
+    // round up the last value in the updated x-axis array
+    double maxLimit = Math.Ceiling((double)graphData.XAxis.Last() / 1000);
+
+    deafenProgressPercentage = _deafen.MinCompletionPercentage / 100.0;
+    double graphDuration = maxLimit;
+    deafenTimestamp = graphDuration * deafenProgressPercentage;
+
+    double maxYValue = graphData.Series.SelectMany(series => series.Data).Max();
+
+    var deafenMarker = new LineSeries<ObservablePoint>
+    {
+        Values = new List<ObservablePoint>
+        {
+            new ObservablePoint(deafenTimestamp, 0), // bottom-left corner
+            new ObservablePoint(deafenTimestamp, maxYValue), // top-left corner
+            new ObservablePoint(maxLimit, maxYValue), // top-right corner
+            new ObservablePoint(maxLimit, 0), // bottom-right corner
+            new ObservablePoint(deafenTimestamp, 0) // close the rectangle by returning to the bottom-left corner
+        },
+        Name = "Deafen Point",
+        Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00, 110), StrokeThickness = 3 }, // 70% opacity red
+        GeometryFill = null,
+        GeometryStroke = null,
+        LineSmoothness = 0
+    };
+
+    seriesList.Add(deafenMarker);
+
+    Series = seriesList.ToArray();
+    XAxes = new Axis[]
+    {
+        new Axis
+        {
+            LabelsPaint = new SolidColorPaint(SKColors.White),
+            MinLimit = 0, // ensure the x-axis starts from 0
+            MaxLimit = maxLimit,
+            Padding = new Padding(2),
+            TextSize = 12,
+            Labeler = value =>
+            {
+                var timeSpan = TimeSpan.FromMinutes(value/60);
+                return $"{(int)timeSpan.TotalMinutes}:{timeSpan.Seconds:D2}";
+            }
+        }
+    };
+    YAxes = new Axis[]
+    {
+        new Axis
+        {
+            LabelsPaint = new SolidColorPaint(SKColors.Transparent),
+            SeparatorsPaint = new SolidColorPaint(SKColors.Transparent)
+        }
+    };
+
+    PlotView.Series = Series;
+    PlotView.XAxes = XAxes;
+    PlotView.YAxes = YAxes;
+}
+
+
+    //initialize the visibility check timer
     private void InitializeVisibilityCheckTimer()
     {
         _visibilityCheckTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(0.5)
+            Interval = TimeSpan.FromMilliseconds(100)
         };
         _visibilityCheckTimer.Tick += VisibilityCheckTimer_Tick;
         _visibilityCheckTimer.Start();
@@ -179,7 +357,7 @@ public partial class MainWindow : Window
         _normalBackground.IsVisible = !ViewModel.IsBlurEffectEnabled;
     }
 
-    //Show the update notification bar if an update is available
+    // show the update notification bar if an update is available
     private async void InitializeViewModel()
     {
         await _updateChecker.FetchLatestVersionAsync();
@@ -192,10 +370,8 @@ public partial class MainWindow : Window
         DataContext = ViewModel;
     }
 
-    //Fetch updates every 20 minutes
     private async void CheckForUpdatesIfNeeded()
     {
-        // Avoid checking for updates too frequently
         if ((DateTime.Now - _lastUpdateCheck).TotalMinutes > 20)
         {
             _lastUpdateCheck = DateTime.Now;
@@ -217,14 +393,14 @@ public partial class MainWindow : Window
         }
     }
 
-    //Grab the keybind from the settings file and update the display
+    // grab the keybind from the settings file and update the display
     private void UpdateDeafenKeybindDisplay()
     {
         var currentKeybind = RetrieveKeybindFromSettings();
         DeafenKeybindButton.Content = currentKeybind.ToString();
     }
 
-    //Save the keybind to the settings file
+    // save the keybind to the settings file
     private void DeafenKeybindButton_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.IsKeybindCaptureFlyoutOpen = !ViewModel.IsKeybindCaptureFlyoutOpen;
@@ -242,7 +418,7 @@ public partial class MainWindow : Window
         }
     }
 
-    //Capture the keybind and save it to the settings file
+    // capture the keybind and save it to the settings file
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
@@ -273,7 +449,7 @@ public partial class MainWindow : Window
 
         if (e.Key == _lastKeyPressed && (currentTime - _lastKeyPressTime).TotalMilliseconds < 2500)
         {
-            return; // Considered a repeat key press, ignore it
+            return; // considered a repeat key press, ignore it
         }
 
         _lastKeyPressed = e.Key;
@@ -284,7 +460,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Capture the key and its modifiers
+        // capture the key and its modifiers
         KeyModifiers modifiers = KeyModifiers.None;
         if (e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control))
         {
@@ -299,10 +475,10 @@ public partial class MainWindow : Window
             modifiers |= KeyModifiers.Shift;
         }
 
-        // Create and set the new hotkey
+        // create and set the new hotkey
         ViewModel.DeafenKeybind = new HotKey { Key = e.Key, ModifierKeys = modifiers };
 
-        // Save the new hotkey to settings
+        // save the new hotkey to settings
         SaveSettingsToFile(ViewModel.DeafenKeybind.ToString(), "Hotkey");
 
         e.Handled = true;
@@ -391,6 +567,7 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(() => CheckMissUndeafenSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(CheckForUpdatesIfNeeded);
     }
+
     private void CheckIsFCRequiredSetting(object? sender, EventArgs? e)
     {
         {
@@ -549,7 +726,7 @@ private void SaveSettingsToFile()
         $"Hotkey={ViewModel.DeafenKeybind}"
     };
 
-    //update updatedeafenkeybinddisplay with hotkey
+    // update updatedeafenkeybinddisplay with hotkey
     UpdateDeafenKeybindDisplay();
 
 
@@ -572,9 +749,9 @@ private void SaveSettingsToFile()
             if (ModifierKeys.HasFlag(KeyModifiers.Shift))
                 parts.Add("Shift");
 
-            parts.Add(Key.ToString()); // Always add the key last
+            parts.Add(Key.ToString()); // always add the key last
 
-            return string.Join("+", parts); // Join all parts with '+'
+            return string.Join("+", parts); // join all parts with '+'
         }
         public static HotKey Parse(string str)
         {
@@ -647,10 +824,10 @@ private void SaveSettingsToFile()
         if (!ViewModel.IsBackgroundEnabled)
         {
             _currentBitmap?.Dispose();
-            _currentBitmap = null; // Ensure _currentBitmap is null after disposal to avoid accessing a disposed object
+            _currentBitmap = null; // ensure _currentBitmap is null after disposal to avoid accessing a disposed object
 
-            var newBitmap = DisplayBlackBackground(); // Create a new Bitmap and assign it to _currentBitmap inside DisplayBlackBackground
-            UpdateUIWithNewBackground(newBitmap); // Pass the new Bitmap to UpdateUIWithNewBackground
+            var newBitmap = DisplayBlackBackground(); // create a new Bitmap and assign it to _currentBitmap inside DisplayBlackBackground
+            UpdateUIWithNewBackground(newBitmap); // pass the new Bitmap to UpdateUIWithNewBackground
         }
     }
 
@@ -675,7 +852,7 @@ private void SaveSettingsToFile()
             else
             {
                 ViewModel.UndeafenAfterMiss = true;
-                SaveSettingsToFile(true, "UndeafenAfterMiss");
+                SaveSettingsToFile(true, "UnAfterMiss");
                 this.FindControl<CheckBox>("UndeafenOnMiss")!.IsChecked = true;
             }
         }
@@ -801,6 +978,12 @@ private void SaveSettingsToFile()
         {
             CompletionPercentageTextBox.Text = ViewModel.MinCompletionPercentage.ToString();
         }
+
+        if (Graph != null)
+        {
+            UpdateChart(Graph);
+        }
+        isCompPctLostFocus = true;
     }
 
     private void StarRatingTextBox_TextInput(object sender, Avalonia.Input.TextInputEventArgs e)
@@ -907,14 +1090,14 @@ private void SaveSettingsToFile()
         }
         else
         {
-            // If the background is enabled, check if a new background needs to be loaded
+            // if the background is enabled, check if a new background needs to be loaded
             var backgroundPath = _tosuApi.GetBackgroundPath();
             if (_currentBitmap == null || backgroundPath != _currentBackgroundDirectory)
             {
                 if (!File.Exists(backgroundPath))
                 {
                     Console.WriteLine($"The file does not exist: {backgroundPath}");
-                    DisplayBlackBackground(); // Fallback to black background
+                    DisplayBlackBackground(); // fallback to black background
                     return;
                 }
 
@@ -925,7 +1108,7 @@ private void SaveSettingsToFile()
                 }
                 catch
                 {
-                    DisplayBlackBackground(); // Fallback to black background
+                    DisplayBlackBackground(); // fallback to black background
                     return;
                 }
 
@@ -977,7 +1160,7 @@ private void SaveSettingsToFile()
         }
         else
         {
-            // Fallback: If the main content is not a Grid or not structured as expected, replace it entirely
+            // fallback: If the main content is not a grid or not structured as expected, replace it entirely
             var newContentGrid = new Grid();
             newContentGrid.Children.Add(imageControl);
             this.Content = newContentGrid;
@@ -1002,7 +1185,7 @@ private void SaveSettingsToFile()
         using (var stream = new MemoryStream())
         {
             renderTargetBitmap.Save(stream);
-            stream.Position = 0; // Reset stream position to the beginning
+            stream.Position = 0; // reset stream position to the beginning
 
             return new Bitmap(stream);
         }
@@ -1023,7 +1206,7 @@ private void SaveSettingsToFile()
         {
             return;
         }
-        //if cursor isnt on window return
+        // if cursor isnt on window return
         if (mouseX < 0 || mouseY < 0 || mouseX > this.Width || mouseY > this.Height)
         {
             return;
@@ -1037,13 +1220,13 @@ private void SaveSettingsToFile()
         double relativeMouseX = mouseX - centerX;
         double relativeMouseY = mouseY - centerY;
 
-        // Scaling factor to reduce movement intensity
-        double scaleFactor = 0.03;
+        // scaling factor to reduce movement intensity
+        double scaleFactor = 0.015;
 
         double movementX = -(relativeMouseX * scaleFactor);
         double movementY = -(relativeMouseY * scaleFactor);
 
-        // Ensure movement doesn't exceed maximum allowed movement
+        // ensure movement doesn't exceed maximum allowed movement
         double maxMovement = 15;
         movementX = Math.Max(-maxMovement, Math.Min(maxMovement, movementX));
         movementY = Math.Max(-maxMovement, Math.Min(maxMovement, movementY));
@@ -1093,6 +1276,12 @@ private void SaveSettingsToFile()
         CompletionPercentageTextBox.Text = ViewModel.MinCompletionPercentage.ToString();
         StarRatingTextBox.Text = ViewModel.StarRating.ToString();
         PPTextBox.Text = ViewModel.PerformancePoints.ToString();
+
+        if (Graph != null)
+        {
+            UpdateChart(Graph);
+        }
+        isCompPctLostFocus = true;
     }
 
     private void UpdateErrorMessage(object? sender, EventArgs e)

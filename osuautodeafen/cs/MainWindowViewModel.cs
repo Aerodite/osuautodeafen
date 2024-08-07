@@ -1,28 +1,38 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
-using System.Windows.Input;
-using Avalonia;
-using Avalonia.Controls;
-using osuautodeafen;
-using osuautodeafen.cs;
 
-public class SharedViewModel : INotifyPropertyChanged
+using System.Threading.Tasks;
+using System.Timers;
+using System.Windows.Input;
+using LiveChartsCore.Defaults;
+
+namespace osuautodeafen.cs;
+
+public sealed partial class SharedViewModel : INotifyPropertyChanged
 {
     private int _minCompletionPercentage;
     private int _starRating;
     private int _performancePoints;
     private bool _isParallaxEnabled;
     private bool _isBackgroundEnabled;
+    public Timer _debounceTimer;
+    private bool _canUpdateSettings = true;
+
+
     public string CurrentAppVersion => $"Current Version: v{UpdateChecker.currentVersion}";
     private MainWindow.HotKey _deafenKeybind;
     public bool _isFCRequired;
-
-
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
+
+    //<remarks>
+    // this file might be the worst organized file in this entire app but most of everything depends on it.
+    // TODO: rewrite basically this entire file
+    //</remarks>
+
     public bool IsParallaxEnabled
     {
         get { return _isParallaxEnabled; }
@@ -72,7 +82,7 @@ public class SharedViewModel : INotifyPropertyChanged
         CheckAndUpdateStatusMessage();
     }
 
-    private void UpdateChecker_OnUpdateAvailable(string latestVersion, string latestReleaseUrl)
+    private void UpdateChecker_OnUpdateAvailable(string? latestVersion, string latestReleaseUrl)
     {
         _updateChecker.latestVersion = latestVersion;
         CheckAndUpdateStatusMessage();
@@ -112,6 +122,7 @@ public class SharedViewModel : INotifyPropertyChanged
         get { return _isFCRequired; }
         set
         {
+            if (!_canUpdateSettings) return;
             if (_isFCRequired != value)
             {
                 _isFCRequired = value;
@@ -323,6 +334,7 @@ public class SharedViewModel : INotifyPropertyChanged
 
     public void UpdateIsFCRequired()
     {
+        if (!_canUpdateSettings) return;
         string settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "settings.txt");
         if (File.Exists(settingsFilePath))
         {
@@ -396,6 +408,9 @@ public class SharedViewModel : INotifyPropertyChanged
 
     public SharedViewModel()
     {
+        _debounceTimer = new Timer(2000);
+        _debounceTimer.Elapsed += (sender, e) => _canUpdateSettings = true;
+        _debounceTimer.AutoReset = false;
         OpenUpdateUrlCommand = new RelayCommand(OpenUpdateUrl);
         Task.Run(InitializeAsync);
     }
@@ -414,7 +429,7 @@ public class SharedViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler PropertyChanged;
 
-    protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+    private void OnPropertyChanged([CallerMemberName] string propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }

@@ -12,12 +12,12 @@ public class FCCalc
 
     public bool IsFullCombo()
     {
-        // If there are any misses or slider breaks, return false
+        // if there are any misses or slider breaks, return false
         if (_tosuAPI.GetMissCount() > 0 || _tosuAPI.GetSBCount() > 0)
         {
             return false;
         }
-        // If there are no misses and no slider breaks, return true
+        // if there are no misses and no slider breaks, return true
         return true;
     }
 }
