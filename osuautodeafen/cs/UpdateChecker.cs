@@ -10,7 +10,7 @@ namespace osuautodeafen.cs;
 public class UpdateChecker
 {
     private static readonly HttpClient client = new HttpClient();
-    public const string currentVersion = "1.0.4";
+    public const string currentVersion = "1.0.5";
     private bool _hasCheckedVersion = false;
     public string? latestVersion { get; set; }
     public bool updateFound = true;

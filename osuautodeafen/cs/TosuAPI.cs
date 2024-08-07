@@ -45,6 +45,7 @@ namespace osuautodeafen.cs
             _webSocket = new ClientWebSocket();
             _dynamicBuffer = new List<byte>();
             _reconnectTimer = new Timer(ReconnectTimerCallback, null, Timeout.Infinite, 300000);
+            TosuLauncher.EnsureTosuRunning();
             lock (ConnectionLock)
             {
                 _ = ConnectAsync();
@@ -96,8 +97,6 @@ namespace osuautodeafen.cs
         //</summary>
         public async Task ConnectAsync(CancellationToken cancellationToken = default)
         {
-            TosuLauncher.EnsureTosuRunning();
-
             Console.WriteLine("Connecting to WebSocket...");
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -387,7 +386,7 @@ namespace osuautodeafen.cs
 
         private bool IsXAxisChanged(List<int> newXAxis)
         {
-            if (Graph == null || Graph.XAxis == null)
+            if (Graph?.XAxis == null)
             {
                 return true;
             }
@@ -408,7 +407,11 @@ namespace osuautodeafen.cs
             return false;
         }
 
-        private void ParseGraphData(JsonElement graphElement)
+        //<summary>
+        // organizes the array data from tosu
+        // also this was a massive nightmare :)
+        //</summary>
+       private void ParseGraphData(JsonElement graphElement)
         {
             try
             {
@@ -422,9 +425,15 @@ namespace osuautodeafen.cs
                 {
                     foreach (var seriesElement in seriesArray.EnumerateArray())
                     {
+                        var seriesName = seriesElement.GetProperty("name").GetString();
+                        if (seriesName == "flashlight" || seriesName == "aimNoSliders")
+                        {
+                            continue; // just ignoring these for now they aren't really needed imo
+                        }
+
                         var series = new Series
                         {
-                            Name = seriesElement.GetProperty("name").GetString(),
+                            Name = seriesName,
                             Data = new List<double>()
                         };
 
@@ -435,7 +444,7 @@ namespace osuautodeafen.cs
                                 if (dataElement.ValueKind == JsonValueKind.Number)
                                 {
                                     double value = dataElement.GetDouble();
-                                    series.Data.Add(value == -100 ? 0 : value);
+                                    series.Data.Add(value);
                                 }
                             }
                         }
@@ -459,7 +468,7 @@ namespace osuautodeafen.cs
                         if (xElement.ValueKind == JsonValueKind.Number)
                         {
                             int xValue = xElement.GetInt32();
-                            newGraph.XAxis.Add(xValue / 100);
+                            newGraph.XAxis.Add(xValue); // ensure no unintended scaling or limiting
                         }
                     }
                 }
@@ -468,10 +477,54 @@ namespace osuautodeafen.cs
                     Console.WriteLine("X-Axis property not found in graph element.");
                 }
 
+                foreach (var series in newGraph.Series)
+                {
+                    if (series.Name == "aim") // only processing one of them just so it doesnt delete twice the amount necessary
+                    {
+                        var updatedValues = new List<double>(series.Data);
+                        var updatedXAxis = new List<int>(newGraph.XAxis);
+
+                        // set -100 values at the beginning to 0
+                        for (int i = 0; i < updatedValues.Count && updatedValues[i] == -100; i++)
+                        {
+                            updatedValues[i] = 0;
+                        }
+
+                        // remove trailing -100 values from the end
+                        while (updatedValues.Count > 0 && updatedValues[updatedValues.Count - 1] == -100)
+                        {
+                            updatedValues.RemoveAt(updatedValues.Count - 1);
+                            if (updatedXAxis.Count > 0)
+                            {
+                                updatedXAxis.RemoveAt(updatedXAxis.Count - 1);
+                            }
+                        }
+
+                        series.Data = updatedValues;
+                        newGraph.XAxis = updatedXAxis;
+                    }
+                    if (series.Name == "speed")
+                    {
+                        var updatedValues = new List<double>(series.Data);
+
+                        // set -100 values at the beginning to 0
+                        for (int i = 0; i < updatedValues.Count && updatedValues[i] == -100; i++)
+                        {
+                            updatedValues[i] = 0;
+                        }
+
+                        while (updatedValues.Count > 0 && updatedValues[updatedValues.Count - 1] == -100)
+                        {
+                            updatedValues.RemoveAt(updatedValues.Count - 1);
+                        }
+
+                        series.Data = updatedValues;
+                    }
+                }
+
                 if (IsXAxisChanged(newGraph.XAxis))
                 {
                     Graph = newGraph;
-                   // Console.WriteLine($"X-Axis: {string.Join(", ", Graph.XAxis)}");
                     GraphDataUpdated?.Invoke(Graph);
                 }
             }
@@ -480,7 +533,6 @@ namespace osuautodeafen.cs
                 Console.WriteLine($"An error occurred while parsing graph data: {ex.Message}");
             }
         }
-
         //<summary>
         // Closes and tidies up for websocket closure
         //</summary>

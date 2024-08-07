@@ -68,6 +68,10 @@
               "target": "Package",
               "version": "[1.0.0, )"
             },
+            "LiveChartsCore.SkiaSharpView": {
+              "target": "Package",
+              "version": "[2.0.0-rc2, )"
+            },
             "LiveChartsCore.SkiaSharpView.Avalonia": {
               "target": "Package",
               "version": "[2.0.0-rc2, )"

@@ -9,19 +9,22 @@
         xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
         xmlns:skiaSharpView="clr-namespace:LiveChartsCore.SkiaSharpView;assembly=LiveChartsCore.SkiaSharpView"
         xmlns:painting="clr-namespace:LiveChartsCore.SkiaSharpView.Painting;assembly=LiveChartsCore.SkiaSharpView"
+        xmlns:defaults="clr-namespace:LiveChartsCore.Defaults;assembly=LiveChartsCore"
+        xmlns:generic="clr-namespace:System.Collections.Generic;assembly=System.Runtime"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osu!autodeafen"
         x:DataType="local:MainWindow">
 
+
         <Window.Resources>
-            <global:NotConverter x:Key="NotConverter"/>
+                <global:NotConverter x:Key="NotConverter"/>
             <Flyout x:Key="keybindCaptureFlyout">
                     <TextBlock Text="Press any key for the keybind..." />
             </Flyout>
         </Window.Resources>
 
-        <Grid ZIndex="5">
+       <Grid ZIndex="5">
                 <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="0"/>
@@ -176,7 +179,7 @@
                         <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom" VerticalAlignment="Bottom" Margin="40,0,0,8" Foreground="White" FontSize="14"/>
                 </DockPanel>
 
-                <Grid Grid.Column="0">
+                <Grid>
                         <avalonia1:CartesianChart
                                 x:Name="PlotView"
                                 HorizontalAlignment="Center"
@@ -186,9 +189,6 @@
                                 Margin="0,100,0,0"
                                 Background="Black"
                                 Foreground="White">
-                                <avalonia1:CartesianChart.Series>
-                                        <!-- Define your series here with white line color -->
-                                </avalonia1:CartesianChart.Series>
                                 <avalonia1:CartesianChart.XAxes>
                                         <skiaSharpView:Axis>
                                                 <skiaSharpView:Axis.LabelsPaint>

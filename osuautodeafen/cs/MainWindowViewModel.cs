@@ -1,20 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using LiveChartsCore.Defaults;
 
 namespace osuautodeafen.cs;
 
-public sealed class SharedViewModel : INotifyPropertyChanged
+public sealed partial class SharedViewModel : INotifyPropertyChanged
 {
     private int _minCompletionPercentage;
     private int _starRating;
     private int _performancePoints;
     private bool _isParallaxEnabled;
     private bool _isBackgroundEnabled;
+
     public string CurrentAppVersion => $"Current Version: v{UpdateChecker.currentVersion}";
     private MainWindow.HotKey _deafenKeybind;
     public bool _isFCRequired;

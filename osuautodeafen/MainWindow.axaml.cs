@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
@@ -16,6 +18,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using LiveChartsCore;
+using LiveChartsCore.Defaults;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
@@ -35,6 +38,7 @@ public partial class MainWindow : Window
     private bool _isConstructorFinished = false;
     private double _mouseX;
     private double _mouseY;
+    private Thread _graphDataThread;
     private SharedViewModel ViewModel { get; } = new();
     private bool IsBlackBackgroundDisplayed { get; set; }
     private DateTime _lastUpdate = DateTime.Now;
@@ -47,7 +51,6 @@ public partial class MainWindow : Window
     public ISeries[] Series { get; set; }
     public Axis[] XAxes { get; set; }
     public Axis[] YAxes { get; set; }
-
 
 
 
@@ -124,6 +127,11 @@ public partial class MainWindow : Window
 
         DataContext = ViewModel;
 
+        InitializeGraphDataThread();
+
+        _tosuApi.GraphDataUpdated += OnGraphDataUpdated;
+
+
         Series = new ISeries[] { };
         XAxes = new Axis[] { new Axis { LabelsPaint = new SolidColorPaint(SKColors.White) } };
         YAxes = new Axis[] { new Axis { LabelsPaint = new SolidColorPaint(SKColors.White) } };
@@ -131,7 +139,23 @@ public partial class MainWindow : Window
         PlotView.XAxes = XAxes;
         PlotView.YAxes = YAxes;
 
-        _tosuApi.GraphDataUpdated += OnGraphDataUpdated;
+        var series1 = new StackedAreaSeries<ObservablePoint>
+        {
+            Values = ChartData.Series1Values,
+            Fill = new SolidColorPaint { Color = new SkiaSharp.SKColor(0xFF, 0x00, 0x00) },
+            Stroke = new SolidColorPaint { Color = new SkiaSharp.SKColor(0xFF, 0x00, 0x00) }
+        };
+
+        var series2 = new StackedAreaSeries<ObservablePoint>
+        {
+            Values = ChartData.Series2Values,
+            Fill = new SolidColorPaint { Color = new SkiaSharp.SKColor(0x00, 0xFF, 0x00) },
+            Stroke = new SolidColorPaint { Color = new SkiaSharp.SKColor(0x00, 0xFF, 0x00) }
+        };
+
+
+        PlotView.Series = new ISeries[] { series1, series2 };
+
 
         //dogshit slider logic that i would rather not reimplement
 
@@ -161,7 +185,7 @@ public partial class MainWindow : Window
         PointerPressed += (sender, e) =>
         {
             var point = e.GetPosition(this);
-            const int titleBarHeight = 34; // Height of the title bar + an extra 2px of wiggle room
+            const int titleBarHeight = 34; // height of the title bar + an extra 2px of wiggle room
             if (point.Y <= titleBarHeight)
             {
                 BeginMoveDrag(e);
@@ -186,51 +210,106 @@ public partial class MainWindow : Window
     public void UpdateGraphData(GraphData? graphData)
     {
         Graph = graphData;
-        // Update the chart control with the new data
         UpdateChart(graphData);
+    }
+
+    private void InitializeGraphDataThread()
+    {
+        _graphDataThread = new Thread(GraphDataThreadStart);
+        _graphDataThread.IsBackground = true;
+        _graphDataThread.Start();
+    }
+
+    private async void GraphDataThreadStart()
+    {
+        while (true)
+        {
+            if (Graph != null)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => UpdateChart(Graph));
+            }
+            Thread.Sleep(1000);
+        }
     }
 
     private void OnGraphDataUpdated(GraphData graphData)
     {
-        UpdateChart(graphData);
+        graphData.Series[0].Name = "aim";
+        graphData.Series[1].Name = "speed";
+
+        ChartData.Series1Values = graphData.Series[0].Data.Select((value, index) => new ObservablePoint(index, value)).ToList();
+        ChartData.Series2Values = graphData.Series[1].Data.Select((value, index) => new ObservablePoint(index, value)).ToList();
+
+        Dispatcher.UIThread.InvokeAsync(() => UpdateChart(graphData));
     }
 
+    // i hope i never have to touch arrays or graphs again due to this function alone.
     public void UpdateChart(GraphData graphData)
     {
         var seriesList = new List<ISeries>();
 
         foreach (var series in graphData.Series)
         {
-            var lineSeries = new LineSeries<double>
+            var updatedValues = series.Data.ToList();
+
+            var color = series.Name == "aim" ? new SKColor(0xFF, 0x00, 0x00, 192) : new SKColor(0x00, 0x00, 0xFF, 140); // Adjust transparency
+            var name = series.Name == "aim" ? "Aim" : "Speed";
+
+            var lineSeries = new LineSeries<ObservablePoint>
             {
-                Values = series.Data.ToArray(),
-                Name = series.Name,
-                Stroke = new SolidColorPaint(SKColors.White)
+                Values = updatedValues.Select((value, index) => new ObservablePoint(index, value)).ToList(),
+                Fill = new SolidColorPaint { Color = color },
+                Stroke = new SolidColorPaint { Color = color },
+                Name = name,
+                GeometryFill = null,
+                GeometryStroke = null,
+                LineSmoothness = 1
             };
             seriesList.Add(lineSeries);
         }
+
+
+        // round up the last value in the updated xa-xis array
+        double maxLimit = Math.Ceiling((double)graphData.XAxis.Last() / 1000);
 
         Series = seriesList.ToArray();
         XAxes = new Axis[]
         {
             new Axis
             {
-                Labels = graphData.XAxis.ConvertAll(x => x.ToString()).ToArray(),
-                LabelsPaint = new SolidColorPaint(SKColors.White)
+                LabelsPaint = new SolidColorPaint(SKColors.White),
+                MinLimit = 0, // ensure the x-axis starts from 0
+                MaxLimit = maxLimit,
+                Labeler = value =>
+                {
+                    var timeSpan = TimeSpan.FromMinutes(value/60);
+                    return $"{(int)timeSpan.TotalMinutes}:{timeSpan.Seconds:D2}";
+                }
             }
         };
         YAxes = new Axis[]
         {
-            new Axis
-            {
-                LabelsPaint = new SolidColorPaint(SKColors.White)
-            }
+            new Axis { LabelsPaint = new SolidColorPaint(SKColors.White) }
         };
 
         PlotView.Series = Series;
         PlotView.XAxes = XAxes;
         PlotView.YAxes = YAxes;
     }
+
+    public static ObservableCollection<ObservablePoint> Series1Values { get; } = new ObservableCollection<ObservablePoint>
+    {
+        new ObservablePoint(0, 3),
+        new ObservablePoint(1, 5),
+        new ObservablePoint(2, 7)
+    };
+
+    public static ObservableCollection<ObservablePoint> Series2Values { get; } = new ObservableCollection<ObservablePoint>
+    {
+        new ObservablePoint(0, 2),
+        new ObservablePoint(1, 4),
+        new ObservablePoint(2, 6)
+    };
 
     //initialize the visibility check timer
     private void InitializeVisibilityCheckTimer()

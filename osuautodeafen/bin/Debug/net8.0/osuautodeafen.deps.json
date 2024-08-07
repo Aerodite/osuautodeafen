@@ -15,6 +15,7 @@
           "Avalonia.Fonts.Inter": "11.0.10",
           "Avalonia.Themes.Fluent": "11.0.10",
           "InputManager": "1.0.0",
+          "LiveChartsCore.SkiaSharpView": "2.0.0-rc2",
           "LiveChartsCore.SkiaSharpView.Avalonia": "2.0.0-rc2",
           "Newtonsoft.Json": "13.0.3",
           "ReactiveUI": "20.1.1",
