@@ -40,9 +40,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     public SharedViewModel()
     {
-        _debounceTimer = new Timer(2000);
-        _debounceTimer.Elapsed += (sender, e) => _canUpdateSettings = true;
-        _debounceTimer.AutoReset = false;
         OpenUpdateUrlCommand = new RelayCommand(OpenUpdateUrl);
         Task.Run(InitializeAsync);
     }
@@ -405,7 +402,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 if (settings.Length == 2 && settings[0].Trim() == "UndeafenAfterMiss")
                 {
                     UndeafenAfterMiss = bool.Parse(settings[1].Trim());
-                    Console.WriteLine($"Updated UndeafenAfterMiss to {UndeafenAfterMiss}");
+                    //Console.WriteLine($"Updated UndeafenAfterMiss to {UndeafenAfterMiss}");
                     break;
                 }
             }
@@ -427,7 +424,26 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 if (settings.Length == 2 && settings[0].Trim() == "IsFCRequired")
                 {
                     IsFCRequired = bool.Parse(settings[1].Trim());
-                    Console.WriteLine($"Updated IsFCRequired to {IsFCRequired}");
+                    //Console.WriteLine($"Updated IsFCRequired to {IsFCRequired}");
+                    break;
+                }
+            }
+        else
+            Console.WriteLine("Settings file does not exist");
+    }
+
+    public void UpdateIsBlankScreenEnabled()
+    {
+        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "settings.txt");
+        if (File.Exists(settingsFilePath))
+            foreach (var line in File.ReadLines(settingsFilePath))
+            {
+                var settings = line.Split('=');
+                if (settings.Length == 2 && settings[0].Trim() == "IsBlankScreenEnabled")
+                {
+                    IsBlankScreenEnabled = bool.Parse(settings[1].Trim());
+                    //Console.WriteLine($"Updated IsBlankScreenEnabled to {IsBlankScreenEnabled}");
                     break;
                 }
             }

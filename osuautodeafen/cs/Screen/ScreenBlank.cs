@@ -1,60 +1,49 @@
-﻿using System.Linq;
-using Avalonia;
+﻿using System;
+using System.Threading.Tasks;
 using Avalonia.Controls;
-using Avalonia.Media;
-using Avalonia.Threading;
 
-namespace osuautodeafen.cs.Screen;
-
-public class ScreenBlanker
+namespace osuautodeafen.cs.Screen
 {
-    private readonly Window[] _blankingWindows;
-
-    public ScreenBlanker(Window mainWindow)
+    public class ScreenBlanker : IDisposable
     {
-        var screens = mainWindow.Screens.All.Where(screen => !screen.IsPrimary).ToList();
-        _blankingWindows = new Window[screens.Count];
+        private ScreenBlankerForm _screenBlankerForm;
+        private readonly Window _mainWindow;
+        public bool IsScreenBlanked => _screenBlankerForm?.IsScreenBlanked ?? false;
 
-        for (int i = 0; i < screens.Count; i++)
+        public ScreenBlanker(Window mainWindow)
         {
-            var screen = screens[i];
-            var scaling = screen.Scaling;
-            var window = new Window
-            {
-                Background = Brushes.Black,
-                WindowState = WindowState.FullScreen,
-                WindowStartupLocation = WindowStartupLocation.Manual,
-                Position = new PixelPoint((int)(screen.Bounds.X * scaling), (int)(screen.Bounds.Y * scaling)),
-                Width = screen.Bounds.Width * scaling,
-                Height = screen.Bounds.Height * scaling,
-                ShowInTaskbar = false,
-                Topmost = true,
-                CanResize = false,
-                IsVisible = false
-            };
-            _blankingWindows[i] = window;
+            Console.WriteLine("Initializing ScreenBlanker...");
+            _mainWindow = mainWindow;
+            _mainWindow.Closed += (sender, e) => Dispose();
         }
-    }
 
-    public void BlankScreens()
-    {
-        Dispatcher.UIThread.InvokeAsync(() =>
+        public static async Task<ScreenBlanker> CreateAsync(Window mainWindow)
         {
-            foreach (var window in _blankingWindows)
-            {
-                window.Show();
-            }
-        });
-    }
+            var screenBlanker = new ScreenBlanker(mainWindow);
+            screenBlanker._screenBlankerForm = await ScreenBlankerForm.CreateAsync(mainWindow);
+            return screenBlanker;
+        }
 
-    public void UnblankScreens()
-    {
-        Dispatcher.UIThread.InvokeAsync(() =>
+        public async Task BlankScreensAsync()
         {
-            foreach (var window in _blankingWindows)
+            if (_screenBlankerForm != null)
             {
-                window.Hide();
+                await _screenBlankerForm.BlankScreensAsync();
             }
-        });
+        }
+
+        public async Task UnblankScreensAsync()
+        {
+            if (_screenBlankerForm != null)
+            {
+                await _screenBlankerForm.UnblankScreensAsync();
+            }
+        }
+
+        public void Dispose()
+        {
+            _screenBlankerForm?.Dispose();
+            _screenBlankerForm = null;
+        }
     }
 }
