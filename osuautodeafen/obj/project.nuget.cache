@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "Gt6GFrdqiv6LxNbb/kOJWo0TVXbmRhckW91ZB2SxSjN8P8TPK193uS7bp/YVDLSc1qLC758M3IkngvQ07BqM5Q==",
+  "dgSpecHash": "hRpzrlNYPS4daxBKKDg6qyw/DucTdGIRstsvWW2ogRmES+MkbAQROEntuTaaeM6x8k342S9ibe18ga/oDL91ow==",
   "success": true,
   "projectFilePath": "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen2\\osuautodeafen\\osuautodeafen.csproj",
   "expectedPackageFiles": [
@@ -90,30 +90,30 @@
       "code": "NU1701",
       "level": "Warning",
       "warningLevel": 1,
-      "message": "Package 'AutoHotkey.Interop 1.0.0.1' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0'. This package may not be fully compatible with your project.",
+      "message": "Package 'AutoHotkey.Interop 1.0.0.1' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0-windows7.0'. This package may not be fully compatible with your project.",
       "libraryId": "AutoHotkey.Interop",
       "targetGraphs": [
-        "net8.0"
+        "net8.0-windows7.0"
       ]
     },
     {
       "code": "NU1701",
       "level": "Warning",
       "warningLevel": 1,
-      "message": "Package 'InputManager 1.0.0' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0'. This package may not be fully compatible with your project.",
+      "message": "Package 'InputManager 1.0.0' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0-windows7.0'. This package may not be fully compatible with your project.",
       "libraryId": "InputManager",
       "targetGraphs": [
-        "net8.0"
+        "net8.0-windows7.0"
       ]
     },
     {
       "code": "NU1701",
       "level": "Warning",
       "warningLevel": 1,
-      "message": "Package 'WebSocketSharp 1.0.3-rc11' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0'. This package may not be fully compatible with your project.",
+      "message": "Package 'WebSocketSharp 1.0.3-rc11' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0-windows7.0'. This package may not be fully compatible with your project.",
       "libraryId": "WebSocketSharp",
       "targetGraphs": [
-        "net8.0"
+        "net8.0-windows7.0"
       ]
     }
   ]

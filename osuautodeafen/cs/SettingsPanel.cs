@@ -11,11 +11,16 @@ public class SettingsPanel : Control
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen",
             "settings.txt");
 
-    public static readonly object Lock = new object();
+    public static readonly object Lock = new();
 
     private double _minCompletionPercentage = 60;
-    private double _starRating;
     private double _performancePoints;
+    private double _starRating;
+
+    public SettingsPanel()
+    {
+        LoadSettings();
+    }
 
     public double MinCompletionPercentage
     {
@@ -60,11 +65,6 @@ public class SettingsPanel : Control
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
-    public SettingsPanel()
-    {
-        LoadSettings();
-    }
-
     private void LoadSettings()
     {
         if (!File.Exists(SettingsFilePath))
@@ -78,6 +78,7 @@ public class SettingsPanel : Control
             using var streamWriter = new StreamWriter(SettingsFilePath);
             streamWriter.Write("MinCompletionPercentage=60\nStarRating=0\nPerformancePoints=0");
         }
+
         try
         {
             using var streamReader = new StreamReader(SettingsFilePath);
@@ -112,7 +113,8 @@ public class SettingsPanel : Control
         {
             using var fileStream = new FileStream(SettingsFilePath, FileMode.Create, FileAccess.Write, FileShare.None);
             using var streamWriter = new StreamWriter(fileStream);
-            streamWriter.Write($"MinCompletionPercentage={MinCompletionPercentage}\nStarRating={StarRating}\nPerformancePoints={PerformancePoints}");
+            streamWriter.Write(
+                $"MinCompletionPercentage={MinCompletionPercentage}\nStarRating={StarRating}\nPerformancePoints={PerformancePoints}");
         }
     }
 }

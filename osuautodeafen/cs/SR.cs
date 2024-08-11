@@ -1,5 +1,4 @@
 ﻿using System.Threading.Tasks;
-using osuautodeafen;
 using osuautodeafen.cs;
 
 public class SR

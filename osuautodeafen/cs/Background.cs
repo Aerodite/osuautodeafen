@@ -1,34 +1,28 @@
 ﻿using System;
-using System.IO;
 using System.Text.Json;
 
-namespace osuautodeafen
+namespace osuautodeafen;
+
+public class Background
 {
-    public class Background
+    public string? GetFullBackgroundDirectory(string? json)
     {
-        public string? GetFullBackgroundDirectory(string? json)
+        Console.WriteLine("getting full background directory");
+        using (var document = JsonDocument.Parse(json))
         {
-            Console.WriteLine("getting full background directory");
-            using (JsonDocument document = JsonDocument.Parse(json))
-            {
-                string settingsSongsDirectory = string.Empty;
-                string fullPath = string.Empty;
+            var settingsSongsDirectory = string.Empty;
+            var fullPath = string.Empty;
 
-                if (document.RootElement.TryGetProperty("folders", out var folders) &&
-                    folders.TryGetProperty("songs", out var songs))
-                {
-                    settingsSongsDirectory = songs.GetString();
-                }
+            if (document.RootElement.TryGetProperty("folders", out var folders) &&
+                folders.TryGetProperty("songs", out var songs))
+                settingsSongsDirectory = songs.GetString();
 
-                if (document.RootElement.TryGetProperty("directPath", out var directPath) &&
-                    directPath.TryGetProperty("beatmapBackground", out var beatmapBackground))
-                {
-                    fullPath = beatmapBackground.GetString();
-                }
-                string combinedPath = settingsSongsDirectory + "\\" + fullPath;
-                //Console.WriteLine(Path.Combine(settingsSongsDirectory, fullPath));
-                return combinedPath;
-            }
+            if (document.RootElement.TryGetProperty("directPath", out var directPath) &&
+                directPath.TryGetProperty("beatmapBackground", out var beatmapBackground))
+                fullPath = beatmapBackground.GetString();
+            var combinedPath = settingsSongsDirectory + "\\" + fullPath;
+            //Console.WriteLine(Path.Combine(settingsSongsDirectory, fullPath));
+            return combinedPath;
         }
     }
 }

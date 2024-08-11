@@ -3,15 +3,15 @@
              xmlns:global="clr-namespace:"
              x:Class="osuautodeafen.App"
              RequestedThemeVariant="Dark">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+    <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
     <Application.Styles>
         <FluentTheme />
     </Application.Styles>
 
-             <Application.Resources>
-                 <ResourceDictionary>
-                     <global:StringIsNotNullOrEmptyConverter x:Key="StringIsNotNullOrEmptyConverter"/>
-                 </ResourceDictionary>
-             </Application.Resources>
+    <Application.Resources>
+        <ResourceDictionary>
+            <global:StringIsNotNullOrEmptyConverter x:Key="StringIsNotNullOrEmptyConverter" />
+        </ResourceDictionary>
+    </Application.Resources>
 </Application>

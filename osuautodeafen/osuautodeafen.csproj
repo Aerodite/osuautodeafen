@@ -1,57 +1,62 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net8.0-windows</TargetFramework>
         <Nullable>enable</Nullable>
         <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
         <ApplicationManifest>app.manifest</ApplicationManifest>
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+        <UseWindowsForms>true</UseWindowsForms>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="AutoHotkey.Interop" Version="1.0.0.1" />
+        <PackageReference Include="AutoHotkey.Interop" Version="1.0.0.1"/>
         <PackageReference Include="Avalonia" Version="11.0.10"/>
         <PackageReference Include="Avalonia.Desktop" Version="11.0.10"/>
         <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.10"/>
         <PackageReference Include="Avalonia.Fonts.Inter" Version="11.0.10"/>
         <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
         <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.10"/>
-        <PackageReference Include="InputManager" Version="1.0.0" />
-        <PackageReference Include="LiveChartsCore.SkiaSharpView" Version="2.0.0-rc2" />
-        <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc2" />
-        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-        <PackageReference Include="ReactiveUI" Version="20.1.1" />
-        <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11" />
+        <PackageReference Include="InputManager" Version="1.0.0"/>
+        <PackageReference Include="LiveChartsCore.SkiaSharpView" Version="2.0.0-rc2"/>
+        <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc2"/>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
+        <PackageReference Include="ReactiveUI" Version="20.1.1"/>
+        <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11"/>
     </ItemGroup>
 
     <ItemGroup>
-      <None Remove="Icons\gear-solid.svg" />
-      <None Remove="Icons\gear-solid.png" />
-      <AvaloniaResource Include="Icons\gear-solid.png" />
-      <None Remove="Icons\angles-left-solid.png" />
-      <AvaloniaResource Include="Icons\angles-left-solid.png" />
-      <None Remove="Icons\jong.png" />
-      <None Remove="Icons\clock-solid.png" />
-      <AvaloniaResource Include="Icons\clock-solid.png" />
-      <None Remove="Icons\medal-solid.png" />
-      <AvaloniaResource Include="Icons\medal-solid.png" />
-      <None Remove="Icons\star-solid.png" />
-      <AvaloniaResource Include="Icons\star-solid.png" />
-      <None Remove="Icons\image-solid.png" />
-      <AvaloniaResource Include="Icons\image-solid.png" />
-      <None Remove="Icons\arrows.png" />
-      <AvaloniaResource Include="Icons\arrows.png" />
-      <None Remove="Icons\keyboard-solid.png" />
-      <AvaloniaResource Include="Icons\keyboard-solid.png" />
-      <None Remove="Icons\crown-solid.png" />
-      <AvaloniaResource Include="Icons\crown-solid.png" />
-      <None Remove="Icons\images-solid.png" />
-      <AvaloniaResource Include="Icons\images-solid.png" />
-      <None Remove="Resources\oad.ico" />
-      <AvaloniaResource Include="Resources\oad.ico" />
-      <None Remove="Icons\shooting-star-solid.png" />
-      <AvaloniaResource Include="Icons\shooting-star-solid.png" />
-        <AvaloniaResource Include="Resources\oad.ico" />
+        <None Remove="Icons\gear-solid.svg"/>
+        <None Remove="Icons\gear-solid.png"/>
+        <AvaloniaResource Include="Icons\gear-solid.png"/>
+        <None Remove="Icons\angles-left-solid.png"/>
+        <AvaloniaResource Include="Icons\angles-left-solid.png"/>
+        <None Remove="Icons\jong.png"/>
+        <None Remove="Icons\clock-solid.png"/>
+        <AvaloniaResource Include="Icons\clock-solid.png"/>
+        <None Remove="Icons\medal-solid.png"/>
+        <AvaloniaResource Include="Icons\medal-solid.png"/>
+        <None Remove="Icons\star-solid.png"/>
+        <AvaloniaResource Include="Icons\star-solid.png"/>
+        <None Remove="Icons\image-solid.png"/>
+        <AvaloniaResource Include="Icons\image-solid.png"/>
+        <None Remove="Icons\arrows.png"/>
+        <AvaloniaResource Include="Icons\arrows.png"/>
+        <None Remove="Icons\keyboard-solid.png"/>
+        <AvaloniaResource Include="Icons\keyboard-solid.png"/>
+        <None Remove="Icons\crown-solid.png"/>
+        <AvaloniaResource Include="Icons\crown-solid.png"/>
+        <None Remove="Icons\images-solid.png"/>
+        <AvaloniaResource Include="Icons\images-solid.png"/>
+        <None Remove="Resources\oad.ico"/>
+        <AvaloniaResource Include="Resources\oad.ico"/>
+        <None Remove="Icons\shooting-star-solid.png"/>
+        <AvaloniaResource Include="Icons\shooting-star-solid.png"/>
+        <AvaloniaResource Include="Resources\oad.ico"/>
+        <None Remove="Icons\eye-slash-solid.png"/>
+        <AvaloniaResource Include="Icons\eye-slash-solid.png"/>
+        <None Remove="Icons\angles-right-solid.png" />
+        <AvaloniaResource Include="Icons\angles-right-solid.png" />
     </ItemGroup>
 </Project>
