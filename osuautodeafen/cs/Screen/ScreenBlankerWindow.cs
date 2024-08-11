@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Avalonia;
@@ -30,7 +30,6 @@ namespace osuautodeafen.cs.Screen
             Show(); // make sure the window is created
 
             Opacity = 0; // set to zero so it exists in the background
-
         }
 
         public sealed override void Hide()
