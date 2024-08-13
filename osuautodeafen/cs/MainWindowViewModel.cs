@@ -14,7 +14,7 @@ namespace osuautodeafen.cs;
 public sealed class SharedViewModel : INotifyPropertyChanged
 {
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
-    private bool _canUpdateSettings = true;
+    private readonly bool _canUpdateSettings = true;
     private MainWindow.HotKey _deafenKeybind;
 
     private string _deafenKeybindDisplay;

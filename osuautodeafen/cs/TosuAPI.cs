@@ -13,12 +13,14 @@ public class TosuApi : IDisposable
 {
     private const string WebSocketUri = "ws://127.0.0.1:24050/websocket/v2";
     private static readonly object ConnectionLock = new();
+    private readonly List<byte> _dynamicBuffer;
+    private readonly string _errorMessage = "";
     private readonly StringBuilder _messageAccumulator = new();
+    private readonly Timer _reconnectTimer;
+    private readonly Timer _timer;
     private double _combo;
     private double _completionPercentage;
     private double _current;
-    private readonly List<byte> _dynamicBuffer;
-    private readonly string _errorMessage = "";
     private double _firstObj;
     private double _full;
     private string? _fullPath;
@@ -28,10 +30,8 @@ public class TosuApi : IDisposable
     private double _missCount;
     private double _rankedStatus;
     private int _rawBanchoStatus = -1; // Default to -1 to indicate uninitialized
-    private readonly Timer _reconnectTimer;
     private double _sbCount;
     private string? _settingsSongsDirectory;
-    private readonly Timer _timer;
     private ClientWebSocket _webSocket;
 
     public TosuApi()

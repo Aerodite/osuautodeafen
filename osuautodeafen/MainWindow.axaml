@@ -194,34 +194,35 @@
             <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom" VerticalAlignment="Bottom"
                        Margin="40,0,0,8" Foreground="White" FontSize="14" />
         </DockPanel>
-  <!-- Settings panel 2 -->
+        <!-- Settings panel 2 -->
         <DockPanel x:Name="SettingsPanel2" Grid.Column="1" Background="#171717" Width="450" IsVisible="False"
                    Margin="0,42,0,0" ZIndex="4"
                    x:DataType="cs:SharedViewModel">
             <DockPanel.DataContext>
                 <cs:SharedViewModel />
             </DockPanel.DataContext>
-                <StackPanel DockPanel.Dock="Top" x:DataType="cs:SharedViewModel">
-                    <StackPanel.DataContext>
-                        <cs:SharedViewModel />
-                    </StackPanel.DataContext>
-                    <Button Width="50" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top"
-                            Background="Transparent" Margin="0" Click="FirstPage_Click">
-                        <Image Source="avares://osuautodeafen/Icons/angles-left-solid.png" />
-                    </Button>
-                    <StackPanel Orientation="Horizontal" Margin="60, 10, 0, 0">
-                        <Image Source="avares://osuautodeafen/Icons/eye-slash-solid.png" Width="25" Height="25"
-                               Margin="0, 0, 5, 0" />
-                        <CheckBox x:Name="BlankEffectToggle" Content="Blank" Foreground="White"
-                                  IsChecked="{Binding IsBlankScreenEnabled, Mode=TwoWay}"
-                                  HorizontalAlignment="Left" Margin="0,0,0,0"
-                                  IsCheckedChanged="BlankEffectToggle_IsCheckedChanged">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Blank out your monitors during an FC (**make sure your monitors are all set to the same scaling and that your osu! is at the primary monitor**)"/>
-                            </ToolTip.Tip>
-                        </CheckBox>
-                    </StackPanel>
+            <StackPanel DockPanel.Dock="Top" x:DataType="cs:SharedViewModel">
+                <StackPanel.DataContext>
+                    <cs:SharedViewModel />
+                </StackPanel.DataContext>
+                <Button Width="50" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top"
+                        Background="Transparent" Margin="0" Click="FirstPage_Click">
+                    <Image Source="avares://osuautodeafen/Icons/angles-left-solid.png" />
+                </Button>
+                <StackPanel Orientation="Horizontal" Margin="60, 10, 0, 0">
+                    <Image Source="avares://osuautodeafen/Icons/eye-slash-solid.png" Width="25" Height="25"
+                           Margin="0, 0, 5, 0" />
+                    <CheckBox x:Name="BlankEffectToggle" Content="Blank" Foreground="White"
+                              IsChecked="{Binding IsBlankScreenEnabled, Mode=TwoWay}"
+                              HorizontalAlignment="Left" Margin="0,0,0,0"
+                              IsCheckedChanged="BlankEffectToggle_IsCheckedChanged">
+                        <ToolTip.Tip>
+                            <TextBlock
+                                Text="Blank out your monitors during an FC (**make sure your monitors are all set to the same scaling and that your osu! is at the primary monitor**)" />
+                        </ToolTip.Tip>
+                    </CheckBox>
                 </StackPanel>
+            </StackPanel>
             <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom" VerticalAlignment="Bottom"
                        Margin="40,0,0,8" Foreground="White" FontSize="14" />
         </DockPanel>
