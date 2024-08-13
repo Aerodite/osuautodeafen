@@ -382,7 +382,6 @@ public partial class MainWindow : Window
         {
             //UpdateStatusMessage = "v" + UpdateChecker.currentVersion,
         }
-        ;
 
         DataContext = ViewModel;
     }
@@ -1321,5 +1320,12 @@ public partial class MainWindow : Window
 
             return new HotKey { Key = key, ModifierKeys = modifierKeys };
         }
+    }
+    public async void BlankEffectToggleDeafen()
+    {
+    }
+
+    public void BlankEffectToggle_IsCheckedChanged(object? sender, RoutedEventArgs e)
+    {
     }
 }
