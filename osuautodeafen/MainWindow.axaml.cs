@@ -7,7 +7,6 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
@@ -40,15 +39,16 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _mainTimer;
     private readonly DispatcherTimer _parallaxCheckTimer;
     private readonly TosuApi _tosuApi;
+
+
+    private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private Grid? _blackBackground;
     private Image? _blurredBackground;
-    private ScreenBlanker _screenBlanker;
-    private ScreenBlankerForm _screenBlankerForm;
-    private Deafen _deafen;
 
     private string? _currentBackgroundDirectory;
     private Bitmap? _currentBitmap;
     private KeyModifiers _currentKeyModifiers = KeyModifiers.None;
+    private readonly Deafen _deafen;
     private HotKey? _deafenKeybind;
     private LineSeries<ObservablePoint> _deafenMarker;
     private Thread _graphDataThread;
@@ -62,9 +62,8 @@ public partial class MainWindow : Window
     private double _mouseX;
     private double _mouseY;
     private Image? _normalBackground;
-
-
-    private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
+    private ScreenBlanker _screenBlanker;
+    private ScreenBlankerForm _screenBlankerForm;
     private DispatcherTimer? _visibilityCheckTimer;
     private double deafenProgressPercentage;
     private double deafenTimestamp;
@@ -73,17 +72,17 @@ public partial class MainWindow : Window
     //<summary>
     // constructor for the ui and subsequent panels
     //</summary>
- public MainWindow()
+    public MainWindow()
     {
         InitializeComponent();
 
-        SettingsPanel settingsPanel = new SettingsPanel();
+        var settingsPanel = new SettingsPanel();
 
         var settingsPanel1 = new SettingsPanel();
 
         LoadSettings();
 
-        this.Icon = new WindowIcon("Resources/oad.ico");
+        Icon = new WindowIcon("Resources/oad.ico");
 
         _tosuApi = new TosuApi();
 
@@ -99,6 +98,7 @@ public partial class MainWindow : Window
         {
             Interval = TimeSpan.FromSeconds(1)
         };
+
         _parallaxCheckTimer.Tick += CheckParallaxSetting;
         _parallaxCheckTimer.Start();
 
@@ -113,11 +113,11 @@ public partial class MainWindow : Window
 
         var stringBuilder = new StringBuilder();
 
-        var oldContent = this.Content;
+        var oldContent = Content;
 
-        this.Content = null;
+        Content = null;
 
-        this.Content = new Grid
+        Content = new Grid
         {
             Children =
             {
@@ -127,7 +127,7 @@ public partial class MainWindow : Window
 
         InitializeViewModel();
 
-        this.PointerMoved += OnMouseMove;
+        PointerMoved += OnMouseMove;
 
         DataContext = ViewModel;
 
@@ -137,8 +137,8 @@ public partial class MainWindow : Window
 
 
         Series = [];
-        XAxes = new Axis[] { new Axis { LabelsPaint = new SolidColorPaint(SKColors.White) } };
-        YAxes = new Axis[] { new Axis { LabelsPaint = new SolidColorPaint(SKColors.White) } };
+        XAxes = new Axis[] { new() { LabelsPaint = new SolidColorPaint(SKColors.White) } };
+        YAxes = new Axis[] { new() { LabelsPaint = new SolidColorPaint(SKColors.White) } };
         PlotView.Series = Series;
         PlotView.XAxes = XAxes;
         PlotView.YAxes = YAxes;
@@ -146,15 +146,15 @@ public partial class MainWindow : Window
         var series1 = new StackedAreaSeries<ObservablePoint>
         {
             Values = ChartData.Series1Values,
-            Fill = new SolidColorPaint { Color = new SkiaSharp.SKColor(0xFF, 0x00, 0x00) },
-            Stroke = new SolidColorPaint { Color = new SkiaSharp.SKColor(0xFF, 0x00, 0x00) }
+            Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00) },
+            Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00) }
         };
 
         var series2 = new StackedAreaSeries<ObservablePoint>
         {
             Values = ChartData.Series2Values,
-            Fill = new SolidColorPaint { Color = new SkiaSharp.SKColor(0x00, 0xFF, 0x00) },
-            Stroke = new SolidColorPaint { Color = new SkiaSharp.SKColor(0x00, 0xFF, 0x00) }
+            Fill = new SolidColorPaint { Color = new SKColor(0x00, 0xFF, 0x00) },
+            Stroke = new SolidColorPaint { Color = new SKColor(0x00, 0xFF, 0x00) }
         };
 
 
@@ -177,7 +177,7 @@ public partial class MainWindow : Window
             }
         };
 
-        this.DataContext = settingsPanel1;
+        DataContext = settingsPanel1;
         ExtendClientAreaToDecorationsHint = true;
         ExtendClientAreaTitleBarHeightHint = -1;
         ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
@@ -189,10 +189,7 @@ public partial class MainWindow : Window
         {
             var point = e.GetPosition(this);
             const int titleBarHeight = 34; // height of the title bar + an extra 2px of wiggle room
-            if (point.Y <= titleBarHeight)
-            {
-                BeginMoveDrag(e);
-            }
+            if (point.Y <= titleBarHeight) BeginMoveDrag(e);
         };
 
         InitializeKeybindButtonText();
@@ -203,10 +200,10 @@ public partial class MainWindow : Window
         PPTextBox.Text = ViewModel.PerformancePoints.ToString();
 
         BorderBrush = Brushes.Black;
-        this.Width = 600;
-        this.Height = 600;
-        this.CanResize = false;
-        this.Closing += MainWindow_Closing;
+        Width = 600;
+        Height = 600;
+        CanResize = false;
+        Closing += MainWindow_Closing;
         _isConstructorFinished = true;
     }
 
@@ -490,6 +487,7 @@ public partial class MainWindow : Window
             var keybindLine = lines.FirstOrDefault(line => line.StartsWith("Hotkey="));
             if (keybindLine != null) return keybindLine.Split('=')[1];
         }
+
         return "Set Keybind";
     }
 
@@ -1281,6 +1279,10 @@ public partial class MainWindow : Window
         firstPage.IsVisible = true;
     }
 
+    public void BlankEffectToggle_IsCheckedChanged(object? sender, RoutedEventArgs e)
+    {
+    }
+
 
     public class HotKey
     {
@@ -1319,7 +1321,6 @@ public partial class MainWindow : Window
             return new HotKey { Key = key, ModifierKeys = modifierKeys };
         }
     }
-
     public async void BlankEffectToggleDeafen()
     {
     }

@@ -56,7 +56,7 @@
         <AvaloniaResource Include="Resources\oad.ico"/>
         <None Remove="Icons\eye-slash-solid.png"/>
         <AvaloniaResource Include="Icons\eye-slash-solid.png"/>
-        <None Remove="Icons\angles-right-solid.png" />
-        <AvaloniaResource Include="Icons\angles-right-solid.png" />
+        <None Remove="Icons\angles-right-solid.png"/>
+        <AvaloniaResource Include="Icons\angles-right-solid.png"/>
     </ItemGroup>
 </Project>
