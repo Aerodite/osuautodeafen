@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
@@ -31,6 +30,12 @@ namespace osuautodeafen.cs.Screen
 
             Opacity = 0; // set to zero so it exists in the background
 
+            var platformImpl = this.GetType().GetProperty("PlatformImpl", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(this);
+            var handle = platformImpl?.GetType().GetProperty("Handle", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(platformImpl) as IntPtr?;
+            if (handle.HasValue)
+            {
+                SetWindowLong(handle.Value, GWL_EXSTYLE, GetWindowLong(handle.Value, GWL_EXSTYLE) | WS_EX_TRANSPARENT);
+            }
         }
 
         public sealed override void Hide()
@@ -54,5 +59,14 @@ namespace osuautodeafen.cs.Screen
             Console.WriteLine($@"Unblanking window: {Name}");
             this.Opacity = 0;
         }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        private const int GWL_EXSTYLE = -20;
+        private const int WS_EX_TRANSPARENT = 0x00000020;
     }
 }

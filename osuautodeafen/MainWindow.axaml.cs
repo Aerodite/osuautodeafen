@@ -99,6 +99,7 @@ public partial class MainWindow : Window
         {
             Interval = TimeSpan.FromSeconds(1)
         };
+
         _parallaxCheckTimer.Tick += CheckParallaxSetting;
         _parallaxCheckTimer.Start();
 

@@ -1,8 +1,9 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
 
@@ -13,13 +14,27 @@ namespace osuautodeafen.cs.Screen
         public bool IsScreenBlanked { get; private set; }
         private readonly Window _mainWindow;
         private ScreenBlankerWindow[]? _blankingWindows;
+        private bool _isOsuFocused;
+        private bool _isInitialized;
+        private DispatcherTimer _focusCheckTimer;
 
         public ScreenBlankerForm(Window mainWindow)
         {
             Console.WriteLine(@"Initializing ScreenBlankerForm...");
             _mainWindow = mainWindow;
             InitializeBlankingWindows();
+            InitializeFocusCheckTimer();
             _mainWindow.Closed += (sender, e) => Dispose();
+        }
+
+        private void InitializeFocusCheckTimer()
+        {
+            _focusCheckTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(1250)
+            };
+            _focusCheckTimer.Tick += (sender, e) => CheckOsuFocus();
+            _focusCheckTimer.Start();
         }
 
         public static Task<ScreenBlankerForm> CreateAsync(Window mainWindow)
@@ -29,6 +44,7 @@ namespace osuautodeafen.cs.Screen
 
         private void InitializeBlankingWindows()
         {
+            if (_isInitialized) return;
             var screens = _mainWindow.Screens.All.Where(screen => !screen.IsPrimary).ToList();
             _blankingWindows = new ScreenBlankerWindow[screens.Count];
 
@@ -37,26 +53,79 @@ namespace osuautodeafen.cs.Screen
                 var screen = screens[i];
                 var pixelBounds = ScreenBlankerHelper.GetPixelBounds(screen);
                 var window = new ScreenBlankerWindow($"ScreenBlankerWindow_{i}", pixelBounds, screen.Scaling);
+                window.IsVisible = false;
                 _blankingWindows[i] = window;
             }
+            _isInitialized = true;
         }
+
+        private bool CheckOsuFocus()
+        {
+            var focusedProcess = GetFocusedProcess();
+            if (focusedProcess != null && focusedProcess.ProcessName == "osu!")
+            {
+                if (!_isOsuFocused)
+                {
+                    _isOsuFocused = true;
+                    SetBlankingWindowsTopmost(true);
+                }
+                return true;
+            }
+            if (_isOsuFocused)
+            {
+                _isOsuFocused = false;
+                SetBlankingWindowsTopmost(false, true);
+            }
+            return false;
+        }
+
+        private void SetBlankingWindowsTopmost(bool topmost, bool bottommost = false)
+        {
+            if (_blankingWindows != null)
+            {
+                foreach (var window in _blankingWindows)
+                {
+                    if (bottommost)
+                    {
+                        window.Topmost = false;
+                        window.IsVisible = false;
+                    }
+                    else
+                    {
+                        window.Topmost = topmost;
+                        window.IsVisible = true;
+                    }
+                }
+            }
+        }
+
+        private Process? GetFocusedProcess()
+        {
+            var hwnd = GetForegroundWindow();
+            if (hwnd == IntPtr.Zero) return null;
+
+            GetWindowThreadProcessId(hwnd, out uint pid);
+            return Process.GetProcessById((int)pid);
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
         public async Task BlankScreensAsync()
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 Console.WriteLine(@"Blanking screens...");
-                if (_blankingWindows == null)
-                {
-                    InitializeBlankingWindows();
-                }
-
                 if (_blankingWindows != null)
+                {
                     foreach (var window in _blankingWindows)
                     {
                         window.Opacity = 1;
                     }
-
+                }
                 IsScreenBlanked = true;
             });
         }
@@ -76,7 +145,6 @@ namespace osuautodeafen.cs.Screen
                 IsScreenBlanked = false;
             });
         }
-
         public void Dispose()
         {
             if (_blankingWindows != null)
