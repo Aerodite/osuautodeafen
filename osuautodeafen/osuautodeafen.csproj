@@ -59,5 +59,9 @@
         <AvaloniaResource Include="Icons\angles-right-solid.png"/>
         <None Remove="Resources\osuautodeafen_whitestroke.png" />
         <AvaloniaResource Include="Resources\osuautodeafen_whitestroke.png" />
+        <None Remove="Resources\osu_whitestroke.png" />
+        <AvaloniaResource Include="Resources\osu_whitestroke.png" />
+        <None Remove="Resources\BG.png" />
+        <AvaloniaResource Include="Resources\BG.png" />
     </ItemGroup>
 </Project>

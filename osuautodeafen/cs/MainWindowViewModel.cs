@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Timers;
 using System.Windows.Input;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 
 namespace osuautodeafen.cs;
@@ -360,6 +361,20 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             if (_updateStatusMessage != value)
             {
                 _updateStatusMessage = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private Bitmap? _modifiedLogoImage;
+    public Bitmap? ModifiedLogoImage
+    {
+        get => _modifiedLogoImage;
+        set
+        {
+            if (_modifiedLogoImage != value)
+            {
+                _modifiedLogoImage = value;
                 OnPropertyChanged();
             }
         }

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
@@ -21,6 +22,7 @@ using LiveChartsCore;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
 using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Avalonia;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Screen;
@@ -1025,6 +1027,8 @@ public partial class MainWindow : Window
                 IsBlackBackgroundDisplayed = false;
                 _currentBackgroundDirectory = backgroundPath;
                 UpdateUIWithNewBackground(newBitmap);
+
+                UpdateLogoAsync();
             }
 
             if (_blurredBackground != null && _normalBackground != null)
@@ -1035,8 +1039,156 @@ public partial class MainWindow : Window
         }
     }
 
+    private SKBitmap ConvertToSKBitmap(Bitmap avaloniaBitmap)
+    {
+        using (var memoryStream = new MemoryStream())
+        {
+            avaloniaBitmap.Save(memoryStream);
+            memoryStream.Seek(0, SeekOrigin.Begin);
+            return SKBitmap.Decode(memoryStream);
+        }
+    }
+
+    private SKColor CalculateAverageColor(SKBitmap bitmap)
+    {
+        long totalR = 0, totalG = 0, totalB = 0;
+        int pixelCount = bitmap.Width * bitmap.Height;
+
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                var pixel = bitmap.GetPixel(x, y);
+                totalR += pixel.Red;
+                totalG += pixel.Green;
+                totalB += pixel.Blue;
+            }
+        }
+
+        byte avgR = (byte)(totalR / pixelCount);
+        byte avgG = (byte)(totalG / pixelCount);
+        byte avgB = (byte)(totalB / pixelCount);
+
+        return new SKColor(avgR, avgG, avgB);
+    }
+
+    private SKBitmap? _cachedLogoBitmap;
+
+    private static readonly object _updateLogoLock = new object();
+
+
+    private SKBitmap? _modifiedLogoBitmap;
+    //public SKBitmap? ModifiedLogoBitmap => _modifiedLogoBitmap;
+
+    private SKColor ClampColor(SKColor color, byte min, byte max)
+    {
+        byte Clamp(byte value) => (byte)Math.Max(min, Math.Min(max, value));
+
+        return new SKColor(
+            Clamp(color.Red),
+            Clamp(color.Green),
+            Clamp(color.Blue),
+            color.Alpha
+        );
+    }
+
+    private SKBitmap LoadHighResolutionLogo(string filePath)
+    {
+        using (var stream = File.OpenRead(filePath))
+        {
+            return SKBitmap.Decode(stream);
+        }
+    }
+
+    private async void UpdateLogoAsync()
+    {
+        try
+        {
+            await Task.Run(async () =>
+            {
+                SKBitmap? cachedLogoBitmap = null;
+                lock (_updateLogoLock)
+                {
+                    if (_cachedLogoBitmap == null)
+                    {
+                        var logoPath = "Resources/autodeafen.png";
+                        _cachedLogoBitmap = LoadHighResolutionLogo(logoPath);
+                    }
+                    cachedLogoBitmap = _cachedLogoBitmap;
+                }
+
+                if (cachedLogoBitmap == null || _currentBitmap == null)
+                {
+                    return;
+                }
+
+                var averageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_currentBitmap));
+                var clampedAverageColor = ClampColor(averageColor, 50, 200);
+
+                var modifiedBitmap = new SKBitmap(cachedLogoBitmap.Width, cachedLogoBitmap.Height);
+                var whiteOrDarkColor = new SKColor(255, 255, 255);
+
+                using (var canvas = new SKCanvas(modifiedBitmap))
+                {
+                    var paint = new SKPaint
+                    {
+                        IsAntialias = true
+                    };
+
+                    Parallel.For(0, cachedLogoBitmap.Height, y =>
+                    {
+                        for (int x = 0; x < cachedLogoBitmap.Width; x++)
+                        {
+                            var pixel = cachedLogoBitmap.GetPixel(x, y);
+                            if (pixel != whiteOrDarkColor && pixel.Alpha != 0)
+                            {
+                                var newColor = new SKColor(
+                                    clampedAverageColor.Red,
+                                    clampedAverageColor.Green,
+                                    clampedAverageColor.Blue,
+                                    pixel.Alpha
+                                );
+                                canvas.DrawPoint(x, y, newColor);
+                            }
+                            else
+                            {
+                                canvas.DrawPoint(x, y, pixel);
+                            }
+                        }
+                    });
+                }
+
+                _modifiedLogoBitmap = modifiedBitmap;
+
+                using (var image = SKImage.FromBitmap(modifiedBitmap))
+                using (var data = image.Encode(SKEncodedImageFormat.Png, 0))
+                using (var stream = new MemoryStream())
+                {
+                    data.SaveTo(stream);
+                    stream.Seek(0, SeekOrigin.Begin);
+                    var bitmap = new Bitmap(stream);
+                    Dispatcher.UIThread.InvokeAsync(() => ViewModel.ModifiedLogoImage = bitmap);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred while updating the logo: {ex.Message}");
+            // Fallback to the unedited Resources/autodeafen.png
+            var fallbackLogoPath = "Resources/autodeafen.png";
+            var fallbackBitmap = new Bitmap(fallbackLogoPath);
+            Dispatcher.UIThread.InvokeAsync(() => ViewModel.ModifiedLogoImage = fallbackBitmap);
+        }
+    }
+
+    private async Task<SKColor> CalculateAverageColorAsync(SKBitmap bitmap)
+    {
+        return await Task.Run<SKColor>(() => CalculateAverageColor(bitmap));
+    }
+
     private void UpdateUIWithNewBackground(Bitmap bitmap)
     {
+
         var imageControl = new Image
         {
             Source = bitmap,
@@ -1196,8 +1348,10 @@ public partial class MainWindow : Window
         var updateBar = this.FindControl<Button>("UpdateNotificationBar");
         var isUpdateBarVisible = updateBar != null && updateBar.IsVisible;
         var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
+        var settingsPanel2 = this.FindControl<DockPanel>("SettingsPanel2");
         var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
         var settingsPanelMargin = settingsPanel.Margin;
+        var settingsPanel2Margin = settingsPanel2.Margin;
         var textBlockPanelMargin = textBlockPanel.Margin;
 
 
@@ -1228,6 +1382,8 @@ public partial class MainWindow : Window
             {
                 settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
                     settingsPanelMargin.Right, 28);
+                settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
+                    settingsPanel2Margin.Right, 28);
                 textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
                     textBlockPanelMargin.Right, 28);
             }
@@ -1235,6 +1391,8 @@ public partial class MainWindow : Window
             {
                 settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
                     settingsPanelMargin.Right, 0);
+                settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
+                    settingsPanel2Margin.Right, 0);
                 textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
                     textBlockPanelMargin.Right, 0);
             }
@@ -1246,6 +1404,8 @@ public partial class MainWindow : Window
             {
                 settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
                     settingsPanelMargin.Right, 28);
+                settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
+                    settingsPanel2Margin.Right, 28);
                 textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
                     textBlockPanelMargin.Right, 28);
             }
@@ -1253,10 +1413,13 @@ public partial class MainWindow : Window
             {
                 settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
                     settingsPanelMargin.Right, 0);
+                settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
+                    settingsPanel2Margin.Right, 0);
                 textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
                     textBlockPanelMargin.Right, 0);
             }
         }
+
 
         textBlockPanel.Margin = settingsPanel.IsVisible ? new Thickness(0, 42, 225, 0) : new Thickness(0, 42, 0, 0);
     }

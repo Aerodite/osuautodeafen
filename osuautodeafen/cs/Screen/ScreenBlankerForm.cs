@@ -42,7 +42,10 @@ public class ScreenBlankerForm : IDisposable
     {
         _focusCheckTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(1250)
+            //uh this is really an rng number
+            //original value 1250, currently 400 because
+            //i dont like waiting to interact with monitors
+            Interval = TimeSpan.FromMilliseconds(400)
         };
         _focusCheckTimer.Tick += (sender, e) => CheckOsuFocus();
         _focusCheckTimer.Start();
