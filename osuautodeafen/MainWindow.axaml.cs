@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -17,6 +18,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
@@ -27,6 +29,8 @@ using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Screen;
 using SkiaSharp;
+using Animation = Avalonia.Animation.Animation;
+using KeyFrame = Avalonia.Animation.KeyFrame;
 using Path = System.IO.Path;
 
 namespace osuautodeafen;
@@ -84,7 +88,7 @@ public partial class MainWindow : Window
 
         LoadSettings();
 
-        Icon = new WindowIcon("Resources/oad.ico");
+        Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.oad.ico"));
 
         _tosuApi = new TosuApi();
 
@@ -1092,12 +1096,28 @@ public partial class MainWindow : Window
         );
     }
 
-    private SKBitmap LoadHighResolutionLogo(string filePath)
+    private SKBitmap LoadHighResolutionLogo(string resourceName)
     {
-        using (var stream = File.OpenRead(filePath))
+        var assembly = Assembly.GetExecutingAssembly();
+        using (var stream = assembly.GetManifestResourceStream(resourceName))
         {
+            if (stream == null)
+            {
+                throw new FileNotFoundException("Resource not found: " + resourceName);
+            }
             return SKBitmap.Decode(stream);
         }
+    }
+
+    public Bitmap LoadEmbeddedResource(string resourceName)
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+        var resourceStream = assembly.GetManifestResourceStream(resourceName);
+        if (resourceStream == null)
+        {
+            throw new FileNotFoundException("Resource not found: " + resourceName);
+        }
+        return new Bitmap(resourceStream);
     }
 
     private async void UpdateLogoAsync()
@@ -1111,8 +1131,8 @@ public partial class MainWindow : Window
                 {
                     if (_cachedLogoBitmap == null)
                     {
-                        var logoPath = "Resources/autodeafen.png";
-                        _cachedLogoBitmap = LoadHighResolutionLogo(logoPath);
+                        var logoPath = LoadEmbeddedResource("osuautodeafen.Resources.autodeafen.png");
+                        _cachedLogoBitmap = LoadHighResolutionLogo("osuautodeafen.Resources.autodeafen.png");
                     }
                     cachedLogoBitmap = _cachedLogoBitmap;
                 }
@@ -1123,7 +1143,7 @@ public partial class MainWindow : Window
                 }
 
                 var averageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_currentBitmap));
-                var clampedAverageColor = ClampColor(averageColor, 50, 200);
+                var clampedAverageColor = ClampColor(averageColor, 45, 212);
 
                 var modifiedBitmap = new SKBitmap(cachedLogoBitmap.Width, cachedLogoBitmap.Height);
                 var whiteOrDarkColor = new SKColor(255, 255, 255);
@@ -1213,6 +1233,7 @@ public partial class MainWindow : Window
             }
 
             backgroundLayer.Children.Add(imageControl);
+            backgroundLayer.Opacity = _currentBackgroundOpacity;
             backgroundLayer.RenderTransform = new ScaleTransform(1.05, 1.05);
         }
         else
@@ -1343,86 +1364,130 @@ public partial class MainWindow : Window
         Console.WriteLine("Received: {0}", completionPercentage);
     }
 
-    private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
+    private double _currentBackgroundOpacity = 1.0;
+
+    private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan duration)
     {
-        var updateBar = this.FindControl<Button>("UpdateNotificationBar");
-        var isUpdateBarVisible = updateBar != null && updateBar.IsVisible;
-        var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
-        var settingsPanel2 = this.FindControl<DockPanel>("SettingsPanel2");
-        var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
-        var settingsPanelMargin = settingsPanel.Margin;
-        var settingsPanel2Margin = settingsPanel2.Margin;
-        var textBlockPanelMargin = textBlockPanel.Margin;
-
-
-        settingsPanel.Transitions = new Transitions
+        if (Content is Grid mainGrid)
         {
-            new ThicknessTransition
+            var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
+            if (backgroundLayer != null && backgroundLayer.Children.Count > 0)
             {
-                Property = MarginProperty,
-                Duration = TimeSpan.FromSeconds(0.25),
-                Easing = new LinearEasing()
-            }
-        };
+                var background = backgroundLayer.Children[0] as Image;
+                if (background != null)
+                {
+                    var animation = new Animation
+                    {
+                        Duration = duration,
+                        Easing = new QuarticEaseInOut(),
+                        Children =
+                        {
+                            new KeyFrame
+                            {
+                                Setters =
+                                {
+                                    new Setter(Image.OpacityProperty, background.Opacity)
+                                },
+                                Cue = new Cue(0.0)
+                            },
+                            new KeyFrame
+                            {
+                                Setters =
+                                {
+                                    new Setter(Image.OpacityProperty, targetOpacity)
+                                },
+                                Cue = new Cue(1)
+                            }
+                        }
+                    };
 
-        textBlockPanel.Transitions = new Transitions
-        {
-            new ThicknessTransition
-            {
-                Property = MarginProperty,
-                Duration = TimeSpan.FromSeconds(0.25),
-                Easing = new CircularEaseInOut()
+                    _currentBackgroundOpacity = targetOpacity;
+                    animation.RunAsync(background);
+                }
             }
-        };
+        }
+    }
 
-        if (settingsPanel.IsVisible)
+private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
+{
+    var updateBar = this.FindControl<Button>("UpdateNotificationBar");
+    var isUpdateBarVisible = updateBar != null && updateBar.IsVisible;
+    var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
+    var settingsPanel2 = this.FindControl<DockPanel>("SettingsPanel2");
+    var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
+    var settingsPanelMargin = settingsPanel.Margin;
+    var settingsPanel2Margin = settingsPanel2.Margin;
+    var textBlockPanelMargin = textBlockPanel.Margin;
+
+    settingsPanel.Transitions = new Transitions
+    {
+        new ThicknessTransition
         {
-            settingsPanel.IsVisible = false;
-            if (isUpdateBarVisible)
-            {
-                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
-                    settingsPanelMargin.Right, 28);
-                settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
-                    settingsPanel2Margin.Right, 28);
-                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
-                    textBlockPanelMargin.Right, 28);
-            }
-            else
-            {
-                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
-                    settingsPanelMargin.Right, 0);
-                settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
-                    settingsPanel2Margin.Right, 0);
-                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
-                    textBlockPanelMargin.Right, 0);
-            }
+            Property = MarginProperty,
+            Duration = TimeSpan.FromSeconds(0.25),
+            Easing = new LinearEasing()
+        }
+    };
+
+    textBlockPanel.Transitions = new Transitions
+    {
+        new ThicknessTransition
+        {
+            Property = MarginProperty,
+            Duration = TimeSpan.FromSeconds(0.25),
+            Easing = new CircularEaseInOut()
+        }
+    };
+
+    if (settingsPanel.IsVisible)
+    {
+        settingsPanel.IsVisible = false;
+        AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.3)); // gradually revert the background opacity
+        if (isUpdateBarVisible)
+        {
+            settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
+                settingsPanelMargin.Right, 28);
+            settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
+                settingsPanel2Margin.Right, 28);
+            textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
+                textBlockPanelMargin.Right, 28);
         }
         else
         {
-            settingsPanel.IsVisible = true;
-            if (isUpdateBarVisible)
-            {
-                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
-                    settingsPanelMargin.Right, 28);
-                settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
-                    settingsPanel2Margin.Right, 28);
-                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
-                    textBlockPanelMargin.Right, 28);
-            }
-            else
-            {
-                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
-                    settingsPanelMargin.Right, 0);
-                settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
-                    settingsPanel2Margin.Right, 0);
-                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
-                    textBlockPanelMargin.Right, 0);
-            }
+            settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
+                settingsPanelMargin.Right, 0);
+            settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
+                settingsPanel2Margin.Right, 0);
+            textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
+                textBlockPanelMargin.Right, 0);
         }
-
-
-        textBlockPanel.Margin = settingsPanel.IsVisible ? new Thickness(0, 42, 225, 0) : new Thickness(0, 42, 0, 0);
     }
+    else
+    {
+        settingsPanel.IsVisible = true;
+        AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.3)); // gradually darken the background
+        if (isUpdateBarVisible)
+        {
+            settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
+                settingsPanelMargin.Right, 28);
+            settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
+                settingsPanel2Margin.Right, 28);
+            textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
+                textBlockPanelMargin.Right, 28);
+        }
+        else
+        {
+            settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
+                settingsPanelMargin.Right, 0);
+            settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
+                settingsPanel2Margin.Right, 0);
+            textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
+                textBlockPanelMargin.Right, 0);
+        }
+    }
+
+    textBlockPanel.Margin = settingsPanel.IsVisible ? new Thickness(0, 42, 225, 0) : new Thickness(0, 42, 0, 0);
+}
 
     private async void SecondPage_Click(object sender, RoutedEventArgs e)
     {

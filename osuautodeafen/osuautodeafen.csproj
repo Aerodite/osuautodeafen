@@ -6,8 +6,8 @@
         <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
         <ApplicationManifest>app.manifest</ApplicationManifest>
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-        <UseWindowsForms>true</UseWindowsForms>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <DebugType>none</DebugType>
     </PropertyGroup>
 
     <ItemGroup>
@@ -16,7 +16,6 @@
         <PackageReference Include="Avalonia.Desktop" Version="11.0.10"/>
         <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.10"/>
         <PackageReference Include="Avalonia.Fonts.Inter" Version="11.0.10"/>
-        <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
         <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.10"/>
         <PackageReference Include="InputManager" Version="1.0.0"/>
         <PackageReference Include="LiveChartsCore.SkiaSharpView" Version="2.0.0-rc2"/>
@@ -24,6 +23,7 @@
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
         <PackageReference Include="ReactiveUI" Version="20.1.1"/>
         <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11"/>
+        <PackageReference Include="ILMerge" Version="3.0.41"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -49,19 +49,26 @@
         <AvaloniaResource Include="Icons\crown-solid.png"/>
         <None Remove="Icons\images-solid.png"/>
         <AvaloniaResource Include="Icons\images-solid.png"/>
-        <None Remove="Resources\oad.ico"/>
         <None Remove="Icons\shooting-star-solid.png"/>
         <AvaloniaResource Include="Icons\shooting-star-solid.png"/>
-        <AvaloniaResource Include="Resources\oad.ico"/>
         <None Remove="Icons\eye-slash-solid.png"/>
         <AvaloniaResource Include="Icons\eye-slash-solid.png"/>
         <None Remove="Icons\angles-right-solid.png"/>
         <AvaloniaResource Include="Icons\angles-right-solid.png"/>
-        <None Remove="Resources\osuautodeafen_whitestroke.png" />
-        <AvaloniaResource Include="Resources\osuautodeafen_whitestroke.png" />
+        <EmbeddedResource Include="Resources\autodeafen.png" />
+        <None Remove="Resources\oad.ico" />
+        <EmbeddedResource Include="Resources\oad.ico" />
         <None Remove="Resources\osu_whitestroke.png" />
         <AvaloniaResource Include="Resources\osu_whitestroke.png" />
-        <None Remove="Resources\BG.png" />
-        <AvaloniaResource Include="Resources\BG.png" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Remove="Resources\noise.png" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Update="**\*.lib">
+            <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+        </None>
     </ItemGroup>
 </Project>
