@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.Generic;
 using System.Net.WebSockets;
 using System.Text;
@@ -22,11 +22,13 @@ public class TosuApi : IDisposable
     private double _completionPercentage;
     private double _current;
     private double _firstObj;
+    private BreakPeriod _breakPeriod;
     private double _full;
     private string? _fullPath;
     private double _fullSR;
     private double _maxCombo;
     private double _maxPP;
+    private string _osuFilePath = "";
     private double _missCount;
     private double _rankedStatus;
     private int _rawBanchoStatus = -1; // Default to -1 to indicate uninitialized
@@ -46,6 +48,7 @@ public class TosuApi : IDisposable
             _ = ConnectAsync();
         }
     }
+
 
     public GraphData Graph { get; private set; }
 
@@ -264,6 +267,9 @@ public class TosuApi : IDisposable
                         _fullPath = beatmapBackground.GetString();
                     var combinedPath = _settingsSongsDirectory + "\\" + _fullPath;
 
+                    if(directPath.TryGetProperty("beatmapFile", out var beatmapFile))
+                        _osuFilePath = beatmapFile.GetString();
+
                     var jsonDocument = JsonDocument.Parse(jsonString);
                     var rootElement = jsonDocument.RootElement;
                 }
@@ -316,6 +322,11 @@ public class TosuApi : IDisposable
     public double GetFullSR()
     {
         return _fullSR;
+    }
+
+    public string GetOsuFilePath()
+    {
+        return _osuFilePath;
     }
 
     public double GetMaxPP()

@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -24,14 +25,15 @@ using LiveChartsCore;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
 using LiveChartsCore.SkiaSharpView;
-using LiveChartsCore.SkiaSharpView.Avalonia;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Screen;
 using SkiaSharp;
+using Svg.Skia;
 using Animation = Avalonia.Animation.Animation;
 using KeyFrame = Avalonia.Animation.KeyFrame;
 using Path = System.IO.Path;
+using Vector = Avalonia.Vector;
 
 namespace osuautodeafen;
 
@@ -45,7 +47,11 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _mainTimer;
     private readonly DispatcherTimer _parallaxCheckTimer;
     private readonly TosuApi _tosuApi;
+    private BreakPeriod _breakPeriod;
+    private readonly AnimationManager _animationManager = new();
 
+    private readonly object _updateLogoLock = new();
+    private SKSvg? _cachedLogoSvg;
 
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private Grid? _blackBackground;
@@ -63,7 +69,6 @@ public partial class MainWindow : Window
 
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
-    private DateTime _lastUpdate = DateTime.Now;
     private DateTime _lastUpdateCheck = DateTime.MinValue;
     private double _mouseX;
     private double _mouseY;
@@ -74,6 +79,10 @@ public partial class MainWindow : Window
     private double deafenProgressPercentage;
     private double deafenTimestamp;
     private SettingsPanel settingsPanel1;
+    private SKColor _oldAverageColor = SKColors.Transparent;
+    private bool _isTransitioning = false;
+
+
 
     //<summary>
     // constructor for the ui and subsequent panels
@@ -91,6 +100,8 @@ public partial class MainWindow : Window
         Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.oad.ico"));
 
         _tosuApi = new TosuApi();
+
+        _breakPeriod = new BreakPeriod(_tosuApi);
 
         _deafen = new Deafen(_tosuApi, settingsPanel1, new ScreenBlankerForm(this));
 
@@ -117,8 +128,6 @@ public partial class MainWindow : Window
 
         InitializeVisibilityCheckTimer();
 
-        var stringBuilder = new StringBuilder();
-
         var oldContent = Content;
 
         Content = null;
@@ -136,6 +145,8 @@ public partial class MainWindow : Window
         PointerMoved += OnMouseMove;
 
         DataContext = ViewModel;
+
+        InitializeLogo();
 
         InitializeGraphDataThread();
 
@@ -993,7 +1004,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void UpdateBackground(object? sender, EventArgs? e)
+    private async void UpdateBackground(object? sender, EventArgs? e)
     {
         if (!ViewModel.IsBackgroundEnabled)
         {
@@ -1004,25 +1015,36 @@ public partial class MainWindow : Window
         }
         else
         {
-            // if the background is enabled, check if a new background needs to be loaded
             var backgroundPath = _tosuApi.GetBackgroundPath();
             if (_currentBitmap == null || backgroundPath != _currentBackgroundDirectory)
             {
-                if (!File.Exists(backgroundPath))
+                Bitmap? newBitmap = null;
+                bool fileExists = false;
+
+                await Task.Run(() =>
                 {
-                    Console.WriteLine($"The file does not exist: {backgroundPath}");
-                    DisplayBlackBackground(); // fallback to black background
+                    fileExists = File.Exists(backgroundPath);
+                    if (fileExists)
+                    {
+                        try
+                        {
+                            newBitmap = new Bitmap(backgroundPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine("Failed to load background: " + ex.Message);
+                        }
+                    }
+                });
+
+                if (!fileExists)
+                {
+                    Console.WriteLine("Background file not found: " + backgroundPath);
                     return;
                 }
 
-                Bitmap newBitmap;
-                try
+                if (newBitmap == null)
                 {
-                    newBitmap = new Bitmap(backgroundPath);
-                }
-                catch
-                {
-                    DisplayBlackBackground(); // fallback to black background
                     return;
                 }
 
@@ -1030,9 +1052,9 @@ public partial class MainWindow : Window
                 _currentBitmap = newBitmap;
                 IsBlackBackgroundDisplayed = false;
                 _currentBackgroundDirectory = backgroundPath;
-                UpdateUIWithNewBackground(newBitmap);
+                await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackground(newBitmap));
 
-                UpdateLogoAsync();
+                await Task.Run(() => UpdateLogoAsync());
             }
 
             if (_blurredBackground != null && _normalBackground != null)
@@ -1042,32 +1064,49 @@ public partial class MainWindow : Window
             }
         }
     }
-
     private SKBitmap ConvertToSKBitmap(Bitmap avaloniaBitmap)
     {
-        using (var memoryStream = new MemoryStream())
-        {
-            avaloniaBitmap.Save(memoryStream);
-            memoryStream.Seek(0, SeekOrigin.Begin);
-            return SKBitmap.Decode(memoryStream);
-        }
+        using var memoryStream = new MemoryStream();
+        avaloniaBitmap.Save(memoryStream);
+        memoryStream.Seek(0, SeekOrigin.Begin);
+        return SKBitmap.Decode(memoryStream);
     }
 
     private SKColor CalculateAverageColor(SKBitmap bitmap)
     {
-        long totalR = 0, totalG = 0, totalB = 0;
-        int pixelCount = bitmap.Width * bitmap.Height;
+        int width = bitmap.Width;
+        int height = bitmap.Height;
+        int chunkSize = height / Environment.ProcessorCount;
+        object lockObj = new object();
 
-        for (int y = 0; y < bitmap.Height; y++)
+        long totalR = 0, totalG = 0, totalB = 0;
+        int pixelCount = width * height;
+
+        Parallel.For(0, Environment.ProcessorCount, (int i) =>
         {
-            for (int x = 0; x < bitmap.Width; x++)
+            long localTotalR = 0, localTotalG = 0, localTotalB = 0;
+
+            int startY = i * chunkSize;
+            int endY = (i == Environment.ProcessorCount - 1) ? height : startY + chunkSize;
+
+            for (int y = startY; y < endY; y++)
             {
-                var pixel = bitmap.GetPixel(x, y);
-                totalR += pixel.Red;
-                totalG += pixel.Green;
-                totalB += pixel.Blue;
+                for (int x = 0; x < width; x++)
+                {
+                    var pixel = bitmap.GetPixel(x, y);
+                    localTotalR += pixel.Red;
+                    localTotalG += pixel.Green;
+                    localTotalB += pixel.Blue;
+                }
             }
-        }
+
+            lock (lockObj)
+            {
+                totalR += localTotalR;
+                totalG += localTotalG;
+                totalB += localTotalB;
+            }
+        });
 
         byte avgR = (byte)(totalR / pixelCount);
         byte avgG = (byte)(totalG / pixelCount);
@@ -1075,137 +1114,129 @@ public partial class MainWindow : Window
 
         return new SKColor(avgR, avgG, avgB);
     }
-
-    private SKBitmap? _cachedLogoBitmap;
-
-    private static readonly object _updateLogoLock = new object();
-
-
-    private SKBitmap? _modifiedLogoBitmap;
-    //public SKBitmap? ModifiedLogoBitmap => _modifiedLogoBitmap;
-
-    private SKColor ClampColor(SKColor color, byte min, byte max)
+    private SKColor InterpolateColor(SKColor from, SKColor to, float t)
     {
-        byte Clamp(byte value) => (byte)Math.Max(min, Math.Min(max, value));
+        int deltaR = to.Red - from.Red;
+        int deltaG = to.Green - from.Green;
+        int deltaB = to.Blue - from.Blue;
+        int deltaA = to.Alpha - from.Alpha;
 
-        return new SKColor(
-            Clamp(color.Red),
-            Clamp(color.Green),
-            Clamp(color.Blue),
-            color.Alpha
-        );
+        byte r = (byte)(from.Red + deltaR * t);
+        byte g = (byte)(from.Green + deltaG * t);
+        byte b = (byte)(from.Blue + deltaB * t);
+        byte a = (byte)(from.Alpha + deltaA * t);
+
+        return new SKColor(r, g, b, a);
     }
 
-    private SKBitmap LoadHighResolutionLogo(string resourceName)
+    private SKSvg LoadHighResolutionLogo(string resourceName)
     {
         var assembly = Assembly.GetExecutingAssembly();
-        using (var stream = assembly.GetManifestResourceStream(resourceName))
-        {
-            if (stream == null)
-            {
-                throw new FileNotFoundException("Resource not found: " + resourceName);
-            }
-            return SKBitmap.Decode(stream);
-        }
+        using var stream = assembly.GetManifestResourceStream(resourceName)
+                          ?? throw new FileNotFoundException("Resource not found: " + resourceName);
+        var svg = new SKSvg();
+        svg.Load(stream);
+        return svg;
     }
 
     public Bitmap LoadEmbeddedResource(string resourceName)
     {
         var assembly = Assembly.GetExecutingAssembly();
-        var resourceStream = assembly.GetManifestResourceStream(resourceName);
-        if (resourceStream == null)
-        {
-            throw new FileNotFoundException("Resource not found: " + resourceName);
-        }
+        using var resourceStream = assembly.GetManifestResourceStream(resourceName)
+                                  ?? throw new FileNotFoundException("Resource not found: " + resourceName);
         return new Bitmap(resourceStream);
     }
 
-    private async void UpdateLogoAsync()
+    private async void InitializeLogo()
     {
-        try
+        await UpdateLogoAsync();
+    }
+
+    private async Task UpdateLogoAsync()
+    {
+        SKSvg? cachedLogoSvg;
+        lock (_updateLogoLock)
         {
-            await Task.Run(async () =>
+            if (_cachedLogoSvg == null)
             {
-                SKBitmap? cachedLogoBitmap = null;
-                lock (_updateLogoLock)
+                _cachedLogoSvg = LoadHighResolutionLogo("osuautodeafen.Resources.autodeafen.svg");
+                Console.WriteLine("Loaded logo");
+            }
+            cachedLogoSvg = _cachedLogoSvg;
+        }
+
+        if (_currentBitmap == null)
+        {
+            Console.WriteLine("Current bitmap is null");
+            return;
+        }
+
+        var newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_currentBitmap));
+
+    var transitionDuration = 0.01f;
+    var steps = 20;
+    var delay = transitionDuration / steps;
+
+    await _animationManager.EnqueueAnimation(async () =>
+    {
+        for (int i = 0; i <= steps; i++)
+        {
+            var t = i / (float)steps;
+            var interpolatedColor = InterpolateColor(_oldAverageColor, newAverageColor, t);
+
+            var picture = cachedLogoSvg.Picture;
+            var width = (int)picture.CullRect.Width;
+            var height = (int)picture.CullRect.Height;
+            var bitmap = new SKBitmap(width, height);
+
+            await Task.Run(() =>
+            {
+                using (var canvas = new SKCanvas(bitmap))
                 {
-                    if (_cachedLogoBitmap == null)
+                    canvas.Clear(SKColors.Transparent);
+                    canvas.DrawPicture(picture);
+
+                    Parallel.For(0, bitmap.Height, y =>
                     {
-                        var logoPath = LoadEmbeddedResource("osuautodeafen.Resources.autodeafen.png");
-                        _cachedLogoBitmap = LoadHighResolutionLogo("osuautodeafen.Resources.autodeafen.png");
-                    }
-                    cachedLogoBitmap = _cachedLogoBitmap;
-                }
-
-                if (cachedLogoBitmap == null || _currentBitmap == null)
-                {
-                    return;
-                }
-
-                var averageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_currentBitmap));
-                var clampedAverageColor = ClampColor(averageColor, 45, 212);
-
-                var modifiedBitmap = new SKBitmap(cachedLogoBitmap.Width, cachedLogoBitmap.Height);
-                var whiteOrDarkColor = new SKColor(255, 255, 255);
-
-                using (var canvas = new SKCanvas(modifiedBitmap))
-                {
-                    var paint = new SKPaint
-                    {
-                        IsAntialias = true
-                    };
-
-                    Parallel.For(0, cachedLogoBitmap.Height, y =>
-                    {
-                        for (int x = 0; x < cachedLogoBitmap.Width; x++)
+                        for (int x = 0; x < bitmap.Width; x++)
                         {
-                            var pixel = cachedLogoBitmap.GetPixel(x, y);
-                            if (pixel != whiteOrDarkColor && pixel.Alpha != 0)
-                            {
-                                var newColor = new SKColor(
-                                    clampedAverageColor.Red,
-                                    clampedAverageColor.Green,
-                                    clampedAverageColor.Blue,
-                                    pixel.Alpha
-                                );
-                                canvas.DrawPoint(x, y, newColor);
-                            }
-                            else
-                            {
-                                canvas.DrawPoint(x, y, pixel);
-                            }
+                            var pixel = bitmap.GetPixel(x, y);
+                            var newColor = new SKColor(
+                                interpolatedColor.Red,
+                                interpolatedColor.Green,
+                                interpolatedColor.Blue,
+                                pixel.Alpha);
+                            bitmap.SetPixel(x, y, newColor);
                         }
                     });
                 }
+            });
 
-                _modifiedLogoBitmap = modifiedBitmap;
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            using var stream = new MemoryStream();
+            data.SaveTo(stream);
+            stream.Seek(0, SeekOrigin.Begin);
 
-                using (var image = SKImage.FromBitmap(modifiedBitmap))
-                using (var data = image.Encode(SKEncodedImageFormat.Png, 0))
-                using (var stream = new MemoryStream())
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var viewModel = DataContext as SharedViewModel;
+                if (viewModel != null)
                 {
-                    data.SaveTo(stream);
-                    stream.Seek(0, SeekOrigin.Begin);
-                    var bitmap = new Bitmap(stream);
-                    Dispatcher.UIThread.InvokeAsync(() => ViewModel.ModifiedLogoImage = bitmap);
+                    viewModel.ModifiedLogoImage = new Bitmap(stream);
                 }
             });
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An error occurred while updating the logo: {ex.Message}");
-            // Fallback to the unedited Resources/autodeafen.png
-            var fallbackLogoPath = "Resources/autodeafen.png";
-            var fallbackBitmap = new Bitmap(fallbackLogoPath);
-            Dispatcher.UIThread.InvokeAsync(() => ViewModel.ModifiedLogoImage = fallbackBitmap);
-        }
-    }
 
+            await Task.Delay((int)(delay * 1000));
+        }
+
+        _oldAverageColor = newAverageColor;
+    });
+}
     private async Task<SKColor> CalculateAverageColorAsync(SKBitmap bitmap)
     {
-        return await Task.Run<SKColor>(() => CalculateAverageColor(bitmap));
+        return await Task.Run(() => CalculateAverageColor(bitmap));
     }
-
     private void UpdateUIWithNewBackground(Bitmap bitmap)
     {
 
@@ -1217,7 +1248,7 @@ public partial class MainWindow : Window
             ZIndex = -1
         };
 
-        if (ViewModel.IsBlurEffectEnabled) imageControl.Effect = new BlurEffect { Radius = 17.27 };
+        if (ViewModel.IsBlurEffectEnabled) imageControl.Effect = new BlurEffect { Radius = 10 };
 
         if (Content is Grid mainGrid)
         {

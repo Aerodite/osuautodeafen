@@ -372,11 +372,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         get => _modifiedLogoImage;
         set
         {
-            if (_modifiedLogoImage != value)
-            {
-                _modifiedLogoImage = value;
-                OnPropertyChanged();
-            }
+            _modifiedLogoImage = value;
+            OnPropertyChanged(nameof(ModifiedLogoImage));
         }
     }
 
