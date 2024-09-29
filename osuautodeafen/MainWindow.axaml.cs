@@ -47,6 +47,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _mainTimer;
     private readonly DispatcherTimer _parallaxCheckTimer;
     private readonly TosuApi _tosuApi;
+    private GetLowResBackground? _getLowResBackground;
     private BreakPeriod _breakPeriod;
     private readonly AnimationManager _animationManager = new();
 
@@ -56,6 +57,9 @@ public partial class MainWindow : Window
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private Grid? _blackBackground;
     private Image? _blurredBackground;
+
+    //_lowres
+    private Bitmap? _lowResBitmap;
 
     private string? _currentBackgroundDirectory;
     private Bitmap? _currentBitmap;
@@ -100,6 +104,8 @@ public partial class MainWindow : Window
         Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.oad.ico"));
 
         _tosuApi = new TosuApi();
+
+        _getLowResBackground = new GetLowResBackground(_tosuApi);
 
         _breakPeriod = new BreakPeriod(_tosuApi);
 
@@ -1131,12 +1137,21 @@ public partial class MainWindow : Window
 
     private SKSvg LoadHighResolutionLogo(string resourceName)
     {
-        var assembly = Assembly.GetExecutingAssembly();
-        using var stream = assembly.GetManifestResourceStream(resourceName)
-                          ?? throw new FileNotFoundException("Resource not found: " + resourceName);
-        var svg = new SKSvg();
-        svg.Load(stream);
-        return svg;
+        try
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            using var stream = assembly.GetManifestResourceStream(resourceName)
+                               ?? throw new FileNotFoundException("Resource not found: " + resourceName);
+            var svg = new SKSvg();
+            svg.Load(stream);
+            Console.WriteLine($"[DEBUG] Successfully loaded SVG: {resourceName}");
+            return svg;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Exception while loading SVG: {ex.Message}");
+            throw;
+        }
     }
 
     public Bitmap LoadEmbeddedResource(string resourceName)
@@ -1149,29 +1164,92 @@ public partial class MainWindow : Window
 
     private async void InitializeLogo()
     {
+        var logoImage = this.FindControl<Image>("LogoImage");
+        if (logoImage != null && _cachedLogoSvg != null)
+        {
+            var bitmap = ConvertSvgToBitmap(_cachedLogoSvg, 200, 60);
+            logoImage.Source = bitmap;
+            logoImage.IsVisible = true;
+            Console.WriteLine("[DEBUG] Default SVG image displayed as Bitmap");
+        }
+        else
+        {
+            Console.WriteLine("[ERROR] LogoImage control is null");
+        }
+        Task.Delay(250).Wait();
         await UpdateLogoAsync();
     }
 
-    private async Task UpdateLogoAsync()
+    //this is just here because i dont want to add a massive blocking call to wait for tosuapi with ui loading
+    private async Task<string?> TryGetLowResBitmapPathAsync(int maxAttempts, int delayMilliseconds)
     {
-        SKSvg? cachedLogoSvg;
-        lock (_updateLogoLock)
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            if (_cachedLogoSvg == null)
+            string? lowResBitmapPath = _getLowResBackground.GetLowResBitmapPath();
+            if (!string.IsNullOrEmpty(lowResBitmapPath))
             {
-                _cachedLogoSvg = LoadHighResolutionLogo("osuautodeafen.Resources.autodeafen.svg");
-                Console.WriteLine("Loaded logo");
+                return lowResBitmapPath;
             }
-            cachedLogoSvg = _cachedLogoSvg;
+            Console.WriteLine($"Attempt {attempt} failed. Retrying in {delayMilliseconds}ms...");
+            await Task.Delay(delayMilliseconds);
         }
+        Console.WriteLine("[ERROR] Failed to get low resolution bitmap path after multiple attempts.");
+        return null;
+    }
 
-        if (_currentBitmap == null)
-        {
-            Console.WriteLine("Current bitmap is null");
-            return;
-        }
+    private Bitmap ConvertSvgToBitmap(SKSvg svg, int width, int height)
+    {
+        var info = new SKImageInfo(width, height);
+        using var surface = SKSurface.Create(info);
+        var canvas = surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+        canvas.DrawPicture(svg.Picture);
+        using var image = surface.Snapshot();
+        using var data = image.Encode();
+        using var stream = new MemoryStream(data.ToArray());
+        return new Bitmap(stream);
+    }
 
-        var newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_currentBitmap));
+    private async Task UpdateLogoAsync()
+{
+    if (_getLowResBackground == null)
+    {
+        Console.WriteLine("[ERROR] _getLowResBackground is null");
+        return;
+    }
+
+    string? lowResBitmapPath = await TryGetLowResBitmapPathAsync(5, 1000);
+    if (lowResBitmapPath == null)
+    {
+        return;
+    }
+
+    _lowResBitmap = new Bitmap(lowResBitmapPath);
+    if (_lowResBitmap == null)
+    {
+        return;
+    }
+
+    Console.WriteLine("Low resolution bitmap successfully loaded");
+
+    try
+    {
+        _cachedLogoSvg = LoadHighResolutionLogo("osuautodeafen.Resources.autodeafen.svg");
+        Console.WriteLine("High resolution logo successfully loaded");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[ERROR] Exception while loading high resolution logo: {ex.Message}");
+        return;
+    }
+
+    if (_lowResBitmap == null)
+    {
+        Console.WriteLine("[ERROR] Current bitmap is null");
+        return;
+    }
+
+    var newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_lowResBitmap));
 
     var transitionDuration = 0.01f;
     var steps = 20;
@@ -1184,48 +1262,51 @@ public partial class MainWindow : Window
             var t = i / (float)steps;
             var interpolatedColor = InterpolateColor(_oldAverageColor, newAverageColor, t);
 
-            var picture = cachedLogoSvg.Picture;
-            var width = (int)picture.CullRect.Width;
-            var height = (int)picture.CullRect.Height;
-            var bitmap = new SKBitmap(width, height);
-
-            await Task.Run(() =>
+            var picture = _cachedLogoSvg.Picture;
+            if (picture != null)
             {
-                using (var canvas = new SKCanvas(bitmap))
-                {
-                    canvas.Clear(SKColors.Transparent);
-                    canvas.DrawPicture(picture);
+                var width = (int)picture.CullRect.Width;
+                var height = (int)picture.CullRect.Height;
+                var bitmap = new SKBitmap(width, height);
 
-                    Parallel.For(0, bitmap.Height, y =>
+                await Task.Run(() =>
+                {
+                    using (var canvas = new SKCanvas(bitmap))
                     {
-                        for (int x = 0; x < bitmap.Width; x++)
+                        canvas.Clear(SKColors.Transparent);
+                        canvas.DrawPicture(picture);
+
+                        Parallel.For(0, bitmap.Height, y =>
                         {
-                            var pixel = bitmap.GetPixel(x, y);
-                            var newColor = new SKColor(
-                                interpolatedColor.Red,
-                                interpolatedColor.Green,
-                                interpolatedColor.Blue,
-                                pixel.Alpha);
-                            bitmap.SetPixel(x, y, newColor);
-                        }
-                    });
-                }
-            });
+                            for (int x = 0; x < bitmap.Width; x++)
+                            {
+                                var pixel = bitmap.GetPixel(x, y);
+                                var newColor = new SKColor(
+                                    interpolatedColor.Red,
+                                    interpolatedColor.Green,
+                                    interpolatedColor.Blue,
+                                    pixel.Alpha);
+                                bitmap.SetPixel(x, y, newColor);
+                            }
+                        });
+                    }
+                });
 
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-            using var stream = new MemoryStream();
-            data.SaveTo(stream);
-            stream.Seek(0, SeekOrigin.Begin);
+                using var image = SKImage.FromBitmap(bitmap);
+                using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+                using var stream = new MemoryStream();
+                data.SaveTo(stream);
+                stream.Seek(0, SeekOrigin.Begin);
 
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                var viewModel = DataContext as SharedViewModel;
-                if (viewModel != null)
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    viewModel.ModifiedLogoImage = new Bitmap(stream);
-                }
-            });
+                    var viewModel = DataContext as SharedViewModel;
+                    if (viewModel != null)
+                    {
+                        viewModel.ModifiedLogoImage = new Bitmap(stream);
+                    }
+                });
+            }
 
             await Task.Delay((int)(delay * 1000));
         }
@@ -1233,6 +1314,7 @@ public partial class MainWindow : Window
         _oldAverageColor = newAverageColor;
     });
 }
+
     private async Task<SKColor> CalculateAverageColorAsync(SKBitmap bitmap)
     {
         return await Task.Run(() => CalculateAverageColor(bitmap));

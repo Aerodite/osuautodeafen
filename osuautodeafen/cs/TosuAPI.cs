@@ -22,6 +22,7 @@ public class TosuApi : IDisposable
     private double _completionPercentage;
     private double _current;
     private double _firstObj;
+    private string? _gameDirectory;
     private BreakPeriod _breakPeriod;
     private double _full;
     private string? _fullPath;
@@ -261,6 +262,8 @@ public class TosuApi : IDisposable
                     if (root.TryGetProperty("folders", out var folders) &&
                         folders.TryGetProperty("songs", out var songs))
                         _settingsSongsDirectory = songs.GetString();
+                    folders.TryGetProperty("game", out var game);
+                    _gameDirectory = game.GetString();
 
                     if (root.TryGetProperty("directPath", out var directPath) &&
                         directPath.TryGetProperty("beatmapBackground", out var beatmapBackground))
@@ -362,6 +365,11 @@ public class TosuApi : IDisposable
     public string GetBackgroundPath()
     {
         return _settingsSongsDirectory + "\\" + _fullPath;
+    }
+
+    public string GetGameDirectory()
+    {
+        return _gameDirectory;
     }
 
     private bool IsYAxisChanged(List<Series> newSeries)
