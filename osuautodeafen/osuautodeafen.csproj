@@ -59,7 +59,6 @@
         <AvaloniaResource Include="Icons\eye-slash-solid.png"/>
         <None Remove="Icons\angles-right-solid.png"/>
         <AvaloniaResource Include="Icons\angles-right-solid.png"/>
-        <EmbeddedResource Include="Resources\autodeafen.png" />
         <None Remove="Resources\oad.ico" />
         <EmbeddedResource Include="Resources\oad.ico" />
         <None Remove="Resources\osu_whitestroke.png" />

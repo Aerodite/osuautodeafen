@@ -50,6 +50,8 @@ public partial class MainWindow : Window
     private GetLowResBackground? _getLowResBackground;
     private BreakPeriod _breakPeriod;
     private readonly AnimationManager _animationManager = new();
+    private Bitmap _colorChangingImage;
+
 
     private readonly object _updateLogoLock = new();
     private SKSvg? _cachedLogoSvg;
@@ -127,7 +129,7 @@ public partial class MainWindow : Window
 
         _mainTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(200)
+            Interval = TimeSpan.FromMilliseconds(100)
         };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
@@ -552,6 +554,14 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(() => CheckMissUndeafenSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(CheckForUpdatesIfNeeded);
         Dispatcher.UIThread.InvokeAsync(() => CheckBlankSetting(sender, e));
+
+        var logoImage = this.FindControl<Image>("LogoImage");
+        if (logoImage != null)
+        {
+            logoImage.Source = _colorChangingImage;
+            logoImage.IsVisible = true;
+            Console.WriteLine("LogoImage control updated and made visible.");
+        }
     }
 
     private void CheckIsFCRequiredSetting(object? sender, EventArgs? e)
@@ -1144,7 +1154,7 @@ public partial class MainWindow : Window
                                ?? throw new FileNotFoundException("Resource not found: " + resourceName);
             var svg = new SKSvg();
             svg.Load(stream);
-            Console.WriteLine($"[DEBUG] Successfully loaded SVG: {resourceName}");
+            Console.WriteLine($"Successfully loaded SVG: {resourceName}");
             return svg;
         }
         catch (Exception ex)
@@ -1156,27 +1166,42 @@ public partial class MainWindow : Window
 
     public Bitmap LoadEmbeddedResource(string resourceName)
     {
-        var assembly = Assembly.GetExecutingAssembly();
-        using var resourceStream = assembly.GetManifestResourceStream(resourceName)
-                                  ?? throw new FileNotFoundException("Resource not found: " + resourceName);
-        return new Bitmap(resourceStream);
+        try
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            using var resourceStream = assembly.GetManifestResourceStream(resourceName)
+                                       ?? throw new FileNotFoundException("Resource not found: " + resourceName);
+            return new Bitmap(resourceStream);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Exception while loading embedded resource: {ex.Message}");
+            throw;
+        }
     }
 
     private async void InitializeLogo()
     {
-        var logoImage = this.FindControl<Image>("LogoImage");
-        if (logoImage != null && _cachedLogoSvg != null)
+        try
         {
-            var bitmap = ConvertSvgToBitmap(_cachedLogoSvg, 200, 60);
-            logoImage.Source = bitmap;
-            logoImage.IsVisible = true;
-            Console.WriteLine("[DEBUG] Default SVG image displayed as Bitmap");
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var viewModel = DataContext as SharedViewModel;
+                if (viewModel != null)
+                {
+                    viewModel.ModifiedLogoImage = LoadEmbeddedResource("osuautodeafen.Resources.autodeafen.svg");
+                    Console.WriteLine("ModifiedLogoImage property set.");
+                }
+            });
+
+            Console.WriteLine("SVG loaded successfully.");
         }
-        else
+        catch (Exception ex)
         {
-            Console.WriteLine("[ERROR] LogoImage control is null");
+            Console.WriteLine($"[ERROR] Exception while loading SVG: {ex.Message}");
+            return; // Exit if loading the SVG fails
         }
-        Task.Delay(250).Wait();
+
         await UpdateLogoAsync();
     }
 
@@ -1210,8 +1235,8 @@ public partial class MainWindow : Window
         return new Bitmap(stream);
     }
 
-    private async Task UpdateLogoAsync()
-{
+
+    private async Task UpdateLogoAsync() {
     if (_getLowResBackground == null)
     {
         Console.WriteLine("[ERROR] _getLowResBackground is null");
@@ -1250,10 +1275,8 @@ public partial class MainWindow : Window
     }
 
     var newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_lowResBitmap));
-
-    var transitionDuration = 0.01f;
-    var steps = 20;
-    var delay = transitionDuration / steps;
+    var steps = 40;
+    var delay = 1f;
 
     await _animationManager.EnqueueAnimation(async () =>
     {
@@ -1297,6 +1320,7 @@ public partial class MainWindow : Window
                 using var stream = new MemoryStream();
                 data.SaveTo(stream);
                 stream.Seek(0, SeekOrigin.Begin);
+                _colorChangingImage = new Bitmap(stream);
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
@@ -1308,12 +1332,26 @@ public partial class MainWindow : Window
                 });
             }
 
-            await Task.Delay((int)(delay * 1000));
+            await Task.Delay((int)(delay));
         }
 
         _oldAverageColor = newAverageColor;
     });
 }
+
+    private IImage ConvertSvgToAvaloniaImage(SKSvg svg, int width, int height)
+    {
+        var info = new SKImageInfo(width, height);
+        using var surface = SKSurface.Create(info);
+        var canvas = surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+        canvas.DrawPicture(svg.Picture);
+        using var image = surface.Snapshot();
+        using var data = image.Encode();
+        using var stream = new MemoryStream(data.ToArray());
+        return new Bitmap(stream);
+    }
+
 
     private async Task<SKColor> CalculateAverageColorAsync(SKBitmap bitmap)
     {
@@ -1321,7 +1359,6 @@ public partial class MainWindow : Window
     }
     private void UpdateUIWithNewBackground(Bitmap bitmap)
     {
-
         var imageControl = new Image
         {
             Source = bitmap,
