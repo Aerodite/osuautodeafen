@@ -5,8 +5,8 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Threading;
-
-namespace osuautodeafen.cs.Screen;
+using osuautodeafen;
+using osuautodeafen.cs.Screen;
 
 public class ScreenBlankerForm : IDisposable
 {
@@ -17,6 +17,9 @@ public class ScreenBlankerForm : IDisposable
     private bool _isOsuFocused;
     private readonly Deafen _deafen;
     private bool screenBlankEnabled;
+    private bool _isHandlingFocusChange;
+    private DateTime _lastFocusChangeTime;
+    private bool isScreenBlankEnabled;
 
     public ScreenBlankerForm(Window mainWindow)
     {
@@ -42,10 +45,7 @@ public class ScreenBlankerForm : IDisposable
     {
         _focusCheckTimer = new DispatcherTimer
         {
-            //uh this is really an rng number
-            //original value 1250, currently 400 because
-            //i dont like waiting to interact with monitors
-            Interval = TimeSpan.FromMilliseconds(400)
+            Interval = TimeSpan.FromMilliseconds(50)
         };
         _focusCheckTimer.Tick += (sender, e) => CheckOsuFocus();
         _focusCheckTimer.Start();
@@ -56,7 +56,7 @@ public class ScreenBlankerForm : IDisposable
         return Task.FromResult(new ScreenBlankerForm(mainWindow));
     }
 
-    private void InitializeBlankingWindows()
+    public void InitializeBlankingWindows()
     {
         if (_isInitialized) return;
         var screens = _mainWindow.Screens.All.Where(screen => !screen.IsPrimary).ToList();
@@ -68,6 +68,7 @@ public class ScreenBlankerForm : IDisposable
             var pixelBounds = ScreenBlankerHelper.GetPixelBounds(screen);
             var window = new ScreenBlankerWindow($"ScreenBlankerWindow_{i}", pixelBounds, screen.Scaling);
             window.IsVisible = false;
+            window.Focusable = false;
             _blankingWindows[i] = window;
         }
 
@@ -76,6 +77,9 @@ public class ScreenBlankerForm : IDisposable
 
     private bool CheckOsuFocus()
     {
+        if (_isHandlingFocusChange || (DateTime.Now - _lastFocusChangeTime).TotalMilliseconds < 1500) return false;
+        _isHandlingFocusChange = true;
+
         var focusedProcess = GetFocusedProcess();
         if (focusedProcess != null && focusedProcess.ProcessName == "osu!")
         {
@@ -84,37 +88,36 @@ public class ScreenBlankerForm : IDisposable
                 _isOsuFocused = true;
                 SetBlankingWindowsTopmost(true);
             }
-
-            return true;
         }
-
-        if (_isOsuFocused)
+        else
         {
-            _isOsuFocused = false;
-            SetBlankingWindowsTopmost(false, true);
+            if (_isOsuFocused)
+            {
+                _isOsuFocused = false;
+                SetBlankingWindowsTopmost(false, true);
+            }
         }
 
-        return false;
+        _lastFocusChangeTime = DateTime.Now;
+        _isHandlingFocusChange = false;
+
+        return _isOsuFocused;
     }
 
-    private void SetBlankingWindowsTopmost(bool topmost, bool bottommost = false)
+    public void SetBlankingWindowsTopmost(bool topmost, bool bottommost = false)
     {
-        //screenBlankEnabled = _deafen.screenBlankEnabled;
         if (_blankingWindows != null)
             foreach (var window in _blankingWindows)
-                //if (screenBlankEnabled)
-                //{
-                    if (bottommost)
-                    {
-                        window.Topmost = false;
-                        window.IsVisible = false;
-                    }
-                    else
-                    {
-                        window.Topmost = topmost;
-                        window.IsVisible = true;
-                    }
-               // }
+                if (bottommost)
+                {
+                    window.Topmost = false;
+                    window.IsVisible = false;
+                }
+                else
+                {
+                    window.Topmost = topmost;
+                    window.IsVisible = true;
+                }
     }
 
     private Process? GetFocusedProcess()
@@ -143,6 +146,7 @@ public class ScreenBlankerForm : IDisposable
             IsScreenBlanked = true;
         });
     }
+
 
     public async Task UnblankScreensAsync()
     {

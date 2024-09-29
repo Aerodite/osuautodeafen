@@ -106,7 +106,7 @@ public class Deafen : IDisposable
         await _screenBlanker.UnblankScreensAsync();
     }
 
-    private void FileCheckTimer_Elapsed(object sender, ElapsedEventArgs e)
+    public void FileCheckTimer_Elapsed(object sender, ElapsedEventArgs e)
     {
         if (_isFileCheckTimerRunning) return;
         _isFileCheckTimerRunning = true;
@@ -141,7 +141,7 @@ public class Deafen : IDisposable
                                 when double.TryParse(settings[1], out var parsedPerformancePoints):
                                 PerformancePoints = parsedPerformancePoints;
                                 break;
-                            case "ScreenBlankEnabled"
+                            case "IsScreenBlankEnabled"
                                 when bool.TryParse(settings[1], out var parsedScreenBlankEnabled):
                                 screenBlankEnabled = parsedScreenBlankEnabled;
                                 break;
@@ -165,6 +165,11 @@ public class Deafen : IDisposable
     public double GetMinCompletionPercentage()
     {
         return MinCompletionPercentage;
+    }
+
+    public bool GetScreenBlankEnabled()
+    {
+        return screenBlankEnabled;
     }
 
     private void TosuAPI_StateChanged(int state)

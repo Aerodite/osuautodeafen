@@ -30,7 +30,7 @@ public class ScreenBlankerWindow : Window
         TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
         Show(); // make sure the window is created
 
-        Opacity = 0; // set to zero so it exists in the background
+        Opacity = 0.5; // set to zero so it exists in the background
 
         var platformImpl = GetType().GetProperty("PlatformImpl", BindingFlags.NonPublic | BindingFlags.Instance)
             ?.GetValue(this);

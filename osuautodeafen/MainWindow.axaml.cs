@@ -80,7 +80,7 @@ public partial class MainWindow : Window
     private double _mouseY;
     private Image? _normalBackground;
     private ScreenBlanker _screenBlanker;
-    private ScreenBlankerForm _screenBlankerForm;
+    private ScreenBlankerForm? _screenBlankerForm;
     private DispatcherTimer? _visibilityCheckTimer;
     private double deafenProgressPercentage;
     private double deafenTimestamp;
@@ -1659,8 +1659,26 @@ private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
 
     public void BlankEffectToggle_IsCheckedChanged(object? sender, RoutedEventArgs e)
     {
-    }
+        if (sender is CheckBox checkBox)
+        {
+            if (_screenBlankerForm == null)
+            {
+                // Initialize _screenBlankerForm if it is null
+                _screenBlankerForm = new ScreenBlankerForm(this);
+            }
 
+            if (checkBox.IsChecked == true)
+            {
+                // Initialize blanking windows if not already initialized
+                _screenBlankerForm.InitializeBlankingWindows();
+            }
+            else
+            {
+                // Unblank screens
+                _screenBlankerForm.UnblankScreensAsync();
+            }
+        }
+    }
 
     public class HotKey
     {
