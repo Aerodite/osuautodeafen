@@ -1299,109 +1299,123 @@ public void UpdateChart(GraphData graphData)
     }
 
 
-    private async Task UpdateLogoAsync()
+  private async Task UpdateLogoAsync()
+{
+    if (_getLowResBackground == null)
     {
-        if (_getLowResBackground == null)
-        {
-            Console.WriteLine("[ERROR] _getLowResBackground is null");
-            return;
-        }
+        Console.WriteLine("[ERROR] _getLowResBackground is null");
+        return;
+    }
 
-        string? lowResBitmapPath = await TryGetLowResBitmapPathAsync(5, 1000);
-        if (lowResBitmapPath == null)
-        {
-            return;
-        }
+    string? lowResBitmapPath = await TryGetLowResBitmapPathAsync(5, 1000);
+    if (lowResBitmapPath == null)
+    {
+        return;
+    }
 
-        _lowResBitmap = new Bitmap(lowResBitmapPath);
-        if (_lowResBitmap == null)
-        {
-            return;
-        }
+    _lowResBitmap = new Bitmap(lowResBitmapPath);
+    if (_lowResBitmap == null)
+    {
+        return;
+    }
 
-        Console.WriteLine("Low resolution bitmap successfully loaded");
+    Console.WriteLine("Low resolution bitmap successfully loaded");
 
+    const int maxRetries = 3;
+    int retryCount = 0;
+    bool success = false;
+
+    while (retryCount < maxRetries && !success)
+    {
         try
         {
+            retryCount++;
+            Console.WriteLine($"Attempting to load high resolution logo... Attempt {retryCount}");
             _cachedLogoSvg = LoadHighResolutionLogo("osuautodeafen.Resources.autodeafen.svg");
             Console.WriteLine("High resolution logo successfully loaded");
+            success = true;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[ERROR] Exception while loading high resolution logo: {ex.Message}");
-            return;
-        }
-
-        if (_lowResBitmap == null)
-        {
-            Console.WriteLine("[ERROR] Current bitmap is null");
-            return;
-        }
-
-        var newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_lowResBitmap));
-        var steps = 40;
-        var delay = 1f;
-
-        await _animationManager.EnqueueAnimation(async () =>
-        {
-            for (int i = 0; i <= steps; i++)
+            if (retryCount >= maxRetries)
             {
-                var t = i / (float)steps;
-                var interpolatedColor = InterpolateColor(_oldAverageColor, newAverageColor, t);
+                Console.WriteLine($"[ERROR] Failed to load high resolution logo after {maxRetries} attempts.");
+                return; // Exit if loading the SVG fails after max retries
+            }
+        }
+    }
 
-                var picture = _cachedLogoSvg.Picture;
-                if (picture != null)
+    if (_lowResBitmap == null)
+    {
+        Console.WriteLine("[ERROR] Current bitmap is null");
+        return;
+    }
+
+    var newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_lowResBitmap));
+    var steps = 40;
+    var delay = 1f;
+
+    await _animationManager.EnqueueAnimation(async () =>
+    {
+        for (int i = 0; i <= steps; i++)
+        {
+            var t = i / (float)steps;
+            var interpolatedColor = InterpolateColor(_oldAverageColor, newAverageColor, t);
+
+            var picture = _cachedLogoSvg.Picture;
+            if (picture != null)
+            {
+                var width = (int)picture.CullRect.Width;
+                var height = (int)picture.CullRect.Height;
+                var bitmap = new SKBitmap(width, height);
+
+                await Task.Run(() =>
                 {
-                    var width = (int)picture.CullRect.Width;
-                    var height = (int)picture.CullRect.Height;
-                    var bitmap = new SKBitmap(width, height);
-
-                    await Task.Run(() =>
+                    using (var canvas = new SKCanvas(bitmap))
                     {
-                        using (var canvas = new SKCanvas(bitmap))
-                        {
-                            canvas.Clear(SKColors.Transparent);
-                            canvas.DrawPicture(picture);
+                        canvas.Clear(SKColors.Transparent);
+                        canvas.DrawPicture(picture);
 
-                            Parallel.For(0, bitmap.Height, y =>
+                        Parallel.For(0, bitmap.Height, y =>
+                        {
+                            for (int x = 0; x < bitmap.Width; x++)
                             {
-                                for (int x = 0; x < bitmap.Width; x++)
-                                {
-                                    var pixel = bitmap.GetPixel(x, y);
-                                    var newColor = new SKColor(
-                                        interpolatedColor.Red,
-                                        interpolatedColor.Green,
-                                        interpolatedColor.Blue,
-                                        pixel.Alpha);
-                                    bitmap.SetPixel(x, y, newColor);
-                                }
-                            });
-                        }
-                    });
+                                var pixel = bitmap.GetPixel(x, y);
+                                var newColor = new SKColor(
+                                    interpolatedColor.Red,
+                                    interpolatedColor.Green,
+                                    interpolatedColor.Blue,
+                                    pixel.Alpha);
+                                bitmap.SetPixel(x, y, newColor);
+                            }
+                        });
+                    }
+                });
 
-                    using var image = SKImage.FromBitmap(bitmap);
-                    using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-                    using var stream = new MemoryStream();
-                    data.SaveTo(stream);
-                    stream.Seek(0, SeekOrigin.Begin);
-                    _colorChangingImage = new Bitmap(stream);
+                using var image = SKImage.FromBitmap(bitmap);
+                using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+                using var stream = new MemoryStream();
+                data.SaveTo(stream);
+                stream.Seek(0, SeekOrigin.Begin);
+                _colorChangingImage = new Bitmap(stream);
 
-                    await Dispatcher.UIThread.InvokeAsync(() =>
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    var viewModel = DataContext as SharedViewModel;
+                    if (viewModel != null)
                     {
-                        var viewModel = DataContext as SharedViewModel;
-                        if (viewModel != null)
-                        {
-                            viewModel.ModifiedLogoImage = new Bitmap(stream);
-                        }
-                    });
-                }
-
-                await Task.Delay((int)(delay));
+                        viewModel.ModifiedLogoImage = new Bitmap(stream);
+                    }
+                });
             }
 
-            _oldAverageColor = newAverageColor;
-        });
-    }
+            await Task.Delay((int)(delay));
+        }
+
+        _oldAverageColor = newAverageColor;
+    });
+}
 
     private IImage ConvertSvgToAvaloniaImage(SKSvg svg, int width, int height)
     {

@@ -21,6 +21,19 @@ public class ScreenBlankerForm : IDisposable
     private DateTime _lastFocusChangeTime;
     private bool isScreenBlankEnabled;
 
+    //<notes>
+    // uh so for reference a lot of this isn't exactly how i want it to be implemented
+    // the flow for this should be that it checks for if the blank setting is toggled,
+    // then it checks if osu is focused which creates the invisible blanking windows.
+    // in turn, their opacity is changed in Deafen.cs along with the actual Deafen signal
+    // But in actuality, something to do with the way the toggle state is checked that
+    // might cause it to bug out (and also makes the test case where opacity is 0.5 on the blanking windows
+    // if invisible to just... not show????). Though through some miracle it seems to be working completely
+    // as expected besides that. soooooooo maybe some sort of overhaul of this whole ScreenBlank stuff
+    // will have to be done eventually because i am almost 100% certain theres going to be some dumb edge case
+    // where the alt-tab issue will come back. (the alt-tab issue in question causes osu to keep losing and gaining focus)
+    //</notes>
+
     public ScreenBlankerForm(Window mainWindow)
     {
         Console.WriteLine(@"Initializing ScreenBlankerForm...");
@@ -77,7 +90,7 @@ public class ScreenBlankerForm : IDisposable
 
     private bool CheckOsuFocus()
     {
-        if(!isScreenBlankEnabled) return false;
+        //if(!isScreenBlankEnabled) return false;
         if (_isHandlingFocusChange || (DateTime.Now - _lastFocusChangeTime).TotalMilliseconds < 1500) return false;
         _isHandlingFocusChange = true;
 

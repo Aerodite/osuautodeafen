@@ -27,7 +27,7 @@ public class ScreenBlankerWindow : Window
         CanResize = false;
         SystemDecorations = SystemDecorations.None;
         TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
-        Opacity = 0.5; // Start with opacity 0
+        Opacity = 0; // Start with opacity 0
         IsVisible = true;
         Show(); // Ensure the window is created
 
