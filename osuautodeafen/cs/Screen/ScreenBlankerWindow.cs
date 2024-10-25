@@ -25,12 +25,11 @@ public class ScreenBlankerWindow : Window
         ShowInTaskbar = false;
         Topmost = true;
         CanResize = false;
-        IsVisible = false;
         SystemDecorations = SystemDecorations.None;
         TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
-        Show(); // make sure the window is created
-
-        Opacity = 0.5; // set to zero so it exists in the background
+        Opacity = 0.5; // Start with opacity 0
+        IsVisible = true;
+        Show(); // Ensure the window is created
 
         var platformImpl = GetType().GetProperty("PlatformImpl", BindingFlags.NonPublic | BindingFlags.Instance)
             ?.GetValue(this);
@@ -51,19 +50,6 @@ public class ScreenBlankerWindow : Window
     {
         base.Show();
     }
-
-    public void Blank()
-    {
-        Console.WriteLine($@"Blanking window: {Name}");
-        Opacity = 1;
-    }
-
-    public void Unblank()
-    {
-        Console.WriteLine($@"Unblanking window: {Name}");
-        Opacity = 0;
-    }
-
     [DllImport("user32.dll", SetLastError = true)]
     private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 

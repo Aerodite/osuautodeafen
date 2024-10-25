@@ -1,5 +1,6 @@
 ﻿﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -270,7 +271,7 @@ public class TosuApi : IDisposable
                         _fullPath = beatmapBackground.GetString();
                     var combinedPath = _settingsSongsDirectory + "\\" + _fullPath;
 
-                    if(directPath.TryGetProperty("beatmapFile", out var beatmapFile))
+                    if (directPath.TryGetProperty("beatmapFile", out var beatmapFile))
                         _osuFilePath = beatmapFile.GetString();
 
                     var jsonDocument = JsonDocument.Parse(jsonString);
@@ -397,120 +398,132 @@ public class TosuApi : IDisposable
     // organizes the array data from tosu
     // also this was a massive nightmare :)
     //</summary>
-    private void ParseGraphData(JsonElement graphElement)
+private void ParseGraphData(JsonElement graphElement)
+{
+    try
     {
-        try
+        var newGraph = new GraphData
         {
-            var newGraph = new GraphData
+            Series = new List<Series>(),
+            XAxis = new List<int>()
+        };
+
+        if (graphElement.TryGetProperty("series", out var seriesArray))
+        {
+            foreach (var seriesElement in seriesArray.EnumerateArray())
             {
-                Series = new List<Series>(),
-                XAxis = new List<int>()
-            };
+                var seriesName = seriesElement.GetProperty("name").GetString();
+                if (seriesName == "flashlight" || seriesName == "aimNoSliders") continue;
 
-            if (graphElement.TryGetProperty("series", out var seriesArray))
-                foreach (var seriesElement in seriesArray.EnumerateArray())
+                var series = new Series
                 {
-                    var seriesName = seriesElement.GetProperty("name").GetString();
-                    if (seriesName == "flashlight" ||
-                        seriesName ==
-                        "aimNoSliders") continue; // just ignoring these for now they aren't really needed imo
+                    Name = seriesName,
+                    Data = new List<double>()
+                };
 
-                    var series = new Series
+                if (seriesElement.TryGetProperty("data", out var dataArray))
+                {
+                    foreach (var dataElement in dataArray.EnumerateArray())
                     {
-                        Name = seriesName,
-                        Data = new List<double>()
-                    };
-
-                    if (seriesElement.TryGetProperty("data", out var dataArray))
-                    {
-                        foreach (var dataElement in dataArray.EnumerateArray())
-                            if (dataElement.ValueKind == JsonValueKind.Number)
+                        if (dataElement.ValueKind == JsonValueKind.Number)
+                        {
+                            var value = dataElement.GetDouble();
+                            if (value != -100)
                             {
-                                var value = dataElement.GetDouble();
                                 series.Data.Add(value);
                             }
+                        }
                     }
-                    else
-                    {
-                        Console.WriteLine("Data property not found in series element.");
-                    }
-
-                    newGraph.Series.Add(series);
                 }
-            else
-                Console.WriteLine("Series property not found in graph element.");
-
-            if (graphElement.TryGetProperty("xaxis", out var xAxisArray))
-            {
-                foreach (var xElement in xAxisArray.EnumerateArray())
-                    if (xElement.ValueKind == JsonValueKind.Number)
-                    {
-                        var xValue = xElement.GetInt32();
-                        newGraph.XAxis.Add(xValue); // ensure no unintended scaling or limiting
-                    }
-            }
-            else
-            {
-                Console.WriteLine("X-Axis property not found in graph element.");
-            }
-
-            foreach (var series in newGraph.Series)
-            {
-                if (series.Name ==
-                    "aim") // only processing one of them just so it doesnt delete twice the amount necessary
+                else
                 {
-                    var updatedValues = new List<double>(series.Data);
-                    var updatedXAxis = new List<int>(newGraph.XAxis);
-
-                    // set -100 values at the beginning to 0
-                    for (var i = 0; i < updatedValues.Count && updatedValues[i] == -100; i++) updatedValues[i] = 0;
-
-                    // remove trailing -100 values from the end
-                    while (updatedValues.Count > 0 && updatedValues[updatedValues.Count - 1] == -100)
-                    {
-                        updatedValues.RemoveAt(updatedValues.Count - 1);
-                        if (updatedXAxis.Count > 0) updatedXAxis.RemoveAt(updatedXAxis.Count - 1);
-                    }
-
-                    // round up each value in the series.Data list
-                    for (var i = 0; i < updatedValues.Count; i++) updatedValues[i] = Math.Ceiling(updatedValues[i]);
-
-                    series.Data = updatedValues;
-                    newGraph.XAxis = updatedXAxis;
+                    Console.WriteLine("Data property not found in series element.");
                 }
 
-                if (series.Name == "speed")
-                {
-                    var updatedValues = new List<double>(series.Data);
-
-                    // set -100 values at the beginning to 0
-                    for (var i = 0; i < updatedValues.Count && updatedValues[i] == -100; i++) updatedValues[i] = 0;
-
-                    while (updatedValues.Count > 0 && updatedValues[updatedValues.Count - 1] == -100)
-                        updatedValues.RemoveAt(updatedValues.Count - 1);
-
-                    // round up each value in the series.Data list
-                    for (var i = 0; i < updatedValues.Count; i++) updatedValues[i] = Math.Ceiling(updatedValues[i]);
-
-                    series.Data = updatedValues;
-                }
-            }
-
-            if (IsYAxisChanged(newGraph.Series))
-            {
-                Graph = newGraph;
-                GraphDataUpdated?.Invoke(Graph);
-            }
-            else if (MainWindow.isCompPctLostFocus)
-            {
-                Graph = newGraph;
-                GraphDataUpdated?.Invoke(Graph);
-                MainWindow.isCompPctLostFocus = false;
+                newGraph.Series.Add(series);
             }
         }
-        catch (Exception ex)
+        else
         {
-            Console.WriteLine($"An error occurred while parsing graph data: {ex.Message}");
+            Console.WriteLine("Series property not found in graph element.");
         }
+
+        if (graphElement.TryGetProperty("xaxis", out var xAxisArray))
+        {
+            foreach (var xElement in xAxisArray.EnumerateArray())
+            {
+                if (xElement.ValueKind == JsonValueKind.Number)
+                {
+                    var xValue = xElement.GetInt32();
+                    newGraph.XAxis.Add(xValue);
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine("X-Axis property not found in graph element.");
+        }
+
+        // Combine channels that represent the beatmap's difficulty
+        var data = new double[newGraph.XAxis.Count];
+        foreach (var series in newGraph.Series)
+        {
+            for (int i = 0; i < data.Length && i < series.Data.Count; i++)
+            {
+                data[i] += series.Data[i];
+            }
+        }
+
+        // Count up samples that don't represent intro, breaks, and outro sections
+        var percent = data.Max() / 100;
+        int drainSamples = 0;
+        for (int i = 0; i < data.Length; i++)
+        {
+            data[i] = Math.Max(0, data[i]);
+            if (data[i] > percent)
+            {
+                drainSamples++;
+            }
+        }
+
+        if (IsYAxisChanged(newGraph.Series))
+        {
+            Graph = newGraph;
+            GraphDataUpdated?.Invoke(Graph);
+        }
+        else if (MainWindow.isCompPctLostFocus)
+        {
+            Graph = newGraph;
+            GraphDataUpdated?.Invoke(Graph);
+            MainWindow.isCompPctLostFocus = false;
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"An error occurred while parsing graph data: {ex.Message}");
+    }
+}
+    private double[] FastSmooth(double[] data, double windowWidth, int smoothness)
+    {
+        int windowSize = (int)Math.Ceiling(windowWidth * smoothness);
+        double[] smoothedData = new double[data.Length];
+
+        for (int i = 0; i < data.Length; i++)
+        {
+            int start = Math.Max(0, i - windowSize / 2);
+            int end = Math.Min(data.Length - 1, i + windowSize / 2);
+            double sum = 0;
+            int count = 0;
+
+            for (int j = start; j <= end; j++)
+            {
+                sum += data[j];
+                count++;
+            }
+
+            smoothedData[i] = sum / count;
+        }
+
+        return smoothedData;
     }
 }

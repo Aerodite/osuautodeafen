@@ -77,6 +77,7 @@ public class ScreenBlankerForm : IDisposable
 
     private bool CheckOsuFocus()
     {
+        if(!isScreenBlankEnabled) return false;
         if (_isHandlingFocusChange || (DateTime.Now - _lastFocusChangeTime).TotalMilliseconds < 1500) return false;
         _isHandlingFocusChange = true;
 
