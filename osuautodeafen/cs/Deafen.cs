@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using System.Timers;
 using AutoHotkey.Interop;
 using osuautodeafen.cs;
-using osuautodeafen.cs.Screen;
 using Timer = System.Timers.Timer;
 
 namespace osuautodeafen;
@@ -15,6 +14,8 @@ public class Deafen : IDisposable
 {
     private readonly AutoHotkeyEngine _ahk;
     private readonly FCCalc _fcCalc;
+    private readonly Timer _fileCheckTimer;
+    private readonly ScreenBlankerForm _screenBlanker;
     private readonly Timer _timer;
     private readonly TosuApi _tosuAPI;
     private readonly SharedViewModel _viewModel;
@@ -22,11 +23,9 @@ public class Deafen : IDisposable
 
     private string _customKeybind = "^p";
     private bool _deafened;
-    private readonly Timer _fileCheckTimer;
     private bool _hasReachedMinPercent;
     private bool _isFileCheckTimerRunning;
     private bool _isPlaying;
-    private readonly ScreenBlankerForm _screenBlanker;
     private bool _wasFullCombo;
     private bool isScreenBlanked;
     public double MinCompletionPercentage;

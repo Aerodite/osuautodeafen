@@ -1,8 +1,5 @@
-﻿using Avalonia;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
-using LiveChartsCore;
-using LiveChartsCore.SkiaSharpView.Avalonia;
 
 public class UpdateNotificationBar : UserControl
 {

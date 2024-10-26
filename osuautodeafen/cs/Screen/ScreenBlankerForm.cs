@@ -10,16 +10,16 @@ using osuautodeafen.cs.Screen;
 
 public class ScreenBlankerForm : IDisposable
 {
+    private readonly Deafen _deafen;
     private readonly Window _mainWindow;
     private ScreenBlankerWindow[]? _blankingWindows;
     private DispatcherTimer _focusCheckTimer;
+    private bool _isHandlingFocusChange;
     private bool _isInitialized;
     private bool _isOsuFocused;
-    private readonly Deafen _deafen;
-    private bool screenBlankEnabled;
-    private bool _isHandlingFocusChange;
     private DateTime _lastFocusChangeTime;
     private bool isScreenBlankEnabled;
+    private bool screenBlankEnabled;
 
     //<notes>
     // uh so for reference a lot of this isn't exactly how i want it to be implemented
@@ -91,7 +91,7 @@ public class ScreenBlankerForm : IDisposable
     private bool CheckOsuFocus()
     {
         //if(!isScreenBlankEnabled) return false;
-        if (_isHandlingFocusChange || (DateTime.Now - _lastFocusChangeTime).TotalMilliseconds < 1500) return false;
+        if (_isHandlingFocusChange || (DateTime.Now - _lastFocusChangeTime).TotalMilliseconds < 200) return false;
         _isHandlingFocusChange = true;
 
         var focusedProcess = GetFocusedProcess();
@@ -164,7 +164,7 @@ public class ScreenBlankerForm : IDisposable
 
     public async Task UnblankScreensAsync()
     {
-        await Dispatcher.UIThread.InvokeAsync(async () =>
+        await Dispatcher.UIThread.InvokeAsync(() =>
         {
             Console.WriteLine(@"Unblanking screens...");
             if (_blankingWindows != null)

@@ -4,9 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Numerics;
 using System.Reflection;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,6 +22,7 @@ using Avalonia.Threading;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
+using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
@@ -40,54 +39,55 @@ namespace osuautodeafen;
 public partial class MainWindow : Window
 {
     public static bool isCompPctLostFocus;
+    private readonly AnimationManager _animationManager = new();
 
     //testing out a capacity of 0 for now, this means a ram-usage reduction of 50% 🤯
     private readonly Queue<Bitmap> _bitmapQueue = new(0);
+    private readonly Deafen _deafen;
     private readonly DispatcherTimer _disposeTimer;
     private readonly DispatcherTimer _mainTimer;
     private readonly DispatcherTimer _parallaxCheckTimer;
     private readonly TosuApi _tosuApi;
-    private GetLowResBackground? _getLowResBackground;
-    private BreakPeriod _breakPeriod;
-    private readonly AnimationManager _animationManager = new();
-    private Bitmap _colorChangingImage;
+
+    private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
 
 
     private readonly object _updateLogoLock = new();
-    private SKSvg? _cachedLogoSvg;
-
-    private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private Grid? _blackBackground;
     private Image? _blurredBackground;
-
-    //_lowres
-    private Bitmap? _lowResBitmap;
+    private BreakPeriod _breakPeriod;
+    private SKSvg? _cachedLogoSvg;
+    private Bitmap _colorChangingImage;
 
     private string? _currentBackgroundDirectory;
+
+    private double _currentBackgroundOpacity = 1.0;
     private Bitmap? _currentBitmap;
     private KeyModifiers _currentKeyModifiers = KeyModifiers.None;
-    private readonly Deafen _deafen;
     private HotKey? _deafenKeybind;
     private LineSeries<ObservablePoint> _deafenMarker;
+    private readonly GetLowResBackground? _getLowResBackground;
     private Thread _graphDataThread;
     private bool _hasDisplayed = false;
     private bool _isConstructorFinished;
+    private bool _isTransitioning = false;
 
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
     private DateTime _lastUpdateCheck = DateTime.MinValue;
+
+    //_lowres
+    private Bitmap? _lowResBitmap;
     private double _mouseX;
     private double _mouseY;
     private Image? _normalBackground;
+    private SKColor _oldAverageColor = SKColors.Transparent;
     private ScreenBlanker _screenBlanker;
     private ScreenBlankerForm? _screenBlankerForm;
     private DispatcherTimer? _visibilityCheckTimer;
     private double deafenProgressPercentage;
     private double deafenTimestamp;
     private SettingsPanel settingsPanel1;
-    private SKColor _oldAverageColor = SKColors.Transparent;
-    private bool _isTransitioning = false;
-
 
 
     //<summary>
@@ -150,16 +150,15 @@ public partial class MainWindow : Window
 
         InitializeViewModel();
 
+        InitializeLogo();
+
         PointerMoved += OnMouseMove;
 
         DataContext = ViewModel;
 
-        InitializeLogo();
-
         InitializeGraphDataThread();
 
         _tosuApi.GraphDataUpdated += OnGraphDataUpdated;
-
 
         Series = [];
         XAxes = new Axis[] { new() { LabelsPaint = new SolidColorPaint(SKColors.White) } };
@@ -270,9 +269,8 @@ public partial class MainWindow : Window
     private async void GraphDataThreadStart()
     {
         while (true)
-        {
-            if (Graph != null) await Dispatcher.UIThread.InvokeAsync(() => UpdateChart(Graph));
-        }
+            if (Graph != null)
+                await Dispatcher.UIThread.InvokeAsync(() => UpdateChart(Graph));
     }
 
     private void OnGraphDataUpdated(GraphData graphData)
@@ -294,111 +292,115 @@ public partial class MainWindow : Window
     private List<ObservablePoint> SmoothData(List<ObservablePoint> data, int windowSize, double smoothingFactor)
     {
         var smoothedData = new List<ObservablePoint>();
-        for (int i = 0; i < data.Count; i++)
+        for (var i = 0; i < data.Count; i++)
         {
             double sum = 0;
-            int count = 0;
-            int adjustedWindowSize = (int)(windowSize * smoothingFactor);
-            for (int j = Math.Max(0, i - adjustedWindowSize); j <= Math.Min(data.Count - 1, i + adjustedWindowSize); j++)
+            var count = 0;
+            var adjustedWindowSize = (int)(windowSize * smoothingFactor);
+            for (var j = Math.Max(0, i - adjustedWindowSize);
+                 j <= Math.Min(data.Count - 1, i + adjustedWindowSize);
+                 j++)
             {
                 sum += data[j].Y ?? 0.0;
                 count++;
             }
+
             smoothedData.Add(new ObservablePoint(data[i].X, sum / count));
         }
+
         return smoothedData;
     }
 
-public void UpdateChart(GraphData graphData)
-{
-    var seriesList = new List<ISeries>();
-    PlotView.DrawMargin = new LiveChartsCore.Measure.Margin(0, 0, 0, 0);
-
-    foreach (var series in graphData.Series)
+    public void UpdateChart(GraphData graphData)
     {
-        var updatedValues = series.Data
-            .Select((value, index) => new { value, index })
-            .Where(x => x.value != -100)
-            .Select(x => new ObservablePoint(x.index, x.value))
-            .ToList();
+        var seriesList = new List<ISeries>();
+        PlotView.DrawMargin = new Margin(0, 0, 0, 0);
 
-        // Apply smoothing
-        var smoothedValues = SmoothData(updatedValues, 10, 0.2);
-
-        var color = series.Name == "aim"
-            ? new SKColor(0x00, 0xFF, 0x00, 192)
-            : new SKColor(0x00, 0x00, 0xFF, 140); // Adjust transparency
-        var name = series.Name == "aim" ? "Aim" : "Speed";
-
-        var lineSeries = new LineSeries<ObservablePoint>
+        foreach (var series in graphData.Series)
         {
-            Values = smoothedValues,
-            Fill = new SolidColorPaint { Color = color },
-            Stroke = new SolidColorPaint { Color = color },
-            Name = name,
+            var updatedValues = series.Data
+                .Select((value, index) => new { value, index })
+                .Where(x => x.value != -100)
+                .Select(x => new ObservablePoint(x.index, x.value))
+                .ToList();
+
+            // Apply smoothing
+            var smoothedValues = SmoothData(updatedValues, 10, 0.2);
+
+            var color = series.Name == "aim"
+                ? new SKColor(0x00, 0xFF, 0x00, 192)
+                : new SKColor(0x00, 0x00, 0xFF, 140); // Adjust transparency
+            var name = series.Name == "aim" ? "Aim" : "Speed";
+
+            var lineSeries = new LineSeries<ObservablePoint>
+            {
+                Values = smoothedValues,
+                Fill = new SolidColorPaint { Color = color },
+                Stroke = new SolidColorPaint { Color = color },
+                Name = name,
+                GeometryFill = null,
+                GeometryStroke = null,
+                LineSmoothness = 1,
+                EasingFunction = EasingFunctions.ExponentialOut,
+                TooltipLabelFormatter = value => $"{name}: {value}"
+            };
+            seriesList.Add(lineSeries);
+        }
+
+        // round up the last value in the updated x-axis array
+        var maxLimit = Math.Ceiling((double)graphData.XAxis.Last() / 1024);
+
+        deafenProgressPercentage = _deafen.MinCompletionPercentage / 128;
+        var graphDuration = maxLimit;
+        deafenTimestamp = graphDuration * deafenProgressPercentage;
+
+        var maxYValue = graphData.Series.SelectMany(series => series.Data).Max();
+
+        var deafenMarker = new LineSeries<ObservablePoint>
+        {
+            Values = new List<ObservablePoint>
+            {
+                new(deafenTimestamp, 0), // bottom-left corner
+                new(deafenTimestamp, maxYValue), // top-left corner
+                new(maxLimit, maxYValue), // top-right corner
+                new(maxLimit, 0), // bottom-right corner
+                new(deafenTimestamp, 0) // close the rectangle by returning to the bottom-left corner
+            },
+            Name = "Deafen Point",
+            Stroke = new SolidColorPaint
+                { Color = new SKColor(0xFF, 0x00, 0x00, 110), StrokeThickness = 3 }, // 70% opacity red
             GeometryFill = null,
             GeometryStroke = null,
-            LineSmoothness = 1,
-            EasingFunction = EasingFunctions.ExponentialOut,
-            TooltipLabelFormatter = value => $"{name}: {value}"
+            LineSmoothness = 0
         };
-        seriesList.Add(lineSeries);
+
+        seriesList.Add(deafenMarker);
+
+        Series = seriesList.ToArray();
+        XAxes = new Axis[]
+        {
+            new()
+            {
+                LabelsPaint = new SolidColorPaint(SKColors.Transparent),
+                MinLimit = 0, // ensure the x-axis starts from 0
+                MaxLimit = maxLimit,
+                Padding = new Padding(2),
+                TextSize = 12
+            }
+        };
+        YAxes = new Axis[]
+        {
+            new()
+            {
+                LabelsPaint = new SolidColorPaint(SKColors.Transparent),
+                SeparatorsPaint = new SolidColorPaint(SKColors.Transparent)
+            }
+        };
+
+        PlotView.Series = Series;
+        PlotView.XAxes = XAxes;
+        PlotView.YAxes = YAxes;
     }
-
-    // round up the last value in the updated x-axis array
-    var maxLimit = Math.Ceiling((double)graphData.XAxis.Last() / 1024);
-
-    deafenProgressPercentage = _deafen.MinCompletionPercentage / 128;
-    var graphDuration = maxLimit;
-    deafenTimestamp = graphDuration * deafenProgressPercentage;
-
-    var maxYValue = graphData.Series.SelectMany(series => series.Data).Max();
-
-    var deafenMarker = new LineSeries<ObservablePoint>
-    {
-        Values = new List<ObservablePoint>
-        {
-            new(deafenTimestamp, 0), // bottom-left corner
-            new(deafenTimestamp, maxYValue), // top-left corner
-            new(maxLimit, maxYValue), // top-right corner
-            new(maxLimit, 0), // bottom-right corner
-            new(deafenTimestamp, 0) // close the rectangle by returning to the bottom-left corner
-        },
-        Name = "Deafen Point",
-        Stroke = new SolidColorPaint
-            { Color = new SKColor(0xFF, 0x00, 0x00, 110), StrokeThickness = 3 }, // 70% opacity red
-        GeometryFill = null,
-        GeometryStroke = null,
-        LineSmoothness = 0
-    };
-
-    seriesList.Add(deafenMarker);
-
-    Series = seriesList.ToArray();
-    XAxes = new Axis[]
-    {
-        new()
-        {
-            LabelsPaint = new SolidColorPaint(SKColors.Transparent),
-            MinLimit = 0, // ensure the x-axis starts from 0
-            MaxLimit = maxLimit,
-            Padding = new Padding(2),
-            TextSize = 12,
-        }
-    };
-    YAxes = new Axis[]
-    {
-        new()
-        {
-            LabelsPaint = new SolidColorPaint(SKColors.Transparent),
-            SeparatorsPaint = new SolidColorPaint(SKColors.Transparent)
-        }
-    };
-
-    PlotView.Series = Series;
-    PlotView.XAxes = XAxes;
-    PlotView.YAxes = YAxes;
-}
 
 
     //initialize the visibility check timer
@@ -575,7 +577,7 @@ public void UpdateChart(GraphData graphData)
         Dispatcher.UIThread.InvokeAsync(CheckForUpdatesIfNeeded);
         Dispatcher.UIThread.InvokeAsync(() => CheckBlankSetting(sender, e));
 
-        Image? logoImage = this.FindControl<Image>("LogoImage");
+        var logoImage = this.FindControl<Image>("LogoImage");
         if (logoImage != null)
         {
             logoImage.Source = _colorChangingImage;
@@ -1054,13 +1056,12 @@ public void UpdateChart(GraphData graphData)
             if (_currentBitmap == null || backgroundPath != _currentBackgroundDirectory)
             {
                 Bitmap? newBitmap = null;
-                bool fileExists = false;
+                var fileExists = false;
 
                 await Task.Run(() =>
                 {
                     fileExists = File.Exists(backgroundPath);
                     if (fileExists)
-                    {
                         try
                         {
                             newBitmap = new Bitmap(backgroundPath);
@@ -1069,7 +1070,6 @@ public void UpdateChart(GraphData graphData)
                         {
                             Console.WriteLine("Failed to load background: " + ex.Message);
                         }
-                    }
                 });
 
                 if (!fileExists)
@@ -1078,10 +1078,7 @@ public void UpdateChart(GraphData graphData)
                     return;
                 }
 
-                if (newBitmap == null)
-                {
-                    return;
-                }
+                if (newBitmap == null) return;
 
                 _currentBitmap?.Dispose();
                 _currentBitmap = newBitmap;
@@ -1099,6 +1096,7 @@ public void UpdateChart(GraphData graphData)
             }
         }
     }
+
     private SKBitmap ConvertToSKBitmap(Bitmap avaloniaBitmap)
     {
         using var memoryStream = new MemoryStream();
@@ -1109,30 +1107,28 @@ public void UpdateChart(GraphData graphData)
 
     private SKColor CalculateAverageColor(SKBitmap bitmap)
     {
-        int width = bitmap.Width;
-        int height = bitmap.Height;
-        int chunkSize = height / Environment.ProcessorCount;
-        object lockObj = new object();
+        var width = bitmap.Width;
+        var height = bitmap.Height;
+        var chunkSize = height / Environment.ProcessorCount;
+        var lockObj = new object();
 
         long totalR = 0, totalG = 0, totalB = 0;
-        int pixelCount = width * height;
+        var pixelCount = width * height;
 
-        Parallel.For(0, Environment.ProcessorCount, (int i) =>
+        Parallel.For(0, Environment.ProcessorCount, i =>
         {
             long localTotalR = 0, localTotalG = 0, localTotalB = 0;
 
-            int startY = i * chunkSize;
-            int endY = (i == Environment.ProcessorCount - 1) ? height : startY + chunkSize;
+            var startY = i * chunkSize;
+            var endY = i == Environment.ProcessorCount - 1 ? height : startY + chunkSize;
 
-            for (int y = startY; y < endY; y++)
+            for (var y = startY; y < endY; y++)
+            for (var x = 0; x < width; x++)
             {
-                for (int x = 0; x < width; x++)
-                {
-                    var pixel = bitmap.GetPixel(x, y);
-                    localTotalR += pixel.Red;
-                    localTotalG += pixel.Green;
-                    localTotalB += pixel.Blue;
-                }
+                var pixel = bitmap.GetPixel(x, y);
+                localTotalR += pixel.Red;
+                localTotalG += pixel.Green;
+                localTotalB += pixel.Blue;
             }
 
             lock (lockObj)
@@ -1143,23 +1139,24 @@ public void UpdateChart(GraphData graphData)
             }
         });
 
-        byte avgR = (byte)(totalR / pixelCount);
-        byte avgG = (byte)(totalG / pixelCount);
-        byte avgB = (byte)(totalB / pixelCount);
+        var avgR = (byte)(totalR / pixelCount);
+        var avgG = (byte)(totalG / pixelCount);
+        var avgB = (byte)(totalB / pixelCount);
 
         return new SKColor(avgR, avgG, avgB);
     }
+
     private SKColor InterpolateColor(SKColor from, SKColor to, float t)
     {
-        int deltaR = to.Red - from.Red;
-        int deltaG = to.Green - from.Green;
-        int deltaB = to.Blue - from.Blue;
-        int deltaA = to.Alpha - from.Alpha;
+        var deltaR = to.Red - from.Red;
+        var deltaG = to.Green - from.Green;
+        var deltaB = to.Blue - from.Blue;
+        var deltaA = to.Alpha - from.Alpha;
 
-        byte r = (byte)(from.Red + deltaR * t);
-        byte g = (byte)(from.Green + deltaG * t);
-        byte b = (byte)(from.Blue + deltaB * t);
-        byte a = (byte)(from.Alpha + deltaA * t);
+        var r = (byte)(from.Red + deltaR * t);
+        var g = (byte)(from.Green + deltaG * t);
+        var b = (byte)(from.Blue + deltaB * t);
+        var a = (byte)(from.Alpha + deltaA * t);
 
         return new SKColor(r, g, b, a);
     }
@@ -1185,102 +1182,138 @@ public void UpdateChart(GraphData graphData)
 
     public Bitmap LoadEmbeddedResource(string resourceName)
     {
-        try
-        {
-            var assembly = Assembly.GetExecutingAssembly();
-            using var resourceStream = assembly.GetManifestResourceStream(resourceName)
-                                       ?? throw new FileNotFoundException("Resource not found: " + resourceName);
-            return new Bitmap(resourceStream);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[ERROR] Exception while loading embedded resource: {ex.Message}");
-            throw;
-        }
-    }
+        const int maxRetries = 5;
+        const int initialDelayMilliseconds = 500;
+        var delay = initialDelayMilliseconds;
 
-    private async void InitializeLogo()
-    {
-        try
+        for (var retryCount = 0; retryCount < maxRetries; retryCount++)
         {
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            try
             {
-                var viewModel = DataContext as SharedViewModel;
-                if (viewModel != null)
+                var assembly = Assembly.GetExecutingAssembly();
+                using var resourceStream = assembly.GetManifestResourceStream(resourceName);
+                if (resourceStream == null)
                 {
-                    try
-                    {
-                        Bitmap? logoImage = LoadEmbeddedResource("osuautodeafen.Resources.autodeafen.svg");
-                        if (logoImage != null)
-                        {
-                            if (viewModel != null)
-                            {
-                                viewModel.ModifiedLogoImage = logoImage;
-                                Console.WriteLine("ModifiedLogoImage property set.");
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine("Failed to load logo image: logoImage is null.");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Exception while loading logo image: {ex.Message}");
-                    }
+                    throw new FileNotFoundException("Resource not found: " + resourceName);
                 }
-            });
 
-            Console.WriteLine("SVG loaded successfully.");
-        }
-        catch (Exception ex)
-        {
-            const int maxRetries = 3;
-            int retryCount = 0;
-            bool success = false;
+                var bitmap = new Bitmap(resourceStream);
+                if (bitmap == null)
+                {
+                    throw new InvalidOperationException("Failed to create bitmap from resource stream.");
+                }
 
-            while (retryCount < maxRetries && !success)
+                return bitmap;
+            }
+            catch (Exception ex)
             {
-                try
+                Console.WriteLine(
+                    $"[ERROR] Exception while loading embedded resource '{resourceName}': {ex.Message}. Attempt {retryCount + 1} of {maxRetries}.");
+
+                if (retryCount >= maxRetries - 1)
                 {
-                    retryCount++;
-                    Console.WriteLine($"Retrying to load SVG... Attempt {retryCount}");
-                    var assembly = Assembly.GetExecutingAssembly();
-                    using var stream = assembly.GetManifestResourceStream("osuautodeafen.Resources.autodeafen.svg")
-                                       ?? throw new FileNotFoundException("Resource not found: autodeafen.svg");
-                    var svg = new SKSvg();
-                    svg.Load(stream);
-                    Console.WriteLine($"Successfully loaded SVG on attempt {retryCount}: {svg}");
-                    success = true;
+                    Console.WriteLine("[ERROR] Max retry attempts reached. Failing operation.");
+                    throw;
                 }
-                catch (Exception retryEx)
-                {
-                    Console.WriteLine($"[ERROR] Retry {retryCount} failed: {retryEx.Message}");
-                    if (retryCount >= maxRetries)
-                    {
-                        Console.WriteLine($"[ERROR] Exception while loading SVG after {maxRetries} attempts: {ex.Message}");
-                        return; // Exit if loading the SVG fails after max retries
-                    }
-                }
+
+                // Exponential backoff
+                Task.Delay(delay).Wait();
+                delay *= 2;
             }
         }
 
-        await UpdateLogoAsync();
+        throw new InvalidOperationException("Failed to load embedded resource after multiple attempts.");
     }
+   private async void InitializeLogo()
+{
+    try
+    {
+        var logoImage = await LoadLogoAsync("osuautodeafen.Resources.autodeafen.svg");
+        UpdateViewModelWithLogo(logoImage);
+        Console.WriteLine("SVG loaded successfully.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Exception while loading logo image: {ex.Message}");
+        await RetryLoadLogoAsync("osuautodeafen.Resources.autodeafen.svg");
+    }
+
+    await UpdateLogoAsync();
+}
+
+private async Task<Bitmap> LoadLogoAsync(string resourceName)
+{
+    return await Task.Run(() =>
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+        using var resourceStream = assembly.GetManifestResourceStream(resourceName);
+        if (resourceStream == null)
+        {
+            throw new FileNotFoundException("Resource not found: " + resourceName);
+        }
+
+        var svg = new SKSvg();
+        svg.Load(resourceStream);
+
+        if (svg.Picture == null)
+        {
+            throw new InvalidOperationException("Failed to load SVG picture.");
+        }
+
+        return ConvertSvgToBitmap(svg, 100, 100);
+    });
+}
+
+private async Task RetryLoadLogoAsync(string resourceName)
+{
+    const int maxRetries = 3;
+    var retryCount = 0;
+    var success = false;
+
+    while (retryCount < maxRetries && !success)
+    {
+        try
+        {
+            retryCount++;
+            Console.WriteLine($"Retrying to load SVG... Attempt {retryCount}");
+            var logoImage = await LoadLogoAsync(resourceName);
+            UpdateViewModelWithLogo(logoImage);
+            success = true;
+        }
+        catch (Exception retryEx)
+        {
+            Console.WriteLine($"[ERROR] Retry {retryCount} failed: {retryEx.Message}");
+            if (retryCount >= maxRetries)
+            {
+                Console.WriteLine($"[ERROR] Exception while loading SVG after {maxRetries} attempts: {retryEx.Message}");
+                return; // Exit if loading the SVG fails after max retries
+            }
+        }
+    }
+}
+
+private void UpdateViewModelWithLogo(Bitmap logoImage)
+{
+    var viewModel = DataContext as SharedViewModel;
+    if (viewModel != null)
+    {
+        viewModel.ModifiedLogoImage = logoImage;
+        Console.WriteLine("ModifiedLogoImage property set.");
+    }
+}
+
 
     //this is just here because i dont want to add a massive blocking call to wait for tosuapi with ui loading
     private async Task<string?> TryGetLowResBitmapPathAsync(int maxAttempts, int delayMilliseconds)
     {
-        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            string? lowResBitmapPath = _getLowResBackground.GetLowResBitmapPath();
-            if (!string.IsNullOrEmpty(lowResBitmapPath))
-            {
-                return lowResBitmapPath;
-            }
+            var lowResBitmapPath = _getLowResBackground.GetLowResBitmapPath();
+            if (!string.IsNullOrEmpty(lowResBitmapPath)) return lowResBitmapPath;
             Console.WriteLine($"Attempt {attempt} failed. Retrying in {delayMilliseconds}ms...");
             await Task.Delay(delayMilliseconds);
         }
+
         Console.WriteLine("[ERROR] Failed to get low resolution bitmap path after multiple attempts.");
         return null;
     }
@@ -1299,123 +1332,133 @@ public void UpdateChart(GraphData graphData)
     }
 
 
-  private async Task UpdateLogoAsync()
-{
-    if (_getLowResBackground == null)
+    private async Task UpdateLogoAsync()
     {
-        Console.WriteLine("[ERROR] _getLowResBackground is null");
-        return;
-    }
-
-    string? lowResBitmapPath = await TryGetLowResBitmapPathAsync(5, 1000);
-    if (lowResBitmapPath == null)
-    {
-        return;
-    }
-
-    _lowResBitmap = new Bitmap(lowResBitmapPath);
-    if (_lowResBitmap == null)
-    {
-        return;
-    }
-
-    Console.WriteLine("Low resolution bitmap successfully loaded");
-
-    const int maxRetries = 3;
-    int retryCount = 0;
-    bool success = false;
-
-    while (retryCount < maxRetries && !success)
-    {
-        try
+        if (_getLowResBackground == null)
         {
-            retryCount++;
-            Console.WriteLine($"Attempting to load high resolution logo... Attempt {retryCount}");
-            _cachedLogoSvg = LoadHighResolutionLogo("osuautodeafen.Resources.autodeafen.svg");
-            Console.WriteLine("High resolution logo successfully loaded");
-            success = true;
+            Console.WriteLine("[ERROR] _getLowResBackground is null");
+            return;
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[ERROR] Exception while loading high resolution logo: {ex.Message}");
-            if (retryCount >= maxRetries)
+
+        var lowResBitmapPath = await TryGetLowResBitmapPathAsync(5, 1000);
+        if (lowResBitmapPath == null) return;
+
+        _lowResBitmap = new Bitmap(lowResBitmapPath);
+        if (_lowResBitmap == null) return;
+
+        Console.WriteLine("Low resolution bitmap successfully loaded");
+
+        const int maxRetries = 3;
+        var retryCount = 0;
+        var success = false;
+
+        while (retryCount < maxRetries && !success)
+            try
             {
-                Console.WriteLine($"[ERROR] Failed to load high resolution logo after {maxRetries} attempts.");
-                return; // Exit if loading the SVG fails after max retries
+                retryCount++;
+                Console.WriteLine($"Attempting to load high resolution logo... Attempt {retryCount}");
+                _cachedLogoSvg = LoadHighResolutionLogo("osuautodeafen.Resources.autodeafen.svg");
+                Console.WriteLine("High resolution logo successfully loaded");
+                success = true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Exception while loading high resolution logo: {ex.Message}");
+                if (retryCount >= maxRetries)
+                {
+                    Console.WriteLine($"[ERROR] Failed to load high resolution logo after {maxRetries} attempts.");
+                    return; // Exit if loading the SVG fails after max retries
+                }
+            }
+
+        if (_lowResBitmap == null)
+        {
+            Console.WriteLine("[ERROR] Current bitmap is null");
+            return;
+        }
+
+        var newAverageColor = SKColors.White;
+
+        if (_lowResBitmap != null)
+        {
+            newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_lowResBitmap));
+        }
+        else
+        {
+            Console.WriteLine("Low resolution bitmap is null.");
+            // retry 3 times over 5 seconds to recalculate the average color
+
+            for (var i = 0; i < 3; i++)
+            {
+                await Task.Delay(1000);
+                if (_lowResBitmap != null)
+                {
+                    newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_lowResBitmap));
+                    break;
+                }
             }
         }
-    }
 
-    if (_lowResBitmap == null)
-    {
-        Console.WriteLine("[ERROR] Current bitmap is null");
-        return;
-    }
+        var steps = 40;
+        var delay = 1f;
 
-    var newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_lowResBitmap));
-    var steps = 40;
-    var delay = 1f;
-
-    await _animationManager.EnqueueAnimation(async () =>
-    {
-        for (int i = 0; i <= steps; i++)
+        await _animationManager.EnqueueAnimation(async () =>
         {
-            var t = i / (float)steps;
-            var interpolatedColor = InterpolateColor(_oldAverageColor, newAverageColor, t);
-
-            var picture = _cachedLogoSvg.Picture;
-            if (picture != null)
+            for (var i = 0; i <= steps; i++)
             {
-                var width = (int)picture.CullRect.Width;
-                var height = (int)picture.CullRect.Height;
-                var bitmap = new SKBitmap(width, height);
+                var t = i / (float)steps;
+                var interpolatedColor = InterpolateColor(_oldAverageColor, newAverageColor, t);
 
-                await Task.Run(() =>
+                var picture = _cachedLogoSvg?.Picture;
+                if (picture != null)
                 {
-                    using (var canvas = new SKCanvas(bitmap))
-                    {
-                        canvas.Clear(SKColors.Transparent);
-                        canvas.DrawPicture(picture);
+                    var width = (int)picture.CullRect.Width;
+                    var height = (int)picture.CullRect.Height;
+                    var bitmap = new SKBitmap(width, height);
 
-                        Parallel.For(0, bitmap.Height, y =>
+                    await Task.Run(() =>
+                    {
+                        using (var canvas = new SKCanvas(bitmap))
                         {
-                            for (int x = 0; x < bitmap.Width; x++)
+                            canvas.Clear(SKColors.Transparent);
+                            canvas.DrawPicture(picture);
+
+                            Parallel.For(0, bitmap.Height, y =>
                             {
-                                var pixel = bitmap.GetPixel(x, y);
-                                var newColor = new SKColor(
-                                    interpolatedColor.Red,
-                                    interpolatedColor.Green,
-                                    interpolatedColor.Blue,
-                                    pixel.Alpha);
-                                bitmap.SetPixel(x, y, newColor);
-                            }
-                        });
-                    }
-                });
+                                for (var x = 0; x < bitmap.Width; x++)
+                                {
+                                    var pixel = bitmap.GetPixel(x, y);
+                                    var newColor = new SKColor(
+                                        interpolatedColor.Red,
+                                        interpolatedColor.Green,
+                                        interpolatedColor.Blue,
+                                        pixel.Alpha);
+                                    bitmap.SetPixel(x, y, newColor);
+                                }
+                            });
+                        }
+                    });
 
-                using var image = SKImage.FromBitmap(bitmap);
-                using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-                using var stream = new MemoryStream();
-                data.SaveTo(stream);
-                stream.Seek(0, SeekOrigin.Begin);
-                _colorChangingImage = new Bitmap(stream);
+                    using var image = SKImage.FromBitmap(bitmap);
+                    using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+                    using var stream = new MemoryStream();
+                    data.SaveTo(stream);
+                    stream.Seek(0, SeekOrigin.Begin);
+                    _colorChangingImage = new Bitmap(stream);
 
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    var viewModel = DataContext as SharedViewModel;
-                    if (viewModel != null)
+                    await Dispatcher.UIThread.InvokeAsync(() =>
                     {
-                        viewModel.ModifiedLogoImage = new Bitmap(stream);
-                    }
-                });
+                        var viewModel = DataContext as SharedViewModel;
+                        if (viewModel != null) viewModel.ModifiedLogoImage = new Bitmap(stream);
+                    });
+                }
+
+                await Task.Delay((int)delay);
             }
 
-            await Task.Delay((int)(delay));
-        }
-
-        _oldAverageColor = newAverageColor;
-    });
-}
+            _oldAverageColor = newAverageColor;
+        });
+    }
 
     private IImage ConvertSvgToAvaloniaImage(SKSvg svg, int width, int height)
     {
@@ -1435,6 +1478,7 @@ public void UpdateChart(GraphData graphData)
     {
         return await Task.Run(() => CalculateAverageColor(bitmap));
     }
+
     private void UpdateUIWithNewBackground(Bitmap bitmap)
     {
         var imageControl = new Image
@@ -1592,8 +1636,6 @@ public void UpdateChart(GraphData graphData)
         Console.WriteLine("Received: {0}", completionPercentage);
     }
 
-    private double _currentBackgroundOpacity = 1.0;
-
     private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan duration)
     {
         if (Content is Grid mainGrid)
@@ -1614,7 +1656,7 @@ public void UpdateChart(GraphData graphData)
                             {
                                 Setters =
                                 {
-                                    new Setter(Image.OpacityProperty, background.Opacity)
+                                    new Setter(OpacityProperty, background.Opacity)
                                 },
                                 Cue = new Cue(0.0)
                             },
@@ -1622,7 +1664,7 @@ public void UpdateChart(GraphData graphData)
                             {
                                 Setters =
                                 {
-                                    new Setter(Image.OpacityProperty, targetOpacity)
+                                    new Setter(OpacityProperty, targetOpacity)
                                 },
                                 Cue = new Cue(1)
                             }
@@ -1636,86 +1678,86 @@ public void UpdateChart(GraphData graphData)
         }
     }
 
-private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
-{
-    var updateBar = this.FindControl<Button>("UpdateNotificationBar");
-    var isUpdateBarVisible = updateBar != null && updateBar.IsVisible;
-    var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
-    var settingsPanel2 = this.FindControl<DockPanel>("SettingsPanel2");
-    var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
-    var settingsPanelMargin = settingsPanel.Margin;
-    var settingsPanel2Margin = settingsPanel2.Margin;
-    var textBlockPanelMargin = textBlockPanel.Margin;
-
-    settingsPanel.Transitions = new Transitions
+    private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
     {
-        new ThicknessTransition
-        {
-            Property = MarginProperty,
-            Duration = TimeSpan.FromSeconds(0.25),
-            Easing = new LinearEasing()
-        }
-    };
+        var updateBar = this.FindControl<Button>("UpdateNotificationBar");
+        var isUpdateBarVisible = updateBar != null && updateBar.IsVisible;
+        var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
+        var settingsPanel2 = this.FindControl<DockPanel>("SettingsPanel2");
+        var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
+        var settingsPanelMargin = settingsPanel.Margin;
+        var settingsPanel2Margin = settingsPanel2.Margin;
+        var textBlockPanelMargin = textBlockPanel.Margin;
 
-    textBlockPanel.Transitions = new Transitions
-    {
-        new ThicknessTransition
+        settingsPanel.Transitions = new Transitions
         {
-            Property = MarginProperty,
-            Duration = TimeSpan.FromSeconds(0.25),
-            Easing = new CircularEaseInOut()
-        }
-    };
+            new ThicknessTransition
+            {
+                Property = MarginProperty,
+                Duration = TimeSpan.FromSeconds(0.25),
+                Easing = new LinearEasing()
+            }
+        };
 
-    if (settingsPanel.IsVisible)
-    {
-        settingsPanel.IsVisible = false;
-        AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.3)); // gradually revert the background opacity
-        if (isUpdateBarVisible)
+        textBlockPanel.Transitions = new Transitions
         {
-            settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
-                settingsPanelMargin.Right, 28);
-            settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
-                settingsPanel2Margin.Right, 28);
-            textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
-                textBlockPanelMargin.Right, 28);
+            new ThicknessTransition
+            {
+                Property = MarginProperty,
+                Duration = TimeSpan.FromSeconds(0.25),
+                Easing = new CircularEaseInOut()
+            }
+        };
+
+        if (settingsPanel.IsVisible)
+        {
+            settingsPanel.IsVisible = false;
+            AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.3)); // gradually revert the background opacity
+            if (isUpdateBarVisible)
+            {
+                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
+                    settingsPanelMargin.Right, 28);
+                settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
+                    settingsPanel2Margin.Right, 28);
+                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
+                    textBlockPanelMargin.Right, 28);
+            }
+            else
+            {
+                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
+                    settingsPanelMargin.Right, 0);
+                settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
+                    settingsPanel2Margin.Right, 0);
+                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
+                    textBlockPanelMargin.Right, 0);
+            }
         }
         else
         {
-            settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
-                settingsPanelMargin.Right, 0);
-            settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
-                settingsPanel2Margin.Right, 0);
-            textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
-                textBlockPanelMargin.Right, 0);
+            settingsPanel.IsVisible = true;
+            AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.3)); // gradually darken the background
+            if (isUpdateBarVisible)
+            {
+                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
+                    settingsPanelMargin.Right, 28);
+                settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
+                    settingsPanel2Margin.Right, 28);
+                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
+                    textBlockPanelMargin.Right, 28);
+            }
+            else
+            {
+                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
+                    settingsPanelMargin.Right, 0);
+                settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
+                    settingsPanel2Margin.Right, 0);
+                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
+                    textBlockPanelMargin.Right, 0);
+            }
         }
-    }
-    else
-    {
-        settingsPanel.IsVisible = true;
-        AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.3)); // gradually darken the background
-        if (isUpdateBarVisible)
-        {
-            settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
-                settingsPanelMargin.Right, 28);
-            settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
-                settingsPanel2Margin.Right, 28);
-            textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
-                textBlockPanelMargin.Right, 28);
-        }
-        else
-        {
-            settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
-                settingsPanelMargin.Right, 0);
-            settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
-                settingsPanel2Margin.Right, 0);
-            textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
-                textBlockPanelMargin.Right, 0);
-        }
-    }
 
-    textBlockPanel.Margin = settingsPanel.IsVisible ? new Thickness(0, 42, 225, 0) : new Thickness(0, 42, 0, 0);
-}
+        textBlockPanel.Margin = settingsPanel.IsVisible ? new Thickness(0, 42, 225, 0) : new Thickness(0, 42, 0, 0);
+    }
 
     private async void SecondPage_Click(object sender, RoutedEventArgs e)
     {
@@ -1740,22 +1782,16 @@ private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
         if (sender is CheckBox checkBox)
         {
             if (_screenBlankerForm == null)
-            {
                 // Initialize _screenBlankerForm if it is null
                 _screenBlankerForm = new ScreenBlankerForm(this);
-            }
 
 
             if (checkBox.IsChecked == true)
-            {
                 // Initialize blanking windows if not already initialized
                 _screenBlankerForm.InitializeBlankingWindows();
-            }
             else
-            {
                 // Unblank screens
                 _screenBlankerForm.UnblankScreensAsync();
-            }
         }
     }
 

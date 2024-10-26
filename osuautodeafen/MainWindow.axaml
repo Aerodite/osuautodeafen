@@ -8,6 +8,7 @@
         xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
         xmlns:skiaSharpView="clr-namespace:LiveChartsCore.SkiaSharpView;assembly=LiveChartsCore.SkiaSharpView"
         xmlns:painting="clr-namespace:LiveChartsCore.SkiaSharpView.Painting;assembly=LiveChartsCore.SkiaSharpView"
+        xmlns:converters="clr-namespace:Avalonia.Controls.Converters;assembly=Avalonia.Controls"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osu!autodeafen"
@@ -16,6 +17,7 @@
 
     <Window.Resources>
         <global:NotConverter x:Key="NotConverter" />
+        <converters:CornerRadiusFilterConverter x:Key="BooleanToVisibilityConverter" />
     </Window.Resources>
 
     <Grid ZIndex="5">
@@ -25,10 +27,12 @@
         </Grid.ColumnDefinitions>
 
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" x:Name="TextBlockPanel">
-           <StackPanel Orientation="Horizontal" Margin="0,42,0,0">
-            <Image Name="osuLogo" Source="avares://osuautodeafen/Resources/osu_whitestroke.png" Height="60" Margin="0,0,0,0"/>
-            <Image Name="LogoImage" Source="{Binding ModifiedLogoImage}" x:DataType="cs:SharedViewModel" Height="69" Margin="0,0,0,0"/>
-           </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,42,0,0">
+                <Image Name="osuLogo" Source="avares://osuautodeafen/Resources/osu_whitestroke.png" Height="60"
+                       Margin="0,0,0,0" />
+                <Image Name="LogoImage" Source="{Binding ModifiedLogoImage}" x:DataType="cs:SharedViewModel"
+                       Height="69" Margin="0,0,0,0" />
+            </StackPanel>
             <TextBlock Text="{Binding CurrentAppVersion}" HorizontalAlignment="Center" VerticalAlignment="Bottom"
 
                        x:DataType="cs:SharedViewModel"
@@ -243,15 +247,6 @@
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="1" x:Name="ErrorMessage" Foreground="Red" TextWrapping="Wrap" Margin="5,0,0,0" />
         </Grid>
-        <Grid HorizontalAlignment="Stretch" VerticalAlignment="Bottom" x:Name="UpdateNotificationGrid"
-              Grid.ColumnSpan="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Button x:Name="UpdateNotificationBar" Content="A new update is available!" Margin="0,10,0,0"
-                    HorizontalContentAlignment="Center" Click="UpdateNotificationBar_Click" IsVisible="False"
-                    HorizontalAlignment="Stretch" FontSize="12" Foreground="White" />
-        </Grid>
 
         <Grid>
             <avalonia1:CartesianChart
@@ -280,5 +275,14 @@
             </avalonia1:CartesianChart>
         </Grid>
 
+        <Grid HorizontalAlignment="Stretch" VerticalAlignment="Bottom" x:Name="UpdateNotificationGrid"
+              Grid.ColumnSpan="1" IsVisible="{Binding IsVisible, ElementName=UpdateNotificationBar}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button x:Name="UpdateNotificationBar" Content="A new update is available!" Margin="0,0,0,0"
+                    HorizontalContentAlignment="Center" Click="UpdateNotificationBar_Click" IsVisible="False"
+                    HorizontalAlignment="Stretch" FontSize="12" Foreground="White" />
+        </Grid>
     </Grid>
 </Window>

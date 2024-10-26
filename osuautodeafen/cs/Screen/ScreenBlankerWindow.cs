@@ -50,6 +50,7 @@ public class ScreenBlankerWindow : Window
     {
         base.Show();
     }
+
     [DllImport("user32.dll", SetLastError = true)]
     private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 

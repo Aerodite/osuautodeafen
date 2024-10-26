@@ -1,4 +1,4 @@
-﻿﻿using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.WebSockets;
@@ -19,19 +19,19 @@ public class TosuApi : IDisposable
     private readonly StringBuilder _messageAccumulator = new();
     private readonly Timer _reconnectTimer;
     private readonly Timer _timer;
+    private BreakPeriod _breakPeriod;
     private double _combo;
     private double _completionPercentage;
     private double _current;
     private double _firstObj;
-    private string? _gameDirectory;
-    private BreakPeriod _breakPeriod;
     private double _full;
     private string? _fullPath;
     private double _fullSR;
+    private string? _gameDirectory;
     private double _maxCombo;
     private double _maxPP;
-    private string _osuFilePath = "";
     private double _missCount;
+    private string _osuFilePath = "";
     private double _rankedStatus;
     private int _rawBanchoStatus = -1; // Default to -1 to indicate uninitialized
     private double _sbCount;
@@ -398,124 +398,107 @@ public class TosuApi : IDisposable
     // organizes the array data from tosu
     // also this was a massive nightmare :)
     //</summary>
-private void ParseGraphData(JsonElement graphElement)
-{
-    try
+    private void ParseGraphData(JsonElement graphElement)
     {
-        var newGraph = new GraphData
+        try
         {
-            Series = new List<Series>(),
-            XAxis = new List<int>()
-        };
-
-        if (graphElement.TryGetProperty("series", out var seriesArray))
-        {
-            foreach (var seriesElement in seriesArray.EnumerateArray())
+            var newGraph = new GraphData
             {
-                var seriesName = seriesElement.GetProperty("name").GetString();
-                if (seriesName == "flashlight" || seriesName == "aimNoSliders") continue;
+                Series = new List<Series>(),
+                XAxis = new List<int>()
+            };
 
-                var series = new Series
+            if (graphElement.TryGetProperty("series", out var seriesArray))
+                foreach (var seriesElement in seriesArray.EnumerateArray())
                 {
-                    Name = seriesName,
-                    Data = new List<double>()
-                };
+                    var seriesName = seriesElement.GetProperty("name").GetString();
+                    if (seriesName == "flashlight" || seriesName == "aimNoSliders") continue;
 
-                if (seriesElement.TryGetProperty("data", out var dataArray))
-                {
-                    foreach (var dataElement in dataArray.EnumerateArray())
+                    var series = new Series
                     {
-                        if (dataElement.ValueKind == JsonValueKind.Number)
-                        {
-                            var value = dataElement.GetDouble();
-                            if (value != -100)
+                        Name = seriesName,
+                        Data = new List<double>()
+                    };
+
+                    if (seriesElement.TryGetProperty("data", out var dataArray))
+                    {
+                        foreach (var dataElement in dataArray.EnumerateArray())
+                            if (dataElement.ValueKind == JsonValueKind.Number)
                             {
-                                series.Data.Add(value);
+                                var value = dataElement.GetDouble();
+                                if (value != -100) series.Data.Add(value);
                             }
-                        }
                     }
+                    else
+                    {
+                        Console.WriteLine("Data property not found in series element.");
+                    }
+
+                    newGraph.Series.Add(series);
                 }
-                else
-                {
-                    Console.WriteLine("Data property not found in series element.");
-                }
+            else
+                Console.WriteLine("Series property not found in graph element.");
 
-                newGraph.Series.Add(series);
-            }
-        }
-        else
-        {
-            Console.WriteLine("Series property not found in graph element.");
-        }
-
-        if (graphElement.TryGetProperty("xaxis", out var xAxisArray))
-        {
-            foreach (var xElement in xAxisArray.EnumerateArray())
+            if (graphElement.TryGetProperty("xaxis", out var xAxisArray))
             {
-                if (xElement.ValueKind == JsonValueKind.Number)
-                {
-                    var xValue = xElement.GetInt32();
-                    newGraph.XAxis.Add(xValue);
-                }
+                foreach (var xElement in xAxisArray.EnumerateArray())
+                    if (xElement.ValueKind == JsonValueKind.Number)
+                    {
+                        var xValue = xElement.GetInt32();
+                        newGraph.XAxis.Add(xValue);
+                    }
             }
-        }
-        else
-        {
-            Console.WriteLine("X-Axis property not found in graph element.");
-        }
-
-        // Combine channels that represent the beatmap's difficulty
-        var data = new double[newGraph.XAxis.Count];
-        foreach (var series in newGraph.Series)
-        {
-            for (int i = 0; i < data.Length && i < series.Data.Count; i++)
+            else
             {
-                data[i] += series.Data[i];
+                Console.WriteLine("X-Axis property not found in graph element.");
             }
-        }
 
-        // Count up samples that don't represent intro, breaks, and outro sections
-        var percent = data.Max() / 100;
-        int drainSamples = 0;
-        for (int i = 0; i < data.Length; i++)
-        {
-            data[i] = Math.Max(0, data[i]);
-            if (data[i] > percent)
+            // Combine channels that represent the beatmap's difficulty
+            var data = new double[newGraph.XAxis.Count];
+            foreach (var series in newGraph.Series)
+                for (var i = 0; i < data.Length && i < series.Data.Count; i++)
+                    data[i] += series.Data[i];
+
+            // Count up samples that don't represent intro, breaks, and outro sections
+            var percent = data.Max() / 100;
+            var drainSamples = 0;
+            for (var i = 0; i < data.Length; i++)
             {
-                drainSamples++;
+                data[i] = Math.Max(0, data[i]);
+                if (data[i] > percent) drainSamples++;
+            }
+
+            if (IsYAxisChanged(newGraph.Series))
+            {
+                Graph = newGraph;
+                GraphDataUpdated?.Invoke(Graph);
+            }
+            else if (MainWindow.isCompPctLostFocus)
+            {
+                Graph = newGraph;
+                GraphDataUpdated?.Invoke(Graph);
+                MainWindow.isCompPctLostFocus = false;
             }
         }
-
-        if (IsYAxisChanged(newGraph.Series))
+        catch (Exception ex)
         {
-            Graph = newGraph;
-            GraphDataUpdated?.Invoke(Graph);
-        }
-        else if (MainWindow.isCompPctLostFocus)
-        {
-            Graph = newGraph;
-            GraphDataUpdated?.Invoke(Graph);
-            MainWindow.isCompPctLostFocus = false;
+            Console.WriteLine($"An error occurred while parsing graph data: {ex.Message}");
         }
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"An error occurred while parsing graph data: {ex.Message}");
-    }
-}
+
     private double[] FastSmooth(double[] data, double windowWidth, int smoothness)
     {
-        int windowSize = (int)Math.Ceiling(windowWidth * smoothness);
-        double[] smoothedData = new double[data.Length];
+        var windowSize = (int)Math.Ceiling(windowWidth * smoothness);
+        var smoothedData = new double[data.Length];
 
-        for (int i = 0; i < data.Length; i++)
+        for (var i = 0; i < data.Length; i++)
         {
-            int start = Math.Max(0, i - windowSize / 2);
-            int end = Math.Min(data.Length - 1, i + windowSize / 2);
+            var start = Math.Max(0, i - windowSize / 2);
+            var end = Math.Min(data.Length - 1, i + windowSize / 2);
             double sum = 0;
-            int count = 0;
+            var count = 0;
 
-            for (int j = start; j <= end; j++)
+            for (var j = start; j <= end; j++)
             {
                 sum += data[j];
                 count++;
