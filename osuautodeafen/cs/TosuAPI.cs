@@ -252,6 +252,9 @@ public class TosuApi : IDisposable
                         if (profile.TryGetProperty("banchoStatus", out var banchoStatus))
                             if (banchoStatus.TryGetProperty("number", out var banchoStatusNumber))
                             {
+                                //using tosu beta b0bf580 for lazer this does not return the correct status
+                                //hoping is fixed later by tosu devs
+                                //if not we might just want to return local status as well?
                                 var rawBanchoStatus = banchoStatusNumber.GetInt32();
                                 StateChanged?.Invoke(rawBanchoStatus);
                                 _rawBanchoStatus = rawBanchoStatus;
