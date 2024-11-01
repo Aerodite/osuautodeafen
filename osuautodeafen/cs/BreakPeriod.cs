@@ -12,7 +12,7 @@ public class BreakPeriod
 {
     private static readonly object ConnectionLock = new();
 
-    private readonly string _osuFilePath;
+    private readonly string? _osuFilePath;
     private readonly Timer _reconnectTimer;
     private readonly TosuApi _tosuApi;
     private MainWindow _mainWindow;

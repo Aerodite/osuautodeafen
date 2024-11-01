@@ -11,6 +11,6 @@ public class GraphData
 
 public class Series
 {
-    public string Name { get; set; }
+    public string? Name { get; set; }
     public List<double> Data { get; set; }
 }

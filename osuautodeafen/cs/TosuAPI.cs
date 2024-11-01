@@ -31,7 +31,7 @@ public class TosuApi : IDisposable
     private double _maxCombo;
     private double _maxPP;
     private double _missCount;
-    private string _osuFilePath = "";
+    private string? _osuFilePath = "";
     private double _rankedStatus;
     private int _rawBanchoStatus = -1; // Default to -1 to indicate uninitialized
     private double _sbCount;
@@ -88,7 +88,7 @@ public class TosuApi : IDisposable
     {
         if (_rawBanchoStatus != 2)
         {
-            if (_webSocket != null && _webSocket.State == WebSocketState.Open)
+            if (_webSocket.State == WebSocketState.Open)
                 try
                 {
                     await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Reconnecting",
@@ -96,7 +96,7 @@ public class TosuApi : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error closing WebSocket: {ex.Message}");
+                    Console.WriteLine($@"Error closing WebSocket: {ex.Message}");
                 }
 
             _webSocket?.Dispose();
@@ -104,12 +104,12 @@ public class TosuApi : IDisposable
 
             try
             {
-                Console.WriteLine("Attempting to reconnect...");
+                Console.WriteLine(@"Attempting to reconnect...");
                 await ConnectAsync();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to reconnect: {ex.Message}");
+                Console.WriteLine($@"Failed to reconnect: {ex.Message}");
             }
         }
     }
@@ -124,7 +124,7 @@ public class TosuApi : IDisposable
     //</summary>
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
-        Console.WriteLine("Connecting to WebSocket...");
+        Console.WriteLine(@"Connecting to WebSocket...");
         while (!cancellationToken.IsCancellationRequested)
             if (_webSocket == null || _webSocket.State != WebSocketState.Open)
                 try
@@ -132,7 +132,7 @@ public class TosuApi : IDisposable
                     _webSocket?.Dispose();
                     _webSocket = new ClientWebSocket();
                     await _webSocket.ConnectAsync(new Uri(WebSocketUri), cancellationToken);
-                    Console.WriteLine("Connected to WebSocket.");
+                    Console.WriteLine(@"Connected to WebSocket.");
                     // this reconnects every 5 minutes incase tosu does that dumb stuff where it
                     // doesn't want to refresh data anymore (which is quite frankly annoying as fuck).
                     _reconnectTimer.Change(300000, Timeout.Infinite);
@@ -141,7 +141,7 @@ public class TosuApi : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Failed to connect: {ex.Message}. Retrying in 2 seconds...");
+                    Console.WriteLine($@"Failed to connect: {ex.Message}. Retrying in 2 seconds...");
                     await Task.Delay(2000, cancellationToken);
                     TosuLauncher.EnsureTosuRunning();
                 }
@@ -284,11 +284,11 @@ public class TosuApi : IDisposable
                 }
                 catch (JsonReaderException ex)
                 {
-                    Console.WriteLine($"Failed to parse JSON: {ex.Message}");
+                    Console.WriteLine($@"Failed to parse JSON: {ex.Message}");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"An error occurred: {ex.Message}");
+                    Console.WriteLine($@"An error occurred: {ex.Message}");
                 }
                 finally
                 {
@@ -333,7 +333,7 @@ public class TosuApi : IDisposable
         return _fullSR;
     }
 
-    public string GetOsuFilePath()
+    public string? GetOsuFilePath()
     {
         return _osuFilePath;
     }
@@ -373,7 +373,7 @@ public class TosuApi : IDisposable
         return _settingsSongsDirectory + "\\" + _fullPath;
     }
 
-    public string GetGameDirectory()
+    public string? GetGameDirectory()
     {
         return _gameDirectory;
     }
@@ -392,7 +392,7 @@ public class TosuApi : IDisposable
             if (currentSeries.Data.Count != newSeriesData.Count) return true;
 
             for (var j = 0; j < currentSeries.Data.Count; j++)
-                if (currentSeries.Data[j] != newSeriesData[j])
+                if (Math.Abs(currentSeries.Data[j] - newSeriesData[j]) > 0.01)
                     return true;
         }
 
@@ -431,18 +431,18 @@ public class TosuApi : IDisposable
                             if (dataElement.ValueKind == JsonValueKind.Number)
                             {
                                 var value = dataElement.GetDouble();
-                                if (value != -100) series.Data.Add(value);
+                                if (Math.Abs(value - (-100)) > 0.01) series.Data.Add(value);
                             }
                     }
                     else
                     {
-                        Console.WriteLine("Data property not found in series element.");
+                        Console.WriteLine(@"Data property not found in series element.");
                     }
 
                     newGraph.Series.Add(series);
                 }
             else
-                Console.WriteLine("Series property not found in graph element.");
+                Console.WriteLine(@"Series property not found in graph element.");
 
             if (graphElement.TryGetProperty("xaxis", out var xAxisArray))
             {
@@ -455,7 +455,7 @@ public class TosuApi : IDisposable
             }
             else
             {
-                Console.WriteLine("X-Axis property not found in graph element.");
+                Console.WriteLine(@"X-Axis property not found in graph element.");
             }
 
             // Combine channels that represent the beatmap's difficulty
@@ -466,11 +466,12 @@ public class TosuApi : IDisposable
 
             // Count up samples that don't represent intro, breaks, and outro sections
             var percent = data.Max() / 100;
-            var drainSamples = 0;
             for (var i = 0; i < data.Length; i++)
             {
                 data[i] = Math.Max(0, data[i]);
-                if (data[i] > percent) drainSamples++;
+                if (data[i] > percent)
+                {
+                }
             }
 
             if (IsYAxisChanged(newGraph.Series))
@@ -487,7 +488,7 @@ public class TosuApi : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"An error occurred while parsing graph data: {ex.Message}");
+            Console.WriteLine($@"An error occurred while parsing graph data: {ex.Message}");
         }
     }
 
