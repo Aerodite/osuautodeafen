@@ -255,6 +255,8 @@ public class TosuApi : IDisposable
                                 //using tosu beta b0bf580 for lazer this does not return the correct status
                                 //hoping is fixed later by tosu devs
                                 //if not we might just want to return local status as well?
+                                //which would be possible by grabbing profile > userStatus > number
+                                //instead of profile > banchoStatus > number)
                                 var rawBanchoStatus = banchoStatusNumber.GetInt32();
                                 StateChanged?.Invoke(rawBanchoStatus);
                                 _rawBanchoStatus = rawBanchoStatus;
