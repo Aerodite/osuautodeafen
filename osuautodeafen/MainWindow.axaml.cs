@@ -1724,7 +1724,7 @@ private void UpdateViewModelWithLogo(Bitmap logoImage)
         }
     }
 
-   private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
+private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
 {
     var updateBar = this.FindControl<Button>("UpdateNotificationBar");
     var isUpdateBarVisible = updateBar != null && updateBar.IsVisible;
@@ -1759,16 +1759,28 @@ private void UpdateViewModelWithLogo(Bitmap logoImage)
     {
         settingsPanel.IsVisible = false;
         AdjustMargins(isUpdateBarVisible, settingsPanel, settingsPanel2, textBlockPanel, settingsPanelMargin, settingsPanel2Margin, textBlockPanelMargin);
-        await AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.3));
+
+        var adjustOpacityTask = AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.3));
+        var adjustTextBlockPanelMarginTask = InvokeOnUIThreadAsync(() =>
+        {
+            textBlockPanel.Margin = new Thickness(0, 42, 0, 0);
+        });
+
+        await Task.WhenAll(adjustOpacityTask, adjustTextBlockPanelMarginTask);
     }
     else
     {
         settingsPanel.IsVisible = true;
         AdjustMargins(isUpdateBarVisible, settingsPanel, settingsPanel2, textBlockPanel, settingsPanelMargin, settingsPanel2Margin, textBlockPanelMargin);
-        await AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.3));
-    }
 
-    textBlockPanel.Margin = settingsPanel.IsVisible ? new Thickness(0, 42, 225, 0) : new Thickness(0, 42, 0, 0);
+        var adjustOpacityTask = AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.3));
+        var adjustTextBlockPanelMarginTask = InvokeOnUIThreadAsync(() =>
+        {
+            textBlockPanel.Margin = new Thickness(0, 42, 225, 0);
+        });
+
+        await Task.WhenAll(adjustOpacityTask, adjustTextBlockPanelMarginTask);
+    }
 }
 
 private void AdjustMargins(bool isUpdateBarVisible, DockPanel settingsPanel, DockPanel settingsPanel2, StackPanel textBlockPanel, Thickness settingsPanelMargin, Thickness settingsPanel2Margin, Thickness textBlockPanelMargin)
@@ -1785,6 +1797,26 @@ private void AdjustMargins(bool isUpdateBarVisible, DockPanel settingsPanel, Doc
         settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top, settingsPanel2Margin.Right, 0);
         textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top, textBlockPanelMargin.Right, 0);
     }
+}
+
+private Task InvokeOnUIThreadAsync(Action action)
+{
+    var tcs = new TaskCompletionSource<object?>();
+
+    Dispatcher.UIThread.Post(() =>
+    {
+        try
+        {
+            action();
+            tcs.SetResult(null);
+        }
+        catch (Exception ex)
+        {
+            tcs.SetException(ex);
+        }
+    });
+
+    return tcs.Task;
 }
 
     private async void SecondPage_Click(object sender, RoutedEventArgs e)
