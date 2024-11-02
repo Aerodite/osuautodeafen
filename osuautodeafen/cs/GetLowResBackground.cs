@@ -62,7 +62,7 @@ public class GetLowResBackground
         }
         else
         {
-            //just return the normal background
+            //just return the normal background (really only affects lazer)
             Console.WriteLine("No path exists, just using high res background");
             string _backgroundPath = _tosuApi.GetBackgroundPath();
             return _backgroundPath;
