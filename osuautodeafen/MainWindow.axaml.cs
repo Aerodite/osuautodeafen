@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -130,7 +131,7 @@ public partial class MainWindow : Window
 
         _mainTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(100)
+            Interval = TimeSpan.FromMilliseconds(150)
         };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
@@ -773,15 +774,6 @@ public partial class MainWindow : Window
             this.FindControl<CheckBox>("BackgroundToggle")!.IsChecked = true;
         }
 
-        if (!ViewModel.IsBackgroundEnabled)
-        {
-            _currentBitmap?.Dispose();
-            _currentBitmap = null; // ensure _currentBitmap is null after disposal to avoid accessing a disposed object
-
-            var newBitmap =
-                DisplayBlackBackground(); // create a new Bitmap and assign it to _currentBitmap inside DisplayBlackBackground
-            UpdateUIWithNewBackground(newBitmap); // pass the new Bitmap to UpdateUIWithNewBackground
-        }
     }
 
     private void CheckMissUndeafenSetting(object? sender, EventArgs? e)
@@ -920,8 +912,6 @@ public partial class MainWindow : Window
             ViewModel.IsBlurEffectEnabled = defaultBlurEffectEnabled;
 
         this.FindControl<CheckBox>("BlurEffectToggle")!.IsChecked = ViewModel.IsBlurEffectEnabled;
-
-        UpdateUIWithNewBackground(_currentBitmap);
     }
 
     private void DisposeTimer_Tick(object? sender, EventArgs e)
@@ -1042,7 +1032,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void UpdateBackground(object? sender, EventArgs? e)
+    private void UpdateBackground(object? sender, EventArgs? e)
     {
         if (!ViewModel.IsBackgroundEnabled)
         {
@@ -1053,41 +1043,65 @@ public partial class MainWindow : Window
         }
         else
         {
+            // if the background is enabled, check if a new background needs to be loaded
             var backgroundPath = _tosuApi.GetBackgroundPath();
+            
             if (_currentBitmap == null || backgroundPath != _currentBackgroundDirectory)
             {
-                Bitmap? newBitmap = null;
-                var fileExists = false;
-
-                await Task.Run(() =>
+                if (!File.Exists(backgroundPath))
                 {
-                    fileExists = File.Exists(backgroundPath);
-                    if (fileExists)
-                        try
-                        {
-                            newBitmap = new Bitmap(backgroundPath);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine("Failed to load background: " + ex.Message);
-                        }
-                });
-
-                if (!fileExists)
-                {
-                    Console.WriteLine("Background file not found: " + backgroundPath);
+                    Console.WriteLine($"The file does not exist: {backgroundPath}");
+                    DisplayBlackBackground(); // fallback to black background
                     return;
                 }
 
-                if (newBitmap == null) return;
+                Bitmap newBitmap;
+                try
+                {
+                    newBitmap = new Bitmap(backgroundPath);
+                }
+                catch
+                {
+                    DisplayBlackBackground(); // fallback to black background
+                    return;
+                }
 
                 _currentBitmap?.Dispose();
                 _currentBitmap = newBitmap;
                 IsBlackBackgroundDisplayed = false;
                 _currentBackgroundDirectory = backgroundPath;
-                await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackground(newBitmap));
+                UpdateUIWithNewBackground(newBitmap);
 
-                await Task.Run(() => UpdateLogoAsync());
+                UpdateLogoAsync();
+            }
+            else
+            {
+                if (_currentBitmap != null)
+                {
+
+                    ViewModel.PropertyChanged += (sender, args) =>
+                    {
+                        if (args.PropertyName == nameof(ViewModel.IsBlurEffectEnabled) || args.PropertyName == nameof(ViewModel.IsBlurEffectEnabled))
+                        {
+                            UpdateUIWithNewBackground(_currentBitmap);
+                        }
+
+                        //probably a better way of doing this but this is very much bandaid fix
+                        if (args.PropertyName == nameof(ViewModel.IsBackgroundEnabled))
+                        {
+                            if (ViewModel.IsBackgroundEnabled == false)
+                            {
+                                var blackBitmap = CreateBlackBitmap();
+                                UpdateUIWithNewBackground(blackBitmap);
+                                IsBlackBackgroundDisplayed = true;
+                            }
+                            else
+                            {
+                                UpdateUIWithNewBackground(_currentBitmap);
+                            }
+                        }
+                    };
+                }
             }
 
             if (_blurredBackground != null && _normalBackground != null)
@@ -1515,23 +1529,47 @@ private void UpdateViewModelWithLogo(Bitmap logoImage)
         return await Task.Run(() => CalculateAverageColor(bitmap));
     }
 
-    private void UpdateUIWithNewBackground(Bitmap bitmap)
+private async void UpdateUIWithNewBackground(Bitmap? bitmap)
+{
+    try
     {
-        var imageControl = new Image
+        if (bitmap == null)
+        {
+            Console.WriteLine("Bitmap is null. Cannot update background.");
+            return;
+        }
+
+        try
+        {
+            Console.WriteLine($"Bitmap size: {bitmap.PixelSize}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Failed to retrieve bitmap size: " + ex.Message);
+            return;
+        }
+
+        var newImageControl = new Image
         {
             Source = bitmap,
             Stretch = Stretch.UniformToFill,
-            Opacity = 0.5, // Initial opacity set to 0.5
-            ZIndex = -1,
+            Opacity = 0.2,
+            ZIndex = -1
         };
 
-        if (ViewModel.IsBlurEffectEnabled)
-            imageControl.Effect = new BlurEffect { Radius = 10 };
+        if (ViewModel.IsBlurEffectEnabled) newImageControl.Effect = new BlurEffect { Radius = 17.27 };
 
-        var transition = new DoubleTransition
+        var fadeInTransition = new DoubleTransition
         {
             Property = Visual.OpacityProperty,
-            Duration = TimeSpan.FromSeconds(2), // Define duration for the transition
+            Duration = TimeSpan.FromSeconds(0.3),
+            Easing = new QuarticEaseInOut()
+        };
+
+        var fadeOutTransition = new DoubleTransition
+        {
+            Property = Visual.OpacityProperty,
+            Duration = TimeSpan.FromSeconds(0.3),
             Easing = new QuarticEaseInOut()
         };
 
@@ -1548,25 +1586,46 @@ private void UpdateViewModelWithLogo(Bitmap logoImage)
                 backgroundLayer.Children.Clear();
             }
 
-            // Add the transition to the background layer
-            backgroundLayer.Transitions = new Transitions { transition };
+            var oldBackground = backgroundLayer.Children.OfType<Image>().FirstOrDefault();
+            if (oldBackground != null)
+            {
+                oldBackground.Transitions = new Transitions { fadeOutTransition };
+                oldBackground.Opacity = 0.2;
+                // Remove the old background after the fade-out transition completes
 
-            backgroundLayer.Children.Add(imageControl);
+                //100ms delay
+                backgroundLayer.Children.Remove(oldBackground);
+            }
+
+            backgroundLayer.Children.Add(newImageControl);
+
+            // Apply fade-in effect to the new background image
+            newImageControl.Transitions = new Transitions { fadeInTransition };
+            newImageControl.Opacity = 0.5;
+
+            // Optional rendering effects and transformations
             backgroundLayer.RenderTransform = new ScaleTransform(1.05, 1.05);
             backgroundLayer.Opacity = _currentBackgroundOpacity;
+
         }
         else
         {
+            // fallback: If the main content is not a grid or not structured as expected, replace it entirely
             var newContentGrid = new Grid();
-            newContentGrid.Children.Add(imageControl);
+            newContentGrid.Children.Add(newImageControl);
             Content = newContentGrid;
         }
 
-        if (ParallaxToggle.IsChecked == true && BackgroundToggle.IsChecked == true)
-            ApplyParallax(_mouseX, _mouseY);
-    }
+        if (ParallaxToggle.IsChecked == true && BackgroundToggle.IsChecked == true) ApplyParallax(_mouseX, _mouseY);
 
-    private Bitmap CreateBlackBitmap(int width = 600, int height = 600)
+        Console.WriteLine("UpdateUIWithNewBackground: Update completed.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Error updating background: " + ex.Message);
+    }
+}
+    private Bitmap? CreateBlackBitmap(int width = 600, int height = 600)
     {
         var renderTargetBitmap = new RenderTargetBitmap(new PixelSize(width, height), new Vector(96, 96));
         using (var drawingContext = renderTargetBitmap.CreateDrawingContext())
@@ -1585,7 +1644,7 @@ private void UpdateViewModelWithLogo(Bitmap logoImage)
         }
     }
 
-    private Bitmap DisplayBlackBackground()
+    private Bitmap? DisplayBlackBackground()
     {
         var blackBitmap = CreateBlackBitmap();
         _currentBitmap = blackBitmap;
