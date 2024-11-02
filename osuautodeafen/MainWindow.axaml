@@ -17,7 +17,6 @@
 
     <Window.Resources>
         <global:NotConverter x:Key="NotConverter" />
-        <converters:CornerRadiusFilterConverter x:Key="BooleanToVisibilityConverter" />
     </Window.Resources>
 
     <Grid ZIndex="5">
@@ -241,13 +240,12 @@
         </Grid>
 
 
-
         <Grid HorizontalAlignment="Stretch" x:Name="UpdateNotificationGrid"
               Grid.ColumnSpan="1" IsVisible="{Binding IsVisible, ElementName=UpdateNotificationBar}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Button x:Name="UpdateNotificationBar"  Content="A new update is available!" Margin="0,0,0,0"
+            <Button x:Name="UpdateNotificationBar" Content="A new update is available!" Margin="0,0,0,0"
                     HorizontalContentAlignment="Center" Click="UpdateNotificationBar_Click" IsVisible="False"
                     HorizontalAlignment="Stretch" FontSize="12" Foreground="White" />
         </Grid>

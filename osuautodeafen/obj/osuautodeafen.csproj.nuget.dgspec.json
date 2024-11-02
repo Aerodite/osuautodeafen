@@ -13,7 +13,6 @@
         "packagesPath": "C:\\Users\\Anthony\\.nuget\\packages\\",
         "outputPath": "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen2\\osuautodeafen\\obj\\",
         "projectStyle": "PackageReference",
-        "UsingMicrosoftNETSdk": false,
         "configFilePaths": [
           "C:\\Users\\Anthony\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"

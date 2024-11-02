@@ -55,18 +55,17 @@ public class GetLowResBackground
             Console.WriteLine($"Path exists: {path2}");
             return path2;
         }
-        else if (File.Exists(path1))
+
+        if (File.Exists(path1))
         {
             Console.WriteLine($"Path exists: {path1}");
             return path1;
         }
-        else
-        {
-            //just return the normal background (really only affects lazer)
-            Console.WriteLine("No path exists, just using high res background");
-            string _backgroundPath = _tosuApi.GetBackgroundPath();
-            return _backgroundPath;
-        }
+
+        //just return the normal background (really only affects lazer)
+        Console.WriteLine("No path exists, just using high res background");
+        var _backgroundPath = _tosuApi.GetBackgroundPath();
+        return _backgroundPath;
 
         Console.WriteLine("No path exists");
         return null;
