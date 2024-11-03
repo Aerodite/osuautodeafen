@@ -431,7 +431,7 @@ public class TosuApi : IDisposable
                             if (dataElement.ValueKind == JsonValueKind.Number)
                             {
                                 var value = dataElement.GetDouble();
-                                if (Math.Abs(value - -100) > 0.01) series.Data.Add(value);
+                                series.Data.Add(value);
                             }
                     }
                     else
