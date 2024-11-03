@@ -311,25 +311,30 @@ public partial class MainWindow : Window
         return smoothedData;
     }
 
-private LineSeries<ObservablePoint>? progressIndicator;
+private LineSeries<ObservablePoint> progressIndicator;
 
 public void UpdateChart(GraphData graphData)
 {
     try
     {
+        // Ensure the progress indicator is reset
+        if (progressIndicator != null)
+        {
+            progressIndicator.Values = new List<ObservablePoint>();
+        }
+
         // Get the DT rate if applied
         double? dtRate = _tosuApi.RateAdjustRate();
         Console.WriteLine($"DT Rate: {dtRate}");
 
         var seriesList = new List<ISeries>();
+        PlotView.DrawMargin = new Margin(0, 0, 0, 0);
 
         // Clear existing special series
         if (PlotView.Series != null)
         {
             seriesList.AddRange(PlotView.Series.Where(s => s.Name != "Break Period" && s.Name != "Deafen Point" && s.Name != "Progress Indicator"));
         }
-
-        PlotView.DrawMargin = new Margin(0, 0, 0, 0);
 
         // Adjust positions based on the DT rate
         foreach (var series in graphData.Series)
@@ -461,6 +466,7 @@ public void UpdateChart(GraphData graphData)
         };
         seriesList.Add(deafenMarker);
 
+        Series = seriesList.ToArray();
         XAxes = new Axis[]
         {
             new()
@@ -481,18 +487,14 @@ public void UpdateChart(GraphData graphData)
             }
         };
 
-        // Initialize or update progress indicator
-        if (progressIndicator == null)
+        // Initialize the progress indicator series
+        progressIndicator = new LineSeries<ObservablePoint>
         {
-            progressIndicator = new LineSeries<ObservablePoint>
-            {
-                Values = new List<ObservablePoint> { new ObservablePoint(0, 0) },
-                Stroke = new SolidColorPaint { Color = new SKColor(0x00, 0xFF, 0xFF, 192), StrokeThickness = 3 }, // Cyan color with 75% opacity
-                GeometryFill = null,
-                GeometryStroke = null,
-                LineSmoothness = 0
-            };
-        }
+            Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0xFF, 0xFF, 192), StrokeThickness = 5 },
+            GeometryFill = null,
+            GeometryStroke = null,
+            LineSmoothness = 0
+        };
 
         seriesList.Add(progressIndicator);
 
@@ -509,20 +511,45 @@ public void UpdateChart(GraphData graphData)
 }
 public void UpdateProgressIndicator()
 {
-    double completionPercentage = _tosuApi.GetCompletionPercentage();
-    double? progressPosition = completionPercentage * XAxes[0].MaxLimit / 100;
-    double? maxYValue = Series.SelectMany(s => (s as LineSeries<ObservablePoint>).Values.Select(v => v.Y)).Max();
-
-    progressIndicator.Values = new List<ObservablePoint>
+    try
     {
-        new ObservablePoint(progressPosition, 0), // bottom
-        new ObservablePoint(progressPosition, maxYValue) // top
-    };
+        // Retrieve the completion percentage from the API
+        double completionPercentage = _tosuApi.GetCompletionPercentage();
 
-    PlotView.InvalidateVisual(); // Refresh the plot
+        // Ensure the X-axis limit is correctly set
+        if (!XAxes.Any())
+        {
+            Console.WriteLine($"No XAxes found in the chart");
+            return;
+        }
+
+        double? maxXLimit = XAxes[0].MaxLimit;
+
+        // Calculate the corresponding position on the X-axis
+        double? progressPosition = completionPercentage * maxXLimit / 100;
+
+        // Determine the maximum Y value from existing series
+        double? maxYValue = Series
+            .OfType<LineSeries<ObservablePoint>>() // Filter out non-LineSeries
+            .SelectMany(s => s.Values.Select(v => v.Y))
+            .DefaultIfEmpty(0) // Ensure there's a default value if the sequence is empty
+            .Average();
+
+        // Set the progress indicator values
+        progressIndicator.Values = new List<ObservablePoint>
+        {
+            new ObservablePoint(progressPosition, 0), // bottom
+            new ObservablePoint(progressPosition, maxYValue) // top
+        };
+
+        // Refresh the plot
+        PlotView.InvalidateVisual();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"An error occurred while updating the progress indicator: {ex.Message}");
+    }
 }
-
-
     private void InitializeVisibilityCheckTimer()
     {
         _visibilityCheckTimer = new DispatcherTimer

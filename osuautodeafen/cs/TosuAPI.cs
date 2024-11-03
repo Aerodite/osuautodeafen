@@ -442,7 +442,7 @@ public class TosuApi : IDisposable
     // also this was a massive nightmare :)
     //</summary>
    // Summary:
-   
+
 private void ParseGraphData(JsonElement graphElement, double? dtRate = null)
 {
     try
