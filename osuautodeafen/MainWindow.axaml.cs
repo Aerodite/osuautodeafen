@@ -315,196 +315,198 @@ private LineSeries<ObservablePoint>? progressIndicator;
 
 public void UpdateChart(GraphData graphData)
 {
-    var seriesList = new List<ISeries>();
-
-    // Clear existing special series
-    seriesList.AddRange(PlotView.Series?.Where(s => s.Name != "Break Period" && s.Name != "Deafen Point" && s.Name != "Progress Indicator") ?? new List<ISeries>());
-
-    PlotView.DrawMargin = new Margin(0, 0, 0, 0);
-
-    // Add or update line series
-    foreach (var series in graphData.Series)
+    try
     {
-        var updatedValues = new List<ObservablePoint>();
-        var breakRegions = new List<Tuple<int, int>>();
-        bool inBreakRegion = false;
-        int? breakRegionStart = null;
+        // Get the DT rate if applied
+        double? dtRate = _tosuApi.RateAdjustRate();
+        Console.WriteLine($"DT Rate: {dtRate}");
 
-        for (int i = 0; i < series.Data.Count(); i++)
+        var seriesList = new List<ISeries>();
+
+        // Clear existing special series
+        if (PlotView.Series != null)
         {
-            var value = series.Data.ElementAt(i) == -100 ? 0 : series.Data.ElementAt(i);
-            updatedValues.Add(new ObservablePoint(i, value));
+            seriesList.AddRange(PlotView.Series.Where(s => s.Name != "Break Period" && s.Name != "Deafen Point" && s.Name != "Progress Indicator"));
+        }
 
-            if (series.Data.ElementAt(i) == -100)
+        PlotView.DrawMargin = new Margin(0, 0, 0, 0);
+
+        // Adjust positions based on the DT rate
+        foreach (var series in graphData.Series)
+        {
+            var updatedValues = new List<ObservablePoint>();
+            var breakRegions = new List<Tuple<int, int>>();
+            bool inBreakRegion = false;
+            int? breakRegionStart = null;
+
+            for (int i = 0; i < series.Data.Count(); i++)
             {
-                if (!inBreakRegion)
+                var value = series.Data.ElementAt(i) == -100 ? 0 : series.Data.ElementAt(i);
+                var xValue = dtRate.HasValue ? i / dtRate.Value : i;
+
+                if (double.IsNaN(xValue) || double.IsInfinity(xValue))
                 {
-                    breakRegionStart = i;
-                    inBreakRegion = true;
+                    Console.WriteLine($"Invalid xValue: {xValue} at index {i} with dtRate: {dtRate}");
+                    continue;
+                }
+
+                updatedValues.Add(new ObservablePoint(xValue, value));
+
+                if (series.Data.ElementAt(i) == -100)
+                {
+                    if (!inBreakRegion)
+                    {
+                        breakRegionStart = i;
+                        inBreakRegion = true;
+                    }
+                }
+                else if (inBreakRegion)
+                {
+                    breakRegions.Add(new Tuple<int, int>((int)(breakRegionStart / dtRate.Value), i - 1));
+                    breakRegionStart = null;
+                    inBreakRegion = false;
                 }
             }
-            else if (inBreakRegion)
+
+            if (inBreakRegion)
             {
-                breakRegions.Add(new Tuple<int, int>((int)breakRegionStart, i - 1));
-                breakRegionStart = null;
-                inBreakRegion = false;
+                breakRegions.Add(new Tuple<int, int>((int)(breakRegionStart / dtRate.Value), series.Data.Count - 1));
             }
-        }
 
-        if (inBreakRegion)
-        {
-            breakRegions.Add(new Tuple<int, int>((int)breakRegionStart, series.Data.Count - 1));
-        }
+            var smoothedValues = SmoothData(updatedValues, 10, 0.2);
 
-        var smoothedValues = SmoothData(updatedValues, 10, 0.2);
+            var color = series.Name == "aim"
+                ? new SKColor(0x00, 0xFF, 0x00, 192)
+                : new SKColor(0x00, 0x00, 0xFF, 140); // Adjust transparency
 
-        var color = series.Name == "aim"
-            ? new SKColor(0x00, 0xFF, 0x00, 192)
-            : new SKColor(0x00, 0x00, 0xFF, 140); // Adjust transparency
-        var name = series.Name == "aim" ? "Aim" : "Speed";
+            var name = series.Name == "aim" ? "Aim" : "Speed";
 
-        var existingLineSeries = seriesList.OfType<LineSeries<ObservablePoint>>().FirstOrDefault(s => s.Name == name);
-        if (existingLineSeries != null)
-        {
-            existingLineSeries.Values = smoothedValues;
-        }
-        else
-        {
-            var lineSeries = new LineSeries<ObservablePoint>
+            var existingLineSeries = seriesList.OfType<LineSeries<ObservablePoint>>().FirstOrDefault(s => s.Name == name);
+
+            if (existingLineSeries != null)
             {
-                Values = smoothedValues,
-                Fill = new SolidColorPaint { Color = color },
-                Stroke = new SolidColorPaint { Color = color },
-                Name = name,
-                GeometryFill = null,
-                GeometryStroke = null,
-                LineSmoothness = 1,
-                EasingFunction = EasingFunctions.ExponentialOut,
-                TooltipLabelFormatter = value => $"{name}: {value}"
-            };
-            seriesList.Add(lineSeries);
-        }
-    }
-
-    var maxLimit = Math.Ceiling((double)graphData.XAxis.Last() / 1024);
-    deafenProgressPercentage = _deafen.MinCompletionPercentage / 128;
-    var graphDuration = maxLimit;
-    deafenTimestamp = graphDuration * deafenProgressPercentage;
-
-    var maxYValue = graphData.Series.SelectMany(series => series.Data).Max();
-
-    // Add new break regions as shaded areas
-    foreach (var series in graphData.Series)
-    {
-        var breakRegions = new List<Tuple<int, int>>();
-        bool inBreakRegion = false;
-        int? breakRegionStart = null;
-
-        for (int i = 0; i < series.Data.Count(); i++)
-        {
-            if (series.Data.ElementAt(i) == -100)
+                existingLineSeries.Values = smoothedValues;
+            }
+            else
             {
-                if (!inBreakRegion)
+                var lineSeries = new LineSeries<ObservablePoint>
                 {
-                    breakRegionStart = i;
-                    inBreakRegion = true;
-                }
-            }
-            else if (inBreakRegion)
-            {
-                breakRegions.Add(new Tuple<int, int>((int)breakRegionStart, i - 1));
-                breakRegionStart = null;
-                inBreakRegion = false;
-            }
-        }
+                    Values = smoothedValues,
+                    Fill = new SolidColorPaint { Color = color },
+                    Stroke = new SolidColorPaint { Color = color },
+                    Name = name,
+                    GeometryFill = null,
+                    GeometryStroke = null,
+                    LineSmoothness = 1,
+                    EasingFunction = EasingFunctions.ExponentialOut,
+                    TooltipLabelFormatter = value => $"{name}: {value}"
+                };
 
-        if (inBreakRegion)
-        {
-            breakRegions.Add(new Tuple<int, int>((int)breakRegionStart, series.Data.Count - 1));
-        }
+                seriesList.Add(lineSeries);
+            }
 
-        foreach (var region in breakRegions)
-        {
-            var breakRegionSeries = new LineSeries<ObservablePoint>
+            // Add new break regions as shaded areas for each series
+            foreach (var region in breakRegions)
             {
-                Values = new List<ObservablePoint>
+                var breakRegionSeries = new LineSeries<ObservablePoint>
                 {
-                    new ObservablePoint(region.Item1, 0),
-                    new ObservablePoint(region.Item1, maxYValue),
-                    new ObservablePoint(region.Item2, maxYValue),
-                    new ObservablePoint(region.Item2, 0),
-                    new ObservablePoint(region.Item1, 0)
-                },
-                Name = "Break Period",
-                Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0xA5, 0x00, 110), StrokeThickness = 2 }, // Orange color outline with 70% opacity
+                    Values = new List<ObservablePoint>
+                    {
+                        new ObservablePoint(region.Item1, 0),
+                        new ObservablePoint(region.Item1, graphData.Series.SelectMany(s => s.Data).Max()),
+                        new ObservablePoint(region.Item2, graphData.Series.SelectMany(s => s.Data).Max()),
+                        new ObservablePoint(region.Item2, 0),
+                        new ObservablePoint(region.Item1, 0)
+                    },
+                    Name = "Break Period",
+                    Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0xA5, 0x00, 110), StrokeThickness = 2 }, // Orange color outline with 70% opacity
+                    GeometryFill = null,
+                    GeometryStroke = null,
+                    LineSmoothness = 0
+                };
+
+                seriesList.Add(breakRegionSeries);
+            }
+        }
+
+        var maxLimit = Math.Ceiling((double)graphData.XAxis.Last() / 1024);
+
+        if (dtRate.HasValue)
+        {
+            maxLimit /= dtRate.Value;
+        }
+
+        deafenProgressPercentage = _deafen.MinCompletionPercentage / 128;
+        var graphDuration = maxLimit;
+        deafenTimestamp = graphDuration * deafenProgressPercentage;
+
+        var maxYValue = graphData.Series.SelectMany(series => series.Data).Max();
+
+        // Add deafen marker
+        var deafenMarker = new LineSeries<ObservablePoint>
+        {
+            Values = new List<ObservablePoint>
+            {
+                new ObservablePoint(deafenTimestamp, 0),
+                new ObservablePoint(deafenTimestamp, maxYValue),
+                new ObservablePoint(maxLimit, maxYValue),
+                new ObservablePoint(maxLimit, 0),
+                new ObservablePoint(deafenTimestamp, 0)
+            },
+            Name = "Deafen Point",
+            Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00, 110), StrokeThickness = 3 }, // 70% opacity red
+            GeometryFill = null,
+            GeometryStroke = null,
+            LineSmoothness = 0
+        };
+        seriesList.Add(deafenMarker);
+
+        XAxes = new Axis[]
+        {
+            new()
+            {
+                LabelsPaint = new SolidColorPaint(SKColors.Transparent),
+                MinLimit = 0, // ensure the x-axis starts from 0
+                MaxLimit = maxLimit,
+                Padding = new Padding(2),
+                TextSize = 12
+            }
+        };
+        YAxes = new Axis[]
+        {
+            new()
+            {
+                LabelsPaint = new SolidColorPaint(SKColors.Transparent),
+                SeparatorsPaint = new SolidColorPaint(SKColors.Transparent)
+            }
+        };
+
+        // Initialize or update progress indicator
+        if (progressIndicator == null)
+        {
+            progressIndicator = new LineSeries<ObservablePoint>
+            {
+                Values = new List<ObservablePoint> { new ObservablePoint(0, 0) },
+                Stroke = new SolidColorPaint { Color = new SKColor(0x00, 0xFF, 0xFF, 192), StrokeThickness = 3 }, // Cyan color with 75% opacity
                 GeometryFill = null,
                 GeometryStroke = null,
                 LineSmoothness = 0
             };
-
-            seriesList.Add(breakRegionSeries);
         }
+
+        seriesList.Add(progressIndicator);
+
+        PlotView.Series = seriesList.ToArray();
+        PlotView.XAxes = XAxes;
+        PlotView.YAxes = YAxes;
+
+        PlotView.InvalidateVisual();
     }
-
-    var deafenMarkerValues = new List<ObservablePoint>
+    catch (Exception ex)
     {
-        new(deafenTimestamp, 0),
-        new(deafenTimestamp, maxYValue),
-        new(maxLimit, maxYValue),
-        new(maxLimit, 0),
-        new(deafenTimestamp, 0)
-    };
-
-    var deafenMarker = new LineSeries<ObservablePoint>
-    {
-        Values = deafenMarkerValues,
-        Name = "Deafen Point",
-        Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00, 110), StrokeThickness = 3 },
-        GeometryFill = null,
-        GeometryStroke = null,
-        LineSmoothness = 0
-    };
-    seriesList.Add(deafenMarker);
-
-    // Reset progress indicator
-    var progressIndicatorValues = new List<ObservablePoint> { new ObservablePoint(0, 0) };
-
-    progressIndicator = new LineSeries<ObservablePoint>
-    {
-        Values = progressIndicatorValues,
-        Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0xFF, 0xFF, 192), StrokeThickness = 3 }, // White color outline with 75% opacity
-        GeometryFill = null,
-        GeometryStroke = null,
-        LineSmoothness = 0,
-        Name = "Progress Indicator"
-    };
-
-    seriesList.Add(progressIndicator);
-
-    PlotView.Series = seriesList.ToArray();
-
-    var xAxis = new Axis
-    {
-        LabelsPaint = new SolidColorPaint(SKColors.Transparent),
-        MinLimit = 0, // ensure the x-axis starts from 0
-        MaxLimit = maxLimit,
-        Padding = new Padding(2),
-        TextSize = 12
-    };
-
-    var yAxis = new Axis
-    {
-        LabelsPaint = new SolidColorPaint(SKColors.Transparent),
-        SeparatorsPaint = new SolidColorPaint(SKColors.Transparent)
-    };
-
-    // Apply axes to the PlotView
-    PlotView.XAxes = new[] { xAxis };
-    PlotView.YAxes = new[] { yAxis };
-
-    PlotView.InvalidateVisual();
+        Console.WriteLine($"An error occurred while updating the chart: {ex.Message}");
+    }
 }
-
 public void UpdateProgressIndicator()
 {
     double completionPercentage = _tosuApi.GetCompletionPercentage();
@@ -517,7 +519,7 @@ public void UpdateProgressIndicator()
         new ObservablePoint(progressPosition, maxYValue) // top
     };
 
-    PlotView.InvalidateVisual();
+    PlotView.InvalidateVisual(); // Refresh the plot
 }
 
 

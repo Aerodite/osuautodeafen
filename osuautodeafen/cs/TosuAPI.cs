@@ -27,10 +27,12 @@ public class TosuApi : IDisposable
     private double _full;
     private string? _fullPath;
     private double _fullSR;
+    private string? _modNames;
     private string? _gameDirectory;
     private double _maxCombo;
     private double _maxPP;
     private double _missCount;
+    private double _DTRate;
     private string? _osuFilePath = "";
     private double _rankedStatus;
     private int _rawBanchoStatus = -1; // Default to -1 to indicate uninitialized
@@ -242,6 +244,18 @@ public class TosuApi : IDisposable
                                     }
                                 }
                         }
+
+                        if(play.TryGetProperty("mods", out var mods))
+                        {
+                            if (mods.TryGetProperty("name", out var modNames))
+                            {
+                                _modNames = modNames.GetString();
+                            }
+                            if(mods.TryGetProperty("rate", out var rate))
+                            {
+                                _DTRate = rate.GetDouble();
+                            }
+                        }
                     }
 
                     if (root.TryGetProperty("performance", out var performance))
@@ -378,6 +392,30 @@ public class TosuApi : IDisposable
         return _gameDirectory;
     }
 
+    public string? GetSelectedMods()
+    {
+        return _modNames;
+    }
+
+    public bool? IsDTSelected()
+    {
+        GetSelectedMods();
+        if (_modNames != null)
+        {
+            if (_modNames.Contains("DT") || _modNames.Contains("NC"))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public double? RateAdjustRate()
+    {
+        return _DTRate;
+    }
+
     private bool IsYAxisChanged(List<Series> newSeries)
     {
         if (Graph?.Series == null) return true;
@@ -403,116 +441,120 @@ public class TosuApi : IDisposable
     // organizes the array data from tosu
     // also this was a massive nightmare :)
     //</summary>
-    private void ParseGraphData(JsonElement graphElement)
+   // Summary:
+   
+private void ParseGraphData(JsonElement graphElement, double? dtRate = null)
+{
+    try
     {
-        try
+        var newGraph = new GraphData
         {
-            var newGraph = new GraphData
-            {
-                Series = new List<Series>(),
-                XAxis = new List<int>()
-            };
+            Series = new List<Series>(),
+            XAxis = new List<double>()
+        };
 
-            if (graphElement.TryGetProperty("series", out var seriesArray))
-                foreach (var seriesElement in seriesArray.EnumerateArray())
+        if (graphElement.TryGetProperty("series", out var seriesArray))
+        {
+            foreach (var seriesElement in seriesArray.EnumerateArray())
+            {
+                var seriesName = seriesElement.GetProperty("name").GetString();
+                if (seriesName == "flashlight" || seriesName == "aimNoSliders") continue;
+
+                var series = new Series
                 {
-                    var seriesName = seriesElement.GetProperty("name").GetString();
-                    if (seriesName == "flashlight" || seriesName == "aimNoSliders") continue;
+                    Name = seriesName,
+                    Data = new List<double>()
+                };
 
-                    var series = new Series
-                    {
-                        Name = seriesName,
-                        Data = new List<double>()
-                    };
-
-                    if (seriesElement.TryGetProperty("data", out var dataArray))
-                    {
-                        foreach (var dataElement in dataArray.EnumerateArray())
-                            if (dataElement.ValueKind == JsonValueKind.Number)
-                            {
-                                var value = dataElement.GetDouble();
-                                series.Data.Add(value);
-                            }
-                    }
-                    else
-                    {
-                        Console.WriteLine(@"Data property not found in series element.");
-                    }
-
-                    newGraph.Series.Add(series);
-                }
-            else
-                Console.WriteLine(@"Series property not found in graph element.");
-
-            if (graphElement.TryGetProperty("xaxis", out var xAxisArray))
-            {
-                foreach (var xElement in xAxisArray.EnumerateArray())
-                    if (xElement.ValueKind == JsonValueKind.Number)
-                    {
-                        var xValue = xElement.GetInt32();
-                        newGraph.XAxis.Add(xValue);
-                    }
-            }
-            else
-            {
-                Console.WriteLine(@"X-Axis property not found in graph element.");
-            }
-
-            // Combine channels that represent the beatmap's difficulty
-            var data = new double[newGraph.XAxis.Count];
-            foreach (var series in newGraph.Series)
-                for (var i = 0; i < data.Length && i < series.Data.Count; i++)
-                    data[i] += series.Data[i];
-
-            // Count up samples that don't represent intro, breaks, and outro sections
-            var percent = data.Max() / 100;
-            for (var i = 0; i < data.Length; i++)
-            {
-                data[i] = Math.Max(0, data[i]);
-                if (data[i] > percent)
+                if (seriesElement.TryGetProperty("data", out var dataArray))
                 {
+                    foreach (var dataElement in dataArray.EnumerateArray())
+                    {
+                        if (dataElement.ValueKind == JsonValueKind.Number)
+                        {
+                            var value = dataElement.GetDouble();
+                            series.Data.Add(value);
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Invalid data value kind: {dataElement.ValueKind}");
+                        }
+                    }
                 }
-            }
+                else
+                {
+                    Console.WriteLine(@"Data property not found in series element.");
+                }
 
-            if (IsYAxisChanged(newGraph.Series))
-            {
-                Graph = newGraph;
-                GraphDataUpdated?.Invoke(Graph);
-            }
-            else if (MainWindow.isCompPctLostFocus)
-            {
-                Graph = newGraph;
-                GraphDataUpdated?.Invoke(Graph);
-                MainWindow.isCompPctLostFocus = false;
+                newGraph.Series.Add(series);
             }
         }
-        catch (Exception ex)
+        else
         {
-            Console.WriteLine($@"An error occurred while parsing graph data: {ex.Message}");
+            Console.WriteLine(@"Series property not found in graph element.");
         }
-    }
 
-    private double[] FastSmooth(double[] data, double windowWidth, int smoothness)
-    {
-        var windowSize = (int)Math.Ceiling(windowWidth * smoothness);
-        var smoothedData = new double[data.Length];
+        if (graphElement.TryGetProperty("xaxis", out var xAxisArray))
+        {
+            foreach (var xElement in xAxisArray.EnumerateArray())
+            {
+                if (xElement.ValueKind == JsonValueKind.Number)
+                {
+                    var xValue = xElement.GetDouble();
+                    // Adjust x-axis for DT if applicable
+                    if (dtRate.HasValue)
+                    {
+                        xValue = (int)(xValue / dtRate.Value);
+                    }
+                    newGraph.XAxis.Add(xValue);
+                }
+                else
+                {
+                    Console.WriteLine($"Invalid x-axis value kind: {xElement.ValueKind}");
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine(@"X-Axis property not found in graph element.");
+        }
 
+        var data = new double[newGraph.XAxis.Count];
+        foreach (var series in newGraph.Series)
+        {
+            for (var i = 0; i < data.Length && i < series.Data.Count; i++)
+            {
+                data[i] += series.Data[i];
+            }
+        }
+
+        // Count up samples that don't represent intro, breaks, and outro sections
+        var percent = data.Max() / 100;
         for (var i = 0; i < data.Length; i++)
         {
-            var start = Math.Max(0, i - windowSize / 2);
-            var end = Math.Min(data.Length - 1, i + windowSize / 2);
-            double sum = 0;
-            var count = 0;
-
-            for (var j = start; j <= end; j++)
+            data[i] = Math.Max(0, data[i]);
+            if (data[i] > percent)
             {
-                sum += data[j];
-                count++;
             }
-
-            smoothedData[i] = sum / count;
         }
 
-        return smoothedData;
+        if (IsYAxisChanged(newGraph.Series))
+        {
+            Graph = newGraph;
+            GraphDataUpdated?.Invoke(Graph);
+        }
+        else if (MainWindow.isCompPctLostFocus)
+        {
+            Graph = newGraph;
+            GraphDataUpdated?.Invoke(Graph);
+            MainWindow.isCompPctLostFocus = false;
+        }
     }
+    catch (Exception ex)
+    {
+        Console.WriteLine($@"An error occurred while parsing graph data: {ex.Message}");
+    }
+}
+
+
 }
