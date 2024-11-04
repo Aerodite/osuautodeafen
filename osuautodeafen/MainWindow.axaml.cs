@@ -325,13 +325,11 @@ public partial class MainWindow : Window
         return smoothedData;
     }
 
-private LineSeries<ObservablePoint> progressIndicator;
-
+    private LineSeries<ObservablePoint>? progressIndicator;
 public void UpdateChart(GraphData graphData)
 {
     try
     {
-        // Ensure the progress indicator is reset
         if (progressIndicator != null)
         {
             progressIndicator.Values = new List<ObservablePoint>();
@@ -340,7 +338,6 @@ public void UpdateChart(GraphData graphData)
         var seriesList = new List<ISeries>();
         PlotView.DrawMargin = new Margin(0, 0, 0, 0);
 
-        // Clear existing special series
         if (PlotView.Series != null)
         {
             seriesList.AddRange(PlotView.Series.Where(s => s.Name != "Break Period" && s.Name != "Deafen Point" && s.Name != "Progress Indicator"));
@@ -395,7 +392,7 @@ public void UpdateChart(GraphData graphData)
 
             var color = series.Name == "aim"
                 ? new SKColor(0x00, 0xFF, 0x00, 192)
-                : new SKColor(0x00, 0x00, 0xFF, 140); // Adjust transparency
+                : new SKColor(0x00, 0x00, 0xFF, 140);
 
             var name = series.Name == "aim" ? "Aim" : "Speed";
 
@@ -510,7 +507,7 @@ public void UpdateChart(GraphData graphData)
         PlotView.YAxes = YAxes;
 
         double completionPercentage = _tosuApi.GetCompletionPercentage();
-        UpdateProgressIndicator(completionPercentage, maxYValue);
+        UpdateProgressIndicator(completionPercentage);
 
         PlotView.InvalidateVisual();
     }
@@ -520,14 +517,13 @@ public void UpdateChart(GraphData graphData)
     }
 }
 
-private void UpdateProgressIndicator(double completionPercentage, double maxYValue)
+private void UpdateProgressIndicator(double completionPercentage)
 {
     try
     {
-        // Ensure the X-axis limit is correctly set
         if (!XAxes.Any() || completionPercentage < 0 || completionPercentage > 100)
         {
-            Console.WriteLine($"No valid XAxes found in the chart or completion percentage is out of range.");
+            Console.WriteLine("No valid XAxes found in the chart or the completion percentage is out of range.");
             return;
         }
 
@@ -539,14 +535,15 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
             return;
         }
 
-        // Calculate the corresponding position on the X-axis
         double progressPosition = (completionPercentage / 100) * maxXLimit.Value;
 
-        // Ensure the progressPosition is within bounds
-        if (progressPosition < 0) progressPosition = 0;
-        if (progressPosition > maxXLimit.Value) progressPosition = maxXLimit.Value;
+        double leftEdgePosition = progressPosition - 0.5;
 
-        // Interpolate Y-values at the progress position
+        if (leftEdgePosition < 0)
+        {
+            leftEdgePosition = 0;
+        }
+
         var lineSeriesList = Series.OfType<LineSeries<ObservablePoint>>()
                                    .Where(s => s.Name == "Aim" || s.Name == "Speed")
                                    .ToList();
@@ -557,9 +554,45 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
             return;
         }
 
-        double minYValue = double.MaxValue;
-        double maxInterpolatedY = double.MinValue;
+        List<ObservablePoint> topContourPoints = new List<ObservablePoint>
+        {
+            new ObservablePoint(leftEdgePosition, 0)
+        };
 
+        for (double x = leftEdgePosition; x <= progressPosition; x += (progressPosition - leftEdgePosition) / 10)  // Adjust step for more points
+        {
+            double maxInterpolatedY = 0;
+
+            foreach (var series in lineSeriesList)
+            {
+                var points = series.Values.OrderBy(p => p.X).ToList();
+
+                if (points.Count == 0)
+                {
+                    continue;
+                }
+
+                var leftPoint = points.LastOrDefault(p => p.X <= x) ?? points.First();
+                var rightPoint = points.FirstOrDefault(p => p.X >= x) ?? points.Last();
+
+                double interpolatedY = 0;
+                if (leftPoint.X == rightPoint.X)
+                {
+                    interpolatedY = (double)leftPoint.Y;
+                }
+                else
+                {
+                    var slope = (rightPoint.Y - leftPoint.Y) / (rightPoint.X - leftPoint.X);
+                    interpolatedY = (double)(leftPoint.Y + slope * (x - leftPoint.X));
+                }
+
+                maxInterpolatedY = Math.Max(maxInterpolatedY, interpolatedY);
+            }
+
+            topContourPoints.Add(new ObservablePoint(x, maxInterpolatedY));
+        }
+
+        double rightEdgeY = 0;
         foreach (var series in lineSeriesList)
         {
             var points = series.Values.OrderBy(p => p.X).ToList();
@@ -569,36 +602,30 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
                 continue;
             }
 
-            var leftPoint = points.LastOrDefault(p => p.X <= progressPosition) ?? points.First();
-            var rightPoint = points.FirstOrDefault(p => p.X >= progressPosition) ?? points.Last();
+            var rightEdgeLeftPoint = points.LastOrDefault(p => p.X <= progressPosition) ?? points.First();
+            var rightEdgeRightPoint = points.FirstOrDefault(p => p.X >= progressPosition) ?? points.Last();
 
             double interpolatedY = 0;
-            if (leftPoint.X == rightPoint.X)
+            if (rightEdgeLeftPoint.X == rightEdgeRightPoint.X)
             {
-                interpolatedY = (double)leftPoint.Y;
+                interpolatedY = (double)rightEdgeLeftPoint.Y;
             }
             else
             {
-                var slope = (rightPoint.Y - leftPoint.Y) / (rightPoint.X - leftPoint.X);
-                interpolatedY = (double)(leftPoint.Y + slope * (progressPosition - leftPoint.X));
+                var slope = (rightEdgeRightPoint.Y - rightEdgeLeftPoint.Y) / (rightEdgeRightPoint.X - rightEdgeLeftPoint.X);
+                interpolatedY = (double)(rightEdgeLeftPoint.Y + slope * (progressPosition - rightEdgeLeftPoint.X));
             }
 
-            minYValue = Math.Min(interpolatedY, minYValue); // ensure it covers all cases
-            maxInterpolatedY = Math.Max(interpolatedY, maxInterpolatedY);
+            rightEdgeY = Math.Max(rightEdgeY, interpolatedY);
         }
 
-        if (minYValue == double.MaxValue || maxInterpolatedY == double.MinValue)
-        {
-            Console.WriteLine("Unable to interpolate any Y values at the given progress position.");
-            return;
-        }
+        topContourPoints.Add(new ObservablePoint(progressPosition, rightEdgeY));
 
-        // Use the calculated min and max Y values for the progress indicator, ensuring the entire height is covered
-        progressIndicator.Values = new List<ObservablePoint>
-        {
-            new ObservablePoint(progressPosition, 0), // bottom
-            new ObservablePoint(progressPosition, maxYValue) // top
-        };
+        // Ensure the bottom-right and bottom-left points are included to form the polygon
+        topContourPoints.Add(new ObservablePoint(progressPosition, 0));  // Bottom-right corner
+        topContourPoints.Add(new ObservablePoint(leftEdgePosition, 0));  // Bottom-left corner for closure
+
+        progressIndicator.Values = topContourPoints;
 
         PlotView.InvalidateVisual();
     }
@@ -607,6 +634,9 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
         Console.WriteLine($"An error occurred while updating the progress indicator: {ex.Message}");
     }
 }
+
+//TODO: progress indicator crashes the whole program if going through maps too fast
+
 
     private void InitializeVisibilityCheckTimer()
     {
@@ -772,7 +802,7 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
     {
         Dispatcher.UIThread.InvokeAsync(() => UpdateBackground(sender, e));
         //update progressindicator
-        Dispatcher.UIThread.InvokeAsync(() => UpdateProgressIndicator(_tosuApi.GetCompletionPercentage(), 200));
+        Dispatcher.UIThread.InvokeAsync(() => UpdateProgressIndicator(_tosuApi.GetCompletionPercentage()));
         Dispatcher.UIThread.InvokeAsync(() => CheckIsFCRequiredSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(() => CheckBackgroundSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(() => CheckParallaxSetting(sender, e));
