@@ -1682,7 +1682,7 @@ private async Task<Bitmap> LoadLogoAsync(string resourceName)
     }
 
 
- private async Task UpdateLogoAsync()
+private async Task UpdateLogoAsync()
 {
     if (_getLowResBackground == null)
     {
@@ -1739,13 +1739,11 @@ private async Task<Bitmap> LoadLogoAsync(string resourceName)
     // Calculate newAverageColor only if _lowResBitmap is not null
     if (_lowResBitmap != null)
     {
-        //newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_lowResBitmap));
-        //white color for test
-        newAverageColor = new SKColor(255, 255, 255);
+        newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_lowResBitmap));
     }
 
-    var steps = 40; // Increased steps for smoother gradient
-    var delay = 0; // Fastest possible delay in milliseconds
+    var steps = 20; // Increased steps for smoother gradient
+    var delay = 1; // Fastest possible delay in milliseconds
 
     await _animationManager.EnqueueAnimation(async () =>
     {
@@ -1755,81 +1753,80 @@ private async Task<Bitmap> LoadLogoAsync(string resourceName)
             return;
         }
 
+        var originalPicture = _cachedLogoSvg.Picture;
+
         for (var i = 0; i <= steps; i++)
         {
             var t = i / (float)steps;
             var interpolatedColor = InterpolateColor(_oldAverageColor, newAverageColor, t);
-            var picture = _cachedLogoSvg.Picture;
+            var width = (int)originalPicture.CullRect.Width;
+            var height = (int)originalPicture.CullRect.Height;
+            var bitmap = new SKBitmap(width, height);
 
-            if (picture != null)
+            await Task.Run(() =>
             {
-                var width = (int)picture.CullRect.Width;
-                var height = (int)picture.CullRect.Height;
-                var bitmap = new SKBitmap(width, height);
-
-                await Task.Run(() =>
+                using (var canvas = new SKCanvas(bitmap))
                 {
-                    using (var canvas = new SKCanvas(bitmap))
-                    {
-                        // Draw the original picture
-                        canvas.Clear(SKColors.Transparent);
-                        canvas.DrawPicture(picture);
+                    canvas.Clear(SKColors.Transparent);
 
-                        // Apply the interpolated color to each pixel
-                        for (var y = 0; y < bitmap.Height; y++)
+                    using var paint = new SKPaint
+                    {
+                    };
+
+                    canvas.DrawPicture(originalPicture, paint);
+
+                    // Apply the interpolated color to each pixel
+                    for (var y = 0; y < bitmap.Height; y++)
+                    {
+                        for (var x = 0; x < bitmap.Width; x++)
                         {
-                            for (var x = 0; x < bitmap.Width; x++)
-                            {
-                                var pixel = bitmap.GetPixel(x, y);
-                                var newColor = new SKColor(
-                                    interpolatedColor.Red,
-                                    interpolatedColor.Green,
-                                    interpolatedColor.Blue,
-                                    pixel.Alpha
-                                );
-                                bitmap.SetPixel(x, y, newColor);
-                            }
+                            var pixel = bitmap.GetPixel(x, y);
+                            var newColor = new SKColor(
+                                interpolatedColor.Red,
+                                interpolatedColor.Green,
+                                interpolatedColor.Blue,
+                                pixel.Alpha
+                            );
+                            bitmap.SetPixel(x, y, newColor);
                         }
                     }
-                });
-
-                using var image = SKImage.FromBitmap(bitmap);
-                using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-                if (data == null)
-                {
-                    Console.WriteLine("[ERROR] Data encoding failed");
-                    continue;
                 }
+            });
 
-                using var stream = new MemoryStream();
-                data.SaveTo(stream);
-                stream.Position = 0;
-
-                try
-                {
-                    _colorChangingImage = new Bitmap(stream);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[ERROR] Exception while creating Bitmap from stream: {ex.Message}");
-                }
-
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    if (DataContext is SharedViewModel viewModel)
-                    {
-                        try
-                        {
-                            viewModel.ModifiedLogoImage = new Bitmap(stream);
-                            Console.WriteLine("Modified logo image updated in ViewModel");
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[ERROR] Exception while setting ViewModel's ModifiedLogoImage: {ex.Message}");
-                        }
-                    }
-                });
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            if (data == null)
+            {
+                Console.WriteLine("[ERROR] Data encoding failed");
+                continue;
             }
+
+            await using var stream = new MemoryStream(data.ToArray());
+
+            try
+            {
+                _colorChangingImage = new Bitmap(stream);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Exception while creating Bitmap from stream: {ex.Message}");
+            }
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (DataContext is SharedViewModel viewModel)
+                {
+                    try
+                    {
+                        viewModel.ModifiedLogoImage = new Bitmap(stream);
+                        Console.WriteLine("Modified logo image updated in ViewModel");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[ERROR] Exception while setting ViewModel's ModifiedLogoImage: {ex.Message}");
+                    }
+                }
+            });
 
             await Task.Delay(delay);
         }
@@ -1837,19 +1834,6 @@ private async Task<Bitmap> LoadLogoAsync(string resourceName)
         _oldAverageColor = newAverageColor;
     });
 }
-    private IImage ConvertSvgToAvaloniaImage(SKSvg svg, int width, int height)
-    {
-        var info = new SKImageInfo(width, height);
-        using var surface = SKSurface.Create(info);
-        var canvas = surface.Canvas;
-        canvas.Clear(SKColors.Transparent);
-        canvas.DrawPicture(svg.Picture);
-        using var image = surface.Snapshot();
-        using var data = image.Encode();
-        using var stream = new MemoryStream(data.ToArray());
-        return new Bitmap(stream);
-    }
-
 
     private async Task<SKColor> CalculateAverageColorAsync(SKBitmap bitmap)
     {

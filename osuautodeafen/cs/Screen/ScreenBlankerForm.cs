@@ -167,7 +167,7 @@ public class ScreenBlankerForm : IDisposable
         _isHandlingFocusChange = true;
 
         var focusedProcess = GetFocusedProcess();
-        if (focusedProcess != null && focusedProcess.ProcessName is not ("osu!"))
+        if (focusedProcess != null && focusedProcess.ProcessName is ("osu!"))
         {
             if (!_isOsuFocused)
             {
