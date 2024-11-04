@@ -501,11 +501,6 @@ private void ParseGraphData(JsonElement graphElement, double? dtRate = null)
                 if (xElement.ValueKind == JsonValueKind.Number)
                 {
                     var xValue = xElement.GetDouble();
-                    // Adjust x-axis for DT if applicable
-                    if (dtRate.HasValue)
-                    {
-                        xValue = (int)(xValue / dtRate.Value);
-                    }
                     newGraph.XAxis.Add(xValue);
                 }
                 else
@@ -528,15 +523,7 @@ private void ParseGraphData(JsonElement graphElement, double? dtRate = null)
             }
         }
 
-        // Count up samples that don't represent intro, breaks, and outro sections
-        var percent = data.Max() / 100;
-        for (var i = 0; i < data.Length; i++)
-        {
-            if (data[i] < percent)
-            {
-                data[i] = 0;
-            }
-        }
+
 
         if (IsYAxisChanged(newGraph.Series))
         {

@@ -323,10 +323,6 @@ public void UpdateChart(GraphData graphData)
             progressIndicator.Values = new List<ObservablePoint>();
         }
 
-        // Get the DT rate if applied
-        double? dtRate = _tosuApi.RateAdjustRate();
-        Console.WriteLine($"DT Rate: {dtRate}");
-
         var seriesList = new List<ISeries>();
         PlotView.DrawMargin = new Margin(0, 0, 0, 0);
 
@@ -349,37 +345,37 @@ public void UpdateChart(GraphData graphData)
 
             for (int i = 0; i < series.Data.Count(); i++)
             {
-                var value = series.Data.ElementAt(i) == -100 ? 0 : series.Data.ElementAt(i);
-                var xValue = dtRate.HasValue ? i / dtRate.Value : i;
+                var value = series.Data.ElementAt(i);
+                var xValue = i;
 
                 if (double.IsNaN(xValue) || double.IsInfinity(xValue))
                 {
-                    Console.WriteLine($"Invalid xValue: {xValue} at index {i} with dtRate: {dtRate}");
+                    Console.WriteLine($"Invalid xValue: {xValue} at index {i}");
                     continue;
                 }
 
-                updatedValues.Add(new ObservablePoint(xValue, value));
-
-                if (series.Data.ElementAt(i) == -100 || series.Data.ElementAt(i) == 0)
+                if (value == -100)
                 {
+                    // Start or continue a break region
                     if (!inBreakRegion)
                     {
                         breakRegionStart = i;
                         inBreakRegion = true;
                     }
+                    // Skip 0 value point if it's in a break region
+                    continue;
                 }
                 else if (inBreakRegion)
                 {
-                    breakRegions.Add(new Tuple<int, int>((int)(breakRegionStart / dtRate.Value), i - 1));
+                    // End of a break region
+                    breakRegions.Add(new Tuple<int, int>((int)breakRegionStart, i - 1));
                     breakRegionStart = null;
                     inBreakRegion = false;
                 }
+
+                updatedValues.Add(new ObservablePoint(xValue, value));
             }
 
-            if (inBreakRegion)
-            {
-                breakRegions.Add(new Tuple<int, int>((int)(breakRegionStart / dtRate.Value), series.Data.Count - 1));
-            }
 
             var smoothedValues = SmoothData(updatedValues, 10, 0.2);
 
@@ -438,11 +434,6 @@ public void UpdateChart(GraphData graphData)
         }
 
         var maxLimit = Math.Ceiling((double)graphData.XAxis.Last() / 1000);
-
-        if (dtRate.HasValue)
-        {
-            maxLimit /= dtRate.Value;
-        }
 
         deafenProgressPercentage = _deafen.MinCompletionPercentage / 100;
         var graphDuration = maxLimit;
@@ -503,7 +494,7 @@ public void UpdateChart(GraphData graphData)
         PlotView.Series = seriesList.ToArray();
         PlotView.XAxes = XAxes;
         PlotView.YAxes = YAxes;
-        
+
         double completionPercentage = _tosuApi.GetCompletionPercentage();
         UpdateProgressIndicator(completionPercentage, maxYValue);
 
@@ -535,7 +526,11 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
         }
 
         // Calculate the corresponding position on the X-axis
-        double progressPosition = completionPercentage * maxXLimit.Value / 100;
+        double progressPosition = (completionPercentage / 100) * maxXLimit.Value;
+
+        // Ensure the progressPosition is within bounds
+        if (progressPosition < 0) progressPosition = 0;
+        if (progressPosition > maxXLimit.Value) progressPosition = maxXLimit.Value;
 
         // Interpolate Y-values at the progress position
         var lineSeriesList = Series.OfType<LineSeries<ObservablePoint>>()
@@ -548,8 +543,8 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
             return;
         }
 
-        var minYValues = new List<double>();
-        var maxYValues = new List<double>();
+        double minYValue = double.MaxValue;
+        double maxInterpolatedY = double.MinValue;
 
         foreach (var series in lineSeriesList)
         {
@@ -574,32 +569,30 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
                 interpolatedY = (double)(leftPoint.Y + slope * (progressPosition - leftPoint.X));
             }
 
-            minYValues.Add(interpolatedY);
-            maxYValues.Add(interpolatedY);
+            minYValue = Math.Min(interpolatedY, minYValue); // ensure it covers all cases
+            maxInterpolatedY = Math.Max(interpolatedY, maxInterpolatedY);
         }
 
-        if (!minYValues.Any() || !maxYValues.Any())
+        if (minYValue == double.MaxValue || maxInterpolatedY == double.MinValue)
         {
             Console.WriteLine("Unable to interpolate any Y values at the given progress position.");
             return;
         }
 
-        double minYValue = minYValues.Min();
-        double localMaxYValue = maxYValues.Max();
-
-        // Use the calculated min and max Y values for the progress indicator
+        // Use the calculated min and max Y values for the progress indicator, ensuring the entire height is covered
         progressIndicator.Values = new List<ObservablePoint>
         {
-            new ObservablePoint(progressPosition, minYValue), // bottom
-            new ObservablePoint(progressPosition, localMaxYValue) // top
+            new ObservablePoint(progressPosition, 0), // bottom
+            new ObservablePoint(progressPosition, maxYValue) // top
         };
+
+        PlotView.InvalidateVisual();
     }
     catch (Exception ex)
     {
         Console.WriteLine($"An error occurred while updating the progress indicator: {ex.Message}");
     }
 }
-
 
     private void InitializeVisibilityCheckTimer()
     {
