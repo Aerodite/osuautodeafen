@@ -59,6 +59,8 @@ public partial class MainWindow : Window
     private BreakPeriod _breakPeriod;
     private SKSvg? _cachedLogoSvg;
     private Bitmap _colorChangingImage;
+    private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+    private readonly object _updateLock = new object();
 
     private string? _currentBackgroundDirectory;
 
@@ -1340,10 +1342,117 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
         });
     }
 
-    private async Task UpdateUIWithNewBackgroundAsync(Bitmap bitmap)
+private async Task UpdateUIWithNewBackgroundAsync(Avalonia.Media.Imaging.Bitmap bitmap)
+{
+    // Cancel previous task if still running
+    lock (_updateLock)
     {
-        await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackground(bitmap));
+        _cancellationTokenSource.Cancel();
+        _cancellationTokenSource = new CancellationTokenSource();
     }
+
+    var token = _cancellationTokenSource.Token;
+
+    Dispatcher.UIThread.Post(async () =>
+    {
+        if (token.IsCancellationRequested || bitmap == null)
+            return;
+
+        // Ensure UI updates happen on the UI thread
+        try
+        {
+            var newImageControl = new Image
+            {
+                Source = bitmap,
+                Stretch = Stretch.UniformToFill,
+                Opacity = 0.2,
+                ZIndex = -1
+            };
+
+            if (ViewModel?.IsBlurEffectEnabled == true)
+            {
+                newImageControl.Effect = new BlurEffect { Radius = 17.27 };
+            }
+
+            var fadeInTransition = new DoubleTransition
+            {
+                Property = Image.OpacityProperty,
+                Duration = TimeSpan.FromSeconds(0.3),
+                Easing = new QuarticEaseInOut()
+            };
+
+            var fadeOutTransition = new DoubleTransition
+            {
+                Property = Image.OpacityProperty,
+                Duration = TimeSpan.FromSeconds(0.3),
+                Easing = new QuarticEaseInOut()
+            };
+
+            if (Content is Grid mainGrid)
+            {
+                var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
+                if (backgroundLayer == null)
+                {
+                    backgroundLayer = new Grid { Name = "BackgroundLayer", ZIndex = -1 };
+                    mainGrid.Children.Insert(0, backgroundLayer);
+                }
+                else
+                {
+                    backgroundLayer.Children.Clear();
+                }
+
+                var oldBackground = backgroundLayer.Children.OfType<Image>().FirstOrDefault();
+                if (oldBackground != null)
+                {
+                    oldBackground.Transitions = new Transitions { fadeOutTransition };
+                    oldBackground.Opacity = 0.2;
+
+                    await Task.Delay(300); // Ensure the delay matches the transition duration
+
+                    if (!token.IsCancellationRequested)
+                    {
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            if (!token.IsCancellationRequested)
+                            {
+                                backgroundLayer.Children.Remove(oldBackground);
+                                oldBackground.Source = null;
+                            }
+                        });
+                    }
+                }
+
+                if (token.IsCancellationRequested)
+                    return;
+
+                backgroundLayer.Children.Add(newImageControl);
+
+                newImageControl.Transitions = new Transitions { fadeInTransition };
+                newImageControl.Opacity = 0.5;
+
+                backgroundLayer.RenderTransform = new ScaleTransform(1.05, 1.05);
+                backgroundLayer.Opacity = _currentBackgroundOpacity;
+            }
+            else
+            {
+                var newContentGrid = new Grid();
+                newContentGrid.Children.Add(newImageControl);
+                Content = newContentGrid;
+            }
+
+            if (ParallaxToggle?.IsChecked == true && BackgroundToggle?.IsChecked == true)
+            {
+                ApplyParallax(_mouseX, _mouseY);
+            }
+
+            Console.WriteLine("UpdateUIWithNewBackground: Update completed.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error updating UI: " + ex.Message);
+        }
+    });
+}
 
     private void UpdateBackgroundVisibility()
     {
@@ -1364,8 +1473,19 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
 
     private SKColor CalculateAverageColor(SKBitmap bitmap)
     {
+        if (bitmap == null)
+        {
+            throw new ArgumentNullException(nameof(bitmap), "Bitmap cannot be null");
+        }
+
         var width = bitmap.Width;
         var height = bitmap.Height;
+
+        if (width == 0 || height == 0)
+        {
+            throw new ArgumentException("Bitmap dimensions cannot be zero", nameof(bitmap));
+        }
+
         var pixelCount = width * height;
 
         long totalR = 0, totalG = 0, totalB = 0;
@@ -1396,6 +1516,11 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
 
     private SKColor InterpolateColor(SKColor from, SKColor to, float t)
     {
+        if (t < 0f || t > 1f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(t), "Interpolation factor must be between 0 and 1");
+        }
+
         byte InterpolateComponent(byte start, byte end, float factor)
         {
             return (byte)(start + (end - start) * factor);
@@ -1587,6 +1712,12 @@ private async Task<Bitmap> LoadLogoAsync(string resourceName)
         return;
     }
 
+    if (!File.Exists(lowResBitmapPath))
+    {
+        Console.WriteLine("[ERROR] Low-resolution bitmap path does not exist");
+        return;
+    }
+
     _lowResBitmap = new Bitmap(lowResBitmapPath);
     if (_lowResBitmap == null)
     {
@@ -1605,9 +1736,12 @@ private async Task<Bitmap> LoadLogoAsync(string resourceName)
 
     var newAverageColor = SKColors.White;
 
+    // Calculate newAverageColor only if _lowResBitmap is not null
     if (_lowResBitmap != null)
     {
-        newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_lowResBitmap));
+        //newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_lowResBitmap));
+        //white color for test
+        newAverageColor = new SKColor(255, 255, 255);
     }
 
     var steps = 40; // Increased steps for smoother gradient
@@ -1615,6 +1749,12 @@ private async Task<Bitmap> LoadLogoAsync(string resourceName)
 
     await _animationManager.EnqueueAnimation(async () =>
     {
+        if (_cachedLogoSvg?.Picture == null)
+        {
+            Console.WriteLine("[ERROR] Cached logo SVG or its picture is null");
+            return;
+        }
+
         for (var i = 0; i <= steps; i++)
         {
             var t = i / (float)steps;
@@ -1716,106 +1856,6 @@ private async Task<Bitmap> LoadLogoAsync(string resourceName)
         return await Task.Run(() => CalculateAverageColor(bitmap));
     }
 
-    private async Task UpdateUIWithNewBackground(Bitmap? bitmap)
-    {
-        if (bitmap == null)
-        {
-            Console.WriteLine("Bitmap is null. Cannot update background.");
-            return;
-        }
-
-        try
-        {
-            // Ensure UI updates happen on the UI thread
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                try
-                {
-                    var newImageControl = new Image
-                    {
-                        Source = bitmap,
-                        Stretch = Stretch.UniformToFill,
-                        Opacity = 0.2,
-                        ZIndex = -1
-                    };
-
-                    if (ViewModel.IsBlurEffectEnabled)
-                        newImageControl.Effect = new BlurEffect { Radius = 17.27 };
-
-                    var fadeInTransition = new DoubleTransition
-                    {
-                        Property = OpacityProperty,
-                        Duration = TimeSpan.FromSeconds(0.3),
-                        Easing = new QuarticEaseInOut()
-                    };
-
-                    var fadeOutTransition = new DoubleTransition
-                    {
-                        Property = OpacityProperty,
-                        Duration = TimeSpan.FromSeconds(0.3),
-                        Easing = new QuarticEaseInOut()
-                    };
-
-                    if (Content is Grid mainGrid)
-                    {
-                        var backgroundLayer = mainGrid.Children.OfType<Grid>()
-                            .FirstOrDefault(g => g.Name == "BackgroundLayer");
-                        if (backgroundLayer == null)
-                        {
-                            backgroundLayer = new Grid { Name = "BackgroundLayer", ZIndex = -1 };
-                            mainGrid.Children.Insert(0, backgroundLayer);
-                        }
-                        else
-                        {
-                            backgroundLayer.Children.Clear();
-                        }
-
-                        var oldBackground = backgroundLayer.Children.OfType<Image>().FirstOrDefault();
-                        if (oldBackground != null)
-                        {
-                            oldBackground.Transitions = new Transitions { fadeOutTransition };
-                            oldBackground.Opacity = 0.2;
-                            Task.Run(async () =>
-                            {
-                                await Task.Delay(300); // Ensure the delay matches the transition duration
-                                await Dispatcher.UIThread.InvokeAsync(() =>
-                                {
-                                    backgroundLayer.Children.Remove(oldBackground);
-                                });
-                            });
-                        }
-
-                        backgroundLayer.Children.Add(newImageControl);
-
-                        newImageControl.Transitions = new Transitions { fadeInTransition };
-                        newImageControl.Opacity = 0.5;
-
-                        backgroundLayer.RenderTransform = new ScaleTransform(1.05, 1.05);
-                        backgroundLayer.Opacity = _currentBackgroundOpacity;
-                    }
-                    else
-                    {
-                        var newContentGrid = new Grid();
-                        newContentGrid.Children.Add(newImageControl);
-                        Content = newContentGrid;
-                    }
-
-                    if (ParallaxToggle.IsChecked == true && BackgroundToggle.IsChecked == true)
-                        ApplyParallax(_mouseX, _mouseY);
-
-                    Console.WriteLine("UpdateUIWithNewBackground: Update completed.");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("Error updating UI: " + ex.Message);
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Error processing background: " + ex.Message);
-        }
-    }
 
     private Bitmap? CreateBlackBitmap(int width = 600, int height = 600)
     {
