@@ -55,6 +55,12 @@ public class ScreenBlankerForm : IDisposable
     private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
     private delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
 
+   // have caution working with this file ive wasted so much time and its all hacky
+   // and a pain in the ass
+   // how the hell did the focusu devs make such a good implementation for this exact
+   // same thing please give them credit where its due
+
+
     public ScreenBlankerForm(Window mainWindow)
     {
         Console.WriteLine(@"Initializing ScreenBlankerForm...");
@@ -145,7 +151,7 @@ public class ScreenBlankerForm : IDisposable
     private void CheckMouseClickOutsideOsu()
     {
         var focusedProcess = GetFocusedProcess();
-        if (focusedProcess != null && focusedProcess.ProcessName != "osu!")
+        if (focusedProcess is { ProcessName: not ("osu!" or "osu!(lazer)") })
         {
             Dispatcher.UIThread.Post(() => {
                 SetBlankingWindowsTopmost(false, true);
