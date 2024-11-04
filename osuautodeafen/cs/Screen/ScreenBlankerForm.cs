@@ -17,6 +17,7 @@ public class ScreenBlankerForm : IDisposable
     private const int WM_LBUTTONDOWN = 0x0201;
     private const int WM_RBUTTONDOWN = 0x0204;
 
+    private DateTime _lastMouseEventTime = DateTime.MinValue;
     private readonly Window _mainWindow;
     private ScreenBlankerWindow[]? _blankingWindows;
     private bool _isHandlingFocusChange;
@@ -130,7 +131,13 @@ public class ScreenBlankerForm : IDisposable
     {
         if (nCode >= 0 && (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN))
         {
-            CheckMouseClickOutsideOsu();
+            DateTime currentMouseEventTime = DateTime.Now;
+            // Only process if the last event was more than 50 ms ago
+            if ((currentMouseEventTime - _lastMouseEventTime).TotalMilliseconds > 50)
+            {
+                _lastMouseEventTime = currentMouseEventTime;
+                Task.Run(CheckMouseClickOutsideOsu); // Run the check asynchronously
+            }
         }
         return CallNextHookEx(_mouseHook, nCode, wParam, lParam);
     }
@@ -140,7 +147,9 @@ public class ScreenBlankerForm : IDisposable
         var focusedProcess = GetFocusedProcess();
         if (focusedProcess != null && focusedProcess.ProcessName != "osu!")
         {
-            SetBlankingWindowsTopmost(false, true);
+            Dispatcher.UIThread.Post(() => {
+                SetBlankingWindowsTopmost(false, true);
+            });
         }
     }
 
@@ -153,22 +162,13 @@ public class ScreenBlankerForm : IDisposable
         }
     }
 
-    private void HandleMouseEvent(IntPtr hwnd)
-    {
-        var focusedProcess = GetFocusedProcess();
-        if (focusedProcess != null && focusedProcess.ProcessName != "osu!")
-        {
-            SetBlankingWindowsTopmost(false, true);
-        }
-    }
-
     private bool CheckOsuFocus()
     {
         if (_isHandlingFocusChange || (DateTime.Now - _lastFocusChangeTime).TotalMilliseconds < 200) return _isOsuFocused;
         _isHandlingFocusChange = true;
 
         var focusedProcess = GetFocusedProcess();
-        if (focusedProcess != null && focusedProcess.ProcessName == "osu!")
+        if (focusedProcess != null && focusedProcess.ProcessName is not ("osu!" or "osu!(lazer)"))
         {
             if (!_isOsuFocused)
             {
