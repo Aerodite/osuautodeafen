@@ -416,34 +416,38 @@ public class TosuApi : IDisposable
         return _DTRate;
     }
 
-    private bool IsYAxisChanged(List<Series> newSeries)
+    private bool HasGraphDataChanged(GraphData newGraph)
     {
         if (Graph?.Series == null) return true;
 
-        if (Graph.Series.Count != newSeries.Count) return true;
+        if (Graph.Series.Count != newGraph.Series.Count) return true;
 
         for (var i = 0; i < Graph.Series.Count; i++)
         {
             var currentSeries = Graph.Series[i];
-            var newSeriesData = newSeries[i].Data;
+            var newSeries = newGraph.Series[i];
 
-            if (currentSeries.Data.Count != newSeriesData.Count) return true;
+            if (currentSeries.Name != newSeries.Name) return true;
+
+            if (currentSeries.Data.Count != newSeries.Data.Count) return true;
 
             for (var j = 0; j < currentSeries.Data.Count; j++)
-                if (Math.Abs(currentSeries.Data[j] - newSeriesData[j]) > 0.01)
-                    return true;
+            {
+                if (Math.Abs(currentSeries.Data[j] - newSeries.Data[j]) > 0.05) return true;
+            }
+        }
+
+        if (Graph.XAxis.Count != newGraph.XAxis.Count) return true;
+
+        for (var i = 0; i < Graph.XAxis.Count; i++)
+        {
+            if (Math.Abs(Graph.XAxis[i] - newGraph.XAxis[i]) > 0.05) return true;
         }
 
         return false;
     }
 
-    //<summary>
-    // organizes the array data from tosu
-    // also this was a massive nightmare :)
-    //</summary>
-   // Summary:
-
-private void ParseGraphData(JsonElement graphElement, double? dtRate = null)
+ private void ParseGraphData(JsonElement graphElement, double? dtRate = null)
 {
     try
     {
@@ -483,7 +487,7 @@ private void ParseGraphData(JsonElement graphElement, double? dtRate = null)
                 }
                 else
                 {
-                    Console.WriteLine(@"Data property not found in series element.");
+                    Console.WriteLine("Data property not found in series element.");
                 }
 
                 newGraph.Series.Add(series);
@@ -491,7 +495,7 @@ private void ParseGraphData(JsonElement graphElement, double? dtRate = null)
         }
         else
         {
-            Console.WriteLine(@"Series property not found in graph element.");
+            Console.WriteLine("Series property not found in graph element.");
         }
 
         if (graphElement.TryGetProperty("xaxis", out var xAxisArray))
@@ -511,7 +515,7 @@ private void ParseGraphData(JsonElement graphElement, double? dtRate = null)
         }
         else
         {
-            Console.WriteLine(@"X-Axis property not found in graph element.");
+            Console.WriteLine("X-Axis property not found in graph element.");
         }
 
         var data = new double[newGraph.XAxis.Count];
@@ -523,9 +527,7 @@ private void ParseGraphData(JsonElement graphElement, double? dtRate = null)
             }
         }
 
-
-
-        if (IsYAxisChanged(newGraph.Series))
+        if (HasGraphDataChanged(newGraph))
         {
             Graph = newGraph;
             GraphDataUpdated?.Invoke(Graph);
@@ -539,7 +541,7 @@ private void ParseGraphData(JsonElement graphElement, double? dtRate = null)
     }
     catch (Exception ex)
     {
-        Console.WriteLine($@"An error occurred while parsing graph data: {ex.Message}");
+        Console.WriteLine($"An error occurred while parsing graph data: {ex.Message}");
     }
 }
 

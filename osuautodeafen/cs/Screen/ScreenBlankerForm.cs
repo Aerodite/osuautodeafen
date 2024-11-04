@@ -12,7 +12,6 @@ public class ScreenBlankerForm : IDisposable
     const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
     const uint WINEVENT_OUTOFCONTEXT = 0x0000;
     const uint WINEVENT_SKIPOWNPROCESS = 0x0002;
-    const uint EVENT_SYSTEM_MOUSEBUTTONUP = 0x000A;
     private const int WH_MOUSE_LL = 14;
     private const int WM_LBUTTONDOWN = 0x0201;
     private const int WM_RBUTTONDOWN = 0x0204;
@@ -42,6 +41,7 @@ public class ScreenBlankerForm : IDisposable
 
     [DllImport("user32.dll")]
     private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
+
     private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
@@ -53,13 +53,8 @@ public class ScreenBlankerForm : IDisposable
 
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
     private delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
-
-   // have caution working with this file ive wasted so much time and its all hacky
-   // and a pain in the ass
-   // how the hell did the focusu devs make such a good implementation for this exact
-   // same thing please give them credit where its due
-
 
     public ScreenBlankerForm(Window mainWindow)
     {
@@ -67,10 +62,10 @@ public class ScreenBlankerForm : IDisposable
         _mainWindow = mainWindow;
         InitializeBlankingWindows();
 
-        _winEventDelegate = new WinEventDelegate(WinEventProc);
+        _winEventDelegate = WinEventProc;
         _winEventHook = SetWinEventHook(
             EVENT_SYSTEM_FOREGROUND,
-            EVENT_SYSTEM_MOUSEBUTTONUP,
+            EVENT_SYSTEM_FOREGROUND,
             IntPtr.Zero,
             _winEventDelegate,
             0,
@@ -129,8 +124,8 @@ public class ScreenBlankerForm : IDisposable
 
         _isInitialized = true;
 
-        _mouseProc = MouseHookCallback;
-        _mouseHook = SetWindowsHookEx(WH_MOUSE_LL, _mouseProc, IntPtr.Zero, 0);
+        //_mouseProc = MouseHookCallback;
+        //_mouseHook = SetWindowsHookEx(WH_MOUSE_LL, _mouseProc, IntPtr.Zero, 0);
     }
 
     private IntPtr MouseHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
@@ -138,48 +133,46 @@ public class ScreenBlankerForm : IDisposable
         if (nCode >= 0 && (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN))
         {
             DateTime currentMouseEventTime = DateTime.Now;
-            // Only process if the last event was more than 50 ms ago
             if ((currentMouseEventTime - _lastMouseEventTime).TotalMilliseconds > 50)
             {
                 _lastMouseEventTime = currentMouseEventTime;
-                Task.Run(CheckMouseClickOutsideOsu); // Run the check asynchronously
+                Task.Run(CheckMouseClickOutsideOsuAsync);
             }
         }
         return CallNextHookEx(_mouseHook, nCode, wParam, lParam);
     }
 
-    private void CheckMouseClickOutsideOsu()
+    private async Task CheckMouseClickOutsideOsuAsync()
     {
         var focusedProcess = GetFocusedProcess();
-        if (focusedProcess is { ProcessName: not ("osu!" or "osu!(lazer)") })
+        if (focusedProcess is { ProcessName: not ("osu!") })
         {
-            Dispatcher.UIThread.Post(() => {
-                SetBlankingWindowsTopmost(false, true);
-            });
+            await Dispatcher.UIThread.InvokeAsync(() => SetBlankingWindowsTopmost(false, true));
         }
     }
 
-
-    private void WinEventProc(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+    private async void WinEventProc(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
     {
         if (eventType == EVENT_SYSTEM_FOREGROUND)
         {
-            CheckOsuFocus();
+            await Task.Run(CheckOsuFocus);
         }
     }
 
     private bool CheckOsuFocus()
     {
-        if (_isHandlingFocusChange || (DateTime.Now - _lastFocusChangeTime).TotalMilliseconds < 200) return _isOsuFocused;
+        if (_isHandlingFocusChange || (DateTime.Now - _lastFocusChangeTime).TotalMilliseconds < 200)
+            return _isOsuFocused;
+
         _isHandlingFocusChange = true;
 
         var focusedProcess = GetFocusedProcess();
-        if (focusedProcess != null && focusedProcess.ProcessName is not ("osu!" or "osu!(lazer)"))
+        if (focusedProcess != null && focusedProcess.ProcessName is not ("osu!"))
         {
             if (!_isOsuFocused)
             {
                 _isOsuFocused = true;
-                SetBlankingWindowsTopmost(true);
+                Dispatcher.UIThread.InvokeAsync(() => SetBlankingWindowsTopmost(true)).Wait();
             }
         }
         else
@@ -187,7 +180,7 @@ public class ScreenBlankerForm : IDisposable
             if (_isOsuFocused)
             {
                 _isOsuFocused = false;
-                SetBlankingWindowsTopmost(false, true);
+                Dispatcher.UIThread.InvokeAsync(() => SetBlankingWindowsTopmost(false, true)).Wait();
             }
         }
 

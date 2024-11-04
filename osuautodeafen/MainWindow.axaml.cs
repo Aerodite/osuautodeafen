@@ -269,8 +269,20 @@ public partial class MainWindow : Window
     private async void GraphDataThreadStart()
     {
         while (true)
-            if (Graph != null)
-                await Dispatcher.UIThread.InvokeAsync(() => UpdateChart(Graph));
+        {
+            try
+            {
+                while (true)
+                    if (Graph != null)
+                        await Dispatcher.UIThread.InvokeAsync(() => UpdateChart(Graph));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred while fetching graph data: {ex.Message}");
+            }
+
+            Thread.Sleep(1000);
+        }
     }
 
     private void OnGraphDataUpdated(GraphData graphData)
@@ -1252,7 +1264,7 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
             _currentBitmap?.Dispose();
             _currentBitmap = newBitmap;
 
-            await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackground(_currentBitmap));
+            await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
             await Task.Run(() => UpdateLogoAsync());
             IsBlackBackgroundDisplayed = false;
         }
@@ -1262,7 +1274,7 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
             {
                 if (args.PropertyName == nameof(ViewModel.IsParallaxEnabled) ||
                     args.PropertyName == nameof(ViewModel.IsBlurEffectEnabled))
-                    await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackground(_currentBitmap));
+                    await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
 
                 //probably a better way of doing this but this is very much bandaid fix
                 if (args.PropertyName == nameof(ViewModel.IsBackgroundEnabled))
@@ -1275,7 +1287,7 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
                     else
                     {
                         if (!IsBlackBackgroundDisplayed) return;
-                        await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackground(_currentBitmap));
+                        await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
                         IsBlackBackgroundDisplayed = false;
                     }
                 }
@@ -1288,7 +1300,7 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
     {
         if (e.PropertyName == nameof(ViewModel.IsParallaxEnabled) ||
             e.PropertyName == nameof(ViewModel.IsBlurEffectEnabled))
-            _ = Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackground(_currentBitmap));
+            _ = Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
         else if (e.PropertyName == nameof(ViewModel.IsBackgroundEnabled))
             _ = Dispatcher.UIThread.InvokeAsync(async () =>
             {
@@ -1301,7 +1313,7 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
                 {
                     if (IsBlackBackgroundDisplayed)
                     {
-                        await UpdateUIWithNewBackground(_currentBitmap);
+                        await UpdateUIWithNewBackgroundAsync(_currentBitmap);
                         IsBlackBackgroundDisplayed = false;
                     }
                 }
@@ -1330,7 +1342,6 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
 
     private async Task UpdateUIWithNewBackgroundAsync(Bitmap bitmap)
     {
-        // Implementation remains similar, ensuring any UI changes are done on the UI thread
         await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackground(bitmap));
     }
 
@@ -1355,20 +1366,14 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
     {
         var width = bitmap.Width;
         var height = bitmap.Height;
-        var chunkSize = height / Environment.ProcessorCount;
-        var lockObj = new object();
-
-        long totalR = 0, totalG = 0, totalB = 0;
         var pixelCount = width * height;
 
-        Parallel.For(0, Environment.ProcessorCount, i =>
+        long totalR = 0, totalG = 0, totalB = 0;
+
+        Parallel.For(0, height, y =>
         {
             long localTotalR = 0, localTotalG = 0, localTotalB = 0;
 
-            var startY = i * chunkSize;
-            var endY = i == Environment.ProcessorCount - 1 ? height : startY + chunkSize;
-
-            for (var y = startY; y < endY; y++)
             for (var x = 0; x < width; x++)
             {
                 var pixel = bitmap.GetPixel(x, y);
@@ -1377,12 +1382,9 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
                 localTotalB += pixel.Blue;
             }
 
-            lock (lockObj)
-            {
-                totalR += localTotalR;
-                totalG += localTotalG;
-                totalB += localTotalB;
-            }
+            Interlocked.Add(ref totalR, localTotalR);
+            Interlocked.Add(ref totalG, localTotalG);
+            Interlocked.Add(ref totalB, localTotalB);
         });
 
         var avgR = (byte)(totalR / pixelCount);
@@ -1394,109 +1396,99 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
 
     private SKColor InterpolateColor(SKColor from, SKColor to, float t)
     {
-        var deltaR = to.Red - from.Red;
-        var deltaG = to.Green - from.Green;
-        var deltaB = to.Blue - from.Blue;
-        var deltaA = to.Alpha - from.Alpha;
+        byte InterpolateComponent(byte start, byte end, float factor)
+        {
+            return (byte)(start + (end - start) * factor);
+        }
 
-        var r = (byte)(from.Red + deltaR * t);
-        var g = (byte)(from.Green + deltaG * t);
-        var b = (byte)(from.Blue + deltaB * t);
-        var a = (byte)(from.Alpha + deltaA * t);
+        var r = InterpolateComponent(from.Red, to.Red, t);
+        var g = InterpolateComponent(from.Green, to.Green, t);
+        var b = InterpolateComponent(from.Blue, to.Blue, t);
+        var a = InterpolateComponent(from.Alpha, to.Alpha, t);
 
         return new SKColor(r, g, b, a);
     }
 
-    private SKSvg LoadHighResolutionLogo(string resourceName)
+   private SKSvg LoadHighResolutionLogo(string resourceName)
+{
+    try
+    {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
+                       ?? throw new FileNotFoundException("Resource not found: " + resourceName);
+        var svg = new SKSvg();
+        svg.Load(stream);
+        return svg;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[ERROR] Exception while loading SVG: {ex.Message}");
+        throw;
+    }
+}
+
+public Bitmap LoadEmbeddedResource(string resourceName)
+{
+    const int maxRetries = 5;
+    const int initialDelayMilliseconds = 500;
+    var delay = initialDelayMilliseconds;
+
+    for (var retryCount = 0; retryCount < maxRetries; retryCount++)
     {
         try
         {
-            var assembly = Assembly.GetExecutingAssembly();
-            using var stream = assembly.GetManifestResourceStream(resourceName)
-                               ?? throw new FileNotFoundException("Resource not found: " + resourceName);
-            var svg = new SKSvg();
-            svg.Load(stream);
-            Console.WriteLine($"Successfully loaded SVG: {resourceName}");
-            return svg;
+            using var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
+                              ?? throw new FileNotFoundException("Resource not found: " + resourceName);
+
+            return new Bitmap(resourceStream)
+                   ?? throw new InvalidOperationException("Failed to create bitmap from resource stream.");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Exception while loading SVG: {ex.Message}");
-            throw;
-        }
-    }
+            Console.WriteLine($"[ERROR] Exception while loading embedded resource '{resourceName}': {ex.Message}. Attempt {retryCount + 1} of {maxRetries}.");
 
-    public Bitmap LoadEmbeddedResource(string resourceName)
-    {
-        const int maxRetries = 5;
-        const int initialDelayMilliseconds = 500;
-        var delay = initialDelayMilliseconds;
-
-        for (var retryCount = 0; retryCount < maxRetries; retryCount++)
-            try
+            if (retryCount >= maxRetries - 1)
             {
-                var assembly = Assembly.GetExecutingAssembly();
-                using var resourceStream = assembly.GetManifestResourceStream(resourceName);
-                if (resourceStream == null) throw new FileNotFoundException("Resource not found: " + resourceName);
-
-                var bitmap = new Bitmap(resourceStream);
-                if (bitmap == null)
-                    throw new InvalidOperationException("Failed to create bitmap from resource stream.");
-
-                return bitmap;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(
-                    $"[ERROR] Exception while loading embedded resource '{resourceName}': {ex.Message}. Attempt {retryCount + 1} of {maxRetries}.");
-
-                if (retryCount >= maxRetries - 1)
-                {
-                    Console.WriteLine("[ERROR] Max retry attempts reached. Failing operation.");
-                    throw;
-                }
-
-                // Exponential backoff
-                Task.Delay(delay).Wait();
-                delay *= 2;
+                Console.WriteLine("[ERROR] Max retry attempts reached. Failing operation.");
+                throw;
             }
 
-        throw new InvalidOperationException("Failed to load embedded resource after multiple attempts.");
-    }
-
-    private async void InitializeLogo()
-    {
-        try
-        {
-            var logoImage = await LoadLogoAsync("osuautodeafen.Resources.autodeafen.svg");
-            UpdateViewModelWithLogo(logoImage);
-            Console.WriteLine("SVG loaded successfully.");
+            // Exponential backoff
+            Task.Delay(delay).Wait();
+            delay *= 2;
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Exception while loading logo image: {ex.Message}");
-            await RetryLoadLogoAsync("osuautodeafen.Resources.autodeafen.svg");
-        }
-
-        await UpdateLogoAsync();
     }
 
-    private async Task<Bitmap> LoadLogoAsync(string resourceName)
+    throw new InvalidOperationException("Failed to load embedded resource after multiple attempts.");
+}
+
+private async void InitializeLogo()
+{
+    try
     {
-        return await Task.Run(() =>
-        {
-            var assembly = Assembly.GetExecutingAssembly();
-            using var resourceStream = assembly.GetManifestResourceStream(resourceName);
-            if (resourceStream == null) throw new FileNotFoundException("Resource not found: " + resourceName);
-
-            var svg = new SKSvg();
-            svg.Load(resourceStream);
-
-            if (svg.Picture == null) throw new InvalidOperationException("Failed to load SVG picture.");
-
-            return ConvertSvgToBitmap(svg, 100, 100);
-        });
+        var logoImage = await LoadLogoAsync("osuautodeafen.Resources.autodeafen.svg");
+        UpdateViewModelWithLogo(logoImage);
+        Console.WriteLine("SVG loaded successfully.");
     }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Exception while loading logo image: {ex.Message}");
+        await RetryLoadLogoAsync("osuautodeafen.Resources.autodeafen.svg");
+    }
+
+    await UpdateLogoAsync();
+}
+
+private async Task<Bitmap> LoadLogoAsync(string resourceName)
+{
+    using var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
+                      ?? throw new FileNotFoundException("Resource not found: " + resourceName);
+
+    var svg = new SKSvg();
+    svg.Load(resourceStream);
+
+    return svg.Picture == null ? throw new InvalidOperationException("Failed to load SVG picture.")
+                               : ConvertSvgToBitmap(svg, 100, 100);
+}
 
     private async Task RetryLoadLogoAsync(string resourceName)
     {
@@ -1565,165 +1557,146 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
     }
 
 
-    private async Task UpdateLogoAsync()
+ private async Task UpdateLogoAsync()
+{
+    if (_getLowResBackground == null)
     {
-        if (_getLowResBackground == null)
-        {
-            Console.WriteLine("[ERROR] _getLowResBackground is null");
-            return;
-        }
-
-        var lowResBitmapPath = await TryGetLowResBitmapPathAsync(5, 1000);
-        if (lowResBitmapPath == null)
-        {
-            Console.WriteLine("[ERROR] Failed to get low-resolution bitmap path");
-            return;
-        }
-
-        _lowResBitmap = new Bitmap(lowResBitmapPath);
-        if (_lowResBitmap == null)
-        {
-            Console.WriteLine("[ERROR] Failed to load low-resolution bitmap");
-            return;
-        }
-
-        Console.WriteLine("Low resolution bitmap successfully loaded");
-
-        const int maxRetries = 3;
-        var retryCount = 0;
-        var success = false;
-
-        while (retryCount < maxRetries && !success)
-            try
-            {
-                retryCount++;
-                Console.WriteLine($"Attempting to load high resolution logo... Attempt {retryCount}");
-                _cachedLogoSvg = LoadHighResolutionLogo("osuautodeafen.Resources.autodeafen.svg");
-                if (_cachedLogoSvg == null) throw new Exception("Failed to load high-resolution logo");
-                Console.WriteLine("High resolution logo successfully loaded");
-                success = true;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[ERROR] Exception while loading high resolution logo: {ex.Message}");
-                if (retryCount >= maxRetries)
-                {
-                    Console.WriteLine($"[ERROR] Failed to load high resolution logo after {maxRetries} attempts.");
-                    return; // Exit if loading the SVG fails after max retries
-                }
-            }
-
-        var newAverageColor = SKColors.White;
-
-        if (_lowResBitmap != null)
-        {
-            newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_lowResBitmap));
-        }
-        else
-        {
-            Console.WriteLine("Low resolution bitmap is null.");
-            // retry 3 times over 5 seconds to recalculate the average color
-
-            for (var i = 0; i < 3; i++)
-            {
-                await Task.Delay(1000);
-                if (_lowResBitmap != null)
-                {
-                    newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_lowResBitmap));
-                    break;
-                }
-            }
-        }
-
-        //dumb idiot fucking stupid fucking retard ass code
-
-        var steps = 20;
-        var delay = 0.1f;
-
-        await _animationManager.EnqueueAnimation(async () =>
-        {
-            for (var i = 0; i <= steps; i++)
-            {
-                var t = i / (float)steps;
-                var interpolatedColor = InterpolateColor(_oldAverageColor, newAverageColor, t);
-
-                var picture = _cachedLogoSvg?.Picture;
-                if (picture != null)
-                {
-                    var width = (int)picture.CullRect.Width;
-                    var height = (int)picture.CullRect.Height;
-                    var bitmap = new SKBitmap(width, height);
-
-                    await Task.Run(() =>
-                    {
-                        using (var canvas = new SKCanvas(bitmap))
-                        {
-                            canvas.Clear(SKColors.Transparent);
-                            canvas.DrawPicture(picture);
-
-                            Parallel.For(0, bitmap.Height, y =>
-                            {
-                                for (var x = 0; x < bitmap.Width; x++)
-                                {
-                                    var pixel = bitmap.GetPixel(x, y);
-                                    var newColor = new SKColor(
-                                        interpolatedColor.Red,
-                                        interpolatedColor.Green,
-                                        interpolatedColor.Blue,
-                                        pixel.Alpha);
-                                    bitmap.SetPixel(x, y, newColor);
-                                }
-                            });
-                        }
-                    });
-
-                    // Handle null stream
-                    using var image = SKImage.FromBitmap(bitmap);
-                    using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-                    if (data == null)
-                    {
-                        Console.WriteLine("[ERROR] Data encoding failed");
-                        continue;
-                    }
-
-                    using var stream = new MemoryStream();
-                    data.SaveTo(stream);
-                    stream.Seek(0, SeekOrigin.Begin);
-
-                    try
-                    {
-                        _colorChangingImage = new Bitmap(stream);
-                        //Console.WriteLine("Color changing image successfully loaded");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[ERROR] Exception while creating Bitmap from stream: {ex.Message}");
-                    }
-
-                    await Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        var viewModel = DataContext as SharedViewModel;
-                        if (viewModel != null)
-                            try
-                            {
-                                viewModel.ModifiedLogoImage = new Bitmap(stream);
-                                Console.WriteLine("Modified logo image updated in ViewModel");
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine(
-                                    $"[ERROR] Exception while setting ViewModel's ModifiedLogoImage: {ex.Message}");
-                            }
-                    });
-                }
-
-                await Task.Delay((int)delay);
-            }
-
-            _oldAverageColor = newAverageColor;
-        });
+        Console.WriteLine("[ERROR] _getLowResBackground is null");
+        return;
     }
 
+    // Start loading low-res bitmap and high-res SVG in parallel
+    var lowResBitmapTask = TryGetLowResBitmapPathAsync(5, 1000);
+    var highResLogoTask = Task.Run(() =>
+    {
+        try
+        {
+            return LoadHighResolutionLogo("osuautodeafen.Resources.autodeafen.svg");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Exception while loading high-resolution logo: {ex.Message}");
+            return null;
+        }
+    });
+
+    var lowResBitmapPath = await lowResBitmapTask;
+    if (lowResBitmapPath == null)
+    {
+        Console.WriteLine("[ERROR] Failed to get low-resolution bitmap path");
+        return;
+    }
+
+    _lowResBitmap = new Bitmap(lowResBitmapPath);
+    if (_lowResBitmap == null)
+    {
+        Console.WriteLine("[ERROR] Failed to load low-resolution bitmap");
+        return;
+    }
+
+    Console.WriteLine("Low resolution bitmap successfully loaded");
+
+    _cachedLogoSvg = await highResLogoTask;
+    if (_cachedLogoSvg == null)
+    {
+        Console.WriteLine("[ERROR] Failed to load high-resolution logo");
+        return;
+    }
+
+    var newAverageColor = SKColors.White;
+
+    if (_lowResBitmap != null)
+    {
+        newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_lowResBitmap));
+    }
+
+    var steps = 40; // Increased steps for smoother gradient
+    var delay = 0; // Fastest possible delay in milliseconds
+
+    await _animationManager.EnqueueAnimation(async () =>
+    {
+        for (var i = 0; i <= steps; i++)
+        {
+            var t = i / (float)steps;
+            var interpolatedColor = InterpolateColor(_oldAverageColor, newAverageColor, t);
+            var picture = _cachedLogoSvg.Picture;
+
+            if (picture != null)
+            {
+                var width = (int)picture.CullRect.Width;
+                var height = (int)picture.CullRect.Height;
+                var bitmap = new SKBitmap(width, height);
+
+                await Task.Run(() =>
+                {
+                    using (var canvas = new SKCanvas(bitmap))
+                    {
+                        // Draw the original picture
+                        canvas.Clear(SKColors.Transparent);
+                        canvas.DrawPicture(picture);
+
+                        // Apply the interpolated color to each pixel
+                        for (var y = 0; y < bitmap.Height; y++)
+                        {
+                            for (var x = 0; x < bitmap.Width; x++)
+                            {
+                                var pixel = bitmap.GetPixel(x, y);
+                                var newColor = new SKColor(
+                                    interpolatedColor.Red,
+                                    interpolatedColor.Green,
+                                    interpolatedColor.Blue,
+                                    pixel.Alpha
+                                );
+                                bitmap.SetPixel(x, y, newColor);
+                            }
+                        }
+                    }
+                });
+
+                using var image = SKImage.FromBitmap(bitmap);
+                using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+                if (data == null)
+                {
+                    Console.WriteLine("[ERROR] Data encoding failed");
+                    continue;
+                }
+
+                using var stream = new MemoryStream();
+                data.SaveTo(stream);
+                stream.Position = 0;
+
+                try
+                {
+                    _colorChangingImage = new Bitmap(stream);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ERROR] Exception while creating Bitmap from stream: {ex.Message}");
+                }
+
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (DataContext is SharedViewModel viewModel)
+                    {
+                        try
+                        {
+                            viewModel.ModifiedLogoImage = new Bitmap(stream);
+                            Console.WriteLine("Modified logo image updated in ViewModel");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[ERROR] Exception while setting ViewModel's ModifiedLogoImage: {ex.Message}");
+                        }
+                    }
+                });
+            }
+
+            await Task.Delay(delay);
+        }
+
+        _oldAverageColor = newAverageColor;
+    });
+}
     private IImage ConvertSvgToAvaloniaImage(SKSvg svg, int width, int height)
     {
         var info = new SKImageInfo(width, height);
@@ -1866,7 +1839,7 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
     private Task DisplayBlackBackground()
     {
         var blackBitmap = CreateBlackBitmap();
-        UpdateUIWithNewBackground(blackBitmap);
+        UpdateUIWithNewBackgroundAsync(blackBitmap);
         IsBlackBackgroundDisplayed = true;
         return Task.CompletedTask;
     }
@@ -2123,7 +2096,7 @@ private void UpdateProgressIndicator(double completionPercentage, double maxYVal
         firstPage.IsVisible = true;
     }
 
-    public void BlankEffectToggle_IsCheckedChanged(object? sender, RoutedEventArgs e)
+    public async void BlankEffectToggle_IsCheckedChanged(object? sender, RoutedEventArgs e)
     {
         if (sender is CheckBox checkBox)
         {
