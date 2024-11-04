@@ -532,9 +532,9 @@ private void ParseGraphData(JsonElement graphElement, double? dtRate = null)
         var percent = data.Max() / 100;
         for (var i = 0; i < data.Length; i++)
         {
-            data[i] = Math.Max(0, data[i]);
-            if (data[i] > percent)
+            if (data[i] < percent)
             {
+                data[i] = 0;
             }
         }
 
