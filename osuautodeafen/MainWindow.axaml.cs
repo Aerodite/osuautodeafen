@@ -507,7 +507,7 @@ private void UpdateProgressIndicator(double completionPercentage)
                                    .Where(s => s.Name == "Aim" || s.Name == "Speed")
                                    .ToList();
 
-        if (!lineSeriesList.Any())
+        if (lineSeriesList.Count == 0)
         {
             Console.WriteLine("No line series found in the chart.");
             return;
