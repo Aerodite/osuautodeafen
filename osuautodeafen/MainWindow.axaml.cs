@@ -674,7 +674,8 @@ private void UpdateProgressIndicator(double completionPercentage)
         if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) modifiers |= KeyModifiers.Shift;
 
         // create and set the new hotkey
-        ViewModel.DeafenKeybind = new HotKey { Key = e.Key, ModifierKeys = modifiers };
+        var friendlyKeyName = GetFriendlyKeyName(e.Key);
+        ViewModel.DeafenKeybind = new HotKey { Key = e.Key, ModifierKeys = modifiers, FriendlyName = friendlyKeyName };
 
         // save the new hotkey to settings
         SaveSettingsToFile(ViewModel.DeafenKeybind.ToString(), "Hotkey");
@@ -682,10 +683,35 @@ private void UpdateProgressIndicator(double completionPercentage)
         e.Handled = true;
     }
 
-    private void InitializeKeybindButtonText()
+    private string GetFriendlyKeyName(Key key)
     {
-        var currentKeybind = RetrieveKeybindFromSettings();
-        DeafenKeybindButton.Content = currentKeybind;
+        return key switch
+        {
+            Key.D0 => "0",
+            Key.D1 => "1",
+            Key.D2 => "2",
+            Key.D3 => "3",
+            Key.D4 => "4",
+            Key.D5 => "5",
+            Key.D6 => "6",
+            Key.D7 => "7",
+            Key.D8 => "8",
+            Key.D9 => "9",
+            Key.OemOpenBrackets => "[",
+            Key.OemCloseBrackets => "]",
+            Key.OemComma => ",",
+            Key.OemPeriod => ".",
+            Key.OemMinus => "-",
+            Key.OemPlus => "+",
+            Key.OemQuestion => "/",
+            Key.OemSemicolon => ";",
+            Key.OemQuotes => "'",
+            Key.OemBackslash => "\\",
+            Key.OemPipe => "|",
+            Key.OemTilde => "`",
+            Key.Oem8 => "Oem8",
+            _ => key.ToString()
+        };
     }
 
     private string RetrieveKeybindFromSettings()
@@ -2080,14 +2106,25 @@ private async Task UpdateLogoAsync()
         }
     }
 
+    private void InitializeKeybindButtonText()
+    {
+        var currentKeybind = RetrieveKeybindFromSettings();
+        var deafenKeybindButton = this.FindControl<Button>("DeafenKeybindButton");
+        if (deafenKeybindButton != null)
+        {
+            deafenKeybindButton.Content = currentKeybind;
+        }
+    }
+
     public class HotKey
     {
         public Key Key { get; init; }
         public KeyModifiers ModifierKeys { get; init; }
+        public string FriendlyName { get; set; }
 
         public override string ToString()
         {
-            List<string> parts = [];
+            List<string> parts = new();
 
             if (ModifierKeys.HasFlag(KeyModifiers.Control))
                 parts.Add("Ctrl");
@@ -2096,9 +2133,9 @@ private async Task UpdateLogoAsync()
             if (ModifierKeys.HasFlag(KeyModifiers.Shift))
                 parts.Add("Shift");
 
-            parts.Add(Key.ToString()); // always add the key last
+            parts.Add(FriendlyName);
 
-            return string.Join("+", parts); // join all parts with '+'
+            return string.Join("+", parts).Replace("==", "="); // Fix for equal key
         }
 
         public static HotKey Parse(string str)
@@ -2107,14 +2144,30 @@ private async Task UpdateLogoAsync()
                 throw new ArgumentException("Invalid hotkey format. Expected 'KeyModifierKey'.");
 
             var parts = str.Split('+');
-            if (parts.Length != 2) throw new ArgumentException("Invalid hotkey format. Expected 'KeyModifierKey'.");
+            if (parts.Length < 2) throw new ArgumentException("Invalid hotkey format. Expected 'KeyModifierKey'.");
 
-            if (!Enum.TryParse(parts[0], true, out KeyModifiers modifierKeys))
-                throw new ArgumentException($"Invalid modifier key: {parts[0]}");
+            var modifiers = KeyModifiers.None;
+            var key = Key.None;
+            var friendlyName = "";
 
-            if (!Enum.TryParse(parts[1], true, out Key key)) throw new ArgumentException($"Invalid key: {parts[1]}");
+            foreach (var part in parts)
+            {
+                if (Enum.TryParse(part, true, out KeyModifiers modifier))
+                {
+                    modifiers |= modifier;
+                }
+                else if (Enum.TryParse(part, true, out Key parsedKey))
+                {
+                    key = parsedKey;
+                    friendlyName = part;
+                }
+                else
+                {
+                    friendlyName = part;
+                }
+            }
 
-            return new HotKey { Key = key, ModifierKeys = modifierKeys };
+            return new HotKey { Key = key, ModifierKeys = modifiers, FriendlyName = friendlyName };
         }
     }
 }
