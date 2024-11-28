@@ -308,49 +308,67 @@ public class Deafen : IDisposable
     }
 
     private string ConvertToAHKSyntax(string keybind)
+{
+    var parts = keybind.Split('+');
+    var ahkKeybind = "";
+    var specialKeys = new HashSet<string>
     {
-        var parts = keybind.Split('+');
-        var ahkKeybind = "";
-        var specialKeys = new HashSet<string>
-        {
-            "Control", "Ctrl", "Alt", "Shift", "Win", "Tab", "Enter", "Escape", "Esc", "Space", "Backspace",
-            "Delete", "Insert", "Home", "End", "PgUp", "PgDn", "Up", "Down", "Left", "Right"
-        };
-        var functionKeys = Enumerable.Range(1, 24).Select(i => $"F{i}").ToHashSet();
-        var mediaKeys = new HashSet<string>
-            { "Volume_Up", "Volume_Down", "Media_Play_Pause", "Media_Next", "Media_Prev", "Media_Stop" };
-        var numpadKeys = Enumerable.Range(0, 10).Select(i => $"NumPad{i}").ToHashSet();
+        "Control", "Ctrl", "Alt", "Shift", "Win", "Tab", "Enter", "Escape", "Esc", "Space", "Backspace",
+        "Delete", "Insert", "Home", "End", "PgUp", "PgDn", "Up", "Down", "Left", "Right"
+    };
+    var functionKeys = Enumerable.Range(1, 24).Select(i => $"F{i}").ToHashSet();
+    var mediaKeys = new HashSet<string>
+    {
+        "Volume_Up", "Volume_Down", "Media_Play_Pause", "Media_Next", "Media_Prev", "Media_Stop"
+    };
+    var numpadKeys = Enumerable.Range(0, 10).Select(i => $"NumPad{i}").ToHashSet();
 
-        foreach (var part in parts)
+    foreach (var part in parts)
+    {
+        var trimmedPart = part.Trim();
+        if (specialKeys.Contains(trimmedPart) || functionKeys.Contains(trimmedPart) ||
+            mediaKeys.Contains(trimmedPart) || numpadKeys.Contains(trimmedPart))
         {
-            var trimmedPart = part.Trim();
-            if (specialKeys.Contains(trimmedPart) || functionKeys.Contains(trimmedPart) ||
-                mediaKeys.Contains(trimmedPart) || numpadKeys.Contains(trimmedPart))
-                ahkKeybind += $"{{{trimmedPart}}}";
-            else
-                switch (trimmedPart)
-                {
-                    case "Control":
-                    case "Ctrl":
-                        ahkKeybind += "^";
-                        break;
-                    case "Alt":
-                        ahkKeybind += "!";
-                        break;
-                    case "Shift":
-                        ahkKeybind += "+";
-                        break;
-                    case "Win":
-                        ahkKeybind += "#";
-                        break;
-                    default:
-                        ahkKeybind += trimmedPart;
-                        break;
-                }
+            ahkKeybind += $"{{{trimmedPart}}}";
         }
-
-        return ahkKeybind;
+        else
+        {
+            switch (trimmedPart)
+            {
+                case "Control":
+                case "Ctrl":
+                    ahkKeybind += "^";
+                    break;
+                case "Alt":
+                    ahkKeybind += "!";
+                    break;
+                case "Shift":
+                    ahkKeybind += "+";
+                    break;
+                case "Win":
+                    ahkKeybind += "#";
+                    break;
+                case "[":
+                    ahkKeybind += "{{}";
+                    break;
+                case "]":
+                    ahkKeybind += "{}}";
+                    break;
+                case "+":
+                    ahkKeybind += "{+}";
+                    break;
+                case "|":
+                    ahkKeybind += "{|}";
+                    break;
+                default:
+                    ahkKeybind += trimmedPart;
+                    break;
+            }
+        }
     }
+
+    return ahkKeybind;
+}
 
     private void ToggleDeafenState()
     {
