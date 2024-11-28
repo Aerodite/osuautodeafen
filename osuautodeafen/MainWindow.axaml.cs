@@ -42,7 +42,7 @@ public partial class MainWindow : Window
     private readonly AnimationManager _animationManager = new();
 
     //testing out a capacity of 0 for now, this means a ram-usage reduction of 50% 🤯
-    private readonly Queue<Bitmap> _bitmapQueue = new(0);
+    private readonly Queue<Bitmap> _bitmapQueue = new(1);
     private readonly Deafen _deafen;
     private readonly DispatcherTimer _disposeTimer;
     private readonly GetLowResBackground? _getLowResBackground;
@@ -158,8 +158,6 @@ public partial class MainWindow : Window
 
         DataContext = ViewModel;
 
-        InitializeGraphDataThread();
-
         _tosuApi.GraphDataUpdated += OnGraphDataUpdated;
 
         Series = [];
@@ -261,31 +259,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private void InitializeGraphDataThread()
-    {
-        _graphDataThread = new Thread(GraphDataThreadStart);
-        _graphDataThread.IsBackground = true;
-        _graphDataThread.Start();
-    }
-
-    private async void GraphDataThreadStart()
-    {
-        while (true)
-        {
-            try
-            {
-                while (true)
-                    if (Graph != null)
-                        await Dispatcher.UIThread.InvokeAsync(() => UpdateChart(Graph));
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"An error occurred while fetching graph data: {ex.Message}");
-            }
-
-            Thread.Sleep(1000);
-        }
-    }
 
     private void OnGraphDataUpdated(GraphData graphData)
     {
@@ -1430,12 +1403,31 @@ private async Task UpdateUIWithNewBackgroundAsync(Avalonia.Media.Imaging.Bitmap?
 
     private SKBitmap ConvertToSKBitmap(Bitmap avaloniaBitmap)
     {
-        using var memoryStream = new MemoryStream();
-        avaloniaBitmap.Save(memoryStream);
-        memoryStream.Seek(0, SeekOrigin.Begin);
-        return SKBitmap.Decode(memoryStream);
-    }
+        var width = avaloniaBitmap.PixelSize.Width;
+        var height = avaloniaBitmap.PixelSize.Height;
+        var skBitmap = new SKBitmap(width, height);
 
+        var pixelDataSize = width * height * 4; // Assuming 4 bytes per pixel (BGRA)
+        var pixelDataPtr = System.Runtime.InteropServices.Marshal.AllocHGlobal(pixelDataSize);
+
+        try
+        {
+            var rect = new Avalonia.PixelRect(0, 0, width, height);
+            avaloniaBitmap.CopyPixels(rect, pixelDataPtr, pixelDataSize, width * 4);
+
+            var pixelData = new byte[pixelDataSize];
+            System.Runtime.InteropServices.Marshal.Copy(pixelDataPtr, pixelData, 0, pixelDataSize);
+
+            var destPtr = skBitmap.GetPixels();
+            System.Runtime.InteropServices.Marshal.Copy(pixelData, 0, destPtr, pixelDataSize);
+        }
+        finally
+        {
+            System.Runtime.InteropServices.Marshal.FreeHGlobal(pixelDataPtr);
+        }
+
+        return skBitmap;
+    }
     private SKColor CalculateAverageColor(SKBitmap bitmap)
     {
         if (bitmap == null)
