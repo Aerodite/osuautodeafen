@@ -61,7 +61,7 @@ public class ScreenBlankerForm : IDisposable
         Console.WriteLine(@"Initializing ScreenBlankerForm...");
         _mainWindow = mainWindow;
         //this should probably be moved to be called only when the toggle is enabled, and vice-versa
-        //InitializeBlankingWindows();
+        InitializeBlankingWindows();
 
         _winEventDelegate = WinEventProc;
         _winEventHook = SetWinEventHook(
