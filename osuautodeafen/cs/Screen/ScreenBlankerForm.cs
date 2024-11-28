@@ -60,7 +60,8 @@ public class ScreenBlankerForm : IDisposable
     {
         Console.WriteLine(@"Initializing ScreenBlankerForm...");
         _mainWindow = mainWindow;
-        InitializeBlankingWindows();
+        //this should probably be moved to be called only when the toggle is enabled, and vice-versa
+        //InitializeBlankingWindows();
 
         _winEventDelegate = WinEventProc;
         _winEventHook = SetWinEventHook(
@@ -130,6 +131,8 @@ public class ScreenBlankerForm : IDisposable
 
     private IntPtr MouseHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
+        // this creates major major major cursor lag for god knows what reason. this function
+        // would be ideal to check intent but for now mouse clicks are the best we can do
         if (nCode >= 0 && (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN))
         {
             DateTime currentMouseEventTime = DateTime.Now;

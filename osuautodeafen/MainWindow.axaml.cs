@@ -330,23 +330,27 @@ public void UpdateChart(GraphData graphData)
 {
     try
     {
-        if (progressIndicator != null)
+        if (progressIndicator == null)
         {
-            progressIndicator.Values = new List<ObservablePoint>();
+            progressIndicator = new LineSeries<ObservablePoint>
+            {
+                Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0xFF, 0xFF, 192), StrokeThickness = 5 },
+                GeometryFill = null,
+                GeometryStroke = null,
+                LineSmoothness = 0,
+                Values = new List<ObservablePoint>()
+            };
         }
 
-        var seriesList = new List<ISeries>();
+        var seriesList = PlotView.Series?.Where(s => s.Name != "Break Period" && s.Name != "Deafen Point" && s.Name != "Progress Indicator").ToList() ?? new List<ISeries>();
         PlotView.DrawMargin = new Margin(0, 0, 0, 0);
 
-        if (PlotView.Series != null)
-        {
-            seriesList.AddRange(PlotView.Series.Where(s => s.Name != "Break Period" && s.Name != "Deafen Point" && s.Name != "Progress Indicator"));
-        }
-
-        // Calculate the maximum Y value for the current graph data
         double maxYValue = graphData.Series.SelectMany(series => series.Data).Max();
+        double maxLimit = Math.Ceiling((double)graphData.XAxis.Last() / 1000);
+        double graphDuration = maxLimit;
+        deafenProgressPercentage = _deafen.MinCompletionPercentage / 100;
+        deafenTimestamp = graphDuration * deafenProgressPercentage;
 
-        // Adjust positions based on the DT rate
         foreach (var series in graphData.Series)
         {
             var updatedValues = new List<ObservablePoint>();
@@ -354,57 +358,40 @@ public void UpdateChart(GraphData graphData)
             bool inBreakRegion = false;
             int? breakRegionStart = null;
 
-            for (int i = 0; i < series.Data.Count(); i++)
+            for (int i = 0; i < series.Data.Count; i++)
             {
-                var value = series.Data.ElementAt(i);
-                var xValue = i;
-
-                if (double.IsNaN(xValue) || double.IsInfinity(xValue))
-                {
-                    Console.WriteLine($"Invalid xValue: {xValue} at index {i}");
-                    continue;
-                }
-
+                var value = series.Data[i];
                 if (value == -100)
                 {
-                    // Start or continue a break region
                     if (!inBreakRegion)
                     {
                         breakRegionStart = i;
                         inBreakRegion = true;
                     }
-                    // Skip 0 value point if it's in a break region
                     continue;
                 }
                 else if (inBreakRegion)
                 {
-                    // End of a break region
                     breakRegions.Add(new Tuple<int, int>((int)breakRegionStart, i - 1));
                     breakRegionStart = null;
                     inBreakRegion = false;
                 }
 
-                updatedValues.Add(new ObservablePoint(xValue, value));
+                updatedValues.Add(new ObservablePoint(i, value));
             }
 
-
             var smoothedValues = SmoothData(updatedValues, 10, 0.2);
-
-            var color = series.Name == "aim"
-                ? new SKColor(0x00, 0xFF, 0x00, 192)
-                : new SKColor(0x00, 0x00, 0xFF, 140);
-
+            var color = series.Name == "aim" ? new SKColor(0x00, 0xFF, 0x00, 192) : new SKColor(0x00, 0x00, 0xFF, 140);
             var name = series.Name == "aim" ? "Aim" : "Speed";
 
             var existingLineSeries = seriesList.OfType<LineSeries<ObservablePoint>>().FirstOrDefault(s => s.Name == name);
-
             if (existingLineSeries != null)
             {
                 existingLineSeries.Values = smoothedValues;
             }
             else
             {
-                var lineSeries = new LineSeries<ObservablePoint>
+                seriesList.Add(new LineSeries<ObservablePoint>
                 {
                     Values = smoothedValues,
                     Fill = new SolidColorPaint { Color = color },
@@ -415,15 +402,12 @@ public void UpdateChart(GraphData graphData)
                     LineSmoothness = 1,
                     EasingFunction = EasingFunctions.ExponentialOut,
                     TooltipLabelFormatter = value => $"{name}: {value}"
-                };
-
-                seriesList.Add(lineSeries);
+                });
             }
 
-            // Add new break regions as shaded areas for each series
             foreach (var region in breakRegions)
             {
-                var breakRegionSeries = new LineSeries<ObservablePoint>
+                seriesList.Add(new LineSeries<ObservablePoint>
                 {
                     Values = new List<ObservablePoint>
                     {
@@ -434,23 +418,15 @@ public void UpdateChart(GraphData graphData)
                         new ObservablePoint(region.Item1, 0)
                     },
                     Name = "Break Period",
-                    Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0xA5, 0x00, 110), StrokeThickness = 2 }, // Orange color outline with 70% opacity
+                    Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0xA5, 0x00, 110), StrokeThickness = 2 },
                     GeometryFill = null,
                     GeometryStroke = null,
                     LineSmoothness = 0
-                };
-
-                seriesList.Add(breakRegionSeries);
+                });
             }
         }
 
-        var maxLimit = Math.Ceiling((double)graphData.XAxis.Last() / 1000);
-
-        deafenProgressPercentage = _deafen.MinCompletionPercentage / 100;
-        var graphDuration = maxLimit;
-        deafenTimestamp = graphDuration * deafenProgressPercentage;
-
-        var deafenMarker = new LineSeries<ObservablePoint>
+        seriesList.Add(new LineSeries<ObservablePoint>
         {
             Values = new List<ObservablePoint>
             {
@@ -461,12 +437,13 @@ public void UpdateChart(GraphData graphData)
                 new ObservablePoint(deafenTimestamp, 0)
             },
             Name = "Deafen Point",
-            Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00, 110), StrokeThickness = 3 }, // 70% opacity red
+            Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00, 110), StrokeThickness = 3 },
             GeometryFill = null,
             GeometryStroke = null,
             LineSmoothness = 0
-        };
-        seriesList.Add(deafenMarker);
+        });
+
+        seriesList.Add(progressIndicator);
 
         Series = seriesList.ToArray();
         XAxes = new Axis[]
@@ -474,7 +451,7 @@ public void UpdateChart(GraphData graphData)
             new()
             {
                 LabelsPaint = new SolidColorPaint(SKColors.Transparent),
-                MinLimit = 0, // ensure the x-axis starts from 0
+                MinLimit = 0,
                 MaxLimit = maxLimit,
                 Padding = new Padding(2),
                 TextSize = 12
@@ -485,30 +462,18 @@ public void UpdateChart(GraphData graphData)
             new()
             {
                 LabelsPaint = new SolidColorPaint(SKColors.Transparent),
-                MinLimit = 0, // ensure the y-axis starts from 0
+                MinLimit = 0,
                 MaxLimit = maxYValue,
                 Padding = new Padding(2),
                 SeparatorsPaint = new SolidColorPaint(SKColors.Transparent)
             }
         };
 
-        progressIndicator = new LineSeries<ObservablePoint>
-        {
-            Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0xFF, 0xFF, 192), StrokeThickness = 5 },
-            GeometryFill = null,
-            GeometryStroke = null,
-            LineSmoothness = 0
-        };
-
-        seriesList.Add(progressIndicator);
-
         PlotView.Series = seriesList.ToArray();
         PlotView.XAxes = XAxes;
         PlotView.YAxes = YAxes;
 
-        double completionPercentage = _tosuApi.GetCompletionPercentage();
-        UpdateProgressIndicator(completionPercentage);
-
+        UpdateProgressIndicator(_tosuApi.GetCompletionPercentage());
         PlotView.InvalidateVisual();
     }
     catch (Exception ex)
@@ -536,13 +501,7 @@ private void UpdateProgressIndicator(double completionPercentage)
         }
 
         double progressPosition = (completionPercentage / 100) * maxXLimit.Value;
-
-        double leftEdgePosition = progressPosition - 0.5;
-
-        if (leftEdgePosition < 0)
-        {
-            leftEdgePosition = 0;
-        }
+        double leftEdgePosition = Math.Max(progressPosition - 0.1, 0); //this defines the width of the indicator
 
         var lineSeriesList = Series.OfType<LineSeries<ObservablePoint>>()
                                    .Where(s => s.Name == "Aim" || s.Name == "Speed")
@@ -559,32 +518,22 @@ private void UpdateProgressIndicator(double completionPercentage)
             new ObservablePoint(leftEdgePosition, 0)
         };
 
-        for (double x = leftEdgePosition; x <= progressPosition; x += (progressPosition - leftEdgePosition) / 10)  // Adjust step for more points
+        double step = (progressPosition - leftEdgePosition) / 10;
+        foreach (var x in Enumerable.Range(0, 11).Select(i => leftEdgePosition + i * step))
         {
             double maxInterpolatedY = 0;
 
             foreach (var series in lineSeriesList)
             {
                 var points = series.Values.OrderBy(p => p.X).ToList();
-
-                if (points.Count == 0)
-                {
-                    continue;
-                }
+                if (points.Count == 0) continue;
 
                 var leftPoint = points.LastOrDefault(p => p.X <= x) ?? points.First();
                 var rightPoint = points.FirstOrDefault(p => p.X >= x) ?? points.Last();
 
-                double interpolatedY = 0;
-                if (leftPoint.X == rightPoint.X)
-                {
-                    interpolatedY = (double)leftPoint.Y;
-                }
-                else
-                {
-                    var slope = (rightPoint.Y - leftPoint.Y) / (rightPoint.X - leftPoint.X);
-                    interpolatedY = (double)(leftPoint.Y + slope * (x - leftPoint.X));
-                }
+                double interpolatedY = leftPoint.X == rightPoint.X
+                    ? (double)leftPoint.Y
+                    : (double)(leftPoint.Y + (rightPoint.Y - leftPoint.Y) * (x - leftPoint.X) / (rightPoint.X - leftPoint.X));
 
                 maxInterpolatedY = Math.Max(maxInterpolatedY, interpolatedY);
             }
@@ -592,41 +541,24 @@ private void UpdateProgressIndicator(double completionPercentage)
             topContourPoints.Add(new ObservablePoint(x, maxInterpolatedY));
         }
 
-        double rightEdgeY = 0;
-        foreach (var series in lineSeriesList)
+        double rightEdgeY = lineSeriesList.Max(series =>
         {
             var points = series.Values.OrderBy(p => p.X).ToList();
-
-            if (points.Count == 0)
-            {
-                continue;
-            }
+            if (points.Count == 0) return 0;
 
             var rightEdgeLeftPoint = points.LastOrDefault(p => p.X <= progressPosition) ?? points.First();
             var rightEdgeRightPoint = points.FirstOrDefault(p => p.X >= progressPosition) ?? points.Last();
 
-            double interpolatedY = 0;
-            if (rightEdgeLeftPoint.X == rightEdgeRightPoint.X)
-            {
-                interpolatedY = (double)rightEdgeLeftPoint.Y;
-            }
-            else
-            {
-                var slope = (rightEdgeRightPoint.Y - rightEdgeLeftPoint.Y) / (rightEdgeRightPoint.X - rightEdgeLeftPoint.X);
-                interpolatedY = (double)(rightEdgeLeftPoint.Y + slope * (progressPosition - rightEdgeLeftPoint.X));
-            }
-
-            rightEdgeY = Math.Max(rightEdgeY, interpolatedY);
-        }
+            return rightEdgeLeftPoint.X == rightEdgeRightPoint.X
+                ? (double)rightEdgeLeftPoint.Y
+                : (double)(rightEdgeLeftPoint.Y + (rightEdgeRightPoint.Y - rightEdgeLeftPoint.Y) * (progressPosition - rightEdgeLeftPoint.X) / (rightEdgeRightPoint.X - rightEdgeLeftPoint.X));
+        });
 
         topContourPoints.Add(new ObservablePoint(progressPosition, rightEdgeY));
-
-        // Ensure the bottom-right and bottom-left points are included to form the polygon
         topContourPoints.Add(new ObservablePoint(progressPosition, 0));  // Bottom-right corner
         topContourPoints.Add(new ObservablePoint(leftEdgePosition, 0));  // Bottom-left corner for closure
 
         progressIndicator.Values = topContourPoints;
-
         PlotView.InvalidateVisual();
     }
     catch (Exception ex)
@@ -634,8 +566,6 @@ private void UpdateProgressIndicator(double completionPercentage)
         Console.WriteLine($"An error occurred while updating the progress indicator: {ex.Message}");
     }
 }
-
-//TODO: progress indicator crashes the whole program if going through maps too fast
 
 
     private void InitializeVisibilityCheckTimer()
@@ -1372,7 +1302,7 @@ private void UpdateProgressIndicator(double completionPercentage)
         });
     }
 
-private async Task UpdateUIWithNewBackgroundAsync(Avalonia.Media.Imaging.Bitmap bitmap)
+private async Task UpdateUIWithNewBackgroundAsync(Avalonia.Media.Imaging.Bitmap? bitmap)
 {
     // Cancel previous task if still running
     lock (_updateLock)
@@ -1383,12 +1313,11 @@ private async Task UpdateUIWithNewBackgroundAsync(Avalonia.Media.Imaging.Bitmap 
 
     var token = _cancellationTokenSource.Token;
 
-    Dispatcher.UIThread.Post(async () =>
+    await Dispatcher.UIThread.InvokeAsync(async () =>
     {
         if (token.IsCancellationRequested || bitmap == null)
             return;
 
-        // Ensure UI updates happen on the UI thread
         try
         {
             var newImageControl = new Image
@@ -1396,22 +1325,11 @@ private async Task UpdateUIWithNewBackgroundAsync(Avalonia.Media.Imaging.Bitmap 
                 Source = bitmap,
                 Stretch = Stretch.UniformToFill,
                 Opacity = 0.2,
-                ZIndex = -1
+                ZIndex = -1,
+                Effect = ViewModel?.IsBlurEffectEnabled == true ? new BlurEffect { Radius = 17.27 } : null
             };
 
-            if (ViewModel?.IsBlurEffectEnabled == true)
-            {
-                newImageControl.Effect = new BlurEffect { Radius = 17.27 };
-            }
-
-            var fadeInTransition = new DoubleTransition
-            {
-                Property = Image.OpacityProperty,
-                Duration = TimeSpan.FromSeconds(0.3),
-                Easing = new QuarticEaseInOut()
-            };
-
-            var fadeOutTransition = new DoubleTransition
+            var transition = new DoubleTransition
             {
                 Property = Image.OpacityProperty,
                 Duration = TimeSpan.FromSeconds(0.3),
@@ -1420,10 +1338,11 @@ private async Task UpdateUIWithNewBackgroundAsync(Avalonia.Media.Imaging.Bitmap 
 
             if (Content is Grid mainGrid)
             {
-                var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
-                if (backgroundLayer == null)
+                var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer")
+                                      ?? new Grid { Name = "BackgroundLayer", ZIndex = -1 };
+
+                if (!mainGrid.Children.Contains(backgroundLayer))
                 {
-                    backgroundLayer = new Grid { Name = "BackgroundLayer", ZIndex = -1 };
                     mainGrid.Children.Insert(0, backgroundLayer);
                 }
                 else
@@ -1434,21 +1353,15 @@ private async Task UpdateUIWithNewBackgroundAsync(Avalonia.Media.Imaging.Bitmap 
                 var oldBackground = backgroundLayer.Children.OfType<Image>().FirstOrDefault();
                 if (oldBackground != null)
                 {
-                    oldBackground.Transitions = new Transitions { fadeOutTransition };
+                    oldBackground.Transitions = new Transitions { transition };
                     oldBackground.Opacity = 0.2;
 
-                    await Task.Delay(300); // Ensure the delay matches the transition duration
+                    await Task.Delay(300);
 
                     if (!token.IsCancellationRequested)
                     {
-                        await Dispatcher.UIThread.InvokeAsync(() =>
-                        {
-                            if (!token.IsCancellationRequested)
-                            {
-                                backgroundLayer.Children.Remove(oldBackground);
-                                oldBackground.Source = null;
-                            }
-                        });
+                        backgroundLayer.Children.Remove(oldBackground);
+                        oldBackground.Source = null;
                     }
                 }
 
@@ -1456,18 +1369,14 @@ private async Task UpdateUIWithNewBackgroundAsync(Avalonia.Media.Imaging.Bitmap 
                     return;
 
                 backgroundLayer.Children.Add(newImageControl);
-
-                newImageControl.Transitions = new Transitions { fadeInTransition };
+                newImageControl.Transitions = new Transitions { transition };
                 newImageControl.Opacity = 0.5;
-
                 backgroundLayer.RenderTransform = new ScaleTransform(1.05, 1.05);
                 backgroundLayer.Opacity = _currentBackgroundOpacity;
             }
             else
             {
-                var newContentGrid = new Grid();
-                newContentGrid.Children.Add(newImageControl);
-                Content = newContentGrid;
+                Content = new Grid { Children = { newImageControl } };
             }
 
             if (ParallaxToggle?.IsChecked == true && BackgroundToggle?.IsChecked == true)
@@ -1946,6 +1855,9 @@ private async Task UpdateLogoAsync()
         var position = e.GetPosition(this);
         _mouseX = position.X;
         _mouseY = position.Y;
+
+        // Check if the mouse is within the window bounds
+        if (_mouseX < 0 || _mouseY < 0 || _mouseX > Width || _mouseY > Height) return;
 
         ApplyParallax(_mouseX, _mouseY);
     }
