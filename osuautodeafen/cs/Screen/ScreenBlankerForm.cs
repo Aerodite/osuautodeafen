@@ -5,25 +5,75 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Threading;
-
-namespace osuautodeafen.cs.Screen;
+using osuautodeafen.cs.Screen;
 
 public class ScreenBlankerForm : IDisposable
 {
+    const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+    const uint WINEVENT_OUTOFCONTEXT = 0x0000;
+    const uint WINEVENT_SKIPOWNPROCESS = 0x0002;
+    private const int WH_MOUSE_LL = 14;
+    private const int WM_LBUTTONDOWN = 0x0201;
+    private const int WM_RBUTTONDOWN = 0x0204;
+
+    private DateTime _lastMouseEventTime = DateTime.MinValue;
     private readonly Window _mainWindow;
     private ScreenBlankerWindow[]? _blankingWindows;
-    private DispatcherTimer _focusCheckTimer;
+    private bool _isHandlingFocusChange;
     private bool _isInitialized;
     private bool _isOsuFocused;
-    private readonly Deafen _deafen;
-    private bool screenBlankEnabled;
+    private DateTime _lastFocusChangeTime;
+
+    private IntPtr _winEventHook;
+    private WinEventDelegate _winEventDelegate;
+
+    private IntPtr _mouseHook;
+    private LowLevelMouseProc _mouseProc;
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
+
+    private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+    private delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
 
     public ScreenBlankerForm(Window mainWindow)
     {
         Console.WriteLine(@"Initializing ScreenBlankerForm...");
         _mainWindow = mainWindow;
+        //this should probably be moved to be called only when the toggle is enabled, and vice-versa
         InitializeBlankingWindows();
-        InitializeFocusCheckTimer();
+
+        _winEventDelegate = WinEventProc;
+        _winEventHook = SetWinEventHook(
+            EVENT_SYSTEM_FOREGROUND,
+            EVENT_SYSTEM_FOREGROUND,
+            IntPtr.Zero,
+            _winEventDelegate,
+            0,
+            0,
+            WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS
+        );
+
         _mainWindow.Closed += (sender, e) => Dispose();
     }
 
@@ -33,22 +83,20 @@ public class ScreenBlankerForm : IDisposable
     {
         if (_blankingWindows != null)
         {
-            foreach (var window in _blankingWindows) window.Close();
+            foreach (var window in _blankingWindows)
+                window.Close();
             _blankingWindows = null;
         }
-    }
 
-    private void InitializeFocusCheckTimer()
-    {
-        _focusCheckTimer = new DispatcherTimer
+        if (_winEventHook != IntPtr.Zero)
         {
-            //uh this is really an rng number
-            //original value 1250, currently 400 because
-            //i dont like waiting to interact with monitors
-            Interval = TimeSpan.FromMilliseconds(400)
-        };
-        _focusCheckTimer.Tick += (sender, e) => CheckOsuFocus();
-        _focusCheckTimer.Start();
+            UnhookWinEvent(_winEventHook);
+        }
+
+        if (_mouseHook != IntPtr.Zero)
+        {
+            UnhookWindowsHookEx(_mouseHook);
+        }
     }
 
     public static Task<ScreenBlankerForm> CreateAsync(Window mainWindow)
@@ -56,7 +104,7 @@ public class ScreenBlankerForm : IDisposable
         return Task.FromResult(new ScreenBlankerForm(mainWindow));
     }
 
-    private void InitializeBlankingWindows()
+    public void InitializeBlankingWindows()
     {
         if (_isInitialized) return;
         var screens = _mainWindow.Screens.All.Where(screen => !screen.IsPrimary).ToList();
@@ -66,55 +114,102 @@ public class ScreenBlankerForm : IDisposable
         {
             var screen = screens[i];
             var pixelBounds = ScreenBlankerHelper.GetPixelBounds(screen);
-            var window = new ScreenBlankerWindow($"ScreenBlankerWindow_{i}", pixelBounds, screen.Scaling);
-            window.IsVisible = false;
+            var window = new ScreenBlankerWindow($"ScreenBlankerWindow_{i}", pixelBounds, screen.Scaling)
+            {
+                IsVisible = false,
+                IsHitTestVisible = false,
+                Focusable = false
+            };
             _blankingWindows[i] = window;
         }
 
         _isInitialized = true;
+
+        //_mouseProc = MouseHookCallback;
+        //_mouseHook = SetWindowsHookEx(WH_MOUSE_LL, _mouseProc, IntPtr.Zero, 0);
+    }
+
+    private IntPtr MouseHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        // this creates major major major cursor lag for god knows what reason. this function
+        // would be ideal to check intent but for now mouse clicks are the best we can do
+        if (nCode >= 0 && (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN))
+        {
+            DateTime currentMouseEventTime = DateTime.Now;
+            if ((currentMouseEventTime - _lastMouseEventTime).TotalMilliseconds > 50)
+            {
+                _lastMouseEventTime = currentMouseEventTime;
+                Task.Run(CheckMouseClickOutsideOsuAsync);
+            }
+        }
+        return CallNextHookEx(_mouseHook, nCode, wParam, lParam);
+    }
+
+    private async Task CheckMouseClickOutsideOsuAsync()
+    {
+        var focusedProcess = GetFocusedProcess();
+        if (focusedProcess is { ProcessName: not ("osu!") })
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => SetBlankingWindowsTopmost(false, true));
+        }
+    }
+
+    private async void WinEventProc(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+    {
+        if (eventType == EVENT_SYSTEM_FOREGROUND)
+        {
+            await Task.Run(CheckOsuFocus);
+        }
     }
 
     private bool CheckOsuFocus()
     {
+        if (_isHandlingFocusChange || (DateTime.Now - _lastFocusChangeTime).TotalMilliseconds < 200)
+            return _isOsuFocused;
+
+        _isHandlingFocusChange = true;
+
         var focusedProcess = GetFocusedProcess();
-        if (focusedProcess != null && focusedProcess.ProcessName == "osu!")
+        if (focusedProcess != null && focusedProcess.ProcessName is ("osu!"))
         {
             if (!_isOsuFocused)
             {
                 _isOsuFocused = true;
-                SetBlankingWindowsTopmost(true);
+                Dispatcher.UIThread.InvokeAsync(() => SetBlankingWindowsTopmost(true)).Wait();
             }
-
-            return true;
         }
-
-        if (_isOsuFocused)
+        else
         {
-            _isOsuFocused = false;
-            SetBlankingWindowsTopmost(false, true);
+            if (_isOsuFocused)
+            {
+                _isOsuFocused = false;
+                Dispatcher.UIThread.InvokeAsync(() => SetBlankingWindowsTopmost(false, true)).Wait();
+            }
         }
 
-        return false;
+        _lastFocusChangeTime = DateTime.Now;
+        _isHandlingFocusChange = false;
+
+        return _isOsuFocused;
     }
 
-    private void SetBlankingWindowsTopmost(bool topmost, bool bottommost = false)
+    public void SetBlankingWindowsTopmost(bool topmost, bool bottommost = false)
     {
-        //screenBlankEnabled = _deafen.screenBlankEnabled;
-        if (_blankingWindows != null)
-            foreach (var window in _blankingWindows)
-                //if (screenBlankEnabled)
-                //{
-                    if (bottommost)
-                    {
-                        window.Topmost = false;
-                        window.IsVisible = false;
-                    }
-                    else
-                    {
-                        window.Topmost = topmost;
-                        window.IsVisible = true;
-                    }
-               // }
+        if (_blankingWindows == null) return;
+
+        foreach (var window in _blankingWindows)
+        {
+            if (bottommost)
+            {
+                window.Topmost = false;
+                window.IsVisible = false;
+            }
+            else if (topmost && !window.IsVisible)
+            {
+                window.Topmost = true;
+                window.IsVisible = true;
+            }
+        }
     }
 
     private Process? GetFocusedProcess()
@@ -125,12 +220,6 @@ public class ScreenBlankerForm : IDisposable
         GetWindowThreadProcessId(hwnd, out var pid);
         return Process.GetProcessById((int)pid);
     }
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
     public async Task BlankScreensAsync()
     {
@@ -146,7 +235,7 @@ public class ScreenBlankerForm : IDisposable
 
     public async Task UnblankScreensAsync()
     {
-        await Dispatcher.UIThread.InvokeAsync(async () =>
+        await Dispatcher.UIThread.InvokeAsync(() =>
         {
             Console.WriteLine(@"Unblanking screens...");
             if (_blankingWindows != null)

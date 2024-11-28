@@ -25,3 +25,7 @@ osuautodeafen/obj/Debug/net8.0/Avalonia/original.dll
 osuautodeafen/bin/Release/net8.0/win-x64/osuautodeafen.dll
 osuautodeafen/bin/Release/net8.0/win-x64/osuautodeafen.exe
 osuautodeafen/bin/Release/net8.0/win-x64/osuautodeafen.pdb
+osuautodeafen/obj/rider.project.restore.info
+osuautodeafen/obj/project.packagespec.json
+osuautodeafen/obj/project.nuget.cache
+osuautodeafen/obj/project.assets.json

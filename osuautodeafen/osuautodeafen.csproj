@@ -22,8 +22,17 @@
         <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc2"/>
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
         <PackageReference Include="ReactiveUI" Version="20.1.1"/>
+        <PackageReference Include="SharpVectors" Version="1.8.4.2"/>
+        <PackageReference Include="Svg.Skia" Version="2.0.0"/>
+        <PackageReference Include="Veldrid" Version="4.9.0"/>
+        <PackageReference Include="Veldrid.SPIRV" Version="1.0.15"/>
         <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11"/>
         <PackageReference Include="ILMerge" Version="3.0.41"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Include="Resources\autodeafen.svg"/>
+        <EmbeddedResource Include="Resources\oad.ico"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -55,15 +64,13 @@
         <AvaloniaResource Include="Icons\eye-slash-solid.png"/>
         <None Remove="Icons\angles-right-solid.png"/>
         <AvaloniaResource Include="Icons\angles-right-solid.png"/>
-        <EmbeddedResource Include="Resources\autodeafen.png" />
-        <None Remove="Resources\oad.ico" />
-        <EmbeddedResource Include="Resources\oad.ico" />
-        <None Remove="Resources\osu_whitestroke.png" />
-        <AvaloniaResource Include="Resources\osu_whitestroke.png" />
+        <None Remove="Resources\oad.ico"/>
+        <None Remove="Resources\osu_whitestroke.png"/>
+        <AvaloniaResource Include="Resources\osu_whitestroke.png"/>
     </ItemGroup>
 
     <ItemGroup>
-        <None Remove="Resources\noise.png" />
+        <None Remove="Resources\noise.png"/>
     </ItemGroup>
 
     <ItemGroup>
