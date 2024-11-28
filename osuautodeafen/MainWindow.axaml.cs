@@ -4,9 +4,10 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
@@ -16,58 +17,80 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
+using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Screen;
 using SkiaSharp;
+using Svg.Skia;
+using Animation = Avalonia.Animation.Animation;
+using KeyFrame = Avalonia.Animation.KeyFrame;
 using Path = System.IO.Path;
+using Vector = Avalonia.Vector;
 
 namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
     public static bool isCompPctLostFocus;
+    private readonly AnimationManager _animationManager = new();
 
     //testing out a capacity of 0 for now, this means a ram-usage reduction of 50% 🤯
     private readonly Queue<Bitmap> _bitmapQueue = new(0);
+    private readonly Deafen _deafen;
     private readonly DispatcherTimer _disposeTimer;
+    private readonly GetLowResBackground? _getLowResBackground;
     private readonly DispatcherTimer _mainTimer;
     private readonly DispatcherTimer _parallaxCheckTimer;
     private readonly TosuApi _tosuApi;
 
-
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
+
+
+    private readonly object _updateLogoLock = new();
     private Grid? _blackBackground;
     private Image? _blurredBackground;
+    private BreakPeriod _breakPeriod;
+    private SKSvg? _cachedLogoSvg;
+    private Bitmap _colorChangingImage;
+    private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+    private readonly object _updateLock = new object();
 
     private string? _currentBackgroundDirectory;
+
+    private double _currentBackgroundOpacity = 1.0;
     private Bitmap? _currentBitmap;
     private KeyModifiers _currentKeyModifiers = KeyModifiers.None;
-    private readonly Deafen _deafen;
     private HotKey? _deafenKeybind;
     private LineSeries<ObservablePoint> _deafenMarker;
     private Thread _graphDataThread;
     private bool _hasDisplayed = false;
     private bool _isConstructorFinished;
+    private bool _isTransitioning = false;
 
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
-    private DateTime _lastUpdate = DateTime.Now;
     private DateTime _lastUpdateCheck = DateTime.MinValue;
+
+    //_lowres
+    private Bitmap? _lowResBitmap;
     private double _mouseX;
     private double _mouseY;
     private Image? _normalBackground;
+    private SKColor _oldAverageColor = SKColors.Transparent;
     private ScreenBlanker _screenBlanker;
-    private ScreenBlankerForm _screenBlankerForm;
+    private ScreenBlankerForm? _screenBlankerForm;
     private DispatcherTimer? _visibilityCheckTimer;
     private double deafenProgressPercentage;
     private double deafenTimestamp;
     private SettingsPanel settingsPanel1;
+
 
     //<summary>
     // constructor for the ui and subsequent panels
@@ -82,9 +105,13 @@ public partial class MainWindow : Window
 
         LoadSettings();
 
-        Icon = new WindowIcon("Resources/oad.ico");
+        Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.oad.ico"));
 
         _tosuApi = new TosuApi();
+
+        _getLowResBackground = new GetLowResBackground(_tosuApi);
+
+        _breakPeriod = new BreakPeriod(_tosuApi);
 
         _deafen = new Deafen(_tosuApi, settingsPanel1, new ScreenBlankerForm(this));
 
@@ -104,14 +131,12 @@ public partial class MainWindow : Window
 
         _mainTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(200)
+            Interval = TimeSpan.FromMilliseconds(25)
         };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
 
         InitializeVisibilityCheckTimer();
-
-        var stringBuilder = new StringBuilder();
 
         var oldContent = Content;
 
@@ -127,6 +152,8 @@ public partial class MainWindow : Window
 
         InitializeViewModel();
 
+        InitializeLogo();
+
         PointerMoved += OnMouseMove;
 
         DataContext = ViewModel;
@@ -134,7 +161,6 @@ public partial class MainWindow : Window
         InitializeGraphDataThread();
 
         _tosuApi.GraphDataUpdated += OnGraphDataUpdated;
-
 
         Series = [];
         XAxes = new Axis[] { new() { LabelsPaint = new SolidColorPaint(SKColors.White) } };
@@ -246,7 +272,17 @@ public partial class MainWindow : Window
     {
         while (true)
         {
-            if (Graph != null) await Dispatcher.UIThread.InvokeAsync(() => UpdateChart(Graph));
+            try
+            {
+                while (true)
+                    if (Graph != null)
+                        await Dispatcher.UIThread.InvokeAsync(() => UpdateChart(Graph));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred while fetching graph data: {ex.Message}");
+            }
+
             Thread.Sleep(1000);
         }
     }
@@ -267,78 +303,158 @@ public partial class MainWindow : Window
     }
 
     // i hope i never have to touch arrays or graphs again due to this function alone.
-    public void UpdateChart(GraphData graphData)
+    private List<ObservablePoint> SmoothData(List<ObservablePoint> data, int windowSize, double smoothingFactor)
     {
-        var seriesList = new List<ISeries>();
+        var smoothedData = new List<ObservablePoint>();
+        for (var i = 0; i < data.Count; i++)
+        {
+            double sum = 0;
+            var count = 0;
+            var adjustedWindowSize = (int)(windowSize * smoothingFactor);
+            for (var j = Math.Max(0, i - adjustedWindowSize);
+                 j <= Math.Min(data.Count - 1, i + adjustedWindowSize);
+                 j++)
+            {
+                sum += data[j].Y ?? 0.0;
+                count++;
+            }
+
+            smoothedData.Add(new ObservablePoint(data[i].X, sum / count));
+        }
+
+        return smoothedData;
+    }
+
+    private LineSeries<ObservablePoint>? progressIndicator;
+public void UpdateChart(GraphData graphData)
+{
+    try
+    {
+        if (progressIndicator == null)
+        {
+            progressIndicator = new LineSeries<ObservablePoint>
+            {
+                Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0xFF, 0xFF, 192), StrokeThickness = 5 },
+                GeometryFill = null,
+                GeometryStroke = null,
+                LineSmoothness = 0,
+                Values = new List<ObservablePoint>()
+            };
+        }
+
+        var seriesList = PlotView.Series?.Where(s => s.Name != "Break Period" && s.Name != "Deafen Point" && s.Name != "Progress Indicator").ToList() ?? new List<ISeries>();
+        PlotView.DrawMargin = new Margin(0, 0, 0, 0);
+
+        double maxYValue = graphData.Series.SelectMany(series => series.Data).Max();
+        double maxLimit = Math.Ceiling((double)graphData.XAxis.Last() / 1000);
+        double graphDuration = maxLimit;
+        deafenProgressPercentage = _deafen.MinCompletionPercentage / 100;
+        deafenTimestamp = graphDuration * deafenProgressPercentage;
 
         foreach (var series in graphData.Series)
         {
-            var updatedValues = series.Data.ToList();
+            var updatedValues = new List<ObservablePoint>();
+            var breakRegions = new List<Tuple<int, int>>();
+            bool inBreakRegion = false;
+            int? breakRegionStart = null;
 
-            var color = series.Name == "aim"
-                ? new SKColor(0x00, 0xFF, 0x00, 192)
-                : new SKColor(0x00, 0x00, 0xFF, 140); // Adjust transparency
+            for (int i = 0; i < series.Data.Count; i++)
+            {
+                var value = series.Data[i];
+                if (value == -100)
+                {
+                    if (!inBreakRegion)
+                    {
+                        breakRegionStart = i;
+                        inBreakRegion = true;
+                    }
+                    continue;
+                }
+                else if (inBreakRegion)
+                {
+                    breakRegions.Add(new Tuple<int, int>((int)breakRegionStart, i - 1));
+                    breakRegionStart = null;
+                    inBreakRegion = false;
+                }
+
+                updatedValues.Add(new ObservablePoint(i, value));
+            }
+
+            var smoothedValues = SmoothData(updatedValues, 10, 0.2);
+            var color = series.Name == "aim" ? new SKColor(0x00, 0xFF, 0x00, 192) : new SKColor(0x00, 0x00, 0xFF, 140);
             var name = series.Name == "aim" ? "Aim" : "Speed";
 
-            var lineSeries = new LineSeries<ObservablePoint>
+            var existingLineSeries = seriesList.OfType<LineSeries<ObservablePoint>>().FirstOrDefault(s => s.Name == name);
+            if (existingLineSeries != null)
             {
-                Values = updatedValues.Select((value, index) => new ObservablePoint(index, value)).ToList(),
-                Fill = new SolidColorPaint { Color = color },
-                Stroke = new SolidColorPaint { Color = color },
-                Name = name,
-                GeometryFill = null,
-                GeometryStroke = null,
-                LineSmoothness = 1,
-                EasingFunction = EasingFunctions.ExponentialOut,
-                TooltipLabelFormatter = value => $"{name}: {value}"
-            };
-            seriesList.Add(lineSeries);
+                existingLineSeries.Values = smoothedValues;
+            }
+            else
+            {
+                seriesList.Add(new LineSeries<ObservablePoint>
+                {
+                    Values = smoothedValues,
+                    Fill = new SolidColorPaint { Color = color },
+                    Stroke = new SolidColorPaint { Color = color },
+                    Name = name,
+                    GeometryFill = null,
+                    GeometryStroke = null,
+                    LineSmoothness = 1,
+                    EasingFunction = EasingFunctions.ExponentialOut,
+                    TooltipLabelFormatter = value => $"{name}: {value}"
+                });
+            }
+
+            foreach (var region in breakRegions)
+            {
+                seriesList.Add(new LineSeries<ObservablePoint>
+                {
+                    Values = new List<ObservablePoint>
+                    {
+                        new ObservablePoint(region.Item1, 0),
+                        new ObservablePoint(region.Item1, maxYValue),
+                        new ObservablePoint(region.Item2, maxYValue),
+                        new ObservablePoint(region.Item2, 0),
+                        new ObservablePoint(region.Item1, 0)
+                    },
+                    Name = "Break Period",
+                    Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0xA5, 0x00, 110), StrokeThickness = 2 },
+                    GeometryFill = null,
+                    GeometryStroke = null,
+                    LineSmoothness = 0
+                });
+            }
         }
 
-        // round up the last value in the updated x-axis array
-        var maxLimit = Math.Ceiling((double)graphData.XAxis.Last() / 1000);
-
-        deafenProgressPercentage = _deafen.MinCompletionPercentage / 100.0;
-        var graphDuration = maxLimit;
-        deafenTimestamp = graphDuration * deafenProgressPercentage;
-
-        var maxYValue = graphData.Series.SelectMany(series => series.Data).Max();
-
-        var deafenMarker = new LineSeries<ObservablePoint>
+        seriesList.Add(new LineSeries<ObservablePoint>
         {
             Values = new List<ObservablePoint>
             {
-                new(deafenTimestamp, 0), // bottom-left corner
-                new(deafenTimestamp, maxYValue), // top-left corner
-                new(maxLimit, maxYValue), // top-right corner
-                new(maxLimit, 0), // bottom-right corner
-                new(deafenTimestamp, 0) // close the rectangle by returning to the bottom-left corner
+                new ObservablePoint(deafenTimestamp, 0),
+                new ObservablePoint(deafenTimestamp, maxYValue),
+                new ObservablePoint(maxLimit, maxYValue),
+                new ObservablePoint(maxLimit, 0),
+                new ObservablePoint(deafenTimestamp, 0)
             },
             Name = "Deafen Point",
-            Stroke = new SolidColorPaint
-                { Color = new SKColor(0xFF, 0x00, 0x00, 110), StrokeThickness = 3 }, // 70% opacity red
+            Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00, 110), StrokeThickness = 3 },
             GeometryFill = null,
             GeometryStroke = null,
             LineSmoothness = 0
-        };
+        });
 
-        seriesList.Add(deafenMarker);
+        seriesList.Add(progressIndicator);
 
         Series = seriesList.ToArray();
         XAxes = new Axis[]
         {
             new()
             {
-                LabelsPaint = new SolidColorPaint(SKColors.White),
-                MinLimit = 0, // ensure the x-axis starts from 0
+                LabelsPaint = new SolidColorPaint(SKColors.Transparent),
+                MinLimit = 0,
                 MaxLimit = maxLimit,
                 Padding = new Padding(2),
-                TextSize = 12,
-                Labeler = value =>
-                {
-                    var timeSpan = TimeSpan.FromMinutes(value / 60);
-                    return $"{(int)timeSpan.TotalMinutes}:{timeSpan.Seconds:D2}";
-                }
+                TextSize = 12
             }
         };
         YAxes = new Axis[]
@@ -346,17 +462,112 @@ public partial class MainWindow : Window
             new()
             {
                 LabelsPaint = new SolidColorPaint(SKColors.Transparent),
+                MinLimit = 0,
+                MaxLimit = maxYValue,
+                Padding = new Padding(2),
                 SeparatorsPaint = new SolidColorPaint(SKColors.Transparent)
             }
         };
 
-        PlotView.Series = Series;
+        PlotView.Series = seriesList.ToArray();
         PlotView.XAxes = XAxes;
         PlotView.YAxes = YAxes;
+
+        UpdateProgressIndicator(_tosuApi.GetCompletionPercentage());
+        PlotView.InvalidateVisual();
     }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"An error occurred while updating the chart: {ex.Message}");
+    }
+}
+
+private void UpdateProgressIndicator(double completionPercentage)
+{
+    try
+    {
+        if (XAxes.Length == 0 || completionPercentage < 0 || completionPercentage > 100)
+        {
+            Console.WriteLine("No valid XAxes found in the chart or the completion percentage is out of range.");
+            return;
+        }
+
+        double? maxXLimit = XAxes[0].MaxLimit;
+
+        if (!maxXLimit.HasValue)
+        {
+            Console.WriteLine("Max X-axis limit not defined.");
+            return;
+        }
+
+        double progressPosition = (completionPercentage / 100) * maxXLimit.Value;
+        double leftEdgePosition = Math.Max(progressPosition - 0.1, 0); //this defines the width of the indicator
+
+        var lineSeriesList = Series.OfType<LineSeries<ObservablePoint>>()
+                                   .Where(s => s.Name == "Aim" || s.Name == "Speed")
+                                   .ToList();
+
+        if (lineSeriesList.Count == 0)
+        {
+            Console.WriteLine("No line series found in the chart.");
+            return;
+        }
+
+        List<ObservablePoint> topContourPoints = new List<ObservablePoint>
+        {
+            new ObservablePoint(leftEdgePosition, 0)
+        };
+
+        double step = (progressPosition - leftEdgePosition) / 10;
+        foreach (var x in Enumerable.Range(0, 11).Select(i => leftEdgePosition + (i * step)))
+        {
+            double maxInterpolatedY = 0;
+
+            foreach (var series in lineSeriesList)
+            {
+                var points = series.Values.OrderBy(p => p.X).ToList();
+                if (points.Count == 0) continue;
+
+                var leftPoint = points.LastOrDefault(p => p.X <= x) ?? points.First();
+                var rightPoint = points.FirstOrDefault(p => p.X >= x) ?? points.Last();
+
+                double interpolatedY = leftPoint.X == rightPoint.X
+                    ? (double)leftPoint.Y
+                    : (double)(leftPoint.Y + ((rightPoint.Y - leftPoint.Y) * (x - leftPoint.X) / (rightPoint.X - leftPoint.X)));
+
+                maxInterpolatedY = Math.Max(maxInterpolatedY, interpolatedY);
+            }
+
+            topContourPoints.Add(new ObservablePoint(x, maxInterpolatedY));
+        }
+
+        double rightEdgeY = lineSeriesList.Max(series =>
+        {
+            var points = series.Values.OrderBy(p => p.X).ToList();
+            if (points.Count == 0) return 0;
+
+            var rightEdgeLeftPoint = points.LastOrDefault(p => p.X <= progressPosition) ?? points.First();
+            var rightEdgeRightPoint = points.FirstOrDefault(p => p.X >= progressPosition) ?? points.Last();
+
+            return rightEdgeLeftPoint.X == rightEdgeRightPoint.X
+                ? (double)rightEdgeLeftPoint.Y
+                : (double)(rightEdgeLeftPoint.Y + ((rightEdgeRightPoint.Y - rightEdgeLeftPoint.Y) * (progressPosition - rightEdgeLeftPoint.X) / (rightEdgeRightPoint.X - rightEdgeLeftPoint.X)));
+        });
+
+        topContourPoints.Add(new ObservablePoint(progressPosition, rightEdgeY));
+        topContourPoints.Add(new ObservablePoint(progressPosition, 0));  // Bottom-right corner
+        topContourPoints.Add(new ObservablePoint(leftEdgePosition, 0));  // Bottom-left corner for closure
+
+        progressIndicator.Values = topContourPoints;
+        PlotView.InvalidateVisual();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"An error occurred while updating the progress indicator: {ex.Message}");
+    }
+}
 
 
-    //initialize the visibility check timer
     private void InitializeVisibilityCheckTimer()
     {
         _visibilityCheckTimer = new DispatcherTimer
@@ -520,6 +731,8 @@ public partial class MainWindow : Window
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
         Dispatcher.UIThread.InvokeAsync(() => UpdateBackground(sender, e));
+        //update progressindicator
+        Dispatcher.UIThread.InvokeAsync(() => UpdateProgressIndicator(_tosuApi.GetCompletionPercentage()));
         Dispatcher.UIThread.InvokeAsync(() => CheckIsFCRequiredSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(() => CheckBackgroundSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(() => CheckParallaxSetting(sender, e));
@@ -529,6 +742,13 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(() => CheckMissUndeafenSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(CheckForUpdatesIfNeeded);
         Dispatcher.UIThread.InvokeAsync(() => CheckBlankSetting(sender, e));
+
+        var logoImage = this.FindControl<Image>("LogoImage");
+        if (logoImage != null)
+        {
+            logoImage.Source = _colorChangingImage;
+            logoImage.IsVisible = true;
+        }
     }
 
     private void CheckIsFCRequiredSetting(object? sender, EventArgs? e)
@@ -717,16 +937,6 @@ public partial class MainWindow : Window
             SaveSettingsToFile(true, "IsBackgroundEnabled");
             this.FindControl<CheckBox>("BackgroundToggle")!.IsChecked = true;
         }
-
-        if (!ViewModel.IsBackgroundEnabled)
-        {
-            _currentBitmap?.Dispose();
-            _currentBitmap = null; // ensure _currentBitmap is null after disposal to avoid accessing a disposed object
-
-            var newBitmap =
-                DisplayBlackBackground(); // create a new Bitmap and assign it to _currentBitmap inside DisplayBlackBackground
-            UpdateUIWithNewBackground(newBitmap); // pass the new Bitmap to UpdateUIWithNewBackground
-        }
     }
 
     private void CheckMissUndeafenSetting(object? sender, EventArgs? e)
@@ -865,8 +1075,6 @@ public partial class MainWindow : Window
             ViewModel.IsBlurEffectEnabled = defaultBlurEffectEnabled;
 
         this.FindControl<CheckBox>("BlurEffectToggle")!.IsChecked = ViewModel.IsBlurEffectEnabled;
-
-        UpdateUIWithNewBackground(_currentBitmap);
     }
 
     private void DisposeTimer_Tick(object? sender, EventArgs e)
@@ -987,94 +1195,592 @@ public partial class MainWindow : Window
         }
     }
 
-    private void UpdateBackground(object? sender, EventArgs? e)
+
+    private async void UpdateBackground(object? sender, EventArgs? e)
     {
+        // Disable background if ViewModel indicates
         if (!ViewModel.IsBackgroundEnabled)
         {
-            if (_blurredBackground != null) _blurredBackground.IsVisible = false;
-            if (_normalBackground != null) _normalBackground.IsVisible = false;
-            _currentBitmap?.Dispose();
-            _currentBitmap = null;
+            if (!ViewModel.IsBackgroundEnabled)
+            {
+                if (_blurredBackground != null) _blurredBackground.IsVisible = false;
+                if (_normalBackground != null) _normalBackground.IsVisible = false;
+            }
+
+            return;
         }
-        else
+
+        var backgroundPath = _tosuApi.GetBackgroundPath();
+
+        if (_currentBitmap == null || backgroundPath != _currentBackgroundDirectory)
         {
-            // if the background is enabled, check if a new background needs to be loaded
-            var backgroundPath = _tosuApi.GetBackgroundPath();
-            if (_currentBitmap == null || backgroundPath != _currentBackgroundDirectory)
+            _currentBackgroundDirectory = backgroundPath;
+
+            var newBitmap = await LoadBitmapAsync(backgroundPath);
+            if (newBitmap == null)
             {
-                if (!File.Exists(backgroundPath))
-                {
-                    Console.WriteLine($"The file does not exist: {backgroundPath}");
-                    DisplayBlackBackground(); // fallback to black background
-                    return;
-                }
-
-                Bitmap newBitmap;
-                try
-                {
-                    newBitmap = new Bitmap(backgroundPath);
-                }
-                catch
-                {
-                    DisplayBlackBackground(); // fallback to black background
-                    return;
-                }
-
-                _currentBitmap?.Dispose();
-                _currentBitmap = newBitmap;
-                IsBlackBackgroundDisplayed = false;
-                _currentBackgroundDirectory = backgroundPath;
-                UpdateUIWithNewBackground(newBitmap);
+                Console.WriteLine($"Failed to load background: {backgroundPath}");
+                return;
             }
 
-            if (_blurredBackground != null && _normalBackground != null)
-            {
-                _blurredBackground.IsVisible = ViewModel.IsBlurEffectEnabled;
-                _normalBackground.IsVisible = !ViewModel.IsBlurEffectEnabled;
-            }
+            _currentBitmap?.Dispose();
+            _currentBitmap = newBitmap;
+
+            await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
+            await Task.Run(() => UpdateLogoAsync());
+            IsBlackBackgroundDisplayed = false;
         }
+
+        if (_currentBitmap != null)
+            ViewModel.PropertyChanged += async (sender, args) =>
+            {
+                if (args.PropertyName == nameof(ViewModel.IsParallaxEnabled) ||
+                    args.PropertyName == nameof(ViewModel.IsBlurEffectEnabled))
+                    await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
+
+                //probably a better way of doing this but this is very much bandaid fix
+                if (args.PropertyName == nameof(ViewModel.IsBackgroundEnabled))
+                {
+                    if (ViewModel.IsBackgroundEnabled == false)
+                    {
+                        if (IsBlackBackgroundDisplayed) return;
+                        await DisplayBlackBackground();
+                    }
+                    else
+                    {
+                        if (!IsBlackBackgroundDisplayed) return;
+                        await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
+                        IsBlackBackgroundDisplayed = false;
+                    }
+                }
+            };
+
+        UpdateBackgroundVisibility();
     }
 
-    private void UpdateUIWithNewBackground(Bitmap bitmap)
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        var imageControl = new Image
-        {
-            Source = bitmap,
-            Stretch = Stretch.UniformToFill,
-            Opacity = 0.5,
-            ZIndex = -1
-        };
-
-        if (ViewModel.IsBlurEffectEnabled) imageControl.Effect = new BlurEffect { Radius = 17.27 };
-
-        if (Content is Grid mainGrid)
-        {
-            var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
-            if (backgroundLayer == null)
+        if (e.PropertyName == nameof(ViewModel.IsParallaxEnabled) ||
+            e.PropertyName == nameof(ViewModel.IsBlurEffectEnabled))
+            _ = Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
+        else if (e.PropertyName == nameof(ViewModel.IsBackgroundEnabled))
+            _ = Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                backgroundLayer = new Grid { Name = "BackgroundLayer", ZIndex = -1 };
-                mainGrid.Children.Insert(0, backgroundLayer);
+                if (!ViewModel.IsBackgroundEnabled)
+                {
+                    if (!IsBlackBackgroundDisplayed)
+                        await DisplayBlackBackground();
+                }
+                else
+                {
+                    if (IsBlackBackgroundDisplayed)
+                    {
+                        await UpdateUIWithNewBackgroundAsync(_currentBitmap);
+                        IsBlackBackgroundDisplayed = false;
+                    }
+                }
+            });
+    }
+
+    private async Task<Bitmap?> LoadBitmapAsync(string path)
+    {
+        return await Task.Run(() =>
+        {
+            if (File.Exists(path))
+                try
+                {
+                    return new Bitmap(path);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to load bitmap from {path}: {ex.Message}");
+                }
+            else
+                Console.WriteLine($"Background file not found: {path}");
+
+            return null;
+        });
+    }
+
+private async Task UpdateUIWithNewBackgroundAsync(Avalonia.Media.Imaging.Bitmap? bitmap)
+{
+    // Cancel previous task if still running
+    lock (_updateLock)
+    {
+        _cancellationTokenSource.Cancel();
+        _cancellationTokenSource = new CancellationTokenSource();
+    }
+
+    var token = _cancellationTokenSource.Token;
+
+    await Dispatcher.UIThread.InvokeAsync(async () =>
+    {
+        if (token.IsCancellationRequested || bitmap == null)
+            return;
+
+        try
+        {
+            var newImageControl = new Image
+            {
+                Source = bitmap,
+                Stretch = Stretch.UniformToFill,
+                Opacity = 0.2,
+                ZIndex = -1,
+                Effect = ViewModel?.IsBlurEffectEnabled == true ? new BlurEffect { Radius = 17.27 } : null
+            };
+
+            var transition = new DoubleTransition
+            {
+                Property = Image.OpacityProperty,
+                Duration = TimeSpan.FromSeconds(0.3),
+                Easing = new QuarticEaseInOut()
+            };
+
+            if (Content is Grid mainGrid)
+            {
+                var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer")
+                                      ?? new Grid { Name = "BackgroundLayer", ZIndex = -1 };
+
+                if (!mainGrid.Children.Contains(backgroundLayer))
+                {
+                    mainGrid.Children.Insert(0, backgroundLayer);
+                }
+                else
+                {
+                    backgroundLayer.Children.Clear();
+                }
+
+                var oldBackground = backgroundLayer.Children.OfType<Image>().FirstOrDefault();
+                if (oldBackground != null)
+                {
+                    oldBackground.Transitions = new Transitions { transition };
+                    oldBackground.Opacity = 0.2;
+
+                    await Task.Delay(300);
+
+                    if (!token.IsCancellationRequested)
+                    {
+                        backgroundLayer.Children.Remove(oldBackground);
+                        oldBackground.Source = null;
+                    }
+                }
+
+                if (token.IsCancellationRequested)
+                    return;
+
+                backgroundLayer.Children.Add(newImageControl);
+                newImageControl.Transitions = new Transitions { transition };
+                newImageControl.Opacity = 0.5;
+                backgroundLayer.RenderTransform = new ScaleTransform(1.05, 1.05);
+                backgroundLayer.Opacity = _currentBackgroundOpacity;
             }
             else
             {
-                backgroundLayer.Children.Clear();
+                Content = new Grid { Children = { newImageControl } };
             }
 
-            backgroundLayer.Children.Add(imageControl);
-            backgroundLayer.RenderTransform = new ScaleTransform(1.05, 1.05);
-        }
-        else
-        {
-            // fallback: If the main content is not a grid or not structured as expected, replace it entirely
-            var newContentGrid = new Grid();
-            newContentGrid.Children.Add(imageControl);
-            Content = newContentGrid;
-        }
+            if (ParallaxToggle?.IsChecked == true && BackgroundToggle?.IsChecked == true)
+            {
+                ApplyParallax(_mouseX, _mouseY);
+            }
 
-        if (ParallaxToggle.IsChecked == true && BackgroundToggle.IsChecked == true) ApplyParallax(_mouseX, _mouseY);
+            Console.WriteLine("UpdateUIWithNewBackground: Update completed.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error updating UI: " + ex.Message);
+        }
+    });
+}
+
+    private void UpdateBackgroundVisibility()
+    {
+        if (_blurredBackground != null && _normalBackground != null)
+        {
+            _blurredBackground.IsVisible = ViewModel.IsBlurEffectEnabled;
+            _normalBackground.IsVisible = !ViewModel.IsBlurEffectEnabled;
+        }
     }
 
-    private Bitmap CreateBlackBitmap(int width = 600, int height = 600)
+    private SKBitmap ConvertToSKBitmap(Bitmap avaloniaBitmap)
+    {
+        using var memoryStream = new MemoryStream();
+        avaloniaBitmap.Save(memoryStream);
+        memoryStream.Seek(0, SeekOrigin.Begin);
+        return SKBitmap.Decode(memoryStream);
+    }
+
+    private SKColor CalculateAverageColor(SKBitmap bitmap)
+    {
+        if (bitmap == null)
+        {
+            throw new ArgumentNullException(nameof(bitmap), "Bitmap cannot be null");
+        }
+
+        var width = bitmap.Width;
+        var height = bitmap.Height;
+
+        if (width == 0 || height == 0)
+        {
+            throw new ArgumentException("Bitmap dimensions cannot be zero", nameof(bitmap));
+        }
+
+        var pixelCount = width * height;
+
+        long totalR = 0, totalG = 0, totalB = 0;
+
+        Parallel.For(0, height, y =>
+        {
+            long localTotalR = 0, localTotalG = 0, localTotalB = 0;
+
+            for (var x = 0; x < width; x++)
+            {
+                var pixel = bitmap.GetPixel(x, y);
+                localTotalR += pixel.Red;
+                localTotalG += pixel.Green;
+                localTotalB += pixel.Blue;
+            }
+
+            Interlocked.Add(ref totalR, localTotalR);
+            Interlocked.Add(ref totalG, localTotalG);
+            Interlocked.Add(ref totalB, localTotalB);
+        });
+
+        var avgR = (byte)(totalR / pixelCount);
+        var avgG = (byte)(totalG / pixelCount);
+        var avgB = (byte)(totalB / pixelCount);
+
+        return new SKColor(avgR, avgG, avgB);
+    }
+
+    private SKColor InterpolateColor(SKColor from, SKColor to, float t)
+    {
+        if (t < 0f || t > 1f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(t), "Interpolation factor must be between 0 and 1");
+        }
+
+        byte InterpolateComponent(byte start, byte end, float factor)
+        {
+            return (byte)(start + ((end - start) * factor));
+        }
+
+        var r = InterpolateComponent(from.Red, to.Red, t);
+        var g = InterpolateComponent(from.Green, to.Green, t);
+        var b = InterpolateComponent(from.Blue, to.Blue, t);
+        var a = InterpolateComponent(from.Alpha, to.Alpha, t);
+
+        return new SKColor(r, g, b, a);
+    }
+
+   private SKSvg LoadHighResolutionLogo(string resourceName)
+{
+    try
+    {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
+                       ?? throw new FileNotFoundException("Resource not found: " + resourceName);
+        var svg = new SKSvg();
+        svg.Load(stream);
+        return svg;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[ERROR] Exception while loading SVG: {ex.Message}");
+        throw;
+    }
+}
+
+public Bitmap LoadEmbeddedResource(string resourceName)
+{
+    const int maxRetries = 5;
+    const int initialDelayMilliseconds = 500;
+    var delay = initialDelayMilliseconds;
+
+    for (var retryCount = 0; retryCount < maxRetries; retryCount++)
+    {
+        try
+        {
+            using var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
+                              ?? throw new FileNotFoundException("Resource not found: " + resourceName);
+
+            return new Bitmap(resourceStream)
+                   ?? throw new InvalidOperationException("Failed to create bitmap from resource stream.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Exception while loading embedded resource '{resourceName}': {ex.Message}. Attempt {retryCount + 1} of {maxRetries}.");
+
+            if (retryCount >= maxRetries - 1)
+            {
+                Console.WriteLine("[ERROR] Max retry attempts reached. Failing operation.");
+                throw;
+            }
+
+            // Exponential backoff
+            Task.Delay(delay).Wait();
+            delay *= 2;
+        }
+    }
+
+    throw new InvalidOperationException("Failed to load embedded resource after multiple attempts.");
+}
+
+private async void InitializeLogo()
+{
+    try
+    {
+        var logoImage = await LoadLogoAsync("osuautodeafen.Resources.autodeafen.svg");
+        UpdateViewModelWithLogo(logoImage);
+        Console.WriteLine("SVG loaded successfully.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Exception while loading logo image: {ex.Message}");
+        await RetryLoadLogoAsync("osuautodeafen.Resources.autodeafen.svg");
+    }
+
+    await UpdateLogoAsync();
+}
+
+private async Task<Bitmap> LoadLogoAsync(string resourceName)
+{
+    using var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
+                      ?? throw new FileNotFoundException("Resource not found: " + resourceName);
+
+    var svg = new SKSvg();
+    svg.Load(resourceStream);
+
+    return svg.Picture == null ? throw new InvalidOperationException("Failed to load SVG picture.")
+                               : ConvertSvgToBitmap(svg, 100, 100);
+}
+
+    private async Task RetryLoadLogoAsync(string resourceName)
+    {
+        const int maxRetries = 3;
+        var retryCount = 0;
+        var success = false;
+
+        while (retryCount < maxRetries && !success)
+            try
+            {
+                retryCount++;
+                Console.WriteLine($"Retrying to load SVG... Attempt {retryCount}");
+                var logoImage = await LoadLogoAsync(resourceName);
+                UpdateViewModelWithLogo(logoImage);
+                success = true;
+            }
+            catch (Exception retryEx)
+            {
+                Console.WriteLine($"[ERROR] Retry {retryCount} failed: {retryEx.Message}");
+                if (retryCount >= maxRetries)
+                {
+                    Console.WriteLine(
+                        $"[ERROR] Exception while loading SVG after {maxRetries} attempts: {retryEx.Message}");
+                    return; // Exit if loading the SVG fails after max retries
+                }
+            }
+    }
+
+    private void UpdateViewModelWithLogo(Bitmap logoImage)
+    {
+        var viewModel = DataContext as SharedViewModel;
+        if (viewModel != null)
+        {
+            viewModel.ModifiedLogoImage = logoImage;
+            Console.WriteLine("ModifiedLogoImage property set.");
+        }
+    }
+
+
+    //this is just here because i dont want to add a massive blocking call to wait for tosuapi with ui loading
+    private async Task<string?> TryGetLowResBitmapPathAsync(int maxAttempts, int delayMilliseconds)
+    {
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            var lowResBitmapPath = _getLowResBackground.GetLowResBitmapPath();
+            if (!string.IsNullOrEmpty(lowResBitmapPath)) return lowResBitmapPath;
+            Console.WriteLine($"Attempt {attempt} failed. Retrying in {delayMilliseconds}ms...");
+            await Task.Delay(delayMilliseconds);
+        }
+
+        Console.WriteLine("[ERROR] Failed to get low resolution bitmap path after multiple attempts.");
+        return null;
+    }
+
+    private Bitmap ConvertSvgToBitmap(SKSvg svg, int width, int height)
+    {
+        var info = new SKImageInfo(width, height);
+        using var surface = SKSurface.Create(info);
+        var canvas = surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+        canvas.DrawPicture(svg.Picture);
+        using var image = surface.Snapshot();
+        using var data = image.Encode();
+        using var stream = new MemoryStream(data.ToArray());
+        return new Bitmap(stream);
+    }
+
+
+private async Task UpdateLogoAsync()
+{
+    if (_getLowResBackground == null)
+    {
+        Console.WriteLine("[ERROR] _getLowResBackground is null");
+        return;
+    }
+
+    // Start loading low-res bitmap and high-res SVG in parallel
+    var lowResBitmapTask = TryGetLowResBitmapPathAsync(5, 1000);
+    var highResLogoTask = Task.Run(() =>
+    {
+        try
+        {
+            return LoadHighResolutionLogo("osuautodeafen.Resources.autodeafen.svg");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Exception while loading high-resolution logo: {ex.Message}");
+            return null;
+        }
+    });
+
+    var lowResBitmapPath = await lowResBitmapTask;
+    if (lowResBitmapPath == null)
+    {
+        Console.WriteLine("[ERROR] Failed to get low-resolution bitmap path");
+        return;
+    }
+
+    if (!File.Exists(lowResBitmapPath))
+    {
+        Console.WriteLine("[ERROR] Low-resolution bitmap path does not exist");
+        return;
+    }
+
+    _lowResBitmap = new Bitmap(lowResBitmapPath);
+    if (_lowResBitmap == null)
+    {
+        Console.WriteLine("[ERROR] Failed to load low-resolution bitmap");
+        return;
+    }
+
+    Console.WriteLine("Low resolution bitmap successfully loaded");
+
+    _cachedLogoSvg = await highResLogoTask;
+    if (_cachedLogoSvg == null)
+    {
+        Console.WriteLine("[ERROR] Failed to load high-resolution logo");
+        return;
+    }
+
+    var newAverageColor = SKColors.White;
+
+    // Calculate newAverageColor only if _lowResBitmap is not null
+    if (_lowResBitmap != null)
+    {
+        newAverageColor = await CalculateAverageColorAsync(ConvertToSKBitmap(_lowResBitmap));
+    }
+
+    var steps = 20; // Increased steps for smoother gradient
+    var delay = 1; // Fastest possible delay in milliseconds
+
+    await _animationManager.EnqueueAnimation(async () =>
+    {
+        if (_cachedLogoSvg?.Picture == null)
+        {
+            Console.WriteLine("[ERROR] Cached logo SVG or its picture is null");
+            return;
+        }
+
+        var originalPicture = _cachedLogoSvg.Picture;
+
+        for (var i = 0; i <= steps; i++)
+        {
+            var t = i / (float)steps;
+            var interpolatedColor = InterpolateColor(_oldAverageColor, newAverageColor, t);
+            var width = (int)originalPicture.CullRect.Width;
+            var height = (int)originalPicture.CullRect.Height;
+            var bitmap = new SKBitmap(width, height);
+
+            await Task.Run(() =>
+            {
+                using (var canvas = new SKCanvas(bitmap))
+                {
+                    canvas.Clear(SKColors.Transparent);
+
+                    using var paint = new SKPaint
+                    {
+                    };
+
+                    canvas.DrawPicture(originalPicture, paint);
+
+                    // Apply the interpolated color to each pixel
+                    for (var y = 0; y < bitmap.Height; y++)
+                    {
+                        for (var x = 0; x < bitmap.Width; x++)
+                        {
+                            var pixel = bitmap.GetPixel(x, y);
+                            var newColor = new SKColor(
+                                interpolatedColor.Red,
+                                interpolatedColor.Green,
+                                interpolatedColor.Blue,
+                                pixel.Alpha
+                            );
+                            bitmap.SetPixel(x, y, newColor);
+                        }
+                    }
+                }
+            });
+
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            if (data == null)
+            {
+                Console.WriteLine("[ERROR] Data encoding failed");
+                continue;
+            }
+
+            await using var stream = new MemoryStream(data.ToArray());
+
+            try
+            {
+                _colorChangingImage = new Bitmap(stream);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Exception while creating Bitmap from stream: {ex.Message}");
+            }
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (DataContext is SharedViewModel viewModel)
+                {
+                    try
+                    {
+                        viewModel.ModifiedLogoImage = new Bitmap(stream);
+                        Console.WriteLine("Modified logo image updated in ViewModel");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[ERROR] Exception while setting ViewModel's ModifiedLogoImage: {ex.Message}");
+                    }
+                }
+            });
+
+            await Task.Delay(delay);
+        }
+
+        _oldAverageColor = newAverageColor;
+    });
+}
+
+    private async Task<SKColor> CalculateAverageColorAsync(SKBitmap bitmap)
+    {
+        return await Task.Run(() => CalculateAverageColor(bitmap));
+    }
+
+
+    private Bitmap? CreateBlackBitmap(int width = 600, int height = 600)
     {
         var renderTargetBitmap = new RenderTargetBitmap(new PixelSize(width, height), new Vector(96, 96));
         using (var drawingContext = renderTargetBitmap.CreateDrawingContext())
@@ -1093,13 +1799,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private Bitmap DisplayBlackBackground()
+    private Task DisplayBlackBackground()
     {
         var blackBitmap = CreateBlackBitmap();
-        _currentBitmap = blackBitmap;
-        UpdateUIWithNewBackground(blackBitmap);
+        UpdateUIWithNewBackgroundAsync(blackBitmap);
         IsBlackBackgroundDisplayed = true;
-        return blackBitmap;
+        return Task.CompletedTask;
     }
 
     private void ApplyParallax(double mouseX, double mouseY)
@@ -1151,6 +1856,9 @@ public partial class MainWindow : Window
         _mouseX = position.X;
         _mouseY = position.Y;
 
+        // Check if the mouse is within the window bounds
+        if (_mouseX < 0 || _mouseY < 0 || _mouseX > Width || _mouseY > Height) return;
+
         ApplyParallax(_mouseX, _mouseY);
     }
 
@@ -1191,15 +1899,56 @@ public partial class MainWindow : Window
         Console.WriteLine("Received: {0}", completionPercentage);
     }
 
+    private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan duration)
+    {
+        if (Content is Grid mainGrid)
+        {
+            var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
+            if (backgroundLayer != null)
+            {
+                var currentOpacity = backgroundLayer.Opacity;
+
+                var animation = new Animation
+                {
+                    Duration = duration,
+                    Easing = new QuarticEaseInOut()
+                };
+
+                animation.Children.Add(
+                    new KeyFrame
+                    {
+                        Cue = new Cue(0),
+                        Setters = { new Setter(OpacityProperty, currentOpacity) }
+                    }
+                );
+
+                animation.Children.Add(
+                    new KeyFrame
+                    {
+                        Cue = new Cue(1),
+                        Setters = { new Setter(OpacityProperty, targetOpacity) }
+                    }
+                );
+
+                // Explicitly set the final opacity to avoid visual flashing
+                backgroundLayer.Opacity = targetOpacity;
+                _currentBackgroundOpacity = targetOpacity;
+
+                await animation.RunAsync(backgroundLayer);
+            }
+        }
+    }
+
     private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
     {
         var updateBar = this.FindControl<Button>("UpdateNotificationBar");
         var isUpdateBarVisible = updateBar != null && updateBar.IsVisible;
         var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
+        var settingsPanel2 = this.FindControl<DockPanel>("SettingsPanel2");
         var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
         var settingsPanelMargin = settingsPanel.Margin;
+        var settingsPanel2Margin = settingsPanel2.Margin;
         var textBlockPanelMargin = textBlockPanel.Margin;
-
 
         settingsPanel.Transitions = new Transitions
         {
@@ -1224,41 +1973,75 @@ public partial class MainWindow : Window
         if (settingsPanel.IsVisible)
         {
             settingsPanel.IsVisible = false;
-            if (isUpdateBarVisible)
+            AdjustMargins(isUpdateBarVisible, settingsPanel, settingsPanel2, textBlockPanel, settingsPanelMargin,
+                settingsPanel2Margin, textBlockPanelMargin);
+
+            var adjustOpacityTask = AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.3));
+            var adjustTextBlockPanelMarginTask = InvokeOnUIThreadAsync(() =>
             {
-                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
-                    settingsPanelMargin.Right, 28);
-                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
-                    textBlockPanelMargin.Right, 28);
-            }
-            else
-            {
-                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
-                    settingsPanelMargin.Right, 0);
-                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
-                    textBlockPanelMargin.Right, 0);
-            }
+                textBlockPanel.Margin = new Thickness(0, 42, 0, 0);
+            });
+
+            await Task.WhenAll(adjustOpacityTask, adjustTextBlockPanelMarginTask);
         }
         else
         {
             settingsPanel.IsVisible = true;
-            if (isUpdateBarVisible)
-            {
-                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
-                    settingsPanelMargin.Right, 28);
-                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
-                    textBlockPanelMargin.Right, 28);
-            }
-            else
-            {
-                settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
-                    settingsPanelMargin.Right, 0);
-                textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
-                    textBlockPanelMargin.Right, 0);
-            }
-        }
+            AdjustMargins(isUpdateBarVisible, settingsPanel, settingsPanel2, textBlockPanel, settingsPanelMargin,
+                settingsPanel2Margin, textBlockPanelMargin);
 
-        textBlockPanel.Margin = settingsPanel.IsVisible ? new Thickness(0, 42, 225, 0) : new Thickness(0, 42, 0, 0);
+            var adjustOpacityTask = AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.3));
+            var adjustTextBlockPanelMarginTask = InvokeOnUIThreadAsync(() =>
+            {
+                textBlockPanel.Margin = new Thickness(0, 42, 225, 0);
+            });
+
+            await Task.WhenAll(adjustOpacityTask, adjustTextBlockPanelMarginTask);
+        }
+    }
+
+    private void AdjustMargins(bool isUpdateBarVisible, DockPanel settingsPanel, DockPanel settingsPanel2,
+        StackPanel textBlockPanel, Thickness settingsPanelMargin, Thickness settingsPanel2Margin,
+        Thickness textBlockPanelMargin)
+    {
+        if (isUpdateBarVisible)
+        {
+            settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
+                settingsPanelMargin.Right, 28);
+            settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
+                settingsPanel2Margin.Right, 28);
+            textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
+                textBlockPanelMargin.Right, 28);
+        }
+        else
+        {
+            settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
+                settingsPanelMargin.Right, 0);
+            settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
+                settingsPanel2Margin.Right, 0);
+            textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
+                textBlockPanelMargin.Right, 0);
+        }
+    }
+
+    private Task InvokeOnUIThreadAsync(Action action)
+    {
+        var tcs = new TaskCompletionSource<object?>();
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            try
+            {
+                action();
+                tcs.SetResult(null);
+            }
+            catch (Exception ex)
+            {
+                tcs.SetException(ex);
+            }
+        });
+
+        return tcs.Task;
     }
 
     private async void SecondPage_Click(object sender, RoutedEventArgs e)
@@ -1279,10 +2062,23 @@ public partial class MainWindow : Window
         firstPage.IsVisible = true;
     }
 
-    public void BlankEffectToggle_IsCheckedChanged(object? sender, RoutedEventArgs e)
+    public async void BlankEffectToggle_IsCheckedChanged(object? sender, RoutedEventArgs e)
     {
-    }
+        if (sender is CheckBox checkBox)
+        {
+            if (_screenBlankerForm == null)
+                // Initialize _screenBlankerForm if it is null
+                _screenBlankerForm = new ScreenBlankerForm(this);
 
+
+            if (checkBox.IsChecked == true)
+                // Initialize blanking windows if not already initialized
+                _screenBlankerForm.InitializeBlankingWindows();
+            else
+                // Unblank screens
+                _screenBlankerForm.UnblankScreensAsync();
+        }
+    }
 
     public class HotKey
     {
@@ -1320,12 +2116,5 @@ public partial class MainWindow : Window
 
             return new HotKey { Key = key, ModifierKeys = modifierKeys };
         }
-    }
-    public async void BlankEffectToggleDeafen()
-    {
-    }
-
-    public void BlankEffectToggle_IsCheckedChanged(object? sender, RoutedEventArgs e)
-    {
     }
 }

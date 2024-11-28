@@ -34,6 +34,11 @@
           "warnAsError": [
             "NU1605"
           ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
         }
       },
       "frameworks": {
@@ -52,10 +57,6 @@
               "target": "Package",
               "version": "[11.0.10, )"
             },
-            "Avalonia.Diagnostics": {
-              "target": "Package",
-              "version": "[11.0.10, )"
-            },
             "Avalonia.Fonts.Inter": {
               "target": "Package",
               "version": "[11.0.10, )"
@@ -63,6 +64,10 @@
             "Avalonia.Themes.Fluent": {
               "target": "Package",
               "version": "[11.0.10, )"
+            },
+            "ILMerge": {
+              "target": "Package",
+              "version": "[3.0.41, )"
             },
             "InputManager": {
               "target": "Package",
@@ -84,6 +89,22 @@
               "target": "Package",
               "version": "[20.1.1, )"
             },
+            "SharpVectors": {
+              "target": "Package",
+              "version": "[1.8.4.2, )"
+            },
+            "Svg.Skia": {
+              "target": "Package",
+              "version": "[2.0.0, )"
+            },
+            "Veldrid": {
+              "target": "Package",
+              "version": "[4.9.0, )"
+            },
+            "Veldrid.SPIRV": {
+              "target": "Package",
+              "version": "[1.0.15, )"
+            },
             "WebSocketSharp": {
               "target": "Package",
               "version": "[1.0.3-rc11, )"
@@ -103,9 +124,6 @@
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
-            },
-            "Microsoft.WindowsDesktop.App.WindowsForms": {
-              "privateAssets": "none"
             }
           },
           "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.205/PortableRuntimeIdentifierGraph.json"

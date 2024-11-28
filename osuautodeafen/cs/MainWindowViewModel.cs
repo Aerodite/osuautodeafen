@@ -7,14 +7,15 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Timers;
 using System.Windows.Input;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 
 namespace osuautodeafen.cs;
 
 public sealed class SharedViewModel : INotifyPropertyChanged
 {
-    private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private readonly bool _canUpdateSettings = true;
+    private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private MainWindow.HotKey _deafenKeybind;
 
     private string _deafenKeybindDisplay;
@@ -29,6 +30,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private bool _isKeybindCaptureFlyoutOpen;
     private bool _isParallaxEnabled;
     private int _minCompletionPercentage;
+
+    private Bitmap? _modifiedLogoImage;
     private int _performancePoints;
     private int _starRating;
 
@@ -362,6 +365,16 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 _updateStatusMessage = value;
                 OnPropertyChanged();
             }
+        }
+    }
+
+    public Bitmap? ModifiedLogoImage
+    {
+        get => _modifiedLogoImage;
+        set
+        {
+            _modifiedLogoImage = value;
+            OnPropertyChanged();
         }
     }
 

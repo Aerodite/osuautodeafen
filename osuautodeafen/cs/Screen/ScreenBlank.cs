@@ -24,12 +24,6 @@ public class ScreenBlanker : IDisposable
         _screenBlankerForm = null;
     }
 
-    public static async Task<ScreenBlanker> CreateAsync(Window mainWindow)
-    {
-        var screenBlanker = new ScreenBlanker(mainWindow);
-        screenBlanker._screenBlankerForm = await ScreenBlankerForm.CreateAsync(mainWindow);
-        return screenBlanker;
-    }
 
     public async Task BlankScreensAsync()
     {

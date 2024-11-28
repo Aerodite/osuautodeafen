@@ -32,7 +32,7 @@ osu!autodeafen is a tool that uses osu! memory data from [Tosu](https://github.c
 * [Tosu](https://github.com/KotRikD/tosu)
   
 > [!WARNING]
-> It is recommended to use [Tosu 3.0.1](https://github.com/KotRikD/tosu/releases/tag/v3.0.1) or later due to the unstable state of older releases causing undefined behaviour such as [this](https://github.com/KotRikD/tosu/issues/164)
+> It is recommended to use [Tosu 2,7,0](https://github.com/KotRikD/tosu/releases/tag/v2.7.0) as newer versions tend to make osu!autodeafen crash really often (and Tosu seems to have a crap-ton of warnings and errors appear just going through song select on newer versions for whatever reason???))
 
 # Credits
 Thank you [Jurme](https://osu.ppy.sh/users/6282195) & [InfernoJonk](https://osu.ppy.sh/users/9537557) for testing (and discovering) a bunch of edge cases
