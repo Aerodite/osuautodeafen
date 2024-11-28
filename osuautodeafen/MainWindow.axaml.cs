@@ -486,7 +486,7 @@ private void UpdateProgressIndicator(double completionPercentage)
 {
     try
     {
-        if (!XAxes.Any() || completionPercentage < 0 || completionPercentage > 100)
+        if (XAxes.Length == 0 || completionPercentage < 0 || completionPercentage > 100)
         {
             Console.WriteLine("No valid XAxes found in the chart or the completion percentage is out of range.");
             return;
@@ -519,7 +519,7 @@ private void UpdateProgressIndicator(double completionPercentage)
         };
 
         double step = (progressPosition - leftEdgePosition) / 10;
-        foreach (var x in Enumerable.Range(0, 11).Select(i => leftEdgePosition + i * step))
+        foreach (var x in Enumerable.Range(0, 11).Select(i => leftEdgePosition + (i * step)))
         {
             double maxInterpolatedY = 0;
 
@@ -533,7 +533,7 @@ private void UpdateProgressIndicator(double completionPercentage)
 
                 double interpolatedY = leftPoint.X == rightPoint.X
                     ? (double)leftPoint.Y
-                    : (double)(leftPoint.Y + (rightPoint.Y - leftPoint.Y) * (x - leftPoint.X) / (rightPoint.X - leftPoint.X));
+                    : (double)(leftPoint.Y + ((rightPoint.Y - leftPoint.Y) * (x - leftPoint.X) / (rightPoint.X - leftPoint.X)));
 
                 maxInterpolatedY = Math.Max(maxInterpolatedY, interpolatedY);
             }
@@ -551,7 +551,7 @@ private void UpdateProgressIndicator(double completionPercentage)
 
             return rightEdgeLeftPoint.X == rightEdgeRightPoint.X
                 ? (double)rightEdgeLeftPoint.Y
-                : (double)(rightEdgeLeftPoint.Y + (rightEdgeRightPoint.Y - rightEdgeLeftPoint.Y) * (progressPosition - rightEdgeLeftPoint.X) / (rightEdgeRightPoint.X - rightEdgeLeftPoint.X));
+                : (double)(rightEdgeLeftPoint.Y + ((rightEdgeRightPoint.Y - rightEdgeLeftPoint.Y) * (progressPosition - rightEdgeLeftPoint.X) / (rightEdgeRightPoint.X - rightEdgeLeftPoint.X)));
         });
 
         topContourPoints.Add(new ObservablePoint(progressPosition, rightEdgeY));
@@ -1462,7 +1462,7 @@ private async Task UpdateUIWithNewBackgroundAsync(Avalonia.Media.Imaging.Bitmap?
 
         byte InterpolateComponent(byte start, byte end, float factor)
         {
-            return (byte)(start + (end - start) * factor);
+            return (byte)(start + ((end - start) * factor));
         }
 
         var r = InterpolateComponent(from.Red, to.Red, t);
