@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.WebSockets;
@@ -538,6 +538,4 @@ public class TosuApi : IDisposable
         Console.WriteLine($"An error occurred while parsing graph data: {ex.Message}");
     }
 }
-
-
 }
