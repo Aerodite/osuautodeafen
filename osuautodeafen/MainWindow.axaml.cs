@@ -2170,22 +2170,26 @@ private async Task UpdateLogoAsync()
 
     public async void BlankEffectToggle_IsCheckedChanged(object? sender, RoutedEventArgs e)
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            Console.WriteLine("Blank effect is only supported on Windows.");
+            return;
+        }
+
         if (sender is CheckBox checkBox)
         {
             if (_screenBlankerForm == null)
                 // Initialize _screenBlankerForm if it is null
                 _screenBlankerForm = new ScreenBlankerForm(this);
 
-
             if (checkBox.IsChecked == true)
                 // Initialize blanking windows if not already initialized
                 _screenBlankerForm.InitializeBlankingWindows();
             else
                 // Unblank screens
-                _screenBlankerForm.UnblankScreensAsync();
+                await _screenBlankerForm.UnblankScreensAsync();
         }
     }
-
     private void InitializeKeybindButtonText()
     {
         var currentKeybind = RetrieveKeybindFromSettings();

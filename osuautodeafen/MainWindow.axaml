@@ -223,10 +223,14 @@
                     <CheckBox x:Name="BlankEffectToggle" Content="Blank" Foreground="White"
                               IsChecked="{Binding IsBlankScreenEnabled, Mode=TwoWay}"
                               HorizontalAlignment="Left" Margin="0,0,0,0"
-                              IsCheckedChanged="BlankEffectToggle_IsCheckedChanged">
+                              IsCheckedChanged="BlankEffectToggle_IsCheckedChanged"
+                              IsEnabled="{x:Static cs:PlatformHelper.IsWindows}">
                         <ToolTip.Tip>
-                            <TextBlock
-                                Text="Blank out your monitors during an FC (**make sure your monitors are all set to the same scaling and that your osu! is at the primary monitor**)" />
+                            <TextBlock>
+                                <Run Text="Blank out your monitors during an FC (**make sure your monitors are all set to the same scaling and that your osu! is at the primary monitor**)" />
+                                <LineBreak />
+                                <Run Text="(This option is only available on Windows)" />
+                            </TextBlock>
                         </ToolTip.Tip>
                     </CheckBox>
                 </StackPanel>

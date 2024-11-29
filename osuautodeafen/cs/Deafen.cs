@@ -238,9 +238,9 @@ public class Deafen : IDisposable
         }
     }
 
-    private List<(IEnumerable<KeyCode> Modifiers, KeyCode Key)> ConvertToInputSimulatorSyntax(string keybind)
+private List<(IEnumerable<KeyCode> Modifiers, KeyCode Key)> ConvertToInputSimulatorSyntax(string keybind)
 {
-    var parts = keybind.Split('+');
+    var parts = keybind.Split(new[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
     var keybinds = new List<(IEnumerable<KeyCode> Modifiers, KeyCode Key)>();
     var modifiers = new List<KeyCode>();
     KeyCode key = KeyCode.Vc0;
@@ -302,12 +302,13 @@ public class Deafen : IDisposable
         { "F9", KeyCode.VcF9 },
         { "F10", KeyCode.VcF10 },
         { "F11", KeyCode.VcF11 },
-        { "F12", KeyCode.VcF12 }
+        { "F12", KeyCode.VcF12 },
+        { "Equals", KeyCode.VcEquals }
     };
 
-    foreach (var part in parts)
+    for (int i = 0; i < parts.Length; i++)
     {
-        var trimmedPart = part.Trim();
+        var trimmedPart = parts[i].Trim();
         if (specialKeys.ContainsKey(trimmedPart))
         {
             if (trimmedPart == "Shift" || trimmedPart == "Ctrl" || trimmedPart == "Alt" || trimmedPart == "Win" ||
@@ -324,9 +325,17 @@ public class Deafen : IDisposable
         }
         else
         {
-            if (trimmedPart.Length == 1)
+            if (trimmedPart.Length == 1 || (i == parts.Length - 1 && trimmedPart == "+"))
+                //should be noted that the only key that doesnt work is +, sorry to people that use + 💀
             {
-                key = (KeyCode)Enum.Parse(typeof(KeyCode), "Vc" + trimmedPart.ToUpper());
+                if (trimmedPart == "-")
+                {
+                    key = KeyCode.VcMinus;
+                }
+                else
+                {
+                    key = (KeyCode)Enum.Parse(typeof(KeyCode), "Vc" + trimmedPart.ToUpper());
+                }
             }
             else
             {
@@ -345,7 +354,6 @@ public class Deafen : IDisposable
         $"Converted keybind: {keybind} to {string.Join(", ", keybinds.Select(k => $"{string.Join("+", k.Modifiers)}+{k.Key}"))}");
     return keybinds;
 }
-
     private readonly object _deafenLock = new object();
 
     private void ToggleDeafenState()

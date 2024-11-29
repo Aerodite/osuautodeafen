@@ -9,13 +9,6 @@ using osuautodeafen.cs.Screen;
 
 public class ScreenBlankerForm : IDisposable
 {
-    const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
-    const uint WINEVENT_OUTOFCONTEXT = 0x0000;
-    const uint WINEVENT_SKIPOWNPROCESS = 0x0002;
-    private const int WH_MOUSE_LL = 14;
-    private const int WM_LBUTTONDOWN = 0x0201;
-    private const int WM_RBUTTONDOWN = 0x0204;
-
     private DateTime _lastMouseEventTime = DateTime.MinValue;
     private readonly Window _mainWindow;
     private ScreenBlankerWindow[]? _blankingWindows;
@@ -23,12 +16,19 @@ public class ScreenBlankerForm : IDisposable
     private bool _isInitialized;
     private bool _isOsuFocused;
     private DateTime _lastFocusChangeTime;
+#if WINDOWS
 
     private IntPtr _winEventHook;
     private WinEventDelegate _winEventDelegate;
-
     private IntPtr _mouseHook;
     private LowLevelMouseProc _mouseProc;
+
+    const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+    const uint WINEVENT_OUTOFCONTEXT = 0x0000;
+    const uint WINEVENT_SKIPOWNPROCESS = 0x0002;
+    private const int WH_MOUSE_LL = 14;
+    private const int WM_LBUTTONDOWN = 0x0201;
+    private const int WM_RBUTTONDOWN = 0x0204;
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
@@ -55,24 +55,32 @@ public class ScreenBlankerForm : IDisposable
     private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
 
     private delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
-
+#endif
     public ScreenBlankerForm(Window mainWindow)
     {
         Console.WriteLine(@"Initializing ScreenBlankerForm...");
         _mainWindow = mainWindow;
-        //this should probably be moved to be called only when the toggle is enabled, and vice-versa
-        InitializeBlankingWindows();
 
-        _winEventDelegate = WinEventProc;
-        _winEventHook = SetWinEventHook(
-            EVENT_SYSTEM_FOREGROUND,
-            EVENT_SYSTEM_FOREGROUND,
-            IntPtr.Zero,
-            _winEventDelegate,
-            0,
-            0,
-            WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS
-        );
+        if (OperatingSystem.IsWindows())
+        {
+            // This should probably be moved to be called only when the toggle is enabled, and vice-versa
+            InitializeBlankingWindows();
+
+            _winEventDelegate = WinEventProc;
+            _winEventHook = SetWinEventHook(
+                EVENT_SYSTEM_FOREGROUND,
+                EVENT_SYSTEM_FOREGROUND,
+                IntPtr.Zero,
+                _winEventDelegate,
+                0,
+                0,
+                WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS
+            );
+        }
+        else
+        {
+            Console.WriteLine("Screen blanking is only supported on Windows.");
+        }
 
         _mainWindow.Closed += (sender, e) => Dispose();
     }
