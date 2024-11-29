@@ -27,6 +27,9 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private bool _isBlurEffectEnabled;
     public bool _isFCRequired;
 
+    private double _completionPercentage;
+    private readonly TosuApi _tosuApi;
+
     private bool _isKeybindCaptureFlyoutOpen;
     private bool _isParallaxEnabled;
     private int _minCompletionPercentage;
@@ -45,6 +48,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     {
         OpenUpdateUrlCommand = new RelayCommand(OpenUpdateUrl);
         Task.Run(InitializeAsync);
+        _tosuApi = new TosuApi();
+        Task.Run(UpdateCompletionPercentageAsync);
     }
 
 
@@ -314,6 +319,28 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
+    public double CompletionPercentage
+    {
+        get => _completionPercentage;
+        set
+        {
+            if (Math.Abs(_completionPercentage - value) > 0.01)
+            {
+                _completionPercentage = value;
+                OnPropertyChanged(nameof(CompletionPercentage));
+            }
+        }
+    }
+
+    private async Task UpdateCompletionPercentageAsync()
+    {
+        while (true)
+        {
+            var newCompletionPercentage = _tosuApi.GetCompletionPercentage();
+            CompletionPercentage = newCompletionPercentage;
+            await Task.Delay(100);
+        }
+    }
     public int StarRating
     {
         get => _starRating;
@@ -503,6 +530,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 UseShellExecute = true
             });
     }
+
+
 
     private void OnPropertyChanged([CallerMemberName] string propertyName = null)
     {

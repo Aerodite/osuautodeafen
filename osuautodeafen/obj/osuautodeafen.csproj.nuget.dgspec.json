@@ -73,6 +73,10 @@
               "target": "Package",
               "version": "[1.0.0, )"
             },
+            "InputSimulator": {
+              "target": "Package",
+              "version": "[1.0.4, )"
+            },
             "LiveChartsCore.SkiaSharpView": {
               "target": "Package",
               "version": "[2.0.0-rc2, )"
@@ -88,6 +92,10 @@
             "ReactiveUI": {
               "target": "Package",
               "version": "[20.1.1, )"
+            },
+            "SharpHook": {
+              "target": "Package",
+              "version": "[5.3.8, )"
             },
             "SharpVectors": {
               "target": "Package",

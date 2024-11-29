@@ -22,6 +22,7 @@ public class TosuApi : IDisposable
     private BreakPeriod _breakPeriod;
     private double _combo;
     private double _completionPercentage;
+    private double _rawCompletionPercentage;
     private double _current;
     private double _firstObj;
     private double _full;
@@ -183,6 +184,13 @@ public class TosuApi : IDisposable
                             "{ \"key\": \"value\" }");
 
                     ////////////////////////////////////////////////////////////////////
+                    if (root.TryGetProperty("state", out var state))
+                    {
+                        if (state.TryGetProperty("number", out var number))
+                        {
+                            _rawBanchoStatus = number.GetInt32();
+                        }
+                    }
                     if (root.TryGetProperty("stats", out var stats))
                         if (stats.TryGetProperty("pp", out var pp))
                             if (pp.TryGetProperty("fc", out var fc))
@@ -271,13 +279,14 @@ public class TosuApi : IDisposable
                                 //if not we might just want to return local status as well?
                                 //which would be possible by grabbing profile > userStatus > number
                                 //instead of profile > banchoStatus > number)
-                                var rawBanchoStatus = banchoStatusNumber.GetInt32();
-                                StateChanged?.Invoke(rawBanchoStatus);
-                                _rawBanchoStatus = rawBanchoStatus;
-                                if (rawBanchoStatus == 2)
+                                //var rawBanchoStatus = banchoStatusNumber.GetInt32();
+                                //StateChanged?.Invoke(rawBanchoStatus);
+                                //_rawBanchoStatus = rawBanchoStatus;
+                                //if (rawBanchoStatus == 2)
                                 {
                                 }
                             }
+
 
                     if (root.TryGetProperty("folders", out var folders) &&
                         folders.TryGetProperty("songs", out var songs))
@@ -334,7 +343,6 @@ public class TosuApi : IDisposable
         else
         {
             _completionPercentage = (_current - _firstObj) / _full * 100;
-            _completionPercentage = Math.Round(_completionPercentage, 2);
             //Console.WriteLine($"completion percent = {_completionPercentage}%");
         }
 
@@ -414,6 +422,11 @@ public class TosuApi : IDisposable
     public double? RateAdjustRate()
     {
         return _DTRate;
+    }
+
+    public int GetRawBanchoStatus()
+    {
+        return _rawBanchoStatus;
     }
 
     private bool HasGraphDataChanged(GraphData newGraph)

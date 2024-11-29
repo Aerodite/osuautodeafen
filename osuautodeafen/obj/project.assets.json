@@ -411,6 +411,19 @@
           "lib/InputManager.dll": {}
         }
       },
+      "InputSimulator/1.0.4": {
+        "type": "package",
+        "compile": {
+          "lib/net20/WindowsInput.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net20/WindowsInput.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "LiveChartsCore/2.0.0-rc2": {
         "type": "package",
         "compile": {
@@ -623,6 +636,61 @@
         },
         "buildMultiTargeting": {
           "buildMultiTargeting/_._": {}
+        }
+      },
+      "SharpHook/5.3.8": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/SharpHook.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/SharpHook.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtimeTargets": {
+          "runtimes/linux-arm/native/libuiohook.so": {
+            "assetType": "native",
+            "rid": "linux-arm"
+          },
+          "runtimes/linux-arm64/native/libuiohook.so": {
+            "assetType": "native",
+            "rid": "linux-arm64"
+          },
+          "runtimes/linux-x64/native/libuiohook.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/maccatalyst-arm64/native/libuiohook.dylib": {
+            "assetType": "native",
+            "rid": "maccatalyst-arm64"
+          },
+          "runtimes/maccatalyst-x64/native/libuiohook.dylib": {
+            "assetType": "native",
+            "rid": "maccatalyst-x64"
+          },
+          "runtimes/osx-arm64/native/libuiohook.dylib": {
+            "assetType": "native",
+            "rid": "osx-arm64"
+          },
+          "runtimes/osx-x64/native/libuiohook.dylib": {
+            "assetType": "native",
+            "rid": "osx-x64"
+          },
+          "runtimes/win-arm64/native/uiohook.dll": {
+            "assetType": "native",
+            "rid": "win-arm64"
+          },
+          "runtimes/win-x64/native/uiohook.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x86/native/uiohook.dll": {
+            "assetType": "native",
+            "rid": "win-x86"
+          }
         }
       },
       "SharpVectors/1.8.4.2": {
@@ -2222,6 +2290,19 @@
         "lib/InputManager.dll"
       ]
     },
+    "InputSimulator/1.0.4": {
+      "sha512": "D0LvRCPQMX6/FJHBjng+RO+wRDuHTJrfo7IAc7rmkPvRqchdVGJWg3y70peOtDy3OLNK+HSOwVkH4GiuLnkKgA==",
+      "type": "package",
+      "path": "inputsimulator/1.0.4",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "inputsimulator.1.0.4.nupkg.sha512",
+        "inputsimulator.nuspec",
+        "lib/net20/WindowsInput.dll",
+        "lib/net20/WindowsInput.xml"
+      ]
+    },
     "LiveChartsCore/2.0.0-rc2": {
       "sha512": "X55dG3oI3AVOGWUrly+J/bUJGmb/pmB2aTkaWJPyIXI2cr5cqPJG/6GLL17IJ8e3GOofFWgQCbg0Az0+myUQLg==",
       "type": "package",
@@ -2520,6 +2601,40 @@
         "lib/netstandard2.1/SharpGen.Runtime.COM.dll",
         "sharpgen.runtime.com.2.0.0-beta.13.nupkg.sha512",
         "sharpgen.runtime.com.nuspec"
+      ]
+    },
+    "SharpHook/5.3.8": {
+      "sha512": "vGOVy7fEj/UKnxTbWVUzGWToF+YEI49Gixy7T5aVEeTuPAEZhqFgNjgZKtfufoM4MDYpgbJ2KAn3tsxYOf8UPA==",
+      "type": "package",
+      "path": "sharphook/5.3.8",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "build/net462/SharpHook.targets",
+        "icon.png",
+        "lib/net462/SharpHook.dll",
+        "lib/net462/SharpHook.xml",
+        "lib/net6.0/SharpHook.dll",
+        "lib/net6.0/SharpHook.xml",
+        "lib/net7.0/SharpHook.dll",
+        "lib/net7.0/SharpHook.xml",
+        "lib/net8.0/SharpHook.dll",
+        "lib/net8.0/SharpHook.xml",
+        "lib/netstandard2.0/SharpHook.dll",
+        "lib/netstandard2.0/SharpHook.xml",
+        "runtimes/linux-arm/native/libuiohook.so",
+        "runtimes/linux-arm64/native/libuiohook.so",
+        "runtimes/linux-x64/native/libuiohook.so",
+        "runtimes/maccatalyst-arm64/native/libuiohook.dylib",
+        "runtimes/maccatalyst-x64/native/libuiohook.dylib",
+        "runtimes/osx-arm64/native/libuiohook.dylib",
+        "runtimes/osx-x64/native/libuiohook.dylib",
+        "runtimes/win-arm64/native/uiohook.dll",
+        "runtimes/win-x64/native/uiohook.dll",
+        "runtimes/win-x86/native/uiohook.dll",
+        "sharphook.5.3.8.nupkg.sha512",
+        "sharphook.nuspec"
       ]
     },
     "SharpVectors/1.8.4.2": {
@@ -5061,10 +5176,12 @@
       "Avalonia.Themes.Fluent >= 11.0.10",
       "ILMerge >= 3.0.41",
       "InputManager >= 1.0.0",
+      "InputSimulator >= 1.0.4",
       "LiveChartsCore.SkiaSharpView >= 2.0.0-rc2",
       "LiveChartsCore.SkiaSharpView.Avalonia >= 2.0.0-rc2",
       "Newtonsoft.Json >= 13.0.3",
       "ReactiveUI >= 20.1.1",
+      "SharpHook >= 5.3.8",
       "SharpVectors >= 1.8.4.2",
       "Svg.Skia >= 2.0.0",
       "Veldrid >= 4.9.0",
@@ -5144,6 +5261,10 @@
             "target": "Package",
             "version": "[1.0.0, )"
           },
+          "InputSimulator": {
+            "target": "Package",
+            "version": "[1.0.4, )"
+          },
           "LiveChartsCore.SkiaSharpView": {
             "target": "Package",
             "version": "[2.0.0-rc2, )"
@@ -5159,6 +5280,10 @@
           "ReactiveUI": {
             "target": "Package",
             "version": "[20.1.1, )"
+          },
+          "SharpHook": {
+            "target": "Package",
+            "version": "[5.3.8, )"
           },
           "SharpVectors": {
             "target": "Package",
@@ -5218,6 +5343,16 @@
       "warningLevel": 1,
       "message": "Package 'InputManager 1.0.0' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0-windows7.0'. This package may not be fully compatible with your project.",
       "libraryId": "InputManager",
+      "targetGraphs": [
+        "net8.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1701",
+      "level": "Warning",
+      "warningLevel": 1,
+      "message": "Package 'InputSimulator 1.0.4' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0-windows7.0'. This package may not be fully compatible with your project.",
+      "libraryId": "InputSimulator",
       "targetGraphs": [
         "net8.0-windows7.0"
       ]

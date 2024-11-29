@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
-using AutoHotkey.Interop;
+using SharpHook;
+using SharpHook.Native;
 using osuautodeafen.cs;
 using Timer = System.Timers.Timer;
 
@@ -12,7 +14,7 @@ namespace osuautodeafen;
 
 public class Deafen : IDisposable
 {
-    private readonly AutoHotkeyEngine _ahk;
+    private readonly IGlobalHook _hook = new SimpleGlobalHook();
     private readonly FCCalc _fcCalc;
     private readonly Timer _fileCheckTimer;
     private readonly ScreenBlankerForm _screenBlanker;
@@ -20,72 +22,36 @@ public class Deafen : IDisposable
     private readonly TosuApi _tosuAPI;
     private readonly SharedViewModel _viewModel;
 
-
-    private string _customKeybind = "^p";
+    private string _customKeybind;
     private bool _deafened;
     private bool _hasReachedMinPercent;
     private bool _isFileCheckTimerRunning;
     private bool _isPlaying;
     private bool _wasFullCombo;
     private bool isScreenBlanked;
-    public double MinCompletionPercentage;
-    public double PerformancePoints;
+    public double MinCompletionPercentage; // User Set Minimum Completion Percentage
+    public double PerformancePoints; // User Set Minimum Performance Points
     public bool screenBlankEnabled;
-    public double StarRating;
+    public double StarRating; // User Set Minimum Star Rating
 
-    public Deafen(TosuApi tosuAPI, SettingsPanel settingsPanel, ScreenBlankerForm screenBlanker)
+    private readonly SemaphoreSlim _timerSemaphore = new SemaphoreSlim(1, 1);
+    private readonly SemaphoreSlim _toggleDeafenLock = new SemaphoreSlim(1, 1);
+
+    public Deafen(TosuApi tosuAPI, SettingsPanel settingsPanel)
     {
         _tosuAPI = tosuAPI;
-        _ahk = AutoHotkeyEngine.Instance;
         _viewModel = new SharedViewModel();
         _fcCalc = new FCCalc(tosuAPI);
         _timer = new Timer(250);
-
         _timer.Elapsed += TimerElapsed;
-        _timer.Elapsed += (sender, e) => ReadSettings();
-        _timer.AutoReset = true;
         _timer.Start();
-
         _tosuAPI.StateChanged += TosuAPI_StateChanged;
 
         _fileCheckTimer = new Timer(1000);
         _fileCheckTimer.Elapsed += FileCheckTimer_Elapsed;
         _fileCheckTimer.Start();
 
-        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.txt");
-        if (File.Exists(settingsFilePath))
-        {
-            var lines = File.ReadAllLines(settingsFilePath);
-            foreach (var line in lines)
-            {
-                var settings = line.Split('=');
-                if (settings.Length == 2)
-                    switch (settings[0].Trim())
-                    {
-                        case "MinCompletionPercentage" when
-                            double.TryParse(settings[1], out var parsedPercentage):
-                            MinCompletionPercentage = parsedPercentage;
-                            break;
-                        case "StarRating" when
-                            double.TryParse(settings[1], out var parsedStarRating):
-                            StarRating = parsedStarRating;
-                            break;
-                        case "PerformancePoints" when
-                            double.TryParse(settings[1], out var parsedPerformancePoints):
-                            PerformancePoints = parsedPerformancePoints;
-                            break;
-                    }
-            }
-        }
-        else
-        {
-            MinCompletionPercentage = 60;
-            StarRating = 0;
-            PerformancePoints = 0;
-        }
-
-        _screenBlanker = screenBlanker;
+        LoadSettings();
     }
 
     public void Dispose()
@@ -93,6 +59,7 @@ public class Deafen : IDisposable
         _timer.Dispose();
         _fileCheckTimer.Dispose();
         _screenBlanker?.Dispose();
+        _hook.Dispose();
     }
 
     private async Task ToggleScreenBlankAsync()
@@ -105,7 +72,7 @@ public class Deafen : IDisposable
         await _screenBlanker.UnblankScreensAsync();
     }
 
-    public void FileCheckTimer_Elapsed(object sender, ElapsedEventArgs e)
+    private void FileCheckTimer_Elapsed(object sender, ElapsedEventArgs e)
     {
         if (_isFileCheckTimerRunning) return;
         _isFileCheckTimerRunning = true;
@@ -116,44 +83,7 @@ public class Deafen : IDisposable
             _viewModel.UpdateUndeafenAfterMiss();
             _viewModel.UpdateIsBlankScreenEnabled();
             screenBlankEnabled = _viewModel.IsBlankScreenEnabled;
-            //Console.WriteLine($"screenBlankEnabled: {screenBlankEnabled}");
-            var settingsFilePath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "osuautodeafen", "settings.txt");
-            if (File.Exists(settingsFilePath))
-            {
-                var lines = File.ReadAllLines(settingsFilePath);
-                foreach (var line in lines)
-                {
-                    var settings = line.Split('=');
-                    if (settings.Length == 2)
-                        switch (settings[0].Trim())
-                        {
-                            case "MinCompletionPercentage"
-                                when double.TryParse(settings[1], out var parsedPercentage):
-                                MinCompletionPercentage = parsedPercentage;
-                                break;
-                            case "StarRating" when double.TryParse(settings[1], out var parsedStarRating):
-                                StarRating = parsedStarRating;
-                                break;
-                            case "PerformancePoints"
-                                when double.TryParse(settings[1], out var parsedPerformancePoints):
-                                PerformancePoints = parsedPerformancePoints;
-                                break;
-                            case "IsScreenBlankEnabled"
-                                when bool.TryParse(settings[1], out var parsedScreenBlankEnabled):
-                                screenBlankEnabled = parsedScreenBlankEnabled;
-                                break;
-                        }
-                }
-            }
-            else
-            {
-                MinCompletionPercentage = 60;
-                StarRating = 0;
-                PerformancePoints = 0;
-                screenBlankEnabled = false;
-            }
+            LoadSettings();
         }
         finally
         {
@@ -161,132 +91,7 @@ public class Deafen : IDisposable
         }
     }
 
-    public double GetMinCompletionPercentage()
-    {
-        return MinCompletionPercentage;
-    }
-
-    public bool GetScreenBlankEnabled()
-    {
-        return screenBlankEnabled;
-    }
-
-    private void TosuAPI_StateChanged(int state)
-    {
-        _isPlaying = state == 2;
-        if (!_isPlaying && !_wasFullCombo && _deafened)
-        {
-            Console.WriteLine("8-TSC");
-            ToggleDeafenState();
-            _deafened = false;
-            if (screenBlankEnabled) ToggleScreenDeBlankAsync();
-        }
-    }
-
-    private async void TimerElapsed(object sender, ElapsedEventArgs e)
-    {
-        var completionPercentage = _tosuAPI.GetCompletionPercentage();
-        var currentSR = _tosuAPI.GetFullSR();
-        var currentPP = _tosuAPI.GetMaxPP();
-        var maxCombo = _tosuAPI.GetMaxCombo();
-        var rankedStatus = _tosuAPI.GetRankedStatus();
-        bool hitOneCircle;
-        bool isPracticeDifficulty;
-        var didHitOneCircle = false;
-        hitOneCircle = maxCombo != 0;
-
-
-        isPracticeDifficulty = rankedStatus == 1;
-
-        var isStarRatingMet = currentSR >= StarRating;
-        var isPerformancePointsMet = currentPP >= PerformancePoints;
-        var isFullCombo = _fcCalc.IsFullCombo();
-
-        // dogshit code up ahead you've been warned.
-        // i might have to rewrite a lot of this
-        // any more toggles and this might be unmaintainable
-
-        if (_viewModel.IsFCRequired)
-        {
-            // if the user wants to deafen after a full combo
-            if (_isPlaying && isFullCombo && completionPercentage >= MinCompletionPercentage && !_deafened &&
-                isStarRatingMet && isPerformancePointsMet && !_deafened && hitOneCircle && !isPracticeDifficulty)
-            {
-                ToggleDeafenState();
-                _deafened = true;
-                _wasFullCombo = true;
-                Console.WriteLine("1");
-                didHitOneCircle = true;
-                if (screenBlankEnabled) await ToggleScreenBlankAsync();
-            }
-
-            // if the user wants to undeafen after a combo break
-            if (_viewModel.UndeafenAfterMiss)
-                if (_wasFullCombo && !isFullCombo && _deafened && !isPracticeDifficulty)
-                {
-                    ToggleDeafenState();
-                    _deafened = false;
-                    _wasFullCombo = false;
-                    Console.WriteLine("2");
-                    didHitOneCircle = true;
-                    if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
-                }
-
-            // if the playing state was exited during a full combo run
-            if (!_isPlaying && _wasFullCombo && _deafened)
-            {
-                ToggleDeafenState();
-                _deafened = false;
-                _wasFullCombo = false;
-                Console.WriteLine("6");
-                didHitOneCircle = false;
-                if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
-            }
-        }
-        else
-        {
-            // if the user wants to deafen after a certain percentage
-            if (_isPlaying && !_deafened && completionPercentage >= MinCompletionPercentage && isStarRatingMet &&
-                isPerformancePointsMet && hitOneCircle && !isPracticeDifficulty)
-            {
-                ToggleDeafenState();
-                _deafened = true;
-                Console.WriteLine("3");
-                didHitOneCircle = true;
-                if (screenBlankEnabled) await ToggleScreenBlankAsync();
-            }
-        }
-
-        if (!_isPlaying && _deafened)
-        {
-            didHitOneCircle = false;
-            if (!_viewModel.IsFCRequired)
-            {
-                ToggleDeafenState();
-                _deafened = false;
-                Console.WriteLine("4");
-                if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
-            }
-            else if (_viewModel.IsFCRequired && _wasFullCombo && !isFullCombo && _deafened)
-            {
-                _deafened = false;
-                Console.WriteLine("5");
-                if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
-            }
-        }
-
-        // this is assuming a retry occured.
-        if (completionPercentage <= 0 && _deafened)
-        {
-            ToggleDeafenState();
-            _deafened = false;
-            Console.WriteLine("7");
-
-            if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
-        }
-    }
-
-    private void ReadSettings()
+    private void LoadSettings()
     {
         var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen", "settings.txt");
@@ -297,85 +102,360 @@ public class Deafen : IDisposable
             {
                 var settings = line.Split('=');
                 if (settings.Length == 2)
+                {
                     switch (settings[0].Trim())
                     {
+                        case "MinCompletionPercentage" when double.TryParse(settings[1], out var parsedPercentage):
+                            MinCompletionPercentage = parsedPercentage;
+                            break;
+                        case "StarRating" when double.TryParse(settings[1], out var parsedStarRating):
+                            StarRating = parsedStarRating;
+                            break;
+                        case "PerformancePoints" when double.TryParse(settings[1], out var parsedPerformancePoints):
+                            PerformancePoints = parsedPerformancePoints;
+                            break;
                         case "Hotkey":
-                            _customKeybind = ConvertToAHKSyntax(settings[1]);
+                            _customKeybind = settings[1].Trim();
+                            break;
+                        case "IsScreenBlankEnabled" when bool.TryParse(settings[1], out var parsedScreenBlankEnabled):
+                            screenBlankEnabled = parsedScreenBlankEnabled;
                             break;
                     }
+                }
             }
+        }
+        else
+        {
+            MinCompletionPercentage = 60;
+            StarRating = 0;
+            PerformancePoints = 0;
+            screenBlankEnabled = false;
         }
     }
 
-    private string ConvertToAHKSyntax(string keybind)
+    private async void TosuAPI_StateChanged(int state)
+    {
+        _isPlaying = state == 2;
+
+    }
+
+    private async void TimerElapsed(object? sender, ElapsedEventArgs e)
+    {
+        if (!await _timerSemaphore.WaitAsync(250)) return;
+
+        try
+        {
+            LoadSettings();
+
+            var completionPercentage = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
+            var currentSR = _tosuAPI.GetFullSR();
+            var currentPP = _tosuAPI.GetMaxPP();
+            var minCompletionPercentage = MinCompletionPercentage;
+            var maxCombo = _tosuAPI.GetMaxCombo();
+            var rankedStatus = _tosuAPI.GetRankedStatus();
+            var isFullCombo = _fcCalc.IsFullCombo();
+            var isStarRatingMet = currentSR >= StarRating;
+            var isPerformancePointsMet = currentPP >= PerformancePoints;
+            var hitOneCircle = maxCombo != 0;
+            var isPracticeDifficulty = rankedStatus == 1;
+            var isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
+
+            if (_viewModel.IsFCRequired)
+            {
+                // Deafen after a full combo
+                if (isPlaying && isFullCombo && completionPercentage >= minCompletionPercentage && !_deafened &&
+                    isStarRatingMet && isPerformancePointsMet && hitOneCircle && !isPracticeDifficulty)
+                {
+                    _deafened = true;
+                    ToggleDeafenState();
+                    _wasFullCombo = true;
+                    Console.WriteLine("1");
+                    if (screenBlankEnabled) await ToggleScreenBlankAsync();
+                }
+                // Undeafen after a combo break
+                else if (_viewModel.UndeafenAfterMiss && _wasFullCombo && !isFullCombo && _deafened &&
+                         !isPracticeDifficulty)
+                {
+                    _deafened = false;
+                    ToggleDeafenState();
+                    _wasFullCombo = false;
+                    Console.WriteLine("2");
+                    if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
+                }
+                // Undeafen if playing state was exited during a full combo run
+                else if (!isPlaying && _wasFullCombo && _deafened)
+                {
+                    _deafened = false;
+                    ToggleDeafenState();
+                    _wasFullCombo = false;
+                    Console.WriteLine("6");
+                    if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
+                }
+            }
+            else
+            {
+                // Deafen after a certain percentage
+                if (isPlaying && !_deafened && completionPercentage >= minCompletionPercentage && isStarRatingMet &&
+                    isPerformancePointsMet && hitOneCircle && !isPracticeDifficulty)
+                {
+                    _deafened = true;
+                    ToggleDeafenState();
+                    Console.WriteLine("3");
+                    if (screenBlankEnabled) await ToggleScreenBlankAsync();
+                }
+            }
+
+            // Undeafen if not playing
+            if (!isPlaying && _deafened)
+            {
+                if (!_viewModel.IsFCRequired)
+                {
+                    _deafened = false;
+                    ToggleDeafenState();
+                    Console.WriteLine("4");
+                    if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
+                }
+                else if (_viewModel.IsFCRequired && _wasFullCombo && !isFullCombo && _deafened)
+                {
+                    _deafened = false;
+                    Console.WriteLine("5");
+                    if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
+                }
+            }
+
+            // Undeafen if a retry occurred
+            if (completionPercentage <= 0 && _deafened)
+            {
+                _deafened = false;
+                ToggleDeafenState();
+                Console.WriteLine("7");
+                if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
+            }
+        }
+        finally
+        {
+            _timerSemaphore.Release();
+        }
+    }
+
+    private List<(IEnumerable<KeyCode> Modifiers, KeyCode Key)> ConvertToInputSimulatorSyntax(string keybind)
 {
     var parts = keybind.Split('+');
-    var ahkKeybind = "";
-    var specialKeys = new HashSet<string>
+    var keybinds = new List<(IEnumerable<KeyCode> Modifiers, KeyCode Key)>();
+    var modifiers = new List<KeyCode>();
+    KeyCode key = KeyCode.Vc0;
+
+    var specialKeys = new Dictionary<string, KeyCode>
     {
-        "Control", "Ctrl", "Alt", "Shift", "Win", "Tab", "Enter", "Escape", "Esc", "Space", "Backspace",
-        "Delete", "Insert", "Home", "End", "PgUp", "PgDn", "Up", "Down", "Left", "Right"
+        { "Control", KeyCode.VcLeftControl },
+        { "Ctrl", KeyCode.VcLeftControl },
+        { "LeftControl", KeyCode.VcLeftControl },
+        { "RightControl", KeyCode.VcRightControl },
+        { "Alt", KeyCode.VcLeftAlt },
+        { "LeftAlt", KeyCode.VcLeftAlt },
+        { "RightAlt", KeyCode.VcRightAlt },
+        { "Shift", KeyCode.VcLeftShift },
+        { "LeftShift", KeyCode.VcLeftShift },
+        { "RightShift", KeyCode.VcRightShift },
+        { "Win", KeyCode.VcLeftMeta },
+        { "LeftWin", KeyCode.VcLeftMeta },
+        { "RightWin", KeyCode.VcRightMeta },
+        { "Tab", KeyCode.VcTab },
+        { "Enter", KeyCode.VcEnter },
+        { "Escape", KeyCode.VcEscape },
+        { "Esc", KeyCode.VcEscape },
+        { "Space", KeyCode.VcSpace },
+        { "Backspace", KeyCode.VcBackspace },
+        { "Delete", KeyCode.VcDelete },
+        { "Insert", KeyCode.VcInsert },
+        { "Home", KeyCode.VcHome },
+        { "End", KeyCode.VcEnd },
+        { "PgUp", KeyCode.VcPageUp },
+        { "PgDn", KeyCode.VcPageDown },
+        { "Up", KeyCode.VcUp },
+        { "Down", KeyCode.VcDown },
+        { "Left", KeyCode.VcLeft },
+        { "Right", KeyCode.VcRight },
+        { "Minus", KeyCode.VcMinus },
+        { "Plus", KeyCode.VcEquals },
+        { "Comma", KeyCode.VcComma },
+        { "Period", KeyCode.VcPeriod },
+        { "Slash", KeyCode.VcSlash },
+        { "Backslash", KeyCode.VcBackslash },
+        { "Semicolon", KeyCode.VcSemicolon },
+        { "Quote", KeyCode.VcQuote },
+        { "OpenBracket", KeyCode.VcOpenBracket },
+        { "CloseBracket", KeyCode.VcCloseBracket },
+        { "CapsLock", KeyCode.VcCapsLock },
+        { "NumLock", KeyCode.VcNumLock },
+        { "ScrollLock", KeyCode.VcScrollLock },
+        { "PrintScreen", KeyCode.VcPrintScreen },
+        { "Pause", KeyCode.VcPause },
+        { "F1", KeyCode.VcF1 },
+        { "F2", KeyCode.VcF2 },
+        { "F3", KeyCode.VcF3 },
+        { "F4", KeyCode.VcF4 },
+        { "F5", KeyCode.VcF5 },
+        { "F6", KeyCode.VcF6 },
+        { "F7", KeyCode.VcF7 },
+        { "F8", KeyCode.VcF8 },
+        { "F9", KeyCode.VcF9 },
+        { "F10", KeyCode.VcF10 },
+        { "F11", KeyCode.VcF11 },
+        { "F12", KeyCode.VcF12 }
     };
-    var functionKeys = Enumerable.Range(1, 24).Select(i => $"F{i}").ToHashSet();
-    var mediaKeys = new HashSet<string>
-    {
-        "Volume_Up", "Volume_Down", "Media_Play_Pause", "Media_Next", "Media_Prev", "Media_Stop"
-    };
-    var numpadKeys = Enumerable.Range(0, 10).Select(i => $"NumPad{i}").ToHashSet();
 
     foreach (var part in parts)
     {
         var trimmedPart = part.Trim();
-        if (specialKeys.Contains(trimmedPart) || functionKeys.Contains(trimmedPart) ||
-            mediaKeys.Contains(trimmedPart) || numpadKeys.Contains(trimmedPart))
+        if (specialKeys.ContainsKey(trimmedPart))
         {
-            ahkKeybind += $"{{{trimmedPart}}}";
+            if (trimmedPart == "Shift" || trimmedPart == "Ctrl" || trimmedPart == "Alt" || trimmedPart == "Win" ||
+                trimmedPart == "LeftShift" || trimmedPart == "RightShift" || trimmedPart == "LeftControl" ||
+                trimmedPart == "RightControl" || trimmedPart == "LeftAlt" || trimmedPart == "RightAlt" ||
+                trimmedPart == "LeftWin" || trimmedPart == "RightWin")
+            {
+                modifiers.Add(specialKeys[trimmedPart]);
+            }
+            else
+            {
+                key = specialKeys[trimmedPart];
+            }
         }
         else
         {
-            switch (trimmedPart)
+            if (trimmedPart.Length == 1)
             {
-                case "Control":
-                case "Ctrl":
-                    ahkKeybind += "^";
-                    break;
-                case "Alt":
-                    ahkKeybind += "!";
-                    break;
-                case "Shift":
-                    ahkKeybind += "+";
-                    break;
-                case "Win":
-                    ahkKeybind += "#";
-                    break;
-                case "[":
-                    ahkKeybind += "{{}";
-                    break;
-                case "]":
-                    ahkKeybind += "{}}";
-                    break;
-                case "+":
-                    ahkKeybind += "{+}";
-                    break;
-                case "|":
-                    ahkKeybind += "{|}";
-                    break;
-                default:
-                    ahkKeybind += trimmedPart;
-                    break;
+                key = (KeyCode)Enum.Parse(typeof(KeyCode), "Vc" + trimmedPart.ToUpper());
+            }
+            else
+            {
+                throw new ArgumentException($"Invalid key: {trimmedPart}");
             }
         }
     }
 
-    return ahkKeybind;
+    if (key == KeyCode.Vc0)
+    {
+        throw new ArgumentException("Invalid keybind: no key specified.");
+    }
+
+    keybinds.Add((modifiers, key));
+    Console.WriteLine(
+        $"Converted keybind: {keybind} to {string.Join(", ", keybinds.Select(k => $"{string.Join("+", k.Modifiers)}+{k.Key}"))}");
+    return keybinds;
 }
+
+    private readonly object _deafenLock = new object();
 
     private void ToggleDeafenState()
     {
-        _ahk.ExecRaw($"Send, {ConvertToAHKSyntax(_customKeybind)}");
-        Console.WriteLine(_hasReachedMinPercent
-            ? $"Sent {ConvertToAHKSyntax(_customKeybind)} (undeafen)"
-            : $"Sent {ConvertToAHKSyntax(_customKeybind)} (deafen)");
-        _hasReachedMinPercent = !_hasReachedMinPercent;
+        // The key release events and delays are required for discord to recognize them as keystrokes
+        lock (_deafenLock)
+        {
+            if (_deafened)
+            {
+                if (!string.IsNullOrEmpty(_customKeybind))
+                {
+                    var keybinds = ConvertToInputSimulatorSyntax(_customKeybind);
+                    foreach (var keybind in keybinds)
+                    {
+                        foreach (var modifier in keybind.Modifiers)
+                        {
+                            var modifierPressEvent = new UioHookEvent
+                            {
+                                Type = EventType.KeyPressed,
+                                Keyboard = new KeyboardEventData { KeyCode = modifier }
+                            };
+                            Console.WriteLine($"Sending key press for modifier: {modifier}");
+                            UioHook.PostEvent(ref modifierPressEvent);
+                            Thread.Sleep(50);
+                        }
+
+                        var keyPressEvent = new UioHookEvent
+                        {
+                            Type = EventType.KeyPressed,
+                            Keyboard = new KeyboardEventData { KeyCode = keybind.Key }
+                        };
+                        Console.WriteLine($"Sending key press for key: {keybind.Key}");
+                        UioHook.PostEvent(ref keyPressEvent);
+                        Thread.Sleep(50);
+
+                        var keyReleaseEvent = new UioHookEvent
+                        {
+                            Type = EventType.KeyReleased,
+                            Keyboard = new KeyboardEventData { KeyCode = keybind.Key }
+                        };
+                        Console.WriteLine($"Sending key release for key: {keybind.Key}");
+                        UioHook.PostEvent(ref keyReleaseEvent);
+                        Thread.Sleep(50);
+
+                        foreach (var modifier in keybind.Modifiers)
+                        {
+                            var modifierReleaseEvent = new UioHookEvent
+                            {
+                                Type = EventType.KeyReleased,
+                                Keyboard = new KeyboardEventData { KeyCode = modifier }
+                            };
+                            Console.WriteLine($"Sending key release for modifier: {modifier}");
+                            UioHook.PostEvent(ref modifierReleaseEvent);
+                            Thread.Sleep(50);
+                        }
+                    }
+
+                    Console.WriteLine("Undeafened");
+                }
+            }
+            else
+            {
+                var keybinds = ConvertToInputSimulatorSyntax(_customKeybind);
+                foreach (var keybind in keybinds)
+                {
+                    foreach (var modifier in keybind.Modifiers)
+                    {
+                        var modifierPressEvent = new UioHookEvent
+                        {
+                            Type = EventType.KeyPressed,
+                            Keyboard = new KeyboardEventData { KeyCode = modifier }
+                        };
+                        Console.WriteLine($"Sending key press for modifier: {modifier}");
+                        UioHook.PostEvent(ref modifierPressEvent);
+                        Thread.Sleep(50);
+                    }
+
+                    var keyPressEvent = new UioHookEvent
+                    {
+                        Type = EventType.KeyPressed,
+                        Keyboard = new KeyboardEventData { KeyCode = keybind.Key }
+                    };
+                    Console.WriteLine($"Sending key press for key: {keybind.Key}");
+                    UioHook.PostEvent(ref keyPressEvent);
+                    Thread.Sleep(50);
+
+                    var keyReleaseEvent = new UioHookEvent
+                    {
+                        Type = EventType.KeyReleased,
+                        Keyboard = new KeyboardEventData { KeyCode = keybind.Key }
+                    };
+                    Console.WriteLine($"Sending key release for key: {keybind.Key}");
+                    UioHook.PostEvent(ref keyReleaseEvent);
+                    Thread.Sleep(50);
+
+                    foreach (var modifier in keybind.Modifiers)
+                    {
+                        var modifierReleaseEvent = new UioHookEvent
+                        {
+                            Type = EventType.KeyReleased,
+                            Keyboard = new KeyboardEventData { KeyCode = modifier }
+                        };
+                        Console.WriteLine($"Sending key release for modifier: {modifier}");
+                        UioHook.PostEvent(ref modifierReleaseEvent);
+                        Thread.Sleep(50);
+                    }
+                }
+
+                Console.WriteLine("Deafened");
+            }
+        }
     }
 }
