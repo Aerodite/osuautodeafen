@@ -40,6 +40,7 @@ public class TosuApi : IDisposable
     private int _rawBanchoStatus = -1; // Default to -1 to indicate uninitialized
     private double _sbCount;
     private string? _settingsSongsDirectory;
+    private string? _songFilePath;
     private ClientWebSocket _webSocket;
 
     public TosuApi()
@@ -359,7 +360,7 @@ public class TosuApi : IDisposable
 
     public string? GetOsuFilePath()
     {
-        return _osuFilePath;
+        return _settingsSongsDirectory + "\\" + _osuFilePath;
     }
 
     public double GetMaxPP()

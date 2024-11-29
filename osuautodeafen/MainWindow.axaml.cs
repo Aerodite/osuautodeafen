@@ -346,7 +346,7 @@ public void UpdateChart(GraphData graphData)
             var updatedValues = new List<ObservablePoint>();
 
             double maxXValue = trimmedData.Count;
-            maxLimit = trimmedData.Count;
+            maxLimit = maxXValue;
             maxYValue = graphData.Series.SelectMany(series => series.Data).Where(value => value != -100).Max();
 
             for (int i = 0; i < trimmedData.Count; i++)
@@ -393,7 +393,28 @@ public void UpdateChart(GraphData graphData)
             Yj = maxYValue,
             Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00, 64) } // Semi-transparent red
         };
-        PlotView.Sections = new List<RectangularSection> { deafenRectangle };
+
+        var sections = new List<RectangularSection> { deafenRectangle };
+
+        // Identify break points and add yellow rectangles
+        var osuFilePath = _tosuApi.GetOsuFilePath();
+        if (osuFilePath != null)
+        {
+            var breakPeriods = ParseBreakPeriods(osuFilePath, graphData.XAxis, graphData.Series[0].Data);
+            foreach (var breakPeriod in breakPeriods)
+            {
+                sections.Add(new RectangularSection
+                {
+                    Xi = breakPeriod.StartIndex,
+                    Xj = breakPeriod.EndIndex,
+                    Yi = 0,
+                    Yj = maxYValue,
+                    Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0xFF, 0x00, 64) } // Semi-transparent yellow
+                });
+            }
+        }
+
+        PlotView.Sections = sections;
 
         seriesList.Add(progressIndicator);
 
@@ -434,7 +455,80 @@ public void UpdateChart(GraphData graphData)
         Console.WriteLine($"An error occurred while updating the chart: {ex.Message}");
     }
 }
-    private double _lastCompletionPercentage = -1;
+
+private List<(int StartIndex, int EndIndex)> ParseBreakPeriods(string osuFilePath, List<double> xAxis, List<double> yAxis)
+{
+    var breakPeriods = new List<(int StartIndex, int EndIndex)>();
+    var lines = File.ReadAllLines(osuFilePath);
+    var inBreakPeriodSection = false;
+
+    Console.WriteLine("Starting to parse break periods from file: " + osuFilePath);
+
+    // Filter out x-values corresponding to y-values of -100
+    var validXAxis = xAxis.Where((x, index) => yAxis[index] != -100).ToList();
+
+    foreach (var line in lines)
+    {
+        if (line.StartsWith("//Break Periods"))
+        {
+            inBreakPeriodSection = true;
+            Console.WriteLine("Found break periods section.");
+            continue;
+        }
+
+        if (inBreakPeriodSection)
+        {
+            if (line.StartsWith("//"))
+            {
+                Console.WriteLine("End of break periods section.");
+                break;
+            }
+
+            var parts = line.Split(',');
+            if (parts.Length == 3 && parts[0] == "2")
+            {
+                if (double.TryParse(parts[1], out var start) && double.TryParse(parts[2], out var end))
+                {
+                    var startIndex = FindClosestIndex(validXAxis, start);
+                    var endIndex = FindClosestIndex(validXAxis, end);
+                    breakPeriods.Add((startIndex, endIndex));
+                    Console.WriteLine($"Added break period: Start = {start}, End = {end}, StartIndex = {startIndex}, EndIndex = {endIndex}");
+                }
+                else
+                {
+                    Console.WriteLine($"Failed to parse start or end time from line: {line}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Invalid break period format in line: {line}");
+            }
+        }
+    }
+
+    Console.WriteLine("Finished parsing break periods.");
+    return breakPeriods;
+}
+
+private int FindClosestIndex(List<double> xAxis, double value)
+{
+    var closestIndex = 0;
+    var smallestDifference = double.MaxValue;
+
+    for (var i = 0; i < xAxis.Count; i++)
+    {
+        var difference = Math.Abs(xAxis[i] - value);
+        if (difference < smallestDifference)
+        {
+            smallestDifference = difference;
+            closestIndex = i;
+        }
+    }
+
+    return closestIndex;
+}
+
+private double _lastCompletionPercentage = -1;
 
 private void UpdateProgressIndicator(double completionPercentage)
 {
