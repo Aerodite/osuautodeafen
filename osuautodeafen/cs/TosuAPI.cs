@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using JsonException = System.Text.Json.JsonException;
 
 namespace osuautodeafen.cs;
 
@@ -332,18 +333,19 @@ public class TosuApi : IDisposable
     public double GetCompletionPercentage()
     {
         if (_full == 0)
-            //Console.WriteLine("completion percent = Undefined (division by zero)");
             return double.NaN;
 
         if (_current < _firstObj)
         {
-            //Console.WriteLine("completion percent = 0");
             _completionPercentage = 0;
+        }
+        else if (_current > _full)
+        {
+            _completionPercentage = 100;
         }
         else
         {
-            _completionPercentage = (_current - _firstObj) / _full * 100;
-            //Console.WriteLine($"completion percent = {_completionPercentage}%");
+            _completionPercentage = (_current - _firstObj) / (_full - _firstObj) * 100;
         }
 
         return _completionPercentage;
@@ -545,6 +547,10 @@ public class TosuApi : IDisposable
             Graph = newGraph;
             GraphDataUpdated?.Invoke(Graph);
         }
+    }
+    catch (JsonException ex)
+    {
+        Console.WriteLine($"JSON parsing error: {ex.Message}");
     }
     catch (Exception ex)
     {
