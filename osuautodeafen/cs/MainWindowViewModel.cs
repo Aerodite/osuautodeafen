@@ -338,7 +338,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         {
             var newCompletionPercentage = _tosuApi.GetCompletionPercentage();
             CompletionPercentage = newCompletionPercentage;
-            await Task.Delay(100);
+            await Task.Delay(50);
         }
     }
     public int StarRating

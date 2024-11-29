@@ -331,7 +331,7 @@ public void UpdateChart(GraphData graphData)
             };
         }
 
-        var seriesList = PlotView.Series?.Where(s => s.Name != "Deafen Point" && s.Name != "Progress Indicator").ToList() ?? new List<ISeries>();
+        var seriesList = PlotView.Series?.Where(s => s.Name != "Progress Indicator").ToList() ?? new List<ISeries>();
         PlotView.DrawMargin = new Margin(0, 0, 0, 0);
 
         foreach (var series in graphData.Series)
@@ -383,6 +383,17 @@ public void UpdateChart(GraphData graphData)
                 });
             }
         }
+
+        var deafenStart = ViewModel.MinCompletionPercentage * maxLimit / 100.0;
+        var deafenRectangle = new RectangularSection
+        {
+            Xi = deafenStart,
+            Xj = maxLimit,
+            Yi = 0,
+            Yj = maxYValue,
+            Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00, 64) } // Semi-transparent red
+        };
+        PlotView.Sections = new List<RectangularSection> { deafenRectangle };
 
         seriesList.Add(progressIndicator);
 
@@ -542,7 +553,6 @@ private void UpdateProgressIndicator(double completionPercentage)
     }
 }
 
-// Helper method to interpolate between two points
 private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoint, double x)
 {
     if (leftPoint.X == rightPoint.X)
@@ -550,7 +560,6 @@ private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoin
 
     return (double)(leftPoint.Y + ((rightPoint.Y - leftPoint.Y) * (x - leftPoint.X) / (rightPoint.X - leftPoint.X)));
 }
-
 
 private class ObservablePointComparer : IComparer<ObservablePoint>
 {
