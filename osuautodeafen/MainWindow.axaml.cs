@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -12,6 +13,7 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
@@ -235,6 +237,8 @@ public partial class MainWindow : Window
         CanResize = false;
         Closing += MainWindow_Closing;
         _isConstructorFinished = true;
+
+        InitializeProgressIndicator();
     }
 
     private bool BlurEffectUpdate { get; set; }
@@ -336,18 +340,16 @@ public void UpdateChart(GraphData graphData)
 
         foreach (var series in graphData.Series)
         {
-            var trimmedData = series.Data
-                .SkipWhile(value => value == -100)
-                .Reverse()
-                .SkipWhile(value => value == -100)
-                .Reverse()
-                .ToList();
+            var trimmedData = series.Data.SkipWhile(value => value == -100).ToList();
+            trimmedData.Reverse();
+            trimmedData = trimmedData.SkipWhile(value => value == -100).ToList();
+            trimmedData.Reverse();
 
-            var updatedValues = new List<ObservablePoint>();
+            var updatedValues = new List<ObservablePoint>(trimmedData.Count);
 
             double maxXValue = trimmedData.Count;
             maxLimit = maxXValue;
-            maxYValue = graphData.Series.SelectMany(series => series.Data).Where(value => value != -100).Max();
+            maxYValue = graphData.Series.SelectMany(s => s.Data).Where(value => value != -100).Max();
 
             for (int i = 0; i < trimmedData.Count; i++)
             {
@@ -466,141 +468,90 @@ public void UpdateChart(GraphData graphData)
         Console.WriteLine($"An error occurred while updating the chart: {ex.Message}");
     }
 }
-
 private double _lastCompletionPercentage = -1;
+
+private Canvas _progressIndicatorCanvas;
+private Line _progressIndicatorLine;
+
+private void InitializeProgressIndicator()
+{
+    _progressIndicatorCanvas = new Canvas
+    {
+        IsHitTestVisible = false,
+        Background = Brushes.Transparent
+    };
+
+    _progressIndicatorLine = new Line
+    {
+        Stroke = new SolidColorBrush(Color.FromArgb(192, 255, 255, 255)),
+        StrokeThickness = 5
+    };
+
+    _progressIndicatorCanvas.Children.Add(_progressIndicatorLine);
+    (PlotView.Parent as Grid)?.Children.Add(_progressIndicatorCanvas);
+}
 
 private void UpdateProgressIndicator(double completionPercentage)
 {
     try
     {
-        if (XAxes.Length == 0 || completionPercentage < 0 || completionPercentage > 100)
+        if (PlotView == null || XAxes == null || XAxes.Length == 0 || _progressIndicatorCanvas == null)
         {
-            Console.WriteLine("No valid XAxes found in the chart or the completion percentage is out of range.");
+            Console.WriteLine("Invalid chart or required components are not initialized.");
             return;
         }
 
-        // Skip update if there's no significant change in completion percentage
-        if (Math.Abs(completionPercentage - _lastCompletionPercentage) < 0.1)
+        if (completionPercentage < 0 || completionPercentage > 100)
         {
+            Console.WriteLine("Completion percentage is out of range.");
             return;
         }
+
+        // Skip update if change is insignificant
+        if (Math.Abs(completionPercentage - _lastCompletionPercentage) < 0.1)
+            return;
 
         _lastCompletionPercentage = completionPercentage;
 
-        // Cache the first X-axis limit and line series
-        var xAxis = XAxes.Length > 0 ? XAxes[0] : null;
-        double? maxXLimit = xAxis?.MaxLimit;
-        if (!maxXLimit.HasValue)
+        var xAxis = XAxes[0];
+        if (!xAxis.MaxLimit.HasValue)
         {
-            Console.WriteLine("Max X-axis limit not defined.");
+            Console.WriteLine("X-axis max limit is not defined.");
             return;
         }
 
-        // Calculate the progress position and left edge
-        double progressPosition = (completionPercentage / 100) * maxXLimit.Value;
-        double leftEdgePosition = Math.Max(progressPosition - 0.1, 0);
+        /*
+        This is super stupidly scuffed but is only temporary until I can figure out how to make the
+        real progress indicator less resource intensive
+        */
 
-        // Get the relevant line series (Aim and Speed)
-        var lineSeriesList = Series.OfType<LineSeries<ObservablePoint>>()
-                                   .Where(s => s.Name == "Aim" || s.Name == "Speed")
-                                   .ToList();
+        double maxXLimit = xAxis.MaxLimit.Value;
+        double progressPosition = (completionPercentage / 100) * maxXLimit;
 
-        if (lineSeriesList.Count == 0)
+        double triangleBaseWidth = 75;
+        double triangleHeight = 50;
+
+        var trianglePoints = new List<ObservablePoint>
         {
-            Console.WriteLine("No line series found in the chart.");
-            return;
-        }
-
-        // Precompute the sorted points for each series
-        var sortedPointsCache = lineSeriesList.ToDictionary(
-            series => series,
-            series => series.Values.OrderBy(p => p.X).ToList()
-        );
-
-        // Create a list to hold the top contour points for the progress indicator
-        List<ObservablePoint> topContourPoints = new List<ObservablePoint>
-        {
-            new ObservablePoint(leftEdgePosition, 0) // Bottom-left corner
+            new ObservablePoint(progressPosition, 90), // Bottom point
+            new ObservablePoint(progressPosition - triangleBaseWidth / 2, triangleHeight +90),
+            new ObservablePoint(progressPosition + triangleBaseWidth / 2, triangleHeight +90)
         };
 
-        // Calculate the interpolated points along the top contour
-        double step = Math.Max((progressPosition - leftEdgePosition) / 10, 0.1);
-        for (double x = leftEdgePosition; x <= progressPosition; x += step)
+        var trianglePolygon = new Polygon
         {
-            double maxInterpolatedY = 0;
+            Points = new Points(trianglePoints.Select(p => new Point(p.X ?? 0, p.Y ?? 0))),
+            Fill = Brushes.White
+        };
 
-            foreach (var series in lineSeriesList)
-            {
-                var points = sortedPointsCache[series];
-                if (points.Count == 0) continue;
+        _progressIndicatorCanvas.Children.Clear();
+        _progressIndicatorCanvas.Children.Add(trianglePolygon);
 
-                // Perform a binary search to find the closest points for interpolation
-                int leftIndex = points.BinarySearch(new ObservablePoint(x, 0), new ObservablePointComparer());
-                if (leftIndex < 0) leftIndex = ~leftIndex - 1;
-
-                var leftPoint = points[Math.Max(leftIndex, 0)];
-                var rightPoint = points[Math.Min(leftIndex + 1, points.Count - 1)];
-
-                // Interpolate the Y value based on the X position
-                double interpolatedY = InterpolateY(leftPoint, rightPoint, x);
-                maxInterpolatedY = Math.Max(maxInterpolatedY, interpolatedY);
-            }
-
-            topContourPoints.Add(new ObservablePoint(x, maxInterpolatedY));
-        }
-
-        // Calculate the Y value at the right edge of the progress indicator
-        double rightEdgeY = lineSeriesList.Max(series =>
-        {
-            var points = sortedPointsCache[series];
-            if (points.Count == 0) return 0;
-
-            int leftIndex = points.BinarySearch(new ObservablePoint(progressPosition, 0), new ObservablePointComparer());
-            if (leftIndex < 0) leftIndex = ~leftIndex - 1;
-            var leftPoint = points[Math.Max(leftIndex, 0)];
-            var rightPoint = points[Math.Min(leftIndex + 1, points.Count - 1)];
-
-            return InterpolateY(leftPoint, rightPoint, progressPosition);
-        });
-
-        // Add the right edge and closure points to complete the contour
-        topContourPoints.Add(new ObservablePoint(progressPosition, rightEdgeY)); // Top-right corner
-        topContourPoints.Add(new ObservablePoint(progressPosition, 0));  // Bottom-right corner
-        topContourPoints.Add(new ObservablePoint(leftEdgePosition, 0));  // Bottom-left corner
-
-        // Set the top contour points as the values for the progress indicator
-        progressIndicator.Values = topContourPoints;
-
-        // Ensure the progress indicator is added to the series list
-        if (!Series.Contains(progressIndicator))
-        {
-            Series = Series.Append(progressIndicator).ToArray();
-        }
-
-        // Invalidate the visual to trigger a redraw
         PlotView.InvalidateVisual();
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"An error occurred while updating the progress indicator: {ex.Message}");
-    }
-}
-
-private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoint, double x)
-{
-    if (leftPoint.X == rightPoint.X)
-        return (double)leftPoint.Y;
-
-    return (double)(leftPoint.Y + ((rightPoint.Y - leftPoint.Y) * (x - leftPoint.X) / (rightPoint.X - leftPoint.X)));
-}
-
-private class ObservablePointComparer : IComparer<ObservablePoint>
-{
-    public int Compare(ObservablePoint x, ObservablePoint y)
-    {
-        if (x.X < y.X) return -1;
-        if (x.X > y.X) return 1;
-        return 0;
+        Console.WriteLine($"Error updating progress indicator: {ex.Message}");
     }
 }
     private void InitializeVisibilityCheckTimer()
@@ -1423,84 +1374,85 @@ private async Task UpdateUIWithNewBackgroundAsync(Avalonia.Media.Imaging.Bitmap?
 
     var token = _cancellationTokenSource.Token;
 
-    await Dispatcher.UIThread.InvokeAsync(async () =>
+   await Dispatcher.UIThread.InvokeAsync(async () =>
+{
+    if (token.IsCancellationRequested)
+        return;
+
+    try
     {
+        if (Content is not Grid mainGrid)
+        {
+            Content = new Grid();
+            mainGrid = (Grid)Content;
+        }
+
+        var newImageControl = new Image
+        {
+            Source = bitmap,
+            Stretch = Stretch.UniformToFill,
+            Opacity = 0.25,
+            ZIndex = -1,
+            Effect = ViewModel?.IsBlurEffectEnabled == true ? new BlurEffect { Radius = 17.27 } : null,
+            Clip = new RectangleGeometry(new Rect(0, 0, mainGrid.Bounds.Width * 1.05, mainGrid.Bounds.Height * 1.05))
+        };
+
+        var transition = new DoubleTransition
+        {
+            Property = Image.OpacityProperty,
+            Duration = TimeSpan.FromSeconds(0.3),
+            Easing = new QuarticEaseInOut()
+        };
+
+        var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer")
+                              ?? new Grid { Name = "BackgroundLayer", ZIndex = -1 };
+
+        if (!mainGrid.Children.Contains(backgroundLayer))
+        {
+            mainGrid.Children.Insert(0, backgroundLayer);
+        }
+        else
+        {
+            backgroundLayer.Children.Clear();
+        }
+
+        backgroundLayer.RenderTransform = new ScaleTransform(1.05, 1.05);
+
+        var oldBackground = backgroundLayer.Children.OfType<Image>().FirstOrDefault();
+        if (oldBackground != null)
+        {
+            oldBackground.Transitions = new Transitions { transition };
+            oldBackground.Opacity = 0.25;
+
+            await Task.Delay(250, token);
+
+            if (!token.IsCancellationRequested)
+            {
+                backgroundLayer.Children.Remove(oldBackground);
+                oldBackground.Source = null;
+            }
+        }
+
         if (token.IsCancellationRequested)
             return;
 
-        try
+        backgroundLayer.Children.Add(newImageControl);
+        newImageControl.Transitions = new Transitions { transition };
+        newImageControl.Opacity = 0.5;
+        backgroundLayer.Opacity = _currentBackgroundOpacity;
+
+        if (ViewModel != null && ParallaxToggle?.IsChecked == true && BackgroundToggle?.IsChecked == true)
         {
-            var newImageControl = new Image
-            {
-                Source = bitmap,
-                Stretch = Stretch.UniformToFill,
-                Opacity = 0.25,
-                ZIndex = -1,
-                Effect = ViewModel?.IsBlurEffectEnabled == true ? new BlurEffect { Radius = 17.27 } : null
-            };
-
-            var transition = new DoubleTransition
-            {
-                Property = Image.OpacityProperty,
-                Duration = TimeSpan.FromSeconds(0.3),
-                Easing = new QuarticEaseInOut()
-            };
-
-            if (Content is Grid mainGrid)
-            {
-                var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer")
-                                      ?? new Grid { Name = "BackgroundLayer", ZIndex = -1 };
-
-                if (!mainGrid.Children.Contains(backgroundLayer))
-                {
-                    mainGrid.Children.Insert(0, backgroundLayer);
-                }
-                else
-                {
-                    backgroundLayer.Children.Clear();
-                }
-
-                var oldBackground = backgroundLayer.Children.OfType<Image>().FirstOrDefault();
-                if (oldBackground != null)
-                {
-                    oldBackground.Transitions = new Transitions { transition };
-                    oldBackground.Opacity = 0.25;
-
-                    await Task.Delay(250, token);
-
-                    if (!token.IsCancellationRequested)
-                    {
-                        backgroundLayer.Children.Remove(oldBackground);
-                        oldBackground.Source = null;
-                    }
-                }
-
-                if (token.IsCancellationRequested)
-                    return;
-
-                backgroundLayer.Children.Add(newImageControl);
-                newImageControl.Transitions = new Transitions { transition };
-                newImageControl.Opacity = 0.5;
-                backgroundLayer.RenderTransform = new ScaleTransform(1.05, 1.05);
-                backgroundLayer.Opacity = _currentBackgroundOpacity;
-            }
-            else
-            {
-                Content = new Grid { Children = { newImageControl } };
-            }
-
-            if (ViewModel != null && ParallaxToggle?.IsChecked == true && BackgroundToggle?.IsChecked == true)
-            {
-                ApplyParallax(_mouseX, _mouseY);
-            }
-
-            Console.WriteLine("UpdateUIWithNewBackground: Update completed.");
+            ApplyParallax(_mouseX, _mouseY);
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Error updating UI: " + ex.Message);
-        }
-    });
+
+        Console.WriteLine("UpdateUIWithNewBackground: Update completed.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Error updating UI: " + ex.Message);
+    }
+});
 }
     private void UpdateBackgroundVisibility()
     {
@@ -1829,47 +1781,44 @@ private async Task UpdateLogoAsync()
         }
 
         var originalPicture = _cachedLogoSvg.Picture;
+        var width = (int)originalPicture.CullRect.Width;
+        var height = (int)originalPicture.CullRect.Height;
 
         for (var i = 0; i <= steps; i++)
         {
             var t = i / (float)steps;
             var interpolatedColor = InterpolateColor(_oldAverageColor, newAverageColor, t);
-            var width = (int)originalPicture.CullRect.Width;
-            var height = (int)originalPicture.CullRect.Height;
-            var bitmap = new SKBitmap(width, height);
 
-            await Task.Run(() =>
+            var bitmap = await Task.Run(() =>
             {
-                using (var canvas = new SKCanvas(bitmap))
+                var tempBitmap = new SKBitmap(width, height);
+                using (var canvas = new SKCanvas(tempBitmap))
                 {
                     canvas.Clear(SKColors.Transparent);
-
-                    using var paint = new SKPaint
-                    {
-                    };
-
+                    using var paint = new SKPaint();
                     canvas.DrawPicture(originalPicture, paint);
 
                     // Apply the interpolated color to each pixel
-                    for (var y = 0; y < bitmap.Height; y++)
+                    for (var y = 0; y < tempBitmap.Height; y++)
                     {
-                        for (var x = 0; x < bitmap.Width; x++)
+                        for (var x = 0; x < tempBitmap.Width; x++)
                         {
-                            var pixel = bitmap.GetPixel(x, y);
+                            var pixel = tempBitmap.GetPixel(x, y);
                             var newColor = new SKColor(
                                 interpolatedColor.Red,
                                 interpolatedColor.Green,
                                 interpolatedColor.Blue,
                                 pixel.Alpha
                             );
-                            bitmap.SetPixel(x, y, newColor);
+                            tempBitmap.SetPixel(x, y, newColor);
                         }
                     }
                 }
+                return tempBitmap;
             });
 
             using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            using SKData? data = image.Encode(SKEncodedImageFormat.Png, 100);
             if (data == null)
             {
                 Console.WriteLine("[ERROR] Data encoding failed");
@@ -1894,7 +1843,6 @@ private async Task UpdateLogoAsync()
                     try
                     {
                         viewModel.ModifiedLogoImage = new Bitmap(stream);
-                        Console.WriteLine("Modified logo image updated in ViewModel");
                     }
                     catch (Exception ex)
                     {
