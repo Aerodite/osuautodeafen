@@ -360,6 +360,11 @@ public class TosuApi : IDisposable
 
     public string? GetOsuFilePath()
     {
+        return _osuFilePath;
+    }
+
+    public string? GetFullFilePath()
+    {
         return _settingsSongsDirectory + "\\" + _osuFilePath;
     }
 
