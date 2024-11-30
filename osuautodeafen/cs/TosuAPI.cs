@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using JsonException = System.Text.Json.JsonException;
 
 namespace osuautodeafen.cs;
 
@@ -23,21 +23,23 @@ public class TosuApi : IDisposable
     private double _combo;
     private double _completionPercentage;
     private double _current;
+    private double _DTRate;
     private double _firstObj;
     private double _full;
     private string? _fullPath;
     private double _fullSR;
-    private string? _modNames;
     private string? _gameDirectory;
     private double _maxCombo;
     private double _maxPP;
     private double _missCount;
-    private double _DTRate;
+    private string? _modNames;
     private string? _osuFilePath = "";
     private double _rankedStatus;
     private int _rawBanchoStatus = -1; // Default to -1 to indicate uninitialized
+    private double _rawCompletionPercentage;
     private double _sbCount;
     private string? _settingsSongsDirectory;
+    private string? _songFilePath;
     private ClientWebSocket _webSocket;
 
     public TosuApi()
@@ -183,6 +185,9 @@ public class TosuApi : IDisposable
                             "{ \"key\": \"value\" }");
 
                     ////////////////////////////////////////////////////////////////////
+                    if (root.TryGetProperty("state", out var state))
+                        if (state.TryGetProperty("number", out var number))
+                            _rawBanchoStatus = number.GetInt32();
                     if (root.TryGetProperty("stats", out var stats))
                         if (stats.TryGetProperty("pp", out var pp))
                             if (pp.TryGetProperty("fc", out var fc))
@@ -245,16 +250,10 @@ public class TosuApi : IDisposable
                                 }
                         }
 
-                        if(play.TryGetProperty("mods", out var mods))
+                        if (play.TryGetProperty("mods", out var mods))
                         {
-                            if (mods.TryGetProperty("name", out var modNames))
-                            {
-                                _modNames = modNames.GetString();
-                            }
-                            if(mods.TryGetProperty("rate", out var rate))
-                            {
-                                _DTRate = rate.GetDouble();
-                            }
+                            if (mods.TryGetProperty("name", out var modNames)) _modNames = modNames.GetString();
+                            if (mods.TryGetProperty("rate", out var rate)) _DTRate = rate.GetDouble();
                         }
                     }
 
@@ -265,19 +264,18 @@ public class TosuApi : IDisposable
                     if (root.TryGetProperty("profile", out var profile))
                         if (profile.TryGetProperty("banchoStatus", out var banchoStatus))
                             if (banchoStatus.TryGetProperty("number", out var banchoStatusNumber))
-                            {
                                 //using tosu beta b0bf580 for lazer this does not return the correct status
                                 //hoping is fixed later by tosu devs
                                 //if not we might just want to return local status as well?
                                 //which would be possible by grabbing profile > userStatus > number
                                 //instead of profile > banchoStatus > number)
-                                var rawBanchoStatus = banchoStatusNumber.GetInt32();
-                                StateChanged?.Invoke(rawBanchoStatus);
-                                _rawBanchoStatus = rawBanchoStatus;
-                                if (rawBanchoStatus == 2)
-                                {
-                                }
+                                //var rawBanchoStatus = banchoStatusNumber.GetInt32();
+                                //StateChanged?.Invoke(rawBanchoStatus);
+                                //_rawBanchoStatus = rawBanchoStatus;
+                                //if (rawBanchoStatus == 2)
+                            {
                             }
+
 
                     if (root.TryGetProperty("folders", out var folders) &&
                         folders.TryGetProperty("songs", out var songs))
@@ -323,20 +321,14 @@ public class TosuApi : IDisposable
     public double GetCompletionPercentage()
     {
         if (_full == 0)
-            //Console.WriteLine("completion percent = Undefined (division by zero)");
             return double.NaN;
 
         if (_current < _firstObj)
-        {
-            //Console.WriteLine("completion percent = 0");
             _completionPercentage = 0;
-        }
+        else if (_current > _full)
+            _completionPercentage = 100;
         else
-        {
-            _completionPercentage = (_current - _firstObj) / _full * 100;
-            _completionPercentage = Math.Round(_completionPercentage, 2);
-            //Console.WriteLine($"completion percent = {_completionPercentage}%");
-        }
+            _completionPercentage = (_current - _firstObj) / (_full - _firstObj) * 100;
 
         return _completionPercentage;
     }
@@ -350,6 +342,11 @@ public class TosuApi : IDisposable
     public string? GetOsuFilePath()
     {
         return _osuFilePath;
+    }
+
+    public string? GetFullFilePath()
+    {
+        return _settingsSongsDirectory + "\\" + _osuFilePath;
     }
 
     public double GetMaxPP()
@@ -401,19 +398,20 @@ public class TosuApi : IDisposable
     {
         GetSelectedMods();
         if (_modNames != null)
-        {
             if (_modNames.Contains("DT") || _modNames.Contains("NC"))
-            {
                 return true;
-            }
-        }
 
         return false;
     }
 
-    public double? RateAdjustRate()
+    public double RateAdjustRate()
     {
         return _DTRate;
+    }
+
+    public int GetRawBanchoStatus()
+    {
+        return _rawBanchoStatus;
     }
 
     private bool HasGraphDataChanged(GraphData newGraph)
@@ -432,110 +430,92 @@ public class TosuApi : IDisposable
             if (currentSeries.Data.Count != newSeries.Data.Count) return true;
 
             for (var j = 0; j < currentSeries.Data.Count; j++)
-            {
-                if (Math.Abs(currentSeries.Data[j] - newSeries.Data[j]) > 0.05) return true;
-            }
+                if (Math.Abs(currentSeries.Data[j] - newSeries.Data[j]) > 0.05)
+                    return true;
         }
 
         if (Graph.XAxis.Count != newGraph.XAxis.Count) return true;
 
         for (var i = 0; i < Graph.XAxis.Count; i++)
-        {
-            if (Math.Abs(Graph.XAxis[i] - newGraph.XAxis[i]) > 0.05) return true;
-        }
+            if (Math.Abs(Graph.XAxis[i] - newGraph.XAxis[i]) > 0.05)
+                return true;
 
         return false;
     }
 
- private void ParseGraphData(JsonElement graphElement, double? dtRate = null)
-{
-    try
+    private void ParseGraphData(JsonElement graphElement, double? dtRate = null)
     {
-        var newGraph = new GraphData
+        try
         {
-            Series = new List<Series>(),
-            XAxis = new List<double>()
-        };
-
-        if (graphElement.TryGetProperty("series", out var seriesArray))
-        {
-            foreach (var seriesElement in seriesArray.EnumerateArray())
+            var newGraph = new GraphData
             {
-                var seriesName = seriesElement.GetProperty("name").GetString();
-                if (seriesName == "flashlight" || seriesName == "aimNoSliders") continue;
+                Series = new List<Series>(),
+                XAxis = new List<double>()
+            };
 
-                var series = new Series
+            if (graphElement.TryGetProperty("series", out var seriesArray))
+                foreach (var seriesElement in seriesArray.EnumerateArray())
                 {
-                    Name = seriesName,
-                    Data = new List<double>()
-                };
+                    var seriesName = seriesElement.GetProperty("name").GetString();
+                    if (seriesName == "flashlight" || seriesName == "aimNoSliders") continue;
 
-                if (seriesElement.TryGetProperty("data", out var dataArray))
-                {
-                    foreach (var dataElement in dataArray.EnumerateArray())
+                    var series = new Series
                     {
-                        if (dataElement.ValueKind == JsonValueKind.Number)
-                        {
-                            var value = dataElement.GetDouble();
-                            series.Data.Add(value);
-                        }
-                        else
-                        {
-                            Console.WriteLine($"Invalid data value kind: {dataElement.ValueKind}");
-                        }
+                        Name = seriesName,
+                        Data = new List<double>()
+                    };
+
+                    if (seriesElement.TryGetProperty("data", out var dataArray))
+                        foreach (var dataElement in dataArray.EnumerateArray())
+                            if (dataElement.ValueKind == JsonValueKind.Number)
+                            {
+                                var value = dataElement.GetDouble();
+                                series.Data.Add(value);
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Invalid data value kind: {dataElement.ValueKind}");
+                            }
+                    else
+                        Console.WriteLine("Data property not found in series element.");
+
+                    newGraph.Series.Add(series);
+                }
+            else
+                Console.WriteLine("Series property not found in graph element.");
+
+            if (graphElement.TryGetProperty("xaxis", out var xAxisArray))
+                foreach (var xElement in xAxisArray.EnumerateArray())
+                    if (xElement.ValueKind == JsonValueKind.Number)
+                    {
+                        var xValue = xElement.GetDouble();
+                        newGraph.XAxis.Add(xValue);
                     }
-                }
-                else
-                {
-                    Console.WriteLine("Data property not found in series element.");
-                }
+                    else
+                    {
+                        Console.WriteLine($"Invalid x-axis value kind: {xElement.ValueKind}");
+                    }
+            else
+                Console.WriteLine("X-Axis property not found in graph element.");
 
-                newGraph.Series.Add(series);
-            }
-        }
-        else
-        {
-            Console.WriteLine("Series property not found in graph element.");
-        }
+            var data = new double[newGraph.XAxis.Count];
+            foreach (var series in newGraph.Series)
+                for (var i = 0; i < data.Length && i < series.Data.Count; i++)
+                    data[i] += series.Data[i];
 
-        if (graphElement.TryGetProperty("xaxis", out var xAxisArray))
-        {
-            foreach (var xElement in xAxisArray.EnumerateArray())
+            if (HasGraphDataChanged(newGraph))
             {
-                if (xElement.ValueKind == JsonValueKind.Number)
-                {
-                    var xValue = xElement.GetDouble();
-                    newGraph.XAxis.Add(xValue);
-                }
-                else
-                {
-                    Console.WriteLine($"Invalid x-axis value kind: {xElement.ValueKind}");
-                }
+                Graph = newGraph;
+                GraphDataUpdated?.Invoke(Graph);
             }
         }
-        else
+        catch (JsonException ex)
         {
-            Console.WriteLine("X-Axis property not found in graph element.");
+            Console.WriteLine($"JSON parsing error: {ex.Message}");
         }
-
-        var data = new double[newGraph.XAxis.Count];
-        foreach (var series in newGraph.Series)
+        catch (Exception ex)
         {
-            for (var i = 0; i < data.Length && i < series.Data.Count; i++)
-            {
-                data[i] += series.Data[i];
-            }
-        }
-
-        if (HasGraphDataChanged(newGraph))
-        {
-            Graph = newGraph;
-            GraphDataUpdated?.Invoke(Graph);
+            Console.WriteLine($"An error occurred while parsing graph data: {ex.Message}");
         }
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"An error occurred while parsing graph data: {ex.Message}");
-    }
-}
 }

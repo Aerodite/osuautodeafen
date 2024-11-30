@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "ODfF7HmXYW4=",
+  "dgSpecHash": "hIQK3mkH/+A=",
   "success": true,
   "projectFilePath": "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen2\\osuautodeafen\\osuautodeafen.csproj",
   "expectedPackageFiles": [
@@ -26,6 +26,7 @@
     "C:\\Users\\Anthony\\.nuget\\packages\\harfbuzzsharp.nativeassets.win32\\7.3.0.2\\harfbuzzsharp.nativeassets.win32.7.3.0.2.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\ilmerge\\3.0.41\\ilmerge.3.0.41.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\inputmanager\\1.0.0\\inputmanager.1.0.0.nupkg.sha512",
+    "C:\\Users\\Anthony\\.nuget\\packages\\inputsimulator\\1.0.4\\inputsimulator.1.0.4.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\livechartscore\\2.0.0-rc2\\livechartscore.2.0.0-rc2.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\livechartscore.skiasharpview\\2.0.0-rc2\\livechartscore.skiasharpview.2.0.0-rc2.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\livechartscore.skiasharpview.avalonia\\2.0.0-rc2\\livechartscore.skiasharpview.avalonia.2.0.0-rc2.nupkg.sha512",
@@ -41,6 +42,7 @@
     "C:\\Users\\Anthony\\.nuget\\packages\\runtime.native.system\\4.0.0\\runtime.native.system.4.0.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\sharpgen.runtime\\2.0.0-beta.13\\sharpgen.runtime.2.0.0-beta.13.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\sharpgen.runtime.com\\2.0.0-beta.13\\sharpgen.runtime.com.2.0.0-beta.13.nupkg.sha512",
+    "C:\\Users\\Anthony\\.nuget\\packages\\sharphook\\5.3.8\\sharphook.5.3.8.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\sharpvectors\\1.8.4.2\\sharpvectors.1.8.4.2.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\shimskiasharp\\2.0.0\\shimskiasharp.2.0.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\skiasharp\\2.88.8\\skiasharp.2.88.8.nupkg.sha512",
@@ -115,6 +117,16 @@
       "warningLevel": 1,
       "message": "Package 'InputManager 1.0.0' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0-windows7.0'. This package may not be fully compatible with your project.",
       "libraryId": "InputManager",
+      "targetGraphs": [
+        "net8.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1701",
+      "level": "Warning",
+      "warningLevel": 1,
+      "message": "Package 'InputSimulator 1.0.4' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0-windows7.0'. This package may not be fully compatible with your project.",
+      "libraryId": "InputSimulator",
       "targetGraphs": [
         "net8.0-windows7.0"
       ]

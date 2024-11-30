@@ -3,6 +3,7 @@
   <component name="AvaloniaProject">
     <option name="projectPerEditor">
       <map>
+        <entry key="osuautodeafen/App.axaml" value="osuautodeafen/osuautodeafen.csproj" />
         <entry key="osuautodeafen/MainWindow.axaml" value="osuautodeafen/osuautodeafen.csproj" />
       </map>
     </option>

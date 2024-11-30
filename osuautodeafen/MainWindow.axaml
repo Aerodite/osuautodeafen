@@ -8,7 +8,6 @@
         xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
         xmlns:skiaSharpView="clr-namespace:LiveChartsCore.SkiaSharpView;assembly=LiveChartsCore.SkiaSharpView"
         xmlns:painting="clr-namespace:LiveChartsCore.SkiaSharpView.Painting;assembly=LiveChartsCore.SkiaSharpView"
-        xmlns:converters="clr-namespace:Avalonia.Controls.Converters;assembly=Avalonia.Controls"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osu!autodeafen"
@@ -17,6 +16,7 @@
 
     <Window.Resources>
         <global:NotConverter x:Key="NotConverter" />
+        <local:UpdateNotificationMarginConverter x:Key="UpdateNotificationMarginConverter" />
     </Window.Resources>
 
     <Grid ZIndex="5">
@@ -32,7 +32,7 @@
                 <Image Name="LogoImage" Source="{Binding ModifiedLogoImage}" x:DataType="cs:SharedViewModel"
                        Height="69" Margin="0,0,0,0" />
             </StackPanel>
-            <TextBlock Text="{Binding CurrentAppVersion}" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+            <TextBlock Text="{Binding CurrentAppVersion}" HorizontalAlignment="Center" VerticalAlignment="Top"
 
                        x:DataType="cs:SharedViewModel"
                        Margin="0,0,0,10" Foreground="White" FontSize="14" />
@@ -218,15 +218,34 @@
                     <Image Source="avares://osuautodeafen/Icons/angles-left-solid.png" />
                 </Button>
                 <StackPanel Orientation="Horizontal" Margin="60, 10, 0, 0">
+                    <Image Source="avares://osuautodeafen/Icons/map-location-dot-solid.png" Width="25" Height="25"
+                           Margin="0, 0, 5, 0" />
+                    <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
+                              IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
+                              HorizontalAlignment="Left" Margin="0,0,0,0"
+                              IsCheckedChanged="BreakUndeafenToggle_IsCheckChanged">
+                        <ToolTip.Tip>
+                            <TextBlock>
+                                <Run Text="Toggle to decide whether or not breaks should be undeafened" />
+                            </TextBlock>
+                        </ToolTip.Tip>
+                    </CheckBox>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="60, 10, 0, 0">
                     <Image Source="avares://osuautodeafen/Icons/eye-slash-solid.png" Width="25" Height="25"
                            Margin="0, 0, 5, 0" />
                     <CheckBox x:Name="BlankEffectToggle" Content="Blank" Foreground="White"
                               IsChecked="{Binding IsBlankScreenEnabled, Mode=TwoWay}"
                               HorizontalAlignment="Left" Margin="0,0,0,0"
-                              IsCheckedChanged="BlankEffectToggle_IsCheckedChanged">
+                              IsCheckedChanged="BlankEffectToggle_IsCheckedChanged"
+                              IsEnabled="{x:Static cs:PlatformHelper.IsWindows}">
                         <ToolTip.Tip>
-                            <TextBlock
-                                Text="Blank out your monitors during an FC (**make sure your monitors are all set to the same scaling and that your osu! is at the primary monitor**)" />
+                            <TextBlock>
+                                <Run
+                                    Text="Blank out your monitors during an FC (**make sure your monitors are all set to the same scaling and that your osu! is at the primary monitor**)" />
+                                <LineBreak />
+                                <Run Text="(This option is only available on Windows)" />
+                            </TextBlock>
                         </ToolTip.Tip>
                     </CheckBox>
                 </StackPanel>
@@ -241,14 +260,19 @@
 
 
         <Grid VerticalAlignment="Bottom">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
             <avalonia1:CartesianChart
                 x:Name="PlotView"
+                Grid.Row="0"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Bottom"
                 Width="600"
                 Height="100"
-                Margin="0,0,0,0"
-
+                Margin="{Binding IsVisible, ElementName=UpdateNotificationBar, Converter={StaticResource UpdateNotificationMarginConverter}}"
                 Foreground="White">
                 <avalonia1:CartesianChart.XAxes>
                     <skiaSharpView:Axis>
@@ -265,15 +289,16 @@
                     </skiaSharpView:Axis>
                 </avalonia1:CartesianChart.YAxes>
             </avalonia1:CartesianChart>
-        </Grid>
-        <Grid HorizontalAlignment="Stretch" x:Name="UpdateNotificationGrid" VerticalAlignment="Bottom"
-              Grid.ColumnSpan="1" IsVisible="{Binding IsVisible, ElementName=UpdateNotificationBar}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Button x:Name="UpdateNotificationBar" Content="A new update is available!" Margin="0,0,0,0"
-                    HorizontalContentAlignment="Center" Click="UpdateNotificationBar_Click" IsVisible="False"
-                    HorizontalAlignment="Stretch" FontSize="12" Foreground="White" />
+
+            <Grid HorizontalAlignment="Stretch" x:Name="UpdateNotificationGrid" VerticalAlignment="Bottom"
+                  Grid.Row="1" IsVisible="{Binding IsVisible, ElementName=UpdateNotificationBar}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button x:Name="UpdateNotificationBar" Content="A new update is available!" Margin="0,0,0,0"
+                        HorizontalContentAlignment="Center" Click="UpdateNotificationBar_Click" IsVisible="False"
+                        HorizontalAlignment="Stretch" FontSize="12" Foreground="White" />
+            </Grid>
         </Grid>
     </Grid>
 </Window>

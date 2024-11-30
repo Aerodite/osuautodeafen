@@ -18,10 +18,12 @@
         <PackageReference Include="Avalonia.Fonts.Inter" Version="11.0.10"/>
         <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.10"/>
         <PackageReference Include="InputManager" Version="1.0.0"/>
+        <PackageReference Include="InputSimulator" Version="1.0.4"/>
         <PackageReference Include="LiveChartsCore.SkiaSharpView" Version="2.0.0-rc2"/>
         <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc2"/>
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
         <PackageReference Include="ReactiveUI" Version="20.1.1"/>
+        <PackageReference Include="SharpHook" Version="5.3.8"/>
         <PackageReference Include="SharpVectors" Version="1.8.4.2"/>
         <PackageReference Include="Svg.Skia" Version="2.0.0"/>
         <PackageReference Include="Veldrid" Version="4.9.0"/>
@@ -67,6 +69,8 @@
         <None Remove="Resources\oad.ico"/>
         <None Remove="Resources\osu_whitestroke.png"/>
         <AvaloniaResource Include="Resources\osu_whitestroke.png"/>
+        <None Remove="Icons\map-location-dot-solid.png"/>
+        <AvaloniaResource Include="Icons\map-location-dot-solid.png"/>
     </ItemGroup>
 
     <ItemGroup>

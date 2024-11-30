@@ -15,7 +15,11 @@ namespace osuautodeafen.cs;
 public sealed class SharedViewModel : INotifyPropertyChanged
 {
     private readonly bool _canUpdateSettings = true;
+    private readonly TosuApi _tosuApi;
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
+    private bool _breakUndeafenEnabled;
+
+    private double _completionPercentage;
     private MainWindow.HotKey _deafenKeybind;
 
     private string _deafenKeybindDisplay;
@@ -25,6 +29,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private bool _isBlankScreenEnabled;
 
     private bool _isBlurEffectEnabled;
+    private bool _IsBreakUndeafenToggleEnabled;
     public bool _isFCRequired;
 
     private bool _isKeybindCaptureFlyoutOpen;
@@ -45,6 +50,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     {
         OpenUpdateUrlCommand = new RelayCommand(OpenUpdateUrl);
         Task.Run(InitializeAsync);
+        _tosuApi = new TosuApi();
+        Task.Run(UpdateCompletionPercentageAsync);
     }
 
 
@@ -109,6 +116,20 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             if (_deafenKeybindDisplay != value)
             {
                 _deafenKeybindDisplay = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    //isbreakundeafentoggleenabled
+    public bool IsBreakUndeafenToggleEnabled
+    {
+        get => _IsBreakUndeafenToggleEnabled;
+        set
+        {
+            if (_IsBreakUndeafenToggleEnabled != value)
+            {
+                _IsBreakUndeafenToggleEnabled = value;
                 OnPropertyChanged();
             }
         }
@@ -314,6 +335,19 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
+    public double CompletionPercentage
+    {
+        get => _completionPercentage;
+        set
+        {
+            if (Math.Abs(_completionPercentage - value) > 0.01)
+            {
+                _completionPercentage = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     public int StarRating
     {
         get => _starRating;
@@ -378,7 +412,30 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
+    public bool BreakUndeafenEnabled
+    {
+        get => _breakUndeafenEnabled;
+        set
+        {
+            if (_breakUndeafenEnabled != value)
+            {
+                _breakUndeafenEnabled = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     public event PropertyChangedEventHandler PropertyChanged;
+
+    private async Task UpdateCompletionPercentageAsync()
+    {
+        while (true)
+        {
+            var newCompletionPercentage = _tosuApi.GetCompletionPercentage();
+            CompletionPercentage = newCompletionPercentage;
+            await Task.Delay(50);
+        }
+    }
 
     public void MainWindowViewModel()
     {
@@ -464,6 +521,25 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             Console.WriteLine("Settings file does not exist");
     }
 
+    public void UpdateIsBreakUndeafenToggleEnabled()
+    {
+        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "settings.txt");
+        if (File.Exists(settingsFilePath))
+            foreach (var line in File.ReadLines(settingsFilePath))
+            {
+                var settings = line.Split('=');
+                if (settings.Length == 2 && settings[0].Trim() == "BreakUndeafenEnabled")
+                {
+                    BreakUndeafenEnabled = bool.Parse(settings[1].Trim());
+                    //Console.WriteLine($"Updated BreakUndeafenEnabled to {BreakUndeafenEnabled}");
+                    break;
+                }
+            }
+        else
+            Console.WriteLine("Settings file does not exist");
+    }
+
     public void CheckAndUpdateStatusMessage()
     {
         var currentVersionObj = new Version(UpdateChecker.currentVersion);
@@ -503,6 +579,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 UseShellExecute = true
             });
     }
+
 
     private void OnPropertyChanged([CallerMemberName] string propertyName = null)
     {
