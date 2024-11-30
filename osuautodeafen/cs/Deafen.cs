@@ -254,13 +254,11 @@ private async void TimerElapsed(object? sender, ElapsedEventArgs e)
             if (isInBreakPeriod && !_isInBreakPeriod)
             {
                 _isInBreakPeriod = true;
-                Console.WriteLine("Entering break period.");
                 if (_deafened && isPlaying)
                 {
                     _deafened = false;
                     _isInBreakPeriodUndeafened = true;
                     ToggleDeafenState();
-                    Console.WriteLine("Undeafened during break period");
                     if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
                     await Task.Delay(500); // Add a delay to prevent immediate re-evaluation
                 }
@@ -268,13 +266,11 @@ private async void TimerElapsed(object? sender, ElapsedEventArgs e)
             else if (!isInBreakPeriod && _isInBreakPeriod)
             {
                 _isInBreakPeriod = false;
-                Console.WriteLine("Exiting break period.");
                 if (_isInBreakPeriodUndeafened && isPlaying)
                 {
                     _deafened = true;
                     _isInBreakPeriodUndeafened = false;
                     ToggleDeafenState();
-                    Console.WriteLine("Re-deafened after break period");
                     if (screenBlankEnabled) await ToggleScreenBlankAsync();
                     await Task.Delay(500); // Add a delay to prevent immediate re-evaluation
                 }

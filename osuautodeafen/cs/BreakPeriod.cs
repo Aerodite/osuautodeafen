@@ -26,8 +26,6 @@ public List<BreakPeriod> ParseBreakPeriods(string osuFilePath, List<double> xAxi
     var lines = File.ReadAllLines(osuFilePath);
     var inBreakPeriodSection = false;
 
-    Console.WriteLine("Starting to parse break periods from file: " + osuFilePath);
-
     // Filter out x-values corresponding to y-values of -100
     var validXAxis = xAxis.Where((x, index) => yAxis[index] != -100).ToList();
     var totalPoints = validXAxis.Count;
@@ -45,7 +43,6 @@ public List<BreakPeriod> ParseBreakPeriods(string osuFilePath, List<double> xAxi
         {
             if (line.StartsWith("//"))
             {
-                Console.WriteLine("End of break periods section.");
                 break;
             }
 
@@ -94,7 +91,6 @@ public bool IsBreakPeriod(double completionPercentage)
     {
         if (completionPercentage >= breakPeriod.StartPercentage && completionPercentage <= breakPeriod.EndPercentage)
         {
-            Console.WriteLine("Completion percentage is within a break period.");
             return true;
         }
     }
