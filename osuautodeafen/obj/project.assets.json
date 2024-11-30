@@ -1,7 +1,7 @@
 {
   "version": 3,
   "targets": {
-    "net8.0-windows7.0": {
+    "net8.0": {
       "Avalonia/11.0.10": {
         "type": "package",
         "dependencies": {
@@ -393,28 +393,6 @@
           "build/ILMerge.props": {}
         }
       },
-      "InputManager/1.0.0": {
-        "type": "package",
-        "compile": {
-          "lib/InputManager.dll": {}
-        },
-        "runtime": {
-          "lib/InputManager.dll": {}
-        }
-      },
-      "InputSimulator/1.0.4": {
-        "type": "package",
-        "compile": {
-          "lib/net20/WindowsInput.dll": {
-            "related": ".xml"
-          }
-        },
-        "runtime": {
-          "lib/net20/WindowsInput.dll": {
-            "related": ".xml"
-          }
-        }
-      },
       "LiveChartsCore/2.0.0-rc2": {
         "type": "package",
         "compile": {
@@ -471,6 +449,12 @@
         },
         "runtime": {
           "lib/net5.0/MicroCom.Runtime.dll": {}
+        }
+      },
+      "Microsoft.NET.ILLink.Tasks/8.0.5": {
+        "type": "package",
+        "build": {
+          "build/Microsoft.NET.ILLink.Tasks.props": {}
         }
       },
       "Newtonsoft.Json/13.0.3": {
@@ -558,64 +542,6 @@
             "rid": "win-x86"
           }
         }
-      },
-      "SharpVectors/1.8.4.2": {
-        "type": "package",
-        "compile": {
-          "lib/net8.0-windows7.0/SharpVectors.Converters.Wpf.dll": {
-            "related": ".xml"
-          },
-          "lib/net8.0-windows7.0/SharpVectors.Core.dll": {
-            "related": ".xml"
-          },
-          "lib/net8.0-windows7.0/SharpVectors.Css.dll": {
-            "related": ".xml"
-          },
-          "lib/net8.0-windows7.0/SharpVectors.Dom.dll": {
-            "related": ".xml"
-          },
-          "lib/net8.0-windows7.0/SharpVectors.Model.dll": {
-            "related": ".xml"
-          },
-          "lib/net8.0-windows7.0/SharpVectors.Rendering.Gdi.dll": {
-            "related": ".xml"
-          },
-          "lib/net8.0-windows7.0/SharpVectors.Rendering.Wpf.dll": {
-            "related": ".xml"
-          },
-          "lib/net8.0-windows7.0/SharpVectors.Runtime.Wpf.dll": {
-            "related": ".xml"
-          }
-        },
-        "runtime": {
-          "lib/net8.0-windows7.0/SharpVectors.Converters.Wpf.dll": {
-            "related": ".xml"
-          },
-          "lib/net8.0-windows7.0/SharpVectors.Core.dll": {
-            "related": ".xml"
-          },
-          "lib/net8.0-windows7.0/SharpVectors.Css.dll": {
-            "related": ".xml"
-          },
-          "lib/net8.0-windows7.0/SharpVectors.Dom.dll": {
-            "related": ".xml"
-          },
-          "lib/net8.0-windows7.0/SharpVectors.Model.dll": {
-            "related": ".xml"
-          },
-          "lib/net8.0-windows7.0/SharpVectors.Rendering.Gdi.dll": {
-            "related": ".xml"
-          },
-          "lib/net8.0-windows7.0/SharpVectors.Rendering.Wpf.dll": {
-            "related": ".xml"
-          },
-          "lib/net8.0-windows7.0/SharpVectors.Runtime.Wpf.dll": {
-            "related": ".xml"
-          }
-        },
-        "frameworkReferences": [
-          "Microsoft.WindowsDesktop.App.WPF"
-        ]
       },
       "ShimSkiaSharp/2.0.0": {
         "type": "package",
@@ -739,6 +665,672 @@
             "assetType": "native",
             "rid": "win-x86"
           }
+        }
+      },
+      "Splat/15.1.1": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/Splat.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Splat.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Svg.Custom/2.0.0": {
+        "type": "package",
+        "dependencies": {
+          "ExCSS": "4.2.3"
+        },
+        "compile": {
+          "lib/net8.0/Svg.Custom.dll": {}
+        },
+        "runtime": {
+          "lib/net8.0/Svg.Custom.dll": {}
+        }
+      },
+      "Svg.Model/2.0.0": {
+        "type": "package",
+        "dependencies": {
+          "ShimSkiaSharp": "2.0.0",
+          "Svg.Custom": "2.0.0"
+        },
+        "compile": {
+          "lib/net8.0/Svg.Model.dll": {}
+        },
+        "runtime": {
+          "lib/net8.0/Svg.Model.dll": {}
+        }
+      },
+      "Svg.Skia/2.0.0": {
+        "type": "package",
+        "dependencies": {
+          "SkiaSharp": "2.88.8",
+          "SkiaSharp.HarfBuzz": "2.88.8",
+          "Svg.Custom": "2.0.0",
+          "Svg.Model": "2.0.0"
+        },
+        "compile": {
+          "lib/net8.0/Svg.Skia.dll": {}
+        },
+        "runtime": {
+          "lib/net8.0/Svg.Skia.dll": {}
+        }
+      },
+      "System.ComponentModel.Annotations/5.0.0": {
+        "type": "package",
+        "compile": {
+          "ref/netstandard2.1/System.ComponentModel.Annotations.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.1/System.ComponentModel.Annotations.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "System.IO.Pipelines/6.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/System.IO.Pipelines.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/System.IO.Pipelines.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "buildTransitive/netcoreapp3.1/_._": {}
+        }
+      },
+      "System.Numerics.Vectors/4.5.0": {
+        "type": "package",
+        "compile": {
+          "ref/netcoreapp2.0/_._": {}
+        },
+        "runtime": {
+          "lib/netcoreapp2.0/_._": {}
+        }
+      },
+      "System.Reactive/6.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/System.Reactive.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/System.Reactive.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "buildTransitive/net6.0/_._": {}
+        }
+      },
+      "Tmds.DBus.Protocol/0.15.0": {
+        "type": "package",
+        "dependencies": {
+          "System.IO.Pipelines": "6.0.0"
+        },
+        "compile": {
+          "lib/net6.0/Tmds.DBus.Protocol.dll": {}
+        },
+        "runtime": {
+          "lib/net6.0/Tmds.DBus.Protocol.dll": {}
+        }
+      },
+      "WebSocketSharp/1.0.3-rc11": {
+        "type": "package",
+        "compile": {
+          "lib/websocket-sharp.dll": {}
+        },
+        "runtime": {
+          "lib/websocket-sharp.dll": {}
+        }
+      }
+    },
+    "net8.0/linux-x64": {
+      "Avalonia/11.0.10": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia.BuildServices": "0.0.29",
+          "Avalonia.Remote.Protocol": "11.0.10",
+          "MicroCom.Runtime": "0.11.0",
+          "System.ComponentModel.Annotations": "4.5.0"
+        },
+        "compile": {
+          "ref/net6.0/Avalonia.Base.dll": {
+            "related": ".xml"
+          },
+          "ref/net6.0/Avalonia.Controls.dll": {
+            "related": ".xml"
+          },
+          "ref/net6.0/Avalonia.DesignerSupport.dll": {
+            "related": ".xml"
+          },
+          "ref/net6.0/Avalonia.Dialogs.dll": {
+            "related": ".xml"
+          },
+          "ref/net6.0/Avalonia.Markup.Xaml.dll": {
+            "related": ".xml"
+          },
+          "ref/net6.0/Avalonia.Markup.dll": {
+            "related": ".Xaml.xml;.xml"
+          },
+          "ref/net6.0/Avalonia.Metal.dll": {
+            "related": ".xml"
+          },
+          "ref/net6.0/Avalonia.MicroCom.dll": {
+            "related": ".xml"
+          },
+          "ref/net6.0/Avalonia.OpenGL.dll": {
+            "related": ".xml"
+          },
+          "ref/net6.0/Avalonia.dll": {
+            "related": ".Base.xml;.Controls.xml;.DesignerSupport.xml;.Dialogs.xml;.Markup.Xaml.xml;.Markup.xml;.Metal.xml;.MicroCom.xml;.OpenGL.xml;.xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.Base.dll": {
+            "related": ".xml"
+          },
+          "lib/net6.0/Avalonia.Controls.dll": {
+            "related": ".xml"
+          },
+          "lib/net6.0/Avalonia.DesignerSupport.dll": {
+            "related": ".xml"
+          },
+          "lib/net6.0/Avalonia.Dialogs.dll": {
+            "related": ".xml"
+          },
+          "lib/net6.0/Avalonia.Markup.Xaml.dll": {
+            "related": ".xml"
+          },
+          "lib/net6.0/Avalonia.Markup.dll": {
+            "related": ".Xaml.xml;.xml"
+          },
+          "lib/net6.0/Avalonia.Metal.dll": {
+            "related": ".xml"
+          },
+          "lib/net6.0/Avalonia.MicroCom.dll": {
+            "related": ".xml"
+          },
+          "lib/net6.0/Avalonia.OpenGL.dll": {
+            "related": ".xml"
+          },
+          "lib/net6.0/Avalonia.dll": {
+            "related": ".Base.xml;.Controls.xml;.DesignerSupport.xml;.Dialogs.xml;.Markup.Xaml.xml;.Markup.xml;.Metal.xml;.MicroCom.xml;.OpenGL.xml;.xml"
+          }
+        },
+        "build": {
+          "buildTransitive/Avalonia.props": {},
+          "buildTransitive/Avalonia.targets": {}
+        }
+      },
+      "Avalonia.Angle.Windows.Natives/2.1.0.2023020321": {
+        "type": "package"
+      },
+      "Avalonia.BuildServices/0.0.29": {
+        "type": "package",
+        "build": {
+          "buildTransitive/Avalonia.BuildServices.targets": {}
+        }
+      },
+      "Avalonia.Desktop/11.0.10": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.0.10",
+          "Avalonia.Native": "11.0.10",
+          "Avalonia.Skia": "11.0.10",
+          "Avalonia.Win32": "11.0.10",
+          "Avalonia.X11": "11.0.10"
+        },
+        "compile": {
+          "lib/net6.0/Avalonia.Desktop.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.Desktop.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Avalonia.Fonts.Inter/11.0.10": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.0.10"
+        },
+        "compile": {
+          "lib/net6.0/Avalonia.Fonts.Inter.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.Fonts.Inter.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Avalonia.FreeDesktop/11.0.10": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.0.10",
+          "Tmds.DBus.Protocol": "0.15.0"
+        },
+        "compile": {
+          "lib/net6.0/Avalonia.FreeDesktop.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.FreeDesktop.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Avalonia.Native/11.0.10": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.0.10"
+        },
+        "compile": {
+          "lib/net6.0/Avalonia.Native.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.Native.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Avalonia.Remote.Protocol/11.0.10": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/Avalonia.Remote.Protocol.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.Remote.Protocol.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Avalonia.Skia/11.0.10": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.0.10",
+          "HarfBuzzSharp": "7.3.0",
+          "HarfBuzzSharp.NativeAssets.Linux": "7.3.0",
+          "HarfBuzzSharp.NativeAssets.WebAssembly": "7.3.0",
+          "SkiaSharp": "2.88.7",
+          "SkiaSharp.NativeAssets.Linux": "2.88.7",
+          "SkiaSharp.NativeAssets.WebAssembly": "2.88.7"
+        },
+        "compile": {
+          "lib/net6.0/Avalonia.Skia.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.Skia.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Avalonia.Themes.Fluent/11.0.10": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.0.10"
+        },
+        "compile": {
+          "lib/net6.0/Avalonia.Themes.Fluent.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.Themes.Fluent.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Avalonia.Win32/11.0.10": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.0.10",
+          "Avalonia.Angle.Windows.Natives": "2.1.0.2023020321",
+          "System.Numerics.Vectors": "4.5.0"
+        },
+        "compile": {
+          "lib/net6.0/Avalonia.Win32.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.Win32.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Avalonia.X11/11.0.10": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.0.10",
+          "Avalonia.FreeDesktop": "11.0.10",
+          "Avalonia.Skia": "11.0.10"
+        },
+        "compile": {
+          "lib/net6.0/Avalonia.X11.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/Avalonia.X11.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "DynamicData/8.4.1": {
+        "type": "package",
+        "dependencies": {
+          "System.Reactive": "6.0.0"
+        },
+        "compile": {
+          "lib/net8.0/DynamicData.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/DynamicData.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "ExCSS/4.2.3": {
+        "type": "package",
+        "compile": {
+          "lib/net7.0/ExCSS.dll": {}
+        },
+        "runtime": {
+          "lib/net7.0/ExCSS.dll": {}
+        }
+      },
+      "HarfBuzzSharp/7.3.0.2": {
+        "type": "package",
+        "dependencies": {
+          "HarfBuzzSharp.NativeAssets.Win32": "7.3.0.2",
+          "HarfBuzzSharp.NativeAssets.macOS": "7.3.0.2"
+        },
+        "compile": {
+          "lib/net6.0/HarfBuzzSharp.dll": {
+            "related": ".pdb;.xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/HarfBuzzSharp.dll": {
+            "related": ".pdb;.xml"
+          }
+        }
+      },
+      "HarfBuzzSharp.NativeAssets.Linux/7.3.0": {
+        "type": "package",
+        "dependencies": {
+          "HarfBuzzSharp": "7.3.0"
+        },
+        "compile": {
+          "lib/net6.0/_._": {}
+        },
+        "runtime": {
+          "lib/net6.0/_._": {}
+        },
+        "native": {
+          "runtimes/linux-x64/native/libHarfBuzzSharp.so": {}
+        }
+      },
+      "HarfBuzzSharp.NativeAssets.macOS/7.3.0.2": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/_._": {}
+        },
+        "runtime": {
+          "lib/net6.0/_._": {}
+        }
+      },
+      "HarfBuzzSharp.NativeAssets.WebAssembly/7.3.0": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard1.0/_._": {}
+        },
+        "runtime": {
+          "lib/netstandard1.0/_._": {}
+        },
+        "build": {
+          "buildTransitive/netstandard1.0/HarfBuzzSharp.NativeAssets.WebAssembly.props": {},
+          "buildTransitive/netstandard1.0/HarfBuzzSharp.NativeAssets.WebAssembly.targets": {}
+        }
+      },
+      "HarfBuzzSharp.NativeAssets.Win32/7.3.0.2": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/_._": {}
+        },
+        "runtime": {
+          "lib/net6.0/_._": {}
+        }
+      },
+      "ILMerge/3.0.41": {
+        "type": "package",
+        "build": {
+          "build/ILMerge.props": {}
+        }
+      },
+      "LiveChartsCore/2.0.0-rc2": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/LiveChartsCore.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/LiveChartsCore.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "LiveChartsCore.SkiaSharpView/2.0.0-rc2": {
+        "type": "package",
+        "dependencies": {
+          "LiveChartsCore": "2.0.0-rc2",
+          "SkiaSharp": "2.88.6",
+          "SkiaSharp.HarfBuzz": "2.88.6"
+        },
+        "compile": {
+          "lib/net6.0/LiveChartsCore.SkiaSharpView.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/LiveChartsCore.SkiaSharpView.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "LiveChartsCore.SkiaSharpView.Avalonia/2.0.0-rc2": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.0.0",
+          "Avalonia.Skia": "11.0.0",
+          "LiveChartsCore.SkiaSharpView": "2.0.0-rc2"
+        },
+        "compile": {
+          "lib/net6.0/LiveChartsCore.SkiaSharpView.Avalonia.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/LiveChartsCore.SkiaSharpView.Avalonia.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "MicroCom.Runtime/0.11.0": {
+        "type": "package",
+        "compile": {
+          "lib/net5.0/MicroCom.Runtime.dll": {}
+        },
+        "runtime": {
+          "lib/net5.0/MicroCom.Runtime.dll": {}
+        }
+      },
+      "Microsoft.NET.ILLink.Tasks/8.0.5": {
+        "type": "package",
+        "build": {
+          "build/Microsoft.NET.ILLink.Tasks.props": {}
+        }
+      },
+      "Newtonsoft.Json/13.0.3": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/Newtonsoft.Json.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/Newtonsoft.Json.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "ReactiveUI/20.1.1": {
+        "type": "package",
+        "dependencies": {
+          "DynamicData": "8.4.1",
+          "Splat": "15.1.1",
+          "System.ComponentModel.Annotations": "5.0.0"
+        },
+        "compile": {
+          "lib/net8.0/ReactiveUI.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/ReactiveUI.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "SharpHook/5.3.8": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/SharpHook.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/SharpHook.dll": {
+            "related": ".xml"
+          }
+        },
+        "native": {
+          "runtimes/linux-x64/native/libuiohook.so": {}
+        }
+      },
+      "ShimSkiaSharp/2.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/ShimSkiaSharp.dll": {}
+        },
+        "runtime": {
+          "lib/net8.0/ShimSkiaSharp.dll": {}
+        }
+      },
+      "SkiaSharp/2.88.8": {
+        "type": "package",
+        "dependencies": {
+          "SkiaSharp.NativeAssets.Win32": "2.88.8",
+          "SkiaSharp.NativeAssets.macOS": "2.88.8"
+        },
+        "compile": {
+          "lib/net6.0/SkiaSharp.dll": {
+            "related": ".pdb;.xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/SkiaSharp.dll": {
+            "related": ".pdb;.xml"
+          }
+        }
+      },
+      "SkiaSharp.HarfBuzz/2.88.8": {
+        "type": "package",
+        "dependencies": {
+          "HarfBuzzSharp": "7.3.0.2",
+          "SkiaSharp": "2.88.8"
+        },
+        "compile": {
+          "lib/net6.0/SkiaSharp.HarfBuzz.dll": {
+            "related": ".pdb;.xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/SkiaSharp.HarfBuzz.dll": {
+            "related": ".pdb;.xml"
+          }
+        }
+      },
+      "SkiaSharp.NativeAssets.Linux/2.88.7": {
+        "type": "package",
+        "dependencies": {
+          "SkiaSharp": "2.88.7"
+        },
+        "compile": {
+          "lib/net6.0/_._": {}
+        },
+        "runtime": {
+          "lib/net6.0/_._": {}
+        },
+        "native": {
+          "runtimes/linux-x64/native/libSkiaSharp.so": {}
+        }
+      },
+      "SkiaSharp.NativeAssets.macOS/2.88.8": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/_._": {}
+        },
+        "runtime": {
+          "lib/net6.0/_._": {}
+        }
+      },
+      "SkiaSharp.NativeAssets.WebAssembly/2.88.7": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard1.0/_._": {}
+        },
+        "runtime": {
+          "lib/netstandard1.0/_._": {}
+        },
+        "build": {
+          "buildTransitive/netstandard1.0/SkiaSharp.NativeAssets.WebAssembly.props": {},
+          "buildTransitive/netstandard1.0/SkiaSharp.NativeAssets.WebAssembly.targets": {}
+        }
+      },
+      "SkiaSharp.NativeAssets.Win32/2.88.8": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/_._": {}
+        },
+        "runtime": {
+          "lib/net6.0/_._": {}
         }
       },
       "Splat/15.1.1": {
@@ -1471,31 +2063,6 @@
         "tools/net452/System.Compiler.dll"
       ]
     },
-    "InputManager/1.0.0": {
-      "sha512": "jx5aolDToAQFloxCMxYeDaRsNXeb/D4WlORvYhy1Y02Y/EUIqKN5UAccM3lXqEfDHPHG6VnfuJQY7awS5sUlOA==",
-      "type": "package",
-      "path": "inputmanager/1.0.0",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "inputmanager.1.0.0.nupkg.sha512",
-        "inputmanager.nuspec",
-        "lib/InputManager.dll"
-      ]
-    },
-    "InputSimulator/1.0.4": {
-      "sha512": "D0LvRCPQMX6/FJHBjng+RO+wRDuHTJrfo7IAc7rmkPvRqchdVGJWg3y70peOtDy3OLNK+HSOwVkH4GiuLnkKgA==",
-      "type": "package",
-      "path": "inputsimulator/1.0.4",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "inputsimulator.1.0.4.nupkg.sha512",
-        "inputsimulator.nuspec",
-        "lib/net20/WindowsInput.dll",
-        "lib/net20/WindowsInput.xml"
-      ]
-    },
     "LiveChartsCore/2.0.0-rc2": {
       "sha512": "X55dG3oI3AVOGWUrly+J/bUJGmb/pmB2aTkaWJPyIXI2cr5cqPJG/6GLL17IJ8e3GOofFWgQCbg0Az0+myUQLg==",
       "type": "package",
@@ -1575,6 +2142,57 @@
         "lib/netstandard2.0/MicroCom.Runtime.dll",
         "microcom.runtime.0.11.0.nupkg.sha512",
         "microcom.runtime.nuspec"
+      ]
+    },
+    "Microsoft.NET.ILLink.Tasks/8.0.5": {
+      "sha512": "4ISW1Ndgz86FkIbu5rVlMqhhtojdy5rUlxC/N+9kPh9qbYcvHiCvYbHKzAPVIx9OPYIjT9trXt7JI42Y5Ukq6A==",
+      "type": "package",
+      "path": "microsoft.net.illink.tasks/8.0.5",
+      "hasTools": true,
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Icon.png",
+        "LICENSE.TXT",
+        "Sdk/Sdk.props",
+        "THIRD-PARTY-NOTICES.TXT",
+        "analyzers/dotnet/cs/ILLink.CodeFixProvider.dll",
+        "analyzers/dotnet/cs/ILLink.RoslynAnalyzer.dll",
+        "build/Microsoft.NET.ILLink.Analyzers.props",
+        "build/Microsoft.NET.ILLink.Tasks.props",
+        "build/Microsoft.NET.ILLink.targets",
+        "microsoft.net.illink.tasks.8.0.5.nupkg.sha512",
+        "microsoft.net.illink.tasks.nuspec",
+        "tools/net472/ILLink.Tasks.dll",
+        "tools/net472/ILLink.Tasks.dll.config",
+        "tools/net472/Mono.Cecil.Mdb.dll",
+        "tools/net472/Mono.Cecil.Pdb.dll",
+        "tools/net472/Mono.Cecil.Rocks.dll",
+        "tools/net472/Mono.Cecil.dll",
+        "tools/net472/Sdk/Sdk.props",
+        "tools/net472/System.Buffers.dll",
+        "tools/net472/System.Collections.Immutable.dll",
+        "tools/net472/System.Memory.dll",
+        "tools/net472/System.Numerics.Vectors.dll",
+        "tools/net472/System.Reflection.Metadata.dll",
+        "tools/net472/System.Runtime.CompilerServices.Unsafe.dll",
+        "tools/net472/build/Microsoft.NET.ILLink.Analyzers.props",
+        "tools/net472/build/Microsoft.NET.ILLink.Tasks.props",
+        "tools/net472/build/Microsoft.NET.ILLink.targets",
+        "tools/net8.0/ILLink.Tasks.deps.json",
+        "tools/net8.0/ILLink.Tasks.dll",
+        "tools/net8.0/Mono.Cecil.Mdb.dll",
+        "tools/net8.0/Mono.Cecil.Pdb.dll",
+        "tools/net8.0/Mono.Cecil.Rocks.dll",
+        "tools/net8.0/Mono.Cecil.dll",
+        "tools/net8.0/Sdk/Sdk.props",
+        "tools/net8.0/build/Microsoft.NET.ILLink.Analyzers.props",
+        "tools/net8.0/build/Microsoft.NET.ILLink.Tasks.props",
+        "tools/net8.0/build/Microsoft.NET.ILLink.targets",
+        "tools/net8.0/illink.deps.json",
+        "tools/net8.0/illink.dll",
+        "tools/net8.0/illink.runtimeconfig.json",
+        "useSharedDesignerContext.txt"
       ]
     },
     "Newtonsoft.Json/13.0.3": {
@@ -1681,164 +2299,6 @@
         "runtimes/win-x86/native/uiohook.dll",
         "sharphook.5.3.8.nupkg.sha512",
         "sharphook.nuspec"
-      ]
-    },
-    "SharpVectors/1.8.4.2": {
-      "sha512": "x0ieFIl0MKEwxtYUFzOh7ch35gPkU8eEgfhwk8oE4cs8JejnZ2MVFgB5bILFNbatO934uby4c5MiV9k9olaoBg==",
-      "type": "package",
-      "path": "sharpvectors/1.8.4.2",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "docs/SharpVectors.md",
-        "images/SharpVectors64.png",
-        "lib/License.txt",
-        "lib/net40/SharpVectors.Converters.Wpf.dll",
-        "lib/net40/SharpVectors.Converters.Wpf.xml",
-        "lib/net40/SharpVectors.Core.dll",
-        "lib/net40/SharpVectors.Core.xml",
-        "lib/net40/SharpVectors.Css.dll",
-        "lib/net40/SharpVectors.Css.xml",
-        "lib/net40/SharpVectors.Dom.dll",
-        "lib/net40/SharpVectors.Dom.xml",
-        "lib/net40/SharpVectors.Model.dll",
-        "lib/net40/SharpVectors.Model.xml",
-        "lib/net40/SharpVectors.Rendering.Gdi.dll",
-        "lib/net40/SharpVectors.Rendering.Gdi.xml",
-        "lib/net40/SharpVectors.Rendering.Wpf.dll",
-        "lib/net40/SharpVectors.Rendering.Wpf.xml",
-        "lib/net40/SharpVectors.Runtime.Wpf.dll",
-        "lib/net40/SharpVectors.Runtime.Wpf.xml",
-        "lib/net45/SharpVectors.Converters.Wpf.dll",
-        "lib/net45/SharpVectors.Converters.Wpf.xml",
-        "lib/net45/SharpVectors.Core.dll",
-        "lib/net45/SharpVectors.Core.xml",
-        "lib/net45/SharpVectors.Css.dll",
-        "lib/net45/SharpVectors.Css.xml",
-        "lib/net45/SharpVectors.Dom.dll",
-        "lib/net45/SharpVectors.Dom.xml",
-        "lib/net45/SharpVectors.Model.dll",
-        "lib/net45/SharpVectors.Model.xml",
-        "lib/net45/SharpVectors.Rendering.Gdi.dll",
-        "lib/net45/SharpVectors.Rendering.Gdi.xml",
-        "lib/net45/SharpVectors.Rendering.Wpf.dll",
-        "lib/net45/SharpVectors.Rendering.Wpf.xml",
-        "lib/net45/SharpVectors.Runtime.Wpf.dll",
-        "lib/net45/SharpVectors.Runtime.Wpf.xml",
-        "lib/net46/SharpVectors.Converters.Wpf.dll",
-        "lib/net46/SharpVectors.Converters.Wpf.xml",
-        "lib/net46/SharpVectors.Core.dll",
-        "lib/net46/SharpVectors.Core.xml",
-        "lib/net46/SharpVectors.Css.dll",
-        "lib/net46/SharpVectors.Css.xml",
-        "lib/net46/SharpVectors.Dom.dll",
-        "lib/net46/SharpVectors.Dom.xml",
-        "lib/net46/SharpVectors.Model.dll",
-        "lib/net46/SharpVectors.Model.xml",
-        "lib/net46/SharpVectors.Rendering.Gdi.dll",
-        "lib/net46/SharpVectors.Rendering.Gdi.xml",
-        "lib/net46/SharpVectors.Rendering.Wpf.dll",
-        "lib/net46/SharpVectors.Rendering.Wpf.xml",
-        "lib/net46/SharpVectors.Runtime.Wpf.dll",
-        "lib/net46/SharpVectors.Runtime.Wpf.xml",
-        "lib/net47/SharpVectors.Converters.Wpf.dll",
-        "lib/net47/SharpVectors.Converters.Wpf.xml",
-        "lib/net47/SharpVectors.Core.dll",
-        "lib/net47/SharpVectors.Core.xml",
-        "lib/net47/SharpVectors.Css.dll",
-        "lib/net47/SharpVectors.Css.xml",
-        "lib/net47/SharpVectors.Dom.dll",
-        "lib/net47/SharpVectors.Dom.xml",
-        "lib/net47/SharpVectors.Model.dll",
-        "lib/net47/SharpVectors.Model.xml",
-        "lib/net47/SharpVectors.Rendering.Gdi.dll",
-        "lib/net47/SharpVectors.Rendering.Gdi.xml",
-        "lib/net47/SharpVectors.Rendering.Wpf.dll",
-        "lib/net47/SharpVectors.Rendering.Wpf.xml",
-        "lib/net47/SharpVectors.Runtime.Wpf.dll",
-        "lib/net47/SharpVectors.Runtime.Wpf.xml",
-        "lib/net48/SharpVectors.Converters.Wpf.dll",
-        "lib/net48/SharpVectors.Converters.Wpf.xml",
-        "lib/net48/SharpVectors.Core.dll",
-        "lib/net48/SharpVectors.Core.xml",
-        "lib/net48/SharpVectors.Css.dll",
-        "lib/net48/SharpVectors.Css.xml",
-        "lib/net48/SharpVectors.Dom.dll",
-        "lib/net48/SharpVectors.Dom.xml",
-        "lib/net48/SharpVectors.Model.dll",
-        "lib/net48/SharpVectors.Model.xml",
-        "lib/net48/SharpVectors.Rendering.Gdi.dll",
-        "lib/net48/SharpVectors.Rendering.Gdi.xml",
-        "lib/net48/SharpVectors.Rendering.Wpf.dll",
-        "lib/net48/SharpVectors.Rendering.Wpf.xml",
-        "lib/net48/SharpVectors.Runtime.Wpf.dll",
-        "lib/net48/SharpVectors.Runtime.Wpf.xml",
-        "lib/net6.0-windows7.0/SharpVectors.Converters.Wpf.dll",
-        "lib/net6.0-windows7.0/SharpVectors.Converters.Wpf.xml",
-        "lib/net6.0-windows7.0/SharpVectors.Core.dll",
-        "lib/net6.0-windows7.0/SharpVectors.Core.xml",
-        "lib/net6.0-windows7.0/SharpVectors.Css.dll",
-        "lib/net6.0-windows7.0/SharpVectors.Css.xml",
-        "lib/net6.0-windows7.0/SharpVectors.Dom.dll",
-        "lib/net6.0-windows7.0/SharpVectors.Dom.xml",
-        "lib/net6.0-windows7.0/SharpVectors.Model.dll",
-        "lib/net6.0-windows7.0/SharpVectors.Model.xml",
-        "lib/net6.0-windows7.0/SharpVectors.Rendering.Gdi.dll",
-        "lib/net6.0-windows7.0/SharpVectors.Rendering.Gdi.xml",
-        "lib/net6.0-windows7.0/SharpVectors.Rendering.Wpf.dll",
-        "lib/net6.0-windows7.0/SharpVectors.Rendering.Wpf.xml",
-        "lib/net6.0-windows7.0/SharpVectors.Runtime.Wpf.dll",
-        "lib/net6.0-windows7.0/SharpVectors.Runtime.Wpf.xml",
-        "lib/net7.0-windows7.0/SharpVectors.Converters.Wpf.dll",
-        "lib/net7.0-windows7.0/SharpVectors.Converters.Wpf.xml",
-        "lib/net7.0-windows7.0/SharpVectors.Core.dll",
-        "lib/net7.0-windows7.0/SharpVectors.Core.xml",
-        "lib/net7.0-windows7.0/SharpVectors.Css.dll",
-        "lib/net7.0-windows7.0/SharpVectors.Css.xml",
-        "lib/net7.0-windows7.0/SharpVectors.Dom.dll",
-        "lib/net7.0-windows7.0/SharpVectors.Dom.xml",
-        "lib/net7.0-windows7.0/SharpVectors.Model.dll",
-        "lib/net7.0-windows7.0/SharpVectors.Model.xml",
-        "lib/net7.0-windows7.0/SharpVectors.Rendering.Gdi.dll",
-        "lib/net7.0-windows7.0/SharpVectors.Rendering.Gdi.xml",
-        "lib/net7.0-windows7.0/SharpVectors.Rendering.Wpf.dll",
-        "lib/net7.0-windows7.0/SharpVectors.Rendering.Wpf.xml",
-        "lib/net7.0-windows7.0/SharpVectors.Runtime.Wpf.dll",
-        "lib/net7.0-windows7.0/SharpVectors.Runtime.Wpf.xml",
-        "lib/net8.0-windows7.0/SharpVectors.Converters.Wpf.dll",
-        "lib/net8.0-windows7.0/SharpVectors.Converters.Wpf.xml",
-        "lib/net8.0-windows7.0/SharpVectors.Core.dll",
-        "lib/net8.0-windows7.0/SharpVectors.Core.xml",
-        "lib/net8.0-windows7.0/SharpVectors.Css.dll",
-        "lib/net8.0-windows7.0/SharpVectors.Css.xml",
-        "lib/net8.0-windows7.0/SharpVectors.Dom.dll",
-        "lib/net8.0-windows7.0/SharpVectors.Dom.xml",
-        "lib/net8.0-windows7.0/SharpVectors.Model.dll",
-        "lib/net8.0-windows7.0/SharpVectors.Model.xml",
-        "lib/net8.0-windows7.0/SharpVectors.Rendering.Gdi.dll",
-        "lib/net8.0-windows7.0/SharpVectors.Rendering.Gdi.xml",
-        "lib/net8.0-windows7.0/SharpVectors.Rendering.Wpf.dll",
-        "lib/net8.0-windows7.0/SharpVectors.Rendering.Wpf.xml",
-        "lib/net8.0-windows7.0/SharpVectors.Runtime.Wpf.dll",
-        "lib/net8.0-windows7.0/SharpVectors.Runtime.Wpf.xml",
-        "lib/netcoreapp3.1/SharpVectors.Converters.Wpf.dll",
-        "lib/netcoreapp3.1/SharpVectors.Converters.Wpf.xml",
-        "lib/netcoreapp3.1/SharpVectors.Core.dll",
-        "lib/netcoreapp3.1/SharpVectors.Core.xml",
-        "lib/netcoreapp3.1/SharpVectors.Css.dll",
-        "lib/netcoreapp3.1/SharpVectors.Css.xml",
-        "lib/netcoreapp3.1/SharpVectors.Dom.dll",
-        "lib/netcoreapp3.1/SharpVectors.Dom.xml",
-        "lib/netcoreapp3.1/SharpVectors.Model.dll",
-        "lib/netcoreapp3.1/SharpVectors.Model.xml",
-        "lib/netcoreapp3.1/SharpVectors.Rendering.Gdi.dll",
-        "lib/netcoreapp3.1/SharpVectors.Rendering.Gdi.xml",
-        "lib/netcoreapp3.1/SharpVectors.Rendering.Wpf.dll",
-        "lib/netcoreapp3.1/SharpVectors.Rendering.Wpf.xml",
-        "lib/netcoreapp3.1/SharpVectors.Runtime.Wpf.dll",
-        "lib/netcoreapp3.1/SharpVectors.Runtime.Wpf.xml",
-        "sharpvectors.1.8.4.2.nupkg.sha512",
-        "sharpvectors.nuspec"
       ]
     },
     "ShimSkiaSharp/2.0.0": {
@@ -2341,20 +2801,18 @@
     }
   },
   "projectFileDependencyGroups": {
-    "net8.0-windows7.0": [
+    "net8.0": [
       "Avalonia >= 11.0.10",
       "Avalonia.Desktop >= 11.0.10",
       "Avalonia.Fonts.Inter >= 11.0.10",
       "Avalonia.Themes.Fluent >= 11.0.10",
       "ILMerge >= 3.0.41",
-      "InputManager >= 1.0.0",
-      "InputSimulator >= 1.0.4",
       "LiveChartsCore.SkiaSharpView >= 2.0.0-rc2",
       "LiveChartsCore.SkiaSharpView.Avalonia >= 2.0.0-rc2",
+      "Microsoft.NET.ILLink.Tasks >= 8.0.5",
       "Newtonsoft.Json >= 13.0.3",
       "ReactiveUI >= 20.1.1",
       "SharpHook >= 5.3.8",
-      "SharpVectors >= 1.8.4.2",
       "Svg.Skia >= 2.0.0",
       "WebSocketSharp >= 1.0.3-rc11"
     ]
@@ -2376,15 +2834,15 @@
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
-        "net8.0-windows"
+        "net8.0"
       ],
       "sources": {
         "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
-        "net8.0-windows7.0": {
-          "targetAlias": "net8.0-windows",
+        "net8.0": {
+          "targetAlias": "net8.0",
           "projectReferences": {}
         }
       },
@@ -2400,8 +2858,8 @@
       }
     },
     "frameworks": {
-      "net8.0-windows7.0": {
-        "targetAlias": "net8.0-windows",
+      "net8.0": {
+        "targetAlias": "net8.0",
         "dependencies": {
           "Avalonia": {
             "target": "Package",
@@ -2423,14 +2881,6 @@
             "target": "Package",
             "version": "[3.0.41, )"
           },
-          "InputManager": {
-            "target": "Package",
-            "version": "[1.0.0, )"
-          },
-          "InputSimulator": {
-            "target": "Package",
-            "version": "[1.0.4, )"
-          },
           "LiveChartsCore.SkiaSharpView": {
             "target": "Package",
             "version": "[2.0.0-rc2, )"
@@ -2438,6 +2888,12 @@
           "LiveChartsCore.SkiaSharpView.Avalonia": {
             "target": "Package",
             "version": "[2.0.0-rc2, )"
+          },
+          "Microsoft.NET.ILLink.Tasks": {
+            "suppressParent": "All",
+            "target": "Package",
+            "version": "[8.0.5, )",
+            "autoReferenced": true
           },
           "Newtonsoft.Json": {
             "target": "Package",
@@ -2450,10 +2906,6 @@
           "SharpHook": {
             "target": "Package",
             "version": "[5.3.8, )"
-          },
-          "SharpVectors": {
-            "target": "Package",
-            "version": "[1.8.4.2, )"
           },
           "Svg.Skia": {
             "target": "Package",
@@ -2475,12 +2927,23 @@
         ],
         "assetTargetFallback": true,
         "warn": true,
+        "downloadDependencies": [
+          {
+            "name": "Microsoft.NETCore.App.Host.linux-x64",
+            "version": "[8.0.5, 8.0.5]"
+          }
+        ],
         "frameworkReferences": {
           "Microsoft.NETCore.App": {
             "privateAssets": "all"
           }
         },
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.205/PortableRuntimeIdentifierGraph.json"
+      }
+    },
+    "runtimes": {
+      "linux-x64": {
+        "#import": []
       }
     }
   },
@@ -2489,30 +2952,10 @@
       "code": "NU1701",
       "level": "Warning",
       "warningLevel": 1,
-      "message": "Package 'InputManager 1.0.0' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0-windows7.0'. This package may not be fully compatible with your project.",
-      "libraryId": "InputManager",
-      "targetGraphs": [
-        "net8.0-windows7.0"
-      ]
-    },
-    {
-      "code": "NU1701",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "Package 'InputSimulator 1.0.4' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0-windows7.0'. This package may not be fully compatible with your project.",
-      "libraryId": "InputSimulator",
-      "targetGraphs": [
-        "net8.0-windows7.0"
-      ]
-    },
-    {
-      "code": "NU1701",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "Package 'WebSocketSharp 1.0.3-rc11' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0-windows7.0'. This package may not be fully compatible with your project.",
+      "message": "Package 'WebSocketSharp 1.0.3-rc11' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0'. This package may not be fully compatible with your project.",
       "libraryId": "WebSocketSharp",
       "targetGraphs": [
-        "net8.0-windows7.0"
+        "net8.0"
       ]
     }
   ]

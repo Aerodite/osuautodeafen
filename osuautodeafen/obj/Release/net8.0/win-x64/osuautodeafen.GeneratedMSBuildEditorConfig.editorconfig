@@ -1,8 +1,8 @@
 is_global = true
 build_property.EnableAotAnalyzer = 
 build_property.EnableSingleFileAnalyzer = true
-build_property.EnableTrimAnalyzer = true
-build_property.IncludeAllContentForSelfExtract = 
+build_property.EnableTrimAnalyzer = 
+build_property.IncludeAllContentForSelfExtract = false
 build_property.AvaloniaNameGeneratorIsEnabled = true
 build_property.AvaloniaNameGeneratorBehavior = InitializeComponent
 build_property.AvaloniaNameGeneratorDefaultFieldModifier = internal
@@ -19,7 +19,7 @@ build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = osuautodeafen
 build_property.ProjectDir = C:\Users\Anthony\Documents\GitHub\osuautodeafen2\osuautodeafen\
 build_property.EnableComHosting = 
-build_property.EnableGeneratedComInterfaceComImportInterop = false
+build_property.EnableGeneratedComInterfaceComImportInterop = 
 
 [C:/Users/Anthony/Documents/GitHub/osuautodeafen2/osuautodeafen/App.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml

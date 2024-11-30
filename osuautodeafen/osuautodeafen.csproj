@@ -1,10 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
-        <TargetFramework>net8.0-windows</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <Nullable>enable</Nullable>
         <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
-        <ApplicationManifest>app.manifest</ApplicationManifest>
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <DebugType>none</DebugType>
@@ -16,14 +15,11 @@
         <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.10"/>
         <PackageReference Include="Avalonia.Fonts.Inter" Version="11.0.10"/>
         <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.10"/>
-        <PackageReference Include="InputManager" Version="1.0.0"/>
-        <PackageReference Include="InputSimulator" Version="1.0.4"/>
         <PackageReference Include="LiveChartsCore.SkiaSharpView" Version="2.0.0-rc2"/>
         <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc2"/>
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
         <PackageReference Include="ReactiveUI" Version="20.1.1"/>
         <PackageReference Include="SharpHook" Version="5.3.8"/>
-        <PackageReference Include="SharpVectors" Version="1.8.4.2"/>
         <PackageReference Include="Svg.Skia" Version="2.0.0"/>
         <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11"/>
         <PackageReference Include="ILMerge" Version="3.0.41"/>

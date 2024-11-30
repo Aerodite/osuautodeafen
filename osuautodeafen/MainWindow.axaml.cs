@@ -2206,6 +2206,8 @@ public partial class MainWindow : Window
 
     public async void BlankEffectToggle_IsCheckedChanged(object? sender, RoutedEventArgs e)
     {
+        return;
+        // im saving this for 1.0.7 this is a pain.
         if (!OperatingSystem.IsWindows())
         {
             Console.WriteLine("Blank effect is only supported on Windows.");
