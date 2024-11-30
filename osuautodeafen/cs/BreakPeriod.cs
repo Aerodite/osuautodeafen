@@ -21,6 +21,8 @@ namespace osuautodeafen.cs
 
 public List<BreakPeriod> ParseBreakPeriods(string osuFilePath, List<double> xAxis, List<double> yAxis)
 {
+    BreakPeriods.Clear();
+
     var lines = File.ReadAllLines(osuFilePath);
     var inBreakPeriodSection = false;
 
@@ -90,14 +92,12 @@ public bool IsBreakPeriod(double completionPercentage)
 {
     foreach (var breakPeriod in BreakPeriods)
     {
-        Console.WriteLine($"Checking break period: StartPercentage={breakPeriod.StartPercentage}, EndPercentage={breakPeriod.EndPercentage}");
         if (completionPercentage >= breakPeriod.StartPercentage && completionPercentage <= breakPeriod.EndPercentage)
         {
             Console.WriteLine("Completion percentage is within a break period.");
             return true;
         }
     }
-    Console.WriteLine("Completion percentage is not within any break period.");
     return false;
 }
 

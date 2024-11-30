@@ -249,12 +249,11 @@ private async void TimerElapsed(object? sender, ElapsedEventArgs e)
             completionPercentage = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
             var isInBreakPeriod = _breakPeriodCalculator.IsBreakPeriod(completionPercentage);
 
-            Console.WriteLine($"BreakUndeafenEnabled: {breakUndeafenEnabled}, CompletionPercentage: {completionPercentage}, IsInBreakPeriod: {isInBreakPeriod}, IsInBreakPeriodFlag: {_isInBreakPeriod}, Deafened: {_deafened}");
+            //Console.WriteLine($"BreakUndeafenEnabled: {breakUndeafenEnabled}, CompletionPercentage: {completionPercentage}, IsInBreakPeriod: {isInBreakPeriod}, IsInBreakPeriodFlag: {_isInBreakPeriod}, Deafened: {_deafened}");
 
             if (isInBreakPeriod && !_isInBreakPeriod)
             {
                 _isInBreakPeriod = true;
-                _isInBreakPeriodUndeafened = false;
                 Console.WriteLine("Entering break period.");
                 if (_deafened && isPlaying)
                 {
@@ -263,19 +262,21 @@ private async void TimerElapsed(object? sender, ElapsedEventArgs e)
                     ToggleDeafenState();
                     Console.WriteLine("Undeafened during break period");
                     if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
+                    await Task.Delay(500); // Add a delay to prevent immediate re-evaluation
                 }
             }
             else if (!isInBreakPeriod && _isInBreakPeriod)
             {
                 _isInBreakPeriod = false;
-                _isInBreakPeriodUndeafened = false;
                 Console.WriteLine("Exiting break period.");
-                if (!_deafened && isPlaying)
+                if (_isInBreakPeriodUndeafened && isPlaying)
                 {
                     _deafened = true;
+                    _isInBreakPeriodUndeafened = false;
                     ToggleDeafenState();
                     Console.WriteLine("Re-deafened after break period");
                     if (screenBlankEnabled) await ToggleScreenBlankAsync();
+                    await Task.Delay(500); // Add a delay to prevent immediate re-evaluation
                 }
             }
         }

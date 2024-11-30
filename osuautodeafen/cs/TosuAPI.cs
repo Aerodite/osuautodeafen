@@ -422,7 +422,7 @@ public class TosuApi : IDisposable
         return false;
     }
 
-    public double? RateAdjustRate()
+    public double RateAdjustRate()
     {
         return _DTRate;
     }

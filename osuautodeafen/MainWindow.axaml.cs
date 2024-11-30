@@ -401,12 +401,14 @@ public void UpdateChart(GraphData graphData)
         if (osuFilePath != null)
         {
             var breakPeriods = _breakPeriod.ParseBreakPeriods(osuFilePath, graphData.XAxis, graphData.Series[0].Data);
+            double rateAdjustment = _tosuApi.RateAdjustRate();
+
             foreach (var breakPeriod in breakPeriods)
             {
                 sections.Add(new RectangularSection
                 {
-                    Xi = breakPeriod.StartIndex,
-                    Xj = breakPeriod.EndIndex,
+                    Xi = breakPeriod.StartIndex / rateAdjustment,
+                    Xj = breakPeriod.EndIndex / rateAdjustment,
                     Yi = 0,
                     Yj = maxYValue,
                     Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0xFF, 0x00, 98) } // Semi-transparent yellow
