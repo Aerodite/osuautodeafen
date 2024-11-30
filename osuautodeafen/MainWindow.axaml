@@ -8,7 +8,6 @@
         xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
         xmlns:skiaSharpView="clr-namespace:LiveChartsCore.SkiaSharpView;assembly=LiveChartsCore.SkiaSharpView"
         xmlns:painting="clr-namespace:LiveChartsCore.SkiaSharpView.Painting;assembly=LiveChartsCore.SkiaSharpView"
-        xmlns:converters="clr-namespace:Avalonia.Controls.Converters;assembly=Avalonia.Controls"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osu!autodeafen"
@@ -227,7 +226,7 @@
                               IsCheckedChanged="BreakUndeafenToggle_IsCheckChanged">
                         <ToolTip.Tip>
                             <TextBlock>
-                                <Run Text="Toggle to decide whether or not breaks should be undeafened"/>
+                                <Run Text="Toggle to decide whether or not breaks should be undeafened" />
                             </TextBlock>
                         </ToolTip.Tip>
                     </CheckBox>
@@ -242,7 +241,8 @@
                               IsEnabled="{x:Static cs:PlatformHelper.IsWindows}">
                         <ToolTip.Tip>
                             <TextBlock>
-                                <Run Text="Blank out your monitors during an FC (**make sure your monitors are all set to the same scaling and that your osu! is at the primary monitor**)" />
+                                <Run
+                                    Text="Blank out your monitors during an FC (**make sure your monitors are all set to the same scaling and that your osu! is at the primary monitor**)" />
                                 <LineBreak />
                                 <Run Text="(This option is only available on Windows)" />
                             </TextBlock>

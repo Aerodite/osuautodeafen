@@ -7,7 +7,6 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Timers;
 using System.Windows.Input;
-using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 
@@ -16,7 +15,11 @@ namespace osuautodeafen.cs;
 public sealed class SharedViewModel : INotifyPropertyChanged
 {
     private readonly bool _canUpdateSettings = true;
+    private readonly TosuApi _tosuApi;
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
+    private bool _breakUndeafenEnabled;
+
+    private double _completionPercentage;
     private MainWindow.HotKey _deafenKeybind;
 
     private string _deafenKeybindDisplay;
@@ -26,10 +29,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private bool _isBlankScreenEnabled;
 
     private bool _isBlurEffectEnabled;
+    private bool _IsBreakUndeafenToggleEnabled;
     public bool _isFCRequired;
-
-    private double _completionPercentage;
-    private readonly TosuApi _tosuApi;
 
     private bool _isKeybindCaptureFlyoutOpen;
     private bool _isParallaxEnabled;
@@ -44,8 +45,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private string _updateStatusMessage;
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
-    private bool _breakUndeafenEnabled;
-    private bool _IsBreakUndeafenToggleEnabled;
 
     public SharedViewModel()
     {
@@ -135,6 +134,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             }
         }
     }
+
     public bool IsFCRequired
     {
         get => _isFCRequired;
@@ -343,20 +343,11 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             if (Math.Abs(_completionPercentage - value) > 0.01)
             {
                 _completionPercentage = value;
-                OnPropertyChanged(nameof(CompletionPercentage));
+                OnPropertyChanged();
             }
         }
     }
 
-    private async Task UpdateCompletionPercentageAsync()
-    {
-        while (true)
-        {
-            var newCompletionPercentage = _tosuApi.GetCompletionPercentage();
-            CompletionPercentage = newCompletionPercentage;
-            await Task.Delay(50);
-        }
-    }
     public int StarRating
     {
         get => _starRating;
@@ -435,6 +426,16 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler PropertyChanged;
+
+    private async Task UpdateCompletionPercentageAsync()
+    {
+        while (true)
+        {
+            var newCompletionPercentage = _tosuApi.GetCompletionPercentage();
+            CompletionPercentage = newCompletionPercentage;
+            await Task.Delay(50);
+        }
+    }
 
     public void MainWindowViewModel()
     {
@@ -578,7 +579,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 UseShellExecute = true
             });
     }
-
 
 
     private void OnPropertyChanged([CallerMemberName] string propertyName = null)
