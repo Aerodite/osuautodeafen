@@ -1,164 +1,123 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net.WebSockets;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Linq;
 
-namespace osuautodeafen.cs;
-
-public class BreakPeriod
+namespace osuautodeafen.cs
 {
-    private static readonly object ConnectionLock = new();
-
-    private readonly string? _osuFilePath;
-    private readonly Timer _reconnectTimer;
-    private readonly TosuApi _tosuApi;
-    private MainWindow _mainWindow;
-    private ClientWebSocket? _webSocket;
-
-    public BreakPeriod(TosuApi tosuApi)
+    public class BreakPeriod
     {
-        Console.WriteLine("Initializing BreakPeriod...");
-        _osuFilePath = tosuApi.GetOsuFilePath();
-        _tosuApi = tosuApi;
-        _webSocket = new ClientWebSocket();
-        _reconnectTimer = new Timer(ReconnectTimerCallback, null, Timeout.Infinite, 300000);
-
-        //_ = ConnectAsync();
+        public int Start { get; set; }
+        public int End { get; set; }
+        public int StartIndex { get; set; }
+        public int EndIndex { get; set; }
+        public double StartPercentage { get; set; }
+        public double EndPercentage { get; set; }
     }
 
-    public int Start { get; set; }
-    public int End { get; set; }
-
-    private void Dispose()
+    public class BreakPeriodCalculator
     {
-        _reconnectTimer?.Dispose();
-        if (_webSocket.State == WebSocketState.Open)
-            try
-            {
-                _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None)
-                    .GetAwaiter().GetResult();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Exception while closing WebSocket: {ex.Message}");
-            }
+        public List<BreakPeriod> BreakPeriods { get; private set; } = new List<BreakPeriod>();
 
-        _webSocket.Dispose();
-    }
+public List<BreakPeriod> ParseBreakPeriods(string osuFilePath, List<double> xAxis, List<double> yAxis)
+{
+    var lines = File.ReadAllLines(osuFilePath);
+    var inBreakPeriodSection = false;
 
-    public async Task ConnectAsync(CancellationToken cancellationToken = default)
+    Console.WriteLine("Starting to parse break periods from file: " + osuFilePath);
+
+    // Filter out x-values corresponding to y-values of -100
+    var validXAxis = xAxis.Where((x, index) => yAxis[index] != -100).ToList();
+    var totalPoints = validXAxis.Count;
+
+    foreach (var line in lines)
     {
-        Console.WriteLine("Connecting to WebSocket2...");
-        while (!cancellationToken.IsCancellationRequested)
-            if (_webSocket == null || _webSocket.State != WebSocketState.Open)
-                try
-                {
-                    _webSocket?.Dispose();
-                    _webSocket = new ClientWebSocket();
-                    var uri = new Uri("ws://127.0.0.1:24050/websocket/v2/files/beatmap/" + _osuFilePath);
-                    Console.WriteLine("Connecting to WebSocket2...bf");
-                    await _webSocket.ConnectAsync(uri, cancellationToken);
-                    Console.WriteLine("Connected to WebSocket2.");
-                    _reconnectTimer.Change(300000, Timeout.Infinite);
-                    await GetBreakPeriodsAsync();
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Failed to connect: {ex.Message}. Retrying in 2 seconds...");
-                    await Task.Delay(2000, cancellationToken);
-                }
-            else
+        if (line.StartsWith("//Break Periods"))
+        {
+            inBreakPeriodSection = true;
+            Console.WriteLine("Found break periods section.");
+            continue;
+        }
+
+        if (inBreakPeriodSection)
+        {
+            if (line.StartsWith("//"))
+            {
+                Console.WriteLine("End of break periods section.");
                 break;
-    }
-
-    private async void ReconnectTimerCallback(object state)
-    {
-        if (_webSocket != null && _webSocket.State == WebSocketState.Open)
-            try
-            {
-                await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Reconnecting", CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error closing WebSocket: {ex.Message}");
             }
 
-        _webSocket?.Dispose();
-        _webSocket = new ClientWebSocket();
-
-        try
-        {
-            Console.WriteLine("Attempting to reconnect...");
-            await ConnectAsync();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to reconnect: {ex.Message}");
-        }
-    }
-
-    public async Task<List<BreakPeriod>> GetBreakPeriodsAsync()
-    {
-        Console.WriteLine("Getting break periods...");
-        var breakPeriods = new List<BreakPeriod>();
-        var inEventsSection = false;
-
-        try
-        {
-            await ConnectAsync();
-
-            var buffer = new byte[4096];
-            WebSocketReceiveResult result;
-            var stringBuilder = new StringBuilder();
-
-            do
+            var parts = line.Split(',');
+            if (parts.Length == 3 && parts[0] == "2")
             {
-                result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                stringBuilder.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
-                Console.WriteLine($"Received {result.Count} bytes");
-            } while (!result.EndOfMessage);
-
-            var json = stringBuilder.ToString();
-            Console.WriteLine("Received data from WebSocket: " + json);
-
-            using (var reader = new StringReader(json))
-            {
-                string line;
-                while ((line = await reader.ReadLineAsync()) != null)
+                if (double.TryParse(parts[1], out var start) && double.TryParse(parts[2], out var end))
                 {
-                    Console.WriteLine("Reading line: " + line);
-                    if (line.Trim() == "[Events]")
-                    {
-                        inEventsSection = true;
-                        Console.WriteLine("Entered [Events] section");
-                        continue;
-                    }
+                    var startIndex = FindClosestIndex(validXAxis, start);
+                    var endIndex = FindClosestIndex(validXAxis, end);
 
-                    if (inEventsSection)
-                    {
-                        if (line.StartsWith("//")) continue; // Skip comments
-                        if (line.StartsWith("[") && line.EndsWith("]")) break; // End of [Events] section
+                    var startPercentage = (startIndex / (double)totalPoints) * 100;
+                    var endPercentage = (endIndex / (double)totalPoints) * 100;
 
-                        var parts = line.Split(',');
-                        if (parts.Length >= 3 && parts[0] == "2")
-                            if (int.TryParse(parts[1], out var start) && int.TryParse(parts[2], out var end))
-                            {
-                                breakPeriods.Add(new BreakPeriod(_tosuApi) { Start = start, End = end });
-                                Console.WriteLine($"Break period found: {start} - {end}");
-                            }
-                    }
+                    var breakPeriod = new BreakPeriod
+                    {
+                        Start = (int)start,
+                        End = (int)end,
+                        StartIndex = startIndex,
+                        EndIndex = endIndex,
+                        StartPercentage = startPercentage,
+                        EndPercentage = endPercentage
+                    };
+
+                    Console.WriteLine($"Parsed break period: Start={start}, End={end}, StartPercentage={startPercentage}, EndPercentage={endPercentage}");
+                    BreakPeriods.Add(breakPeriod);
+                }
+                else
+                {
+                    Console.WriteLine($"Failed to parse start or end time from line: {line}");
                 }
             }
+            else
+            {
+                Console.WriteLine($"Invalid break period format in line: {line}");
+            }
         }
-        catch (Exception ex)
+    }
+
+    return BreakPeriods;
+}
+
+public bool IsBreakPeriod(double completionPercentage)
+{
+    foreach (var breakPeriod in BreakPeriods)
+    {
+        Console.WriteLine($"Checking break period: StartPercentage={breakPeriod.StartPercentage}, EndPercentage={breakPeriod.EndPercentage}");
+        if (completionPercentage >= breakPeriod.StartPercentage && completionPercentage <= breakPeriod.EndPercentage)
         {
-            Console.WriteLine($"An error occurred: {ex.Message}");
+            Console.WriteLine("Completion percentage is within a break period.");
+            return true;
+        }
+    }
+    Console.WriteLine("Completion percentage is not within any break period.");
+    return false;
+}
+
+        private int FindClosestIndex(List<double> xAxis, double value)
+        {
+            var closestIndex = 0;
+            var smallestDifference = double.MaxValue;
+
+            for (var i = 0; i < xAxis.Count; i++)
+            {
+                var difference = Math.Abs(xAxis[i] - value);
+                if (difference < smallestDifference)
+                {
+                    smallestDifference = difference;
+                    closestIndex = i;
+                }
+            }
+
+            return closestIndex;
         }
 
-        return breakPeriods;
     }
 }

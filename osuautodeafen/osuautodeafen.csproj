@@ -69,6 +69,8 @@
         <None Remove="Resources\oad.ico"/>
         <None Remove="Resources\osu_whitestroke.png"/>
         <AvaloniaResource Include="Resources\osu_whitestroke.png"/>
+        <None Remove="Icons\map-location-dot-solid.png" />
+        <AvaloniaResource Include="Icons\map-location-dot-solid.png" />
     </ItemGroup>
 
     <ItemGroup>

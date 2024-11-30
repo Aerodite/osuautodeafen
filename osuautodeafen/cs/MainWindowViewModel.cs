@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Timers;
 using System.Windows.Input;
+using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 
@@ -43,6 +44,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private string _updateStatusMessage;
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
+    private bool _breakUndeafenEnabled;
+    private bool _IsBreakUndeafenToggleEnabled;
 
     public SharedViewModel()
     {
@@ -119,6 +122,19 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
+    //isbreakundeafentoggleenabled
+    public bool IsBreakUndeafenToggleEnabled
+    {
+        get => _IsBreakUndeafenToggleEnabled;
+        set
+        {
+            if (_IsBreakUndeafenToggleEnabled != value)
+            {
+                _IsBreakUndeafenToggleEnabled = value;
+                OnPropertyChanged();
+            }
+        }
+    }
     public bool IsFCRequired
     {
         get => _isFCRequired;
@@ -405,6 +421,19 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
+    public bool BreakUndeafenEnabled
+    {
+        get => _breakUndeafenEnabled;
+        set
+        {
+            if (_breakUndeafenEnabled != value)
+            {
+                _breakUndeafenEnabled = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     public event PropertyChangedEventHandler PropertyChanged;
 
     public void MainWindowViewModel()
@@ -484,6 +513,25 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 {
                     IsBlankScreenEnabled = bool.Parse(settings[1].Trim());
                     //Console.WriteLine($"Updated IsBlankScreenEnabled to {IsBlankScreenEnabled}");
+                    break;
+                }
+            }
+        else
+            Console.WriteLine("Settings file does not exist");
+    }
+
+    public void UpdateIsBreakUndeafenToggleEnabled()
+    {
+        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "settings.txt");
+        if (File.Exists(settingsFilePath))
+            foreach (var line in File.ReadLines(settingsFilePath))
+            {
+                var settings = line.Split('=');
+                if (settings.Length == 2 && settings[0].Trim() == "BreakUndeafenEnabled")
+                {
+                    BreakUndeafenEnabled = bool.Parse(settings[1].Trim());
+                    //Console.WriteLine($"Updated BreakUndeafenEnabled to {BreakUndeafenEnabled}");
                     break;
                 }
             }

@@ -58,7 +58,7 @@ public partial class MainWindow : Window
     private readonly object _updateLogoLock = new();
     private Grid? _blackBackground;
     private Image? _blurredBackground;
-    private BreakPeriod _breakPeriod;
+    private BreakPeriodCalculator _breakPeriod;
     private SKSvg? _cachedLogoSvg;
     private Bitmap _colorChangingImage;
     private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
@@ -115,9 +115,9 @@ public partial class MainWindow : Window
 
         _getLowResBackground = new GetLowResBackground(_tosuApi);
 
-        _breakPeriod = new BreakPeriod(_tosuApi);
+        _breakPeriod = new BreakPeriodCalculator();
 
-        _deafen = new Deafen(_tosuApi, settingsPanel1);
+        _deafen = new Deafen(_tosuApi, settingsPanel1, _breakPeriod);
 
         _disposeTimer = new DispatcherTimer
         {
@@ -366,6 +366,7 @@ public void UpdateChart(GraphData graphData)
             if (existingLineSeries != null)
             {
                 existingLineSeries.Values = smoothedValues;
+                existingLineSeries.TooltipLabelFormatter = null; // Disable tooltips
             }
             else
             {
@@ -379,7 +380,7 @@ public void UpdateChart(GraphData graphData)
                     GeometryStroke = null,
                     LineSmoothness = 1,
                     EasingFunction = EasingFunctions.ExponentialOut,
-                    TooltipLabelFormatter = value => $"{name}: {value}"
+                    TooltipLabelFormatter = null // Disable tooltips
                 });
             }
         }
@@ -396,11 +397,10 @@ public void UpdateChart(GraphData graphData)
 
         var sections = new List<RectangularSection> { deafenRectangle };
 
-        // Identify break points and add yellow rectangles
         var osuFilePath = _tosuApi.GetOsuFilePath();
         if (osuFilePath != null)
         {
-            var breakPeriods = ParseBreakPeriods(osuFilePath, graphData.XAxis, graphData.Series[0].Data);
+            var breakPeriods = _breakPeriod.ParseBreakPeriods(osuFilePath, graphData.XAxis, graphData.Series[0].Data);
             foreach (var breakPeriod in breakPeriods)
             {
                 sections.Add(new RectangularSection
@@ -409,8 +409,17 @@ public void UpdateChart(GraphData graphData)
                     Xj = breakPeriod.EndIndex,
                     Yi = 0,
                     Yj = maxYValue,
-                    Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0xFF, 0x00, 64) } // Semi-transparent yellow
+                    Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0xFF, 0x00, 98) } // Semi-transparent yellow
                 });
+            }
+        }
+
+        // Adjust deafen points to avoid overlap with break points
+        foreach (var breakPeriod in sections.Where(s => s.Fill.Equals(new SolidColorPaint { Color = new SKColor(0xFF, 0xFF, 0x00, 64) })))
+        {
+            if (deafenRectangle.Xi < breakPeriod.Xj && deafenRectangle.Xj > breakPeriod.Xi)
+            {
+                deafenRectangle.Xi = breakPeriod.Xj;
             }
         }
 
@@ -454,78 +463,6 @@ public void UpdateChart(GraphData graphData)
     {
         Console.WriteLine($"An error occurred while updating the chart: {ex.Message}");
     }
-}
-
-private List<(int StartIndex, int EndIndex)> ParseBreakPeriods(string osuFilePath, List<double> xAxis, List<double> yAxis)
-{
-    var breakPeriods = new List<(int StartIndex, int EndIndex)>();
-    var lines = File.ReadAllLines(osuFilePath);
-    var inBreakPeriodSection = false;
-
-    Console.WriteLine("Starting to parse break periods from file: " + osuFilePath);
-
-    // Filter out x-values corresponding to y-values of -100
-    var validXAxis = xAxis.Where((x, index) => yAxis[index] != -100).ToList();
-
-    foreach (var line in lines)
-    {
-        if (line.StartsWith("//Break Periods"))
-        {
-            inBreakPeriodSection = true;
-            Console.WriteLine("Found break periods section.");
-            continue;
-        }
-
-        if (inBreakPeriodSection)
-        {
-            if (line.StartsWith("//"))
-            {
-                Console.WriteLine("End of break periods section.");
-                break;
-            }
-
-            var parts = line.Split(',');
-            if (parts.Length == 3 && parts[0] == "2")
-            {
-                if (double.TryParse(parts[1], out var start) && double.TryParse(parts[2], out var end))
-                {
-                    var startIndex = FindClosestIndex(validXAxis, start);
-                    var endIndex = FindClosestIndex(validXAxis, end);
-                    breakPeriods.Add((startIndex, endIndex));
-                    Console.WriteLine($"Added break period: Start = {start}, End = {end}, StartIndex = {startIndex}, EndIndex = {endIndex}");
-                }
-                else
-                {
-                    Console.WriteLine($"Failed to parse start or end time from line: {line}");
-                }
-            }
-            else
-            {
-                Console.WriteLine($"Invalid break period format in line: {line}");
-            }
-        }
-    }
-
-    Console.WriteLine("Finished parsing break periods.");
-    return breakPeriods;
-}
-
-private int FindClosestIndex(List<double> xAxis, double value)
-{
-    var closestIndex = 0;
-    var smallestDifference = double.MaxValue;
-
-    for (var i = 0; i < xAxis.Count; i++)
-    {
-        var difference = Math.Abs(xAxis[i] - value);
-        if (difference < smallestDifference)
-        {
-            smallestDifference = difference;
-            closestIndex = i;
-        }
-    }
-
-    return closestIndex;
 }
 
 private double _lastCompletionPercentage = -1;
@@ -858,6 +795,7 @@ private class ObservablePointComparer : IComparer<ObservablePoint>
         Dispatcher.UIThread.InvokeAsync(() => CheckParallaxSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(() => UpdateErrorMessage(sender, e));
         Dispatcher.UIThread.InvokeAsync(() => CheckBlurEffectSetting(sender, e));
+        Dispatcher.UIThread.InvokeAsync(() => CheckBreakUndeafenEnabled(sender, e));
         Dispatcher.UIThread.InvokeAsync(UpdateDeafenKeybindDisplay);
         Dispatcher.UIThread.InvokeAsync(() => CheckMissUndeafenSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(CheckForUpdatesIfNeeded);
@@ -1195,6 +1133,40 @@ private class ObservablePointComparer : IComparer<ObservablePoint>
             ViewModel.IsBlurEffectEnabled = defaultBlurEffectEnabled;
 
         this.FindControl<CheckBox>("BlurEffectToggle")!.IsChecked = ViewModel.IsBlurEffectEnabled;
+    }
+
+    private void CheckBreakUndeafenEnabled(object? sender, EventArgs? e)
+    {
+        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "settings.txt");
+
+        if (File.Exists(settingsFilePath))
+        {
+            var lines = File.ReadAllLines(settingsFilePath);
+            var breakUndeafenSettingLine = Array.Find(lines, line => line.StartsWith("BreakUndeafenEnabled"));
+            if (breakUndeafenSettingLine != null)
+            {
+                var settings = breakUndeafenSettingLine.Split('=');
+                if (settings.Length == 2 && bool.TryParse(settings[1], out var parsedIsBreakUndeafenEnabled))
+                {
+                    ViewModel.BreakUndeafenEnabled = parsedIsBreakUndeafenEnabled;
+                    this.FindControl<CheckBox>("BreakUndeafenToggle")!.IsChecked = parsedIsBreakUndeafenEnabled;
+                }
+            }
+            else
+            {
+                ViewModel.BreakUndeafenEnabled = true;
+                SaveSettingsToFile(true, "BreakUndeafenEnabled");
+                this.FindControl<CheckBox>("BreakUndeafenToggle")!.IsChecked = true;
+            }
+        }
+        else
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath) ?? throw new InvalidOperationException());
+            ViewModel.BreakUndeafenEnabled = true;
+            SaveSettingsToFile(true, "BreakUndeafenEnabled");
+            this.FindControl<CheckBox>("BreakUndeafenToggle")!.IsChecked = true;
+        }
     }
 
     private void DisposeTimer_Tick(object? sender, EventArgs e)
@@ -2316,6 +2288,15 @@ private async Task UpdateLogoAsync()
             }
 
             return new HotKey { Key = key, ModifierKeys = modifiers, FriendlyName = friendlyName };
+        }
+    }
+
+    private void BreakUndeafenToggle_IsCheckChanged(object? sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox checkBox)
+        {
+            ViewModel.BreakUndeafenEnabled = checkBox.IsChecked == true;
+            SaveSettingsToFile(ViewModel.BreakUndeafenEnabled, "BreakUndeafenEnabled");
         }
     }
 }
