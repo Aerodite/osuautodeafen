@@ -27,15 +27,10 @@
 
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" x:Name="TextBlockPanel">
             <StackPanel Orientation="Horizontal" Margin="0,42,0,0">
-                <Image Name="osuLogo" Source="avares://osuautodeafen/Resources/osu_whitestroke.png" Height="60"
-                       Margin="0,0,0,0" />
-                <Image Name="LogoImage" Source="{Binding ModifiedLogoImage}" x:DataType="cs:SharedViewModel"
-                       Height="69" Margin="0,0,0,0" />
+                <Image Name="osuLogo" Source="avares://osuautodeafen/Resources/osu_whitestroke.png" Height="60" Margin="0,0,0,0" />
+                <Image Name="LogoImage" Source="{Binding ModifiedLogoImage}" x:DataType="cs:SharedViewModel" Height="69" Margin="0,0,0,0" />
             </StackPanel>
-            <TextBlock Text="{Binding CurrentAppVersion}" HorizontalAlignment="Center" VerticalAlignment="Top"
-
-                       x:DataType="cs:SharedViewModel"
-                       Margin="0,0,0,10" Foreground="White" FontSize="14" />
+            <TextBlock Text="{Binding CurrentAppVersion}" HorizontalAlignment="Center" VerticalAlignment="Top" x:DataType="cs:SharedViewModel" Margin="0,0,0,10" Foreground="White" FontSize="14" />
         </StackPanel>
 
         <!-- Main content -->
@@ -261,13 +256,15 @@
 
         <Grid VerticalAlignment="Bottom">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
+            <TextBlock Text="{Binding StatusMessage}" HorizontalAlignment="Center" VerticalAlignment="Top" x:DataType="cs:SharedViewModel" Margin="0,0,0,0" Foreground="Red" FontSize="14"/>
             <avalonia1:CartesianChart
                 x:Name="PlotView"
-                Grid.Row="0"
+                Grid.Row="1"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Bottom"
                 Width="600"
@@ -291,7 +288,7 @@
             </avalonia1:CartesianChart>
 
             <Grid HorizontalAlignment="Stretch" x:Name="UpdateNotificationGrid" VerticalAlignment="Bottom"
-                  Grid.Row="1" IsVisible="{Binding IsVisible, ElementName=UpdateNotificationBar}">
+                  Grid.Row="2" IsVisible="{Binding IsVisible, ElementName=UpdateNotificationBar}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>

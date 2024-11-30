@@ -44,6 +44,7 @@ public partial class MainWindow : Window
     private readonly AnimationManager _animationManager = new();
 
     private readonly Queue<Bitmap> _bitmapQueue = new(1);
+    private readonly BreakPeriodCalculator _breakPeriod;
     private readonly Deafen _deafen;
     private readonly DispatcherTimer _disposeTimer;
     private readonly GetLowResBackground? _getLowResBackground;
@@ -59,7 +60,6 @@ public partial class MainWindow : Window
     private readonly SharedViewModel _viewModel;
     private Grid? _blackBackground;
     private Image? _blurredBackground;
-    private readonly BreakPeriodCalculator _breakPeriod;
     private SKSvg? _cachedLogoSvg;
 
     private double? _cachedMaxXLimit = null;
@@ -501,6 +501,16 @@ public partial class MainWindow : Window
                 Console.WriteLine("No valid XAxes found in the chart or the completion percentage is out of range.");
                 return;
             }
+
+            //just to save resources while in game
+            if (_tosuApi.GetRawBanchoStatus() == 2)
+            {
+                ViewModel.StatusMessage = "Progress Indicator not updating while in game.";
+                return;
+            }
+
+            ViewModel.StatusMessage = "";
+
 
             // Skip update if there's no significant change in completion percentage
             if (Math.Abs(completionPercentage - _lastCompletionPercentage) < 0.1) return;

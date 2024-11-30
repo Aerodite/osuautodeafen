@@ -45,10 +45,6 @@
         "net8.0-windows7.0": {
           "targetAlias": "net8.0-windows",
           "dependencies": {
-            "AutoHotkey.Interop": {
-              "target": "Package",
-              "version": "[1.0.0.1, )"
-            },
             "Avalonia": {
               "target": "Package",
               "version": "[11.0.10, )"
@@ -104,14 +100,6 @@
             "Svg.Skia": {
               "target": "Package",
               "version": "[2.0.0, )"
-            },
-            "Veldrid": {
-              "target": "Package",
-              "version": "[4.9.0, )"
-            },
-            "Veldrid.SPIRV": {
-              "target": "Package",
-              "version": "[1.0.15, )"
             },
             "WebSocketSharp": {
               "target": "Package",

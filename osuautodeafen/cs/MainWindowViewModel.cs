@@ -175,6 +175,17 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
+    private string _statusMessage;
+    public string StatusMessage
+    {
+        get => _statusMessage;
+        set
+        {
+            _statusMessage = value;
+            OnPropertyChanged(nameof(StatusMessage));
+        }
+    }
+
     public bool UndeafenAfterMiss
     {
         get => _UndeafenAfterMiss;
