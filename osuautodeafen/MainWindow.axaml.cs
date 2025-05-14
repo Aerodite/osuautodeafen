@@ -153,6 +153,17 @@ public partial class MainWindow : Window
         };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
+        
+        _tosuApi.BeatmapChanged += () =>
+        {
+            Dispatcher.UIThread.InvokeAsync(() => UpdateBackground(null, null));
+            var logoImage = this.FindControl<Image>("LogoImage");
+            if (logoImage != null)
+            {
+                logoImage.Source = _colorChangingImage;
+                logoImage.IsVisible = true;
+            }
+        };
 
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
 
@@ -810,7 +821,7 @@ public partial class MainWindow : Window
 
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
-        Dispatcher.UIThread.InvokeAsync(() => UpdateBackground(sender, e));
+        _tosuApi.CheckForBeatmapChange();
         Dispatcher.UIThread.InvokeAsync(() => CheckIsFCRequiredSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(() => CheckBackgroundSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(() => CheckParallaxSetting(sender, e));
@@ -821,13 +832,6 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(() => CheckMissUndeafenSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(CheckForUpdatesIfNeeded);
         Dispatcher.UIThread.InvokeAsync(() => CheckBlankSetting(sender, e));
-
-        var logoImage = this.FindControl<Image>("LogoImage");
-        if (logoImage != null)
-        {
-            logoImage.Source = _colorChangingImage;
-            logoImage.IsVisible = true;
-        }
     }
 
     private void CheckIsFCRequiredSetting(object? sender, EventArgs? e)

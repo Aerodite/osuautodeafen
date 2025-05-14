@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("osuautodeafen")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2985b856d91e728fde3b9273fee67bb602fd0f3d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7a02515f2be83b2e79cfdcefd4ff448182171e6b")]
 [assembly: System.Reflection.AssemblyProductAttribute("osuautodeafen")]
 [assembly: System.Reflection.AssemblyTitleAttribute("osuautodeafen")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -40,6 +40,9 @@ public class TosuApi : IDisposable
     private double _sbCount;
     private string? _settingsSongsDirectory;
     private string? _songFilePath;
+    private int _beatmapId;
+    public event Action? BeatmapChanged;
+    private int _lastBeatmapId = -1;
     private ClientWebSocket _webSocket;
 
     public TosuApi()
@@ -213,6 +216,11 @@ public class TosuApi : IDisposable
                         if (beatmap.TryGetProperty("status", out var status))
                             if (beatmap.TryGetProperty("number", out var statusNumber))
                                 _rankedStatus = statusNumber.GetDouble();
+                        
+                        if(beatmap.TryGetProperty("id", out var beatmapId))
+                        {
+                            _beatmapId = beatmapId.GetInt32();
+                        }
                     }
 
                     if (root.TryGetProperty("play", out var play))
@@ -413,6 +421,11 @@ public class TosuApi : IDisposable
     {
         return _rawBanchoStatus;
     }
+    
+    public int GetBeatmapId()
+    {
+        return _beatmapId;
+    }
 
     private bool HasGraphDataChanged(GraphData newGraph)
     {
@@ -441,6 +454,16 @@ public class TosuApi : IDisposable
                 return true;
 
         return false;
+    }
+    
+    public void CheckForBeatmapChange()
+    {
+        int currentBeatmapId = GetBeatmapId();
+        if (currentBeatmapId != _lastBeatmapId)
+        {
+            BeatmapChanged?.Invoke();
+            _lastBeatmapId = currentBeatmapId;
+        }
     }
 
     private void ParseGraphData(JsonElement graphElement, double? dtRate = null)

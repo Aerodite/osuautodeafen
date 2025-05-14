@@ -1,27 +1,25 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen2\\osuautodeafen\\osuautodeafen.csproj": {}
+    "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen2\\osuautodeafen\\osuautodeafen.csproj": {
+    "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen2\\osuautodeafen\\osuautodeafen.csproj",
+        "projectUniqueName": "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj",
         "projectName": "osuautodeafen",
-        "projectPath": "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen2\\osuautodeafen\\osuautodeafen.csproj",
+        "projectPath": "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj",
         "packagesPath": "C:\\Users\\Anthony\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen2\\osuautodeafen\\obj\\",
+        "outputPath": "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\osuautodeafen\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\Anthony\\AppData\\Roaming\\NuGet\\NuGet.Config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+          "C:\\Users\\Anthony\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
         ],
         "sources": {
-          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -38,8 +36,9 @@
         "restoreAuditProperties": {
           "enableAudit": "true",
           "auditLevel": "low",
-          "auditMode": "direct"
-        }
+          "auditMode": "all"
+        },
+        "SdkAnalysisLevel": "9.0.100"
       },
       "frameworks": {
         "net8.0": {
@@ -50,6 +49,10 @@
               "version": "[11.0.10, )"
             },
             "Avalonia.Desktop": {
+              "target": "Package",
+              "version": "[11.0.10, )"
+            },
+            "Avalonia.Diagnostics": {
               "target": "Package",
               "version": "[11.0.10, )"
             },
@@ -72,12 +75,6 @@
             "LiveChartsCore.SkiaSharpView.Avalonia": {
               "target": "Package",
               "version": "[2.0.0-rc2, )"
-            },
-            "Microsoft.NET.ILLink.Tasks": {
-              "suppressParent": "All",
-              "target": "Package",
-              "version": "[8.0.5, )",
-              "autoReferenced": true
             },
             "Newtonsoft.Json": {
               "target": "Package",
@@ -113,8 +110,20 @@
           "warn": true,
           "downloadDependencies": [
             {
-              "name": "Microsoft.NETCore.App.Host.linux-x64",
-              "version": "[8.0.5, 8.0.5]"
+              "name": "Microsoft.AspNetCore.App.Ref",
+              "version": "[8.0.11, 8.0.11]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Host.win-x64",
+              "version": "[8.0.11, 8.0.11]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Ref",
+              "version": "[8.0.11, 8.0.11]"
+            },
+            {
+              "name": "Microsoft.WindowsDesktop.App.Ref",
+              "version": "[8.0.11, 8.0.11]"
             }
           ],
           "frameworkReferences": {
@@ -122,12 +131,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.205/PortableRuntimeIdentifierGraph.json"
-        }
-      },
-      "runtimes": {
-        "linux-x64": {
-          "#import": []
+          "runtimeIdentifierGraphPath": "C:\\Users\\Anthony\\.dotnet\\sdk\\9.0.100/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
