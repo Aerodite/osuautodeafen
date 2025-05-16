@@ -2092,6 +2092,8 @@ public partial class MainWindow : Window
         var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
         var settingsPanel2 = this.FindControl<DockPanel>("SettingsPanel2");
         var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
+        var osuautodeafenLogoPanel = TextBlockPanel.FindControl<StackPanel>("osuautodeafenLogoPanel");
+        var versionPanel = TextBlockPanel.FindControl<TextBlock>("VersionPanel");
         var settingsPanelMargin = settingsPanel.Margin;
         var settingsPanel2Margin = settingsPanel2.Margin;
         var textBlockPanelMargin = textBlockPanel.Margin;
@@ -2116,6 +2118,26 @@ public partial class MainWindow : Window
             }
         };
 
+        osuautodeafenLogoPanel.Transitions = new Transitions()
+        {
+            new ThicknessTransition
+            {
+                Property = MarginProperty,
+                Duration = TimeSpan.FromSeconds(0.25),
+                Easing = new CircularEaseInOut()
+            }
+        };
+        
+        versionPanel.Transitions = new Transitions()
+        {
+            new ThicknessTransition
+            {
+                Property = MarginProperty,
+                Duration = TimeSpan.FromSeconds(0.5),
+                Easing = new CircularEaseInOut()
+            }
+        };
+
         if (settingsPanel.IsVisible)
         {
             settingsPanel.IsVisible = false;
@@ -2125,7 +2147,9 @@ public partial class MainWindow : Window
             var adjustOpacityTask = AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.3));
             var adjustTextBlockPanelMarginTask = InvokeOnUIThreadAsync(() =>
             {
-                textBlockPanel.Margin = new Thickness(0, 42, 0, 0);
+                //textBlockPanel.Margin = new Thickness(0, 42, 0, 0);
+                osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
+                versionPanel.Margin = new Thickness(0, 0, 0, 0);
             });
 
             await Task.WhenAll(adjustOpacityTask, adjustTextBlockPanelMarginTask);
@@ -2139,7 +2163,9 @@ public partial class MainWindow : Window
             var adjustOpacityTask = AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.3));
             var adjustTextBlockPanelMarginTask = InvokeOnUIThreadAsync(() =>
             {
-                textBlockPanel.Margin = new Thickness(0, 42, 225, 0);
+                //textBlockPanel.Margin = new Thickness(0, 42, 225, 0);
+                osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
+                versionPanel.Margin = new Thickness(0, 0, 225, 0);
             });
 
             await Task.WhenAll(adjustOpacityTask, adjustTextBlockPanelMarginTask);

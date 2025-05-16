@@ -25,12 +25,12 @@
             <ColumnDefinition Width="0" />
         </Grid.ColumnDefinitions>
 
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" x:Name="TextBlockPanel">
-            <StackPanel Orientation="Horizontal" Margin="0,42,0,0">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" x:Name="TextBlockPanel" Margin="0,75,0,0">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,0" x:Name="osuautodeafenLogoPanel">
                 <Image Name="osuLogo" Source="avares://osuautodeafen/Resources/osu_whitestroke.png" Height="60" Margin="0,0,0,0" />
                 <Image Name="LogoImage" Source="{Binding ModifiedLogoImage}" x:DataType="cs:SharedViewModel" Height="69" Margin="0,0,0,0" />
             </StackPanel>
-            <TextBlock Text="{Binding CurrentAppVersion}" HorizontalAlignment="Center" VerticalAlignment="Top" x:DataType="cs:SharedViewModel" Margin="0,0,0,10" Foreground="White" FontSize="14" />
+            <TextBlock Text="{Binding CurrentAppVersion}" HorizontalAlignment="Center" VerticalAlignment="Top" x:DataType="cs:SharedViewModel" Margin="0,0,0,10" Foreground="White" FontSize="14" x:Name="VersionPanel"/>
         </StackPanel>
 
         <!-- Main content -->
