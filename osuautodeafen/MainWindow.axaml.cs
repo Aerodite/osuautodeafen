@@ -2123,8 +2123,8 @@ public partial class MainWindow : Window
             new ThicknessTransition
             {
                 Property = MarginProperty,
-                Duration = TimeSpan.FromSeconds(0.25),
-                Easing = new CircularEaseInOut()
+                Duration = TimeSpan.FromSeconds(0.5),
+                Easing = new BackEaseOut()
             }
         };
         
@@ -2133,8 +2133,8 @@ public partial class MainWindow : Window
             new ThicknessTransition
             {
                 Property = MarginProperty,
-                Duration = TimeSpan.FromSeconds(0.5),
-                Easing = new CircularEaseInOut()
+                Duration = TimeSpan.FromSeconds(0.6),
+                Easing = new BackEaseOut()
             }
         };
 
