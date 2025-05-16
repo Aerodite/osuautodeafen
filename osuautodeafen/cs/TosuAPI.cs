@@ -6,7 +6,6 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using JsonException = System.Text.Json.JsonException;
 
 namespace osuautodeafen.cs;
 
@@ -30,6 +29,7 @@ public class TosuApi : IDisposable
     private string? _fullPath;
     private double _fullSR;
     private string? _gameDirectory;
+    private JsonElement _graphData;
     private int _lastBeatmapId = -1;
     private double _maxCombo;
     private double _maxPP;
@@ -42,7 +42,6 @@ public class TosuApi : IDisposable
     private double _sbCount;
     private string? _settingsSongsDirectory;
     private string? _songFilePath;
-    private JsonElement _graphData;
     private ClientWebSocket _webSocket;
 
     public TosuApi()
@@ -59,7 +58,7 @@ public class TosuApi : IDisposable
     }
 
 
-    private GraphData Graph { get; set; } = null!;
+    private GraphData Graph { get; } = null!;
 
     //<summary>
     // Closes and tidies up for websocket closure
@@ -477,8 +476,7 @@ public class TosuApi : IDisposable
             return null;
         }
     }
-
-// Refactor ParseGraphData to return GraphData
+    
     private GraphData? ParseGraphData(JsonElement graphElement)
     {
         try
@@ -490,29 +488,42 @@ public class TosuApi : IDisposable
             };
 
             if (graphElement.TryGetProperty("series", out var seriesArray))
+            {
+                int seriesCount = seriesArray.GetArrayLength();
+                newGraph.Series = new List<Series>(seriesCount);
+
                 foreach (var seriesElement in seriesArray.EnumerateArray())
                 {
                     var seriesName = seriesElement.GetProperty("name").GetString();
                     if (seriesName == "flashlight" || seriesName == "aimNoSliders") continue;
 
-                    var series = new Series
-                    {
-                        Name = seriesName,
-                        Data = new List<double>()
-                    };
-
                     if (seriesElement.TryGetProperty("data", out var dataArray))
+                    {
+                        int dataCount = dataArray.GetArrayLength();
+                        var data = new List<double>(dataCount);
+
                         foreach (var dataElement in dataArray.EnumerateArray())
                             if (dataElement.ValueKind == JsonValueKind.Number)
-                                series.Data.Add(dataElement.GetDouble());
+                                data.Add(dataElement.GetDouble());
 
-                    newGraph.Series.Add(series);
+                        newGraph.Series.Add(new Series
+                        {
+                            Name = seriesName,
+                            Data = data
+                        });
+                    }
                 }
+            }
 
             if (graphElement.TryGetProperty("xaxis", out var xAxisArray))
+            {
+                int xCount = xAxisArray.GetArrayLength();
+                newGraph.XAxis = new List<double>(xCount);
+
                 foreach (var xElement in xAxisArray.EnumerateArray())
                     if (xElement.ValueKind == JsonValueKind.Number)
                         newGraph.XAxis.Add(xElement.GetDouble());
+            }
 
             return newGraph;
         }

@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using System.Timers;
 using System.Windows.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -15,6 +14,8 @@ namespace osuautodeafen.cs;
 public sealed class SharedViewModel : INotifyPropertyChanged
 {
     private readonly bool _canUpdateSettings = true;
+
+    private readonly TosuApi _tosuApi;
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private bool _breakUndeafenEnabled;
 
@@ -29,8 +30,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private bool _isBlurEffectEnabled;
     private bool _IsBreakUndeafenToggleEnabled;
     public bool _isFCRequired;
-
-    private readonly TosuApi _tosuApi;
 
     private bool _isKeybindCaptureFlyoutOpen;
     private bool _isParallaxEnabled;

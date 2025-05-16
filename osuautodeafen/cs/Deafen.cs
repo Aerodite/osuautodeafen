@@ -43,7 +43,8 @@ public class Deafen : IDisposable
     public bool screenBlankEnabled;
     public double StarRating; // User Set Minimum Star Rating
 
-    public Deafen(TosuApi tosuAPI, SettingsPanel settingsPanel, BreakPeriodCalculator breakPeriodCalculator, SharedViewModel viewModel)
+    public Deafen(TosuApi tosuAPI, SettingsPanel settingsPanel, BreakPeriodCalculator breakPeriodCalculator,
+        SharedViewModel viewModel)
     {
         _tosuAPI = tosuAPI;
         _fcCalc = new FCCalc(tosuAPI);
