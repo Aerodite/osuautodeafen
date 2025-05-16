@@ -40,6 +40,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private int _performancePoints;
     private int _starRating;
 
+    private string _statusMessage;
+
     private bool _UndeafenAfterMiss;
 
     private string _updateStatusMessage;
@@ -50,7 +52,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     {
         OpenUpdateUrlCommand = new RelayCommand(OpenUpdateUrl);
         Task.Run(InitializeAsync);
-        _tosuApi = new TosuApi();
+        _tosuApi = MainWindow._tosuApi;
         Task.Run(UpdateCompletionPercentageAsync);
     }
 
@@ -175,14 +177,13 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    private string _statusMessage;
     public string StatusMessage
     {
         get => _statusMessage;
         set
         {
             _statusMessage = value;
-            OnPropertyChanged(nameof(StatusMessage));
+            OnPropertyChanged();
         }
     }
 

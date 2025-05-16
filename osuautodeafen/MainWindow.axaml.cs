@@ -50,7 +50,7 @@ public partial class MainWindow : Window
     private readonly GetLowResBackground? _getLowResBackground;
     private readonly DispatcherTimer _mainTimer;
     private readonly DispatcherTimer _parallaxCheckTimer;
-    private readonly TosuApi _tosuApi;
+    public static TosuApi _tosuApi;
 
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private readonly object _updateLock = new();
@@ -64,7 +64,7 @@ public partial class MainWindow : Window
 
     private double? _cachedMaxXLimit = null;
     private CancellationTokenSource _cancellationTokenSource = new();
-    private Bitmap _colorChangingImage;
+    private Bitmap _colorChangingImage = null!;
 
     private string? _currentBackgroundDirectory;
 
@@ -72,8 +72,8 @@ public partial class MainWindow : Window
     private Bitmap? _currentBitmap;
     private KeyModifiers _currentKeyModifiers = KeyModifiers.None;
     private HotKey? _deafenKeybind;
-    private LineSeries<ObservablePoint> _deafenMarker;
-    private Thread _graphDataThread;
+    private LineSeries<ObservablePoint> _deafenMarker = null!;
+    private Thread _graphDataThread = null!;
     private bool _hasDisplayed = false;
     private bool _isConstructorFinished;
     private bool _isTransitioning = false;
@@ -92,9 +92,9 @@ public partial class MainWindow : Window
     private Image? _normalBackground;
     private SKColor _oldAverageColor = SKColors.Transparent;
 
-    private Canvas _progressIndicatorCanvas;
-    private Line _progressIndicatorLine;
-    private ScreenBlanker _screenBlanker;
+    private Canvas _progressIndicatorCanvas = null!;
+    private Line _progressIndicatorLine = null!;
+    private ScreenBlanker _screenBlanker = null!;
     private ScreenBlankerForm? _screenBlankerForm;
     private DispatcherTimer? _visibilityCheckTimer;
     private List<RectangularSection> cachedBreakPeriods = new();
@@ -105,7 +105,7 @@ public partial class MainWindow : Window
     private double maxYValue;
 
     private LineSeries<ObservablePoint>? progressIndicator;
-    private SettingsPanel settingsPanel1;
+    private SettingsPanel settingsPanel1 = null!;
 
 
     //<summary>
@@ -153,7 +153,7 @@ public partial class MainWindow : Window
         };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
-        
+
         _tosuApi.BeatmapChanged += () =>
         {
             Dispatcher.UIThread.InvokeAsync(() => UpdateBackground(null, null));
@@ -2047,6 +2047,9 @@ public partial class MainWindow : Window
 
     private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan duration)
     {
+        // TODO
+        // add a way to see if the operation was canceled, and if so revert the animation back slowly
+
         if (Content is Grid mainGrid)
         {
             var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
@@ -2087,92 +2090,99 @@ public partial class MainWindow : Window
 
     private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
     {
-        var updateBar = this.FindControl<Button>("UpdateNotificationBar");
-        var isUpdateBarVisible = updateBar != null && updateBar.IsVisible;
-        var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
-        var settingsPanel2 = this.FindControl<DockPanel>("SettingsPanel2");
-        var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
-        var osuautodeafenLogoPanel = TextBlockPanel.FindControl<StackPanel>("osuautodeafenLogoPanel");
-        var versionPanel = TextBlockPanel.FindControl<TextBlock>("VersionPanel");
-        var settingsPanelMargin = settingsPanel.Margin;
-        var settingsPanel2Margin = settingsPanel2.Margin;
-        var textBlockPanelMargin = textBlockPanel.Margin;
-
-        settingsPanel.Transitions = new Transitions
+        try
         {
-            new ThicknessTransition
+            var updateBar = this.FindControl<Button>("UpdateNotificationBar");
+            var isUpdateBarVisible = updateBar != null && updateBar.IsVisible;
+            var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
+            var settingsPanel2 = this.FindControl<DockPanel>("SettingsPanel2");
+            var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
+            var osuautodeafenLogoPanel = TextBlockPanel.FindControl<StackPanel>("osuautodeafenLogoPanel");
+            var versionPanel = TextBlockPanel.FindControl<TextBlock>("VersionPanel");
+            var settingsPanelMargin = settingsPanel.Margin;
+            var settingsPanel2Margin = settingsPanel2.Margin;
+            var textBlockPanelMargin = textBlockPanel.Margin;
+
+            settingsPanel.Transitions =
+            [
+                new ThicknessTransition
+                {
+                    Property = MarginProperty,
+                    Duration = TimeSpan.FromSeconds(0.25),
+                    Easing = new LinearEasing()
+                }
+            ];
+
+            textBlockPanel.Transitions =
+            [
+                new ThicknessTransition
+                {
+                    Property = MarginProperty,
+                    Duration = TimeSpan.FromSeconds(0.25),
+                    Easing = new CircularEaseInOut()
+                }
+            ];
+
+            osuautodeafenLogoPanel!.Transitions =
+            [
+                new ThicknessTransition
+                {
+                    Property = MarginProperty,
+                    Duration = TimeSpan.FromSeconds(0.5),
+                    Easing = new BackEaseOut()
+                }
+            ];
+
+            versionPanel!.Transitions =
+            [
+                new ThicknessTransition
+                {
+                    Property = MarginProperty,
+                    Duration = TimeSpan.FromSeconds(0.6),
+                    Easing = new BackEaseOut()
+                }
+            ];
+
+            if (settingsPanel.IsVisible)
             {
-                Property = MarginProperty,
-                Duration = TimeSpan.FromSeconds(0.25),
-                Easing = new LinearEasing()
+                settingsPanel.IsVisible = false;
+                AdjustMargins(isUpdateBarVisible, settingsPanel, settingsPanel2, textBlockPanel, settingsPanelMargin,
+                    settingsPanel2Margin, textBlockPanelMargin);
+
+                var adjustOpacityTask = AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.5));
+                var adjustTextBlockPanelMarginTask = InvokeOnUIThreadAsync(() =>
+                {
+                    //textBlockPanel.Margin = new Thickness(0, 42, 0, 0);
+                    osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
+                    versionPanel.Margin = new Thickness(0, 0, 0, 0);
+                });
+
+                await Task.WhenAll(adjustOpacityTask, adjustTextBlockPanelMarginTask);
             }
-        };
-
-        textBlockPanel.Transitions = new Transitions
-        {
-            new ThicknessTransition
+            else
             {
-                Property = MarginProperty,
-                Duration = TimeSpan.FromSeconds(0.25),
-                Easing = new CircularEaseInOut()
+                settingsPanel.IsVisible = true;
+                AdjustMargins(isUpdateBarVisible, settingsPanel, settingsPanel2, textBlockPanel, settingsPanelMargin,
+                    settingsPanel2Margin, textBlockPanelMargin);
+
+                var adjustOpacityTask = AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.5));
+                var adjustTextBlockPanelMarginTask = InvokeOnUIThreadAsync(() =>
+                {
+                    //textBlockPanel.Margin = new Thickness(0, 42, 225, 0);
+                    osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
+                    versionPanel.Margin = new Thickness(0, 0, 225, 0);
+                });
+
+                await Task.WhenAll(adjustOpacityTask, adjustTextBlockPanelMarginTask);
             }
-        };
-
-        osuautodeafenLogoPanel.Transitions = new Transitions()
-        {
-            new ThicknessTransition
-            {
-                Property = MarginProperty,
-                Duration = TimeSpan.FromSeconds(0.5),
-                Easing = new BackEaseOut()
-            }
-        };
-        
-        versionPanel.Transitions = new Transitions()
-        {
-            new ThicknessTransition
-            {
-                Property = MarginProperty,
-                Duration = TimeSpan.FromSeconds(0.6),
-                Easing = new BackEaseOut()
-            }
-        };
-
-        if (settingsPanel.IsVisible)
-        {
-            settingsPanel.IsVisible = false;
-            AdjustMargins(isUpdateBarVisible, settingsPanel, settingsPanel2, textBlockPanel, settingsPanelMargin,
-                settingsPanel2Margin, textBlockPanelMargin);
-
-            var adjustOpacityTask = AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.5));
-            var adjustTextBlockPanelMarginTask = InvokeOnUIThreadAsync(() =>
-            {
-                //textBlockPanel.Margin = new Thickness(0, 42, 0, 0);
-                osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
-                versionPanel.Margin = new Thickness(0, 0, 0, 0);
-            });
-
-            await Task.WhenAll(adjustOpacityTask, adjustTextBlockPanelMarginTask);
         }
-        else
+        catch (Exception ex)
         {
-            settingsPanel.IsVisible = true;
-            AdjustMargins(isUpdateBarVisible, settingsPanel, settingsPanel2, textBlockPanel, settingsPanelMargin,
-                settingsPanel2Margin, textBlockPanelMargin);
-
-            var adjustOpacityTask = AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.5));
-            var adjustTextBlockPanelMarginTask = InvokeOnUIThreadAsync(() =>
-            {
-                //textBlockPanel.Margin = new Thickness(0, 42, 225, 0);
-                osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
-                versionPanel.Margin = new Thickness(0, 0, 225, 0);
-            });
-
-            await Task.WhenAll(adjustOpacityTask, adjustTextBlockPanelMarginTask);
+            Console.WriteLine($"[ERROR] Exception in SettingsButton_Click: {ex.Message}");
         }
     }
 
-    private void AdjustMargins(bool isUpdateBarVisible, DockPanel settingsPanel, DockPanel settingsPanel2,
+    private static void AdjustMargins(bool isUpdateBarVisible, DockPanel settingsPanel, DockPanel settingsPanel2,
         StackPanel textBlockPanel, Thickness settingsPanelMargin, Thickness settingsPanel2Margin,
         Thickness textBlockPanelMargin)
     {
@@ -2196,7 +2206,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private Task InvokeOnUIThreadAsync(Action action)
+    private static Task InvokeOnUIThreadAsync(Action action)
     {
         var tcs = new TaskCompletionSource<object?>();
 
@@ -2216,7 +2226,7 @@ public partial class MainWindow : Window
         return tcs.Task;
     }
 
-    private async void SecondPage_Click(object sender, RoutedEventArgs e)
+    private void SecondPage_Click(object sender, RoutedEventArgs e)
     {
         var secondPage = this.FindControl<DockPanel>("SettingsPanel2");
         var firstPage = this.FindControl<DockPanel>("SettingsPanel");
@@ -2225,7 +2235,7 @@ public partial class MainWindow : Window
         firstPage.IsVisible = false;
     }
 
-    private async void FirstPage_Click(object sender, RoutedEventArgs e)
+    private void FirstPage_Click(object sender, RoutedEventArgs e)
     {
         var secondPage = this.FindControl<DockPanel>("SettingsPanel2");
         var firstPage = this.FindControl<DockPanel>("SettingsPanel");
@@ -2236,26 +2246,33 @@ public partial class MainWindow : Window
 
     public async void BlankEffectToggle_IsCheckedChanged(object? sender, RoutedEventArgs e)
     {
-        return;
-        // im saving this for 1.0.7 this is a pain.
-        if (!OperatingSystem.IsWindows())
+        try
         {
-            Console.WriteLine("Blank effect is only supported on Windows.");
             return;
+            // im saving this for 1.0.7 this is a pain.
+            if (!OperatingSystem.IsWindows())
+            {
+                Console.WriteLine("Blank effect is only supported on Windows.");
+                return;
+            }
+
+            if (sender is CheckBox checkBox)
+            {
+                if (_screenBlankerForm == null)
+                    // Initialize _screenBlankerForm if it is null
+                    _screenBlankerForm = new ScreenBlankerForm(this);
+
+                if (checkBox.IsChecked == true)
+                    // Initialize blanking windows if not already initialized
+                    _screenBlankerForm.InitializeBlankingWindows();
+                else
+                    // Unblank screens
+                    await _screenBlankerForm.UnblankScreensAsync();
+            }
         }
-
-        if (sender is CheckBox checkBox)
+        catch (Exception ex)
         {
-            if (_screenBlankerForm == null)
-                // Initialize _screenBlankerForm if it is null
-                _screenBlankerForm = new ScreenBlankerForm(this);
-
-            if (checkBox.IsChecked == true)
-                // Initialize blanking windows if not already initialized
-                _screenBlankerForm.InitializeBlankingWindows();
-            else
-                // Unblank screens
-                await _screenBlankerForm.UnblankScreensAsync();
+            Console.WriteLine($"[ERROR] Exception in BlankEffectToggle_IsCheckedChanged: {ex.Message}");
         }
     }
 
@@ -2277,10 +2294,10 @@ public partial class MainWindow : Window
 
     private class ObservablePointComparer : IComparer<ObservablePoint>
     {
-        public int Compare(ObservablePoint x, ObservablePoint y)
+        public int Compare(ObservablePoint? x, ObservablePoint? y)
         {
-            if (x.X < y.X) return -1;
-            if (x.X > y.X) return 1;
+            if (x?.X < y?.X) return -1;
+            if (x?.X > y?.X) return 1;
             return 0;
         }
     }
@@ -2289,7 +2306,7 @@ public partial class MainWindow : Window
     {
         public Key Key { get; init; }
         public KeyModifiers ModifierKeys { get; init; }
-        public string FriendlyName { get; set; }
+        public string FriendlyName { get; init; }
 
         public override string ToString()
         {

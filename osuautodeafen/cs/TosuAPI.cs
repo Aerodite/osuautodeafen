@@ -19,7 +19,8 @@ public class TosuApi : IDisposable
     private readonly StringBuilder _messageAccumulator = new();
     private readonly Timer _reconnectTimer;
     private readonly Timer _timer;
-    private BreakPeriod _breakPeriod;
+    private int _beatmapId;
+    private BreakPeriod _breakPeriod = null!;
     private double _combo;
     private double _completionPercentage;
     private double _current;
@@ -29,6 +30,7 @@ public class TosuApi : IDisposable
     private string? _fullPath;
     private double _fullSR;
     private string? _gameDirectory;
+    private int _lastBeatmapId = -1;
     private double _maxCombo;
     private double _maxPP;
     private double _missCount;
@@ -40,9 +42,6 @@ public class TosuApi : IDisposable
     private double _sbCount;
     private string? _settingsSongsDirectory;
     private string? _songFilePath;
-    private int _beatmapId;
-    public event Action? BeatmapChanged;
-    private int _lastBeatmapId = -1;
     private ClientWebSocket _webSocket;
 
     public TosuApi()
@@ -73,7 +72,7 @@ public class TosuApi : IDisposable
     }
 
 
-    private GraphData Graph { get; set; }
+    private GraphData Graph { get; set; } = null!;
 
     //<summary>
     // Closes and tidies up for websocket closure
@@ -95,6 +94,8 @@ public class TosuApi : IDisposable
 
         _webSocket.Dispose();
     }
+
+    public event Action? BeatmapChanged;
 
     public event Action<GraphData>? GraphDataUpdated;
 
@@ -230,11 +231,8 @@ public class TosuApi : IDisposable
                         if (beatmap.TryGetProperty("status", out var status))
                             if (beatmap.TryGetProperty("number", out var statusNumber))
                                 _rankedStatus = statusNumber.GetDouble();
-                        
-                        if(beatmap.TryGetProperty("id", out var beatmapId))
-                        {
-                            _beatmapId = beatmapId.GetInt32();
-                        }
+
+                        if (beatmap.TryGetProperty("id", out var beatmapId)) _beatmapId = beatmapId.GetInt32();
                     }
 
                     if (root.TryGetProperty("play", out var play))
@@ -435,7 +433,7 @@ public class TosuApi : IDisposable
     {
         return _rawBanchoStatus;
     }
-    
+
     public int GetBeatmapId()
     {
         return _beatmapId;
@@ -469,10 +467,10 @@ public class TosuApi : IDisposable
 
         return false;
     }
-    
+
     public void CheckForBeatmapChange()
     {
-        int currentBeatmapId = GetBeatmapId();
+        var currentBeatmapId = GetBeatmapId();
         if (currentBeatmapId != _lastBeatmapId)
         {
             BeatmapChanged?.Invoke();
