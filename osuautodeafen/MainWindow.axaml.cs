@@ -156,9 +156,9 @@ public partial class MainWindow : Window
                 logoImage.Source = _colorChangingImage;
                 logoImage.IsVisible = true;
             }
+            OnGraphDataUpdated(_tosuApi.GetGraphData());
         };
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
-        _tosuApi.GraphDataUpdated += OnGraphDataUpdated;
 
         // UI setup
         InitializeVisibilityCheckTimer();
@@ -235,6 +235,15 @@ public partial class MainWindow : Window
         PPTextBox.Text = ViewModel.PerformancePoints.ToString();
 
         _isConstructorFinished = true;
+        
+        Task.Run(async () =>
+        {
+            for (int i = 0; i < 4; i++) // 2 Seconds
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => UpdateBackground(null, null));
+                await Task.Delay(500);
+            }
+        });
     }
 
     private bool BlurEffectUpdate { get; set; }
@@ -270,7 +279,7 @@ public partial class MainWindow : Window
             Dispatcher.UIThread.InvokeAsync(() => UpdateProgressIndicator(_tosuApi.GetCompletionPercentage()));
     }
 
-    private void OnGraphDataUpdated(GraphData graphData)
+    private void OnGraphDataUpdated(GraphData? graphData)
     {
         if (graphData.Series.Count > 1)
         {
@@ -312,7 +321,7 @@ public partial class MainWindow : Window
         return smoothedData;
     }
 
-    public void UpdateChart(GraphData graphData)
+    public void UpdateChart(GraphData? graphData)
     {
         try
         {

@@ -42,25 +42,12 @@ public class TosuApi : IDisposable
     private double _sbCount;
     private string? _settingsSongsDirectory;
     private string? _songFilePath;
+    private JsonElement _graphData;
     private ClientWebSocket _webSocket;
 
     public TosuApi()
     {
-        _timer = new Timer(async void (_) =>
-        {
-            try
-            {
-                await ConnectAsync();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($@"Error in timer callback: {e.Message}");
-            }
-            finally
-            {
-                _timer?.Change(300000, Timeout.Infinite);
-            }
-        }, null, Timeout.Infinite, Timeout.Infinite);
+        _timer = new Timer(async _ => await ConnectAsync(), null, Timeout.Infinite, Timeout.Infinite);
         _webSocket = new ClientWebSocket();
         _dynamicBuffer = new List<byte>();
         _reconnectTimer = new Timer(ReconnectTimerCallback, null, Timeout.Infinite, 300000);
@@ -141,34 +128,31 @@ public class TosuApi : IDisposable
         return _errorMessage;
     }
 
-    //<summary>
-    // attempts to connect to the websocket along with assuring Tosu is running
-    //</summary>
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
-        Console.WriteLine(@"Connecting to WebSocket...");
+        Console.WriteLine("Connecting to WebSocket...");
         while (!cancellationToken.IsCancellationRequested)
-            if (_webSocket == null || _webSocket.State != WebSocketState.Open)
-                try
-                {
-                    _webSocket?.Dispose();
-                    _webSocket = new ClientWebSocket();
-                    await _webSocket.ConnectAsync(new Uri(WebSocketUri), cancellationToken);
-                    Console.WriteLine(@"Connected to WebSocket.");
-                    // this reconnects every 5 minutes incase tosu does that dumb stuff where it
-                    // doesn't want to refresh data anymore (which is quite frankly annoying as fuck).
-                    _reconnectTimer.Change(300000, Timeout.Infinite);
-                    await ReceiveAsync();
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($@"Failed to connect: {ex.Message}. Retrying in 2 seconds...");
-                    await Task.Delay(2000, cancellationToken);
-                    TosuLauncher.EnsureTosuRunning();
-                }
-            else
-                break;
+        {
+            if (_webSocket != null && _webSocket.State == WebSocketState.Open)
+                return;
+
+            try
+            {
+                _webSocket?.Dispose();
+                _webSocket = new ClientWebSocket();
+                await _webSocket.ConnectAsync(new Uri(WebSocketUri), cancellationToken);
+                Console.WriteLine("Connected to WebSocket.");
+                _reconnectTimer.Change(300000, Timeout.Infinite);
+                await ReceiveAsync();
+                return;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to connect: {ex.Message}. Retrying in 2 seconds...");
+                TosuLauncher.EnsureTosuRunning();
+                await Task.Delay(2000, cancellationToken);
+            }
+        }
     }
 
     //<summary>
@@ -279,7 +263,10 @@ public class TosuApi : IDisposable
 
                     if (root.TryGetProperty("performance", out var performance))
                         if (performance.TryGetProperty("graph", out var graphs))
+                        {
                             ParseGraphData(graphs);
+                            _graphData = graphs;
+                        }
 
                     if (root.TryGetProperty("profile", out var profile))
                         if (profile.TryGetProperty("banchoStatus", out var banchoStatus))
@@ -478,7 +465,21 @@ public class TosuApi : IDisposable
         }
     }
 
-    private void ParseGraphData(JsonElement graphElement, double? dtRate = null)
+    public GraphData? GetGraphData()
+    {
+        try
+        {
+            // Use the existing ParseGraphData logic, refactored to return GraphData
+            return ParseGraphData(_graphData);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+// Refactor ParseGraphData to return GraphData
+    private GraphData? ParseGraphData(JsonElement graphElement)
     {
         try
         {
@@ -503,54 +504,21 @@ public class TosuApi : IDisposable
                     if (seriesElement.TryGetProperty("data", out var dataArray))
                         foreach (var dataElement in dataArray.EnumerateArray())
                             if (dataElement.ValueKind == JsonValueKind.Number)
-                            {
-                                var value = dataElement.GetDouble();
-                                series.Data.Add(value);
-                            }
-                            else
-                            {
-                                Console.WriteLine($"Invalid data value kind: {dataElement.ValueKind}");
-                            }
-                    else
-                        Console.WriteLine("Data property not found in series element.");
+                                series.Data.Add(dataElement.GetDouble());
 
                     newGraph.Series.Add(series);
                 }
-            else
-                Console.WriteLine("Series property not found in graph element.");
 
             if (graphElement.TryGetProperty("xaxis", out var xAxisArray))
                 foreach (var xElement in xAxisArray.EnumerateArray())
                     if (xElement.ValueKind == JsonValueKind.Number)
-                    {
-                        var xValue = xElement.GetDouble();
-                        newGraph.XAxis.Add(xValue);
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Invalid x-axis value kind: {xElement.ValueKind}");
-                    }
-            else
-                Console.WriteLine("X-Axis property not found in graph element.");
+                        newGraph.XAxis.Add(xElement.GetDouble());
 
-            var data = new double[newGraph.XAxis.Count];
-            foreach (var series in newGraph.Series)
-                for (var i = 0; i < data.Length && i < series.Data.Count; i++)
-                    data[i] += series.Data[i];
-
-            if (HasGraphDataChanged(newGraph))
-            {
-                Graph = newGraph;
-                GraphDataUpdated?.Invoke(Graph);
-            }
+            return newGraph;
         }
-        catch (JsonException ex)
+        catch
         {
-            Console.WriteLine($"JSON parsing error: {ex.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An error occurred while parsing graph data: {ex.Message}");
+            return null;
         }
     }
 }
