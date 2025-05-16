@@ -2144,7 +2144,7 @@ public partial class MainWindow : Window
             AdjustMargins(isUpdateBarVisible, settingsPanel, settingsPanel2, textBlockPanel, settingsPanelMargin,
                 settingsPanel2Margin, textBlockPanelMargin);
 
-            var adjustOpacityTask = AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.3));
+            var adjustOpacityTask = AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.5));
             var adjustTextBlockPanelMarginTask = InvokeOnUIThreadAsync(() =>
             {
                 //textBlockPanel.Margin = new Thickness(0, 42, 0, 0);
@@ -2160,7 +2160,7 @@ public partial class MainWindow : Window
             AdjustMargins(isUpdateBarVisible, settingsPanel, settingsPanel2, textBlockPanel, settingsPanelMargin,
                 settingsPanel2Margin, textBlockPanelMargin);
 
-            var adjustOpacityTask = AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.3));
+            var adjustOpacityTask = AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.5));
             var adjustTextBlockPanelMarginTask = InvokeOnUIThreadAsync(() =>
             {
                 //textBlockPanel.Margin = new Thickness(0, 42, 225, 0);

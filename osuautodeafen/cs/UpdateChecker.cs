@@ -10,7 +10,7 @@ public class UpdateChecker
 {
     public delegate void UpdateAvailableHandler(string latestVersion, string latestReleaseUrl);
 
-    public const string currentVersion = "1.0.6";
+    public const string currentVersion = "1.0.7";
     private static readonly HttpClient client = new();
     private static DateTime? lastSuccessfulCheck;
     private static readonly TimeSpan cacheDuration = TimeSpan.FromMinutes(1);
