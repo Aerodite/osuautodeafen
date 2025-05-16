@@ -40,9 +40,7 @@ namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
-    public static bool isCompPctLostFocus;
     private readonly AnimationManager _animationManager = new();
-
     private readonly Queue<Bitmap> _bitmapQueue = new(1);
     private readonly BreakPeriodCalculator _breakPeriod;
     private readonly Deafen _deafen;
@@ -83,8 +81,7 @@ public partial class MainWindow : Window
     private DateTime _lastUpdateCheck = DateTime.MinValue;
 
     private Bitmap? _lastValidBitmap;
-
-    //_lowres
+    
     private Bitmap? _lowResBitmap;
     private double _mouseX;
     private double _mouseY;
@@ -128,7 +125,7 @@ public partial class MainWindow : Window
         _getLowResBackground = new GetLowResBackground(_tosuApi);
         _breakPeriod = new BreakPeriodCalculator();
 
-        // Settings panel (if you need two, keep both, else remove one)
+        // Settings panel
         var settingsPanel = new SettingsPanel();
         var settingsPanel1 = new SettingsPanel();
 
@@ -237,6 +234,8 @@ public partial class MainWindow : Window
 
         _isConstructorFinished = true;
 
+        // this is only here to replace that stupid timer logic :)
+        // good sacrifice if you ask me
         Task.Run(async () =>
         {
             for (var i = 0; i < 4; i++) // 2 Seconds
@@ -346,7 +345,7 @@ public partial class MainWindow : Window
                              new List<ISeries>();
             PlotView.DrawMargin = new Margin(0, 0, 0, 0);
 
-            const int maxPoints = 2000; // Limit for downsampling
+            const int maxPoints = 1000;
 
             foreach (var series in graphData.Series)
             {
@@ -1229,7 +1228,6 @@ public partial class MainWindow : Window
         }
 
         if (Graph != null) UpdateChart(Graph);
-        isCompPctLostFocus = true;
     }
 
     private void StarRatingTextBox_TextInput(object sender, TextInputEventArgs e)
@@ -2115,8 +2113,6 @@ public partial class MainWindow : Window
             PlotView.Series = tempSeries;
             UpdateChart(Graph);
         }
-
-        isCompPctLostFocus = true;
     }
 
     private void UpdateErrorMessage(object? sender, EventArgs e)
@@ -2136,49 +2132,54 @@ public partial class MainWindow : Window
         Console.WriteLine("Received: {0}", completionPercentage);
     }
 
-    private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan duration)
+private CancellationTokenSource? _opacityCts;
+
+private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan duration, CancellationToken cancellationToken = default)
+{
+    if (Content is Grid mainGrid)
     {
-        // TODO
-        // add a way to see if the operation was canceled, and if so revert the animation back slowly
-
-        if (Content is Grid mainGrid)
+        var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
+        if (backgroundLayer != null)
         {
-            var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
-            if (backgroundLayer != null)
+            var currentOpacity = backgroundLayer.Opacity;
+
+            _opacityCts?.Cancel();
+            _opacityCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+            var animation = new Animation
             {
-                var currentOpacity = backgroundLayer.Opacity;
+                Duration = duration,
+                Easing = new QuarticEaseInOut()
+            };
 
-                var animation = new Animation
+            animation.Children.Add(new KeyFrame
+            {
+                Cue = new Cue(0),
+                Setters = { new Setter(OpacityProperty, currentOpacity) }
+            });
+            animation.Children.Add(new KeyFrame
+            {
+                Cue = new Cue(1),
+                Setters = { new Setter(OpacityProperty, targetOpacity) }
+            });
+
+            try
+            {
+                if (!_opacityCts.Token.IsCancellationRequested)
                 {
-                    Duration = duration,
-                    Easing = new QuarticEaseInOut()
-                };
-
-                animation.Children.Add(
-                    new KeyFrame
-                    {
-                        Cue = new Cue(0),
-                        Setters = { new Setter(OpacityProperty, currentOpacity) }
-                    }
-                );
-
-                animation.Children.Add(
-                    new KeyFrame
-                    {
-                        Cue = new Cue(1),
-                        Setters = { new Setter(OpacityProperty, targetOpacity) }
-                    }
-                );
-
-                // Explicitly set the final opacity to avoid visual flashing
-                backgroundLayer.Opacity = targetOpacity;
-                _currentBackgroundOpacity = targetOpacity;
-
-                await animation.RunAsync(backgroundLayer);
+                    backgroundLayer.Opacity = targetOpacity;
+                    _currentBackgroundOpacity = targetOpacity;
+                }
+                await animation.RunAsync(backgroundLayer, _opacityCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                backgroundLayer.Opacity = currentOpacity;
+                _currentBackgroundOpacity = currentOpacity;
             }
         }
     }
-
+}
     private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
     {
         try
