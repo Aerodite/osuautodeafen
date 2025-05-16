@@ -425,8 +425,8 @@ public partial class MainWindow : Window
                     .ParseBreakPeriods(osuFilePath, graphData.XAxis, graphData.Series[0].Data)
                     .Select(breakPeriod => new RectangularSection
                     {
-                        Xi = breakPeriod.StartIndex / _tosuApi.RateAdjustRate(),
-                        Xj = breakPeriod.EndIndex / _tosuApi.RateAdjustRate(),
+                        Xi = breakPeriod.StartIndex / _tosuApi.GetRateAdjustRate(),
+                        Xj = breakPeriod.EndIndex / _tosuApi.GetRateAdjustRate(),
                         Yi = 0,
                         Yj = maxYValue,
                         Fill = new SolidColorPaint
@@ -1986,7 +1986,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnMouseMove(object sender, PointerEventArgs e)
+    private void OnMouseMove(object? sender, PointerEventArgs e)
     {
         if (ParallaxToggle.IsChecked == false || BackgroundToggle.IsChecked == false) return;
 

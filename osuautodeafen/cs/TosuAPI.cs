@@ -35,7 +35,7 @@ public class TosuApi : IDisposable
     private string? _modNames;
     private string? _osuFilePath = "";
     private double _rankedStatus;
-    private int _rawBanchoStatus = -1; // Default to -1 to indicate uninitialized
+    private int _rawBanchoStatus = -1;
     private double _rawCompletionPercentage;
     private double _sbCount;
     private string? _settingsSongsDirectory;
@@ -47,7 +47,21 @@ public class TosuApi : IDisposable
 
     public TosuApi()
     {
-        _timer = new Timer(async _ => await ConnectAsync(), null, Timeout.Infinite, Timeout.Infinite);
+        _timer = new Timer(async void (_) =>
+        {
+            try
+            {
+                await ConnectAsync();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($@"Error in timer callback: {e.Message}");
+            }
+            finally
+            {
+                _timer?.Change(300000, Timeout.Infinite);
+            }
+        }, null, Timeout.Infinite, Timeout.Infinite);
         _webSocket = new ClientWebSocket();
         _dynamicBuffer = new List<byte>();
         _reconnectTimer = new Timer(ReconnectTimerCallback, null, Timeout.Infinite, 300000);
@@ -59,7 +73,7 @@ public class TosuApi : IDisposable
     }
 
 
-    public GraphData Graph { get; private set; }
+    private GraphData Graph { get; set; }
 
     //<summary>
     // Closes and tidies up for websocket closure
@@ -91,7 +105,7 @@ public class TosuApi : IDisposable
     // callback for the reconnect timer
     // this will attempt to reconnect to the websocket if the connection is lost
     //</summary>
-    private async void ReconnectTimerCallback(object state)
+    private async void ReconnectTimerCallback(object? state)
     {
         if (_rawBanchoStatus != 2)
         {
@@ -412,7 +426,7 @@ public class TosuApi : IDisposable
         return false;
     }
 
-    public double RateAdjustRate()
+    public double GetRateAdjustRate()
     {
         return _DTRate;
     }
