@@ -50,14 +50,14 @@
         <DockPanel x:Name="SettingsPanel" Grid.Column="1" Background="#171717" Width="450" IsVisible="False"
                    Margin="0,42,0,0" ZIndex="3"
                    x:DataType="cs:SharedViewModel">
-            <DockPanel.DataContext>
+            <!--<DockPanel.DataContext>
                 <cs:SharedViewModel />
-            </DockPanel.DataContext>
+            </DockPanel.DataContext>-->
             <ScrollViewer VerticalScrollBarVisibility="Visible">
                 <StackPanel DockPanel.Dock="Top" x:DataType="cs:SharedViewModel">
-                    <StackPanel.DataContext>
+                    <!--<StackPanel.DataContext>
                         <cs:SharedViewModel />
-                    </StackPanel.DataContext>
+                    </StackPanel.DataContext>-->
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -205,13 +205,13 @@
         <DockPanel x:Name="SettingsPanel2" Grid.Column="1" Background="#171717" Width="450" IsVisible="False"
                    Margin="0,42,0,0" ZIndex="4"
                    x:DataType="cs:SharedViewModel">
-            <DockPanel.DataContext>
+            <!--<DockPanel.DataContext>
                 <cs:SharedViewModel />
-            </DockPanel.DataContext>
+            </DockPanel.DataContext>-->
             <StackPanel DockPanel.Dock="Top" x:DataType="cs:SharedViewModel">
-                <StackPanel.DataContext>
+                <!--<StackPanel.DataContext>
                     <cs:SharedViewModel />
-                </StackPanel.DataContext>
+                </StackPanel.DataContext>-->
                 <Button Width="50" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top"
                         Background="Transparent" Margin="0" Click="FirstPage_Click">
                     <Image Source="avares://osuautodeafen/Icons/angles-left-solid.png" />

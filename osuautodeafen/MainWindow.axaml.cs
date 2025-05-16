@@ -50,7 +50,7 @@ public partial class MainWindow : Window
     private readonly GetLowResBackground? _getLowResBackground;
     private readonly DispatcherTimer _mainTimer;
     private readonly DispatcherTimer _parallaxCheckTimer;
-    public static TosuApi _tosuApi;
+    public TosuApi _tosuApi = new TosuApi();
 
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private readonly object _updateLock = new();
@@ -114,24 +114,26 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-
-        _viewModel = new SharedViewModel();
+        
+        _viewModel = new SharedViewModel(_tosuApi);
+        
+        this.DataContext = _viewModel;
+        
+        ViewModel = _viewModel;
 
         var settingsPanel = new SettingsPanel();
 
         var settingsPanel1 = new SettingsPanel();
 
         LoadSettings();
-
+        
         Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.oad.ico"));
-
-        _tosuApi = new TosuApi();
 
         _getLowResBackground = new GetLowResBackground(_tosuApi);
 
         _breakPeriod = new BreakPeriodCalculator();
 
-        _deafen = new Deafen(_tosuApi, settingsPanel1, _breakPeriod);
+        _deafen = new Deafen(_tosuApi, settingsPanel1, _breakPeriod, _viewModel);
 
         _disposeTimer = new DispatcherTimer
         {
@@ -265,7 +267,7 @@ public partial class MainWindow : Window
     }
 
     private bool BlurEffectUpdate { get; set; }
-    private SharedViewModel ViewModel { get; } = new();
+    private SharedViewModel ViewModel { get; }
     private bool IsBlackBackgroundDisplayed { get; set; }
 
     public GraphData? Graph { get; set; }
@@ -653,12 +655,6 @@ public partial class MainWindow : Window
     private async void InitializeViewModel()
     {
         await _updateChecker.FetchLatestVersionAsync();
-
-        var viewModel = new SharedViewModel();
-        {
-            //UpdateStatusMessage = "v" + UpdateChecker.currentVersion,
-        }
-
         DataContext = ViewModel;
     }
 
@@ -1880,11 +1876,12 @@ public partial class MainWindow : Window
                     continue;
                 }
 
-                await using var stream = new MemoryStream(data.ToArray());
+                var pngBytes = data.ToArray();
 
                 try
                 {
-                    _colorChangingImage = new Bitmap(stream);
+                    using var colorChangingStream = new MemoryStream(pngBytes);
+                    _colorChangingImage = new Bitmap(colorChangingStream);
                 }
                 catch (Exception ex)
                 {
@@ -1896,7 +1893,8 @@ public partial class MainWindow : Window
                     if (DataContext is SharedViewModel viewModel)
                         try
                         {
-                            viewModel.ModifiedLogoImage = new Bitmap(stream);
+                            using var viewModelStream = new MemoryStream(pngBytes);
+                            viewModel.ModifiedLogoImage = new Bitmap(viewModelStream);
                         }
                         catch (Exception ex)
                         {

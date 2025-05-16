@@ -43,10 +43,9 @@ public class Deafen : IDisposable
     public bool screenBlankEnabled;
     public double StarRating; // User Set Minimum Star Rating
 
-    public Deafen(TosuApi tosuAPI, SettingsPanel settingsPanel, BreakPeriodCalculator breakPeriodCalculator)
+    public Deafen(TosuApi tosuAPI, SettingsPanel settingsPanel, BreakPeriodCalculator breakPeriodCalculator, SharedViewModel viewModel)
     {
         _tosuAPI = tosuAPI;
-        _viewModel = new SharedViewModel();
         _fcCalc = new FCCalc(tosuAPI);
         _timer = new Timer(250);
         _timer.Elapsed += TimerElapsed;
@@ -58,6 +57,7 @@ public class Deafen : IDisposable
         _fileCheckTimer.Start();
 
         _breakPeriodCalculator = breakPeriodCalculator;
+        _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
 
         LoadSettings();
     }
@@ -277,7 +277,7 @@ public class Deafen : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"An error occurred: {ex.Message}");
+            Console.WriteLine($"An error occurred in the Deafen Timer: {ex.Message}");
         }
         finally
         {

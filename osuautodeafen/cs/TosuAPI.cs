@@ -320,7 +320,7 @@ public class TosuApi : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($@"An error occurred: {ex.Message}");
+                    Console.WriteLine($@"An error occurred in the TosuAPI: {ex.Message}");
                 }
                 finally
                 {

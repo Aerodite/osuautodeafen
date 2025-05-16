@@ -15,7 +15,6 @@ namespace osuautodeafen.cs;
 public sealed class SharedViewModel : INotifyPropertyChanged
 {
     private readonly bool _canUpdateSettings = true;
-    private readonly TosuApi _tosuApi;
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private bool _breakUndeafenEnabled;
 
@@ -23,7 +22,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private MainWindow.HotKey _deafenKeybind;
 
     private string _deafenKeybindDisplay;
-    public Timer _debounceTimer;
     private bool _isBackgroundEnabled;
 
     private bool _isBlankScreenEnabled;
@@ -31,6 +29,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private bool _isBlurEffectEnabled;
     private bool _IsBreakUndeafenToggleEnabled;
     public bool _isFCRequired;
+
+    private readonly TosuApi _tosuApi;
 
     private bool _isKeybindCaptureFlyoutOpen;
     private bool _isParallaxEnabled;
@@ -48,11 +48,11 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
 
-    public SharedViewModel()
+    public SharedViewModel(TosuApi tosuApi)
     {
         OpenUpdateUrlCommand = new RelayCommand(OpenUpdateUrl);
         Task.Run(InitializeAsync);
-        _tosuApi = MainWindow._tosuApi;
+        _tosuApi = tosuApi;
         Task.Run(UpdateCompletionPercentageAsync);
     }
 
