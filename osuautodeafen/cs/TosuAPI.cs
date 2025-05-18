@@ -31,6 +31,8 @@ public class TosuApi : IDisposable
     private string? _gameDirectory;
     private JsonElement _graphData;
     private int _lastBeatmapId = -1;
+    private string beatmapChecksum;
+    private string? _lastBeatmapChecksum = "";
     private double _maxCombo;
     private double _maxPP;
     private double _missCount;
@@ -215,7 +217,10 @@ public class TosuApi : IDisposable
                             if (beatmap.TryGetProperty("number", out var statusNumber))
                                 _rankedStatus = statusNumber.GetDouble();
 
-                        if (beatmap.TryGetProperty("id", out var beatmapId)) _beatmapId = beatmapId.GetInt32();
+                        if (beatmap.TryGetProperty("id", out var beatmapId)) 
+                            _beatmapId = beatmapId.GetInt32();
+                        if (beatmap.TryGetProperty("checksum", out var checksum))
+                            beatmapChecksum = checksum.GetString() ?? throw new InvalidOperationException();
                     }
 
                     if (root.TryGetProperty("play", out var play))
@@ -424,6 +429,11 @@ public class TosuApi : IDisposable
     {
         return _beatmapId;
     }
+    
+    public string GetBeatmapChecksum()
+    {
+        return beatmapChecksum;
+    }
 
     private bool HasGraphDataChanged(GraphData newGraph)
     {
@@ -456,12 +466,21 @@ public class TosuApi : IDisposable
 
     public void CheckForBeatmapChange()
     {
-        var currentBeatmapId = GetBeatmapId();
-        if (currentBeatmapId != _lastBeatmapId)
-        {
-            BeatmapChanged?.Invoke();
-            _lastBeatmapId = currentBeatmapId;
-        }
+        // var currentBeatmapId = GetBeatmapId();
+        // if (currentBeatmapId < 0 || currentBeatmapId == _lastBeatmapId)
+        //     return;
+        // Console.WriteLine($"Current Beatmap ID: {currentBeatmapId}");
+        //BeatmapChanged?.Invoke();
+        //Console.WriteLine($"Beatmap changed to ID: {currentBeatmapId}");
+       // _lastBeatmapId = currentBeatmapId;
+        
+        var currentBeatmapChecksum = GetBeatmapChecksum();
+        if (string.IsNullOrEmpty(currentBeatmapChecksum) || currentBeatmapChecksum == beatmapChecksum)
+            return;
+        Console.WriteLine($"Current Beatmap Checksum: {currentBeatmapChecksum}");
+        BeatmapChanged.Invoke();
+        Console.WriteLine($"Beatmap changed to Checksum: {currentBeatmapChecksum}");
+        _lastBeatmapChecksum = currentBeatmapChecksum;
     }
 
     public GraphData? GetGraphData()

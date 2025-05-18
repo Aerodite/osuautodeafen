@@ -12,20 +12,6 @@ public class GetLowResBackground
         _tosuApi = tosuApi;
     }
 
-    public string? GetBeatmapId()
-    {
-        var osuFilePath = _tosuApi.GetOsuFilePath();
-        if (string.IsNullOrEmpty(osuFilePath))
-        {
-            Console.WriteLine("[ERROR] osuFilePath is null or empty");
-            return null;
-        }
-
-        var beatmapId = osuFilePath.Split(' ')[0];
-        Console.WriteLine($"Beatmap ID: {beatmapId}");
-        return beatmapId;
-    }
-
     public string? GetLowResBitmapPath()
     {
         var osuFolderPath = _tosuApi.GetGameDirectory();
@@ -37,7 +23,7 @@ public class GetLowResBackground
 
         Console.WriteLine($"Osu Folder Path: {osuFolderPath}");
 
-        var beatmapId = GetBeatmapId();
+        var beatmapId = _tosuApi.GetBeatmapId().ToString();
         if (string.IsNullOrEmpty(beatmapId))
         {
             Console.WriteLine("[ERROR] beatmapId is null or empty");

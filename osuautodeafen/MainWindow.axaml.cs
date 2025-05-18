@@ -142,20 +142,6 @@ public partial class MainWindow : Window
         _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(20) };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
-
-        // Event handlers
-        _tosuApi.BeatmapChanged += () =>
-        {
-            Dispatcher.UIThread.InvokeAsync(() => UpdateBackground(null, null));
-            var logoImage = this.FindControl<Image>("LogoImage");
-            if (logoImage != null)
-            {
-                logoImage.Source = _colorChangingImage;
-                logoImage.IsVisible = true;
-            }
-
-            OnGraphDataUpdated(_tosuApi.GetGraphData());
-        };
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
 
         // UI setup
@@ -170,6 +156,19 @@ public partial class MainWindow : Window
 
         InitializeViewModel();
         InitializeLogo();
+        
+        _tosuApi.BeatmapChanged += () =>
+        {
+            Dispatcher.UIThread.InvokeAsync(() => UpdateBackground(null, null));
+            var logoImage = this.FindControl<Image>("LogoImage");
+            if (logoImage != null)
+            {
+                logoImage.Source = _colorChangingImage;
+                logoImage.IsVisible = true;
+            }
+
+            OnGraphDataUpdated(_tosuApi.GetGraphData());
+        };
 
         PointerMoved += OnMouseMove;
 
@@ -1447,15 +1446,17 @@ private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoin
                 _lastValidBitmap = bitmap;
             }
 
+            CancellationTokenSource cts;
             lock (_updateLock)
             {
                 _cancellationTokenSource.Cancel();
                 _cancellationTokenSource = new CancellationTokenSource();
+                cts = _cancellationTokenSource;
             }
 
-            var token = _cancellationTokenSource.Token;
+            var token = cts.Token;
 
-            await Dispatcher.UIThread.InvokeAsync((Func<Task>)(async () =>
+            async Task UpdateUI()
             {
                 if (token.IsCancellationRequested)
                     return;
@@ -1503,12 +1504,17 @@ private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoin
                         oldBackground.Transitions = new Transitions { transition };
                         oldBackground.Opacity = 0.25;
 
-                        await Task.Delay(250, token);
+                        try
+                        {
+                            await Task.Delay(250, token);
+                        }
+                        catch (TaskCanceledException)
+                        {
+                        }
 
                         if (!token.IsCancellationRequested)
                         {
                             backgroundLayer.Children.Remove(oldBackground);
-                            // Set Source to null before disposing
                             oldBackground.Source = null;
                         }
                     }
@@ -1530,7 +1536,12 @@ private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoin
                 {
                     Console.WriteLine("[ERROR] Error updating UI: " + ex);
                 }
-            }));
+            }
+
+            if (Dispatcher.UIThread.CheckAccess())
+                await UpdateUI();
+            else
+                await Dispatcher.UIThread.InvokeAsync(UpdateUI);
         }
         catch (Exception ex)
         {
@@ -1612,12 +1623,10 @@ private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoin
         long totalR = 0, totalG = 0, totalB = 0;
         long pixelCount = (long)width * height;
 
-        // Use SKBitmap.GetPixels() for direct access if possible
         var pixels = bitmap.Pixels;
         if (pixels == null || pixels.Length != pixelCount)
             throw new InvalidOperationException("Bitmap pixel data is not accessible or corrupted.");
 
-        // Parallelize by chunking the array
         Parallel.For(0, pixels.Length, () => (0L, 0L, 0L), (i, state, local) =>
             {
                 var pixel = pixels[i];
@@ -1633,9 +1642,6 @@ private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoin
                 Interlocked.Add(ref totalB, local.Item3);
             });
 
-        if (pixelCount == 0) return SKColors.Black;
-
-        // Clamp to byte range
         byte avgR = (byte)Math.Clamp(totalR / pixelCount, 0, 255);
         byte avgG = (byte)Math.Clamp(totalG / pixelCount, 0, 255);
         byte avgB = (byte)Math.Clamp(totalB / pixelCount, 0, 255);
@@ -1805,7 +1811,7 @@ private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoin
         {
             try
             {
-                var lowResBitmapPath = _getLowResBackground.GetLowResBitmapPath();
+                var lowResBitmapPath = _getLowResBackground?.GetLowResBitmapPath();
                 if (!string.IsNullOrEmpty(lowResBitmapPath))
                     return lowResBitmapPath;
             }
