@@ -405,6 +405,8 @@ public class TosuApi : IDisposable
         return _modNames;
     }
 
+    // This probably shouldn't be used, instead i'd lean towards using GetRateAdjustRate()
+    // Which justs return 1.00 if DT or NC aren't selected.
     public bool? IsDTSelected()
     {
         GetSelectedMods();
@@ -430,13 +432,24 @@ public class TosuApi : IDisposable
         return _beatmapId;
     }
     
+    // Alternative method to GetBeatmapId()
+    // (probably for use in the case of an unsubmitted map, as they have an ID of 0 in the Tosu API)
     public string GetBeatmapChecksum()
     {
         return beatmapChecksum;
     }
 
+    /*
+     This isn't really needed thanks to GetBeatmapId(), 
+     which should be used instead of recalculating the whole graph again to see if the map changed
+     (thanks tosu for finally implementing that in the api :D)
+    */
+    [Obsolete]
     private bool HasGraphDataChanged(GraphData newGraph)
     {
+        // Checks if the X-axis of the graph has changed at all,
+        // if so, return true, else return false.
+        
         if (Graph?.Series == null) return true;
 
         if (Graph.Series.Count != newGraph.Series.Count) return true;
@@ -466,21 +479,14 @@ public class TosuApi : IDisposable
 
     public void CheckForBeatmapChange()
     {
-        // var currentBeatmapId = GetBeatmapId();
-        // if (currentBeatmapId < 0 || currentBeatmapId == _lastBeatmapId)
-        //     return;
-        // Console.WriteLine($"Current Beatmap ID: {currentBeatmapId}");
-        //BeatmapChanged?.Invoke();
-        //Console.WriteLine($"Beatmap changed to ID: {currentBeatmapId}");
-       // _lastBeatmapId = currentBeatmapId;
-        
-        var currentBeatmapChecksum = GetBeatmapChecksum();
-        if (string.IsNullOrEmpty(currentBeatmapChecksum) || currentBeatmapChecksum == beatmapChecksum)
-            return;
-        Console.WriteLine($"Current Beatmap Checksum: {currentBeatmapChecksum}");
-        BeatmapChanged.Invoke();
-        Console.WriteLine($"Beatmap changed to Checksum: {currentBeatmapChecksum}");
-        _lastBeatmapChecksum = currentBeatmapChecksum;
+        // Check if the beatmap ID has changed, if so, invoke the BeatmapChanged event
+         var currentBeatmapId = GetBeatmapId();
+         if (currentBeatmapId < 0 || currentBeatmapId == _lastBeatmapId)
+             return; 
+         _lastBeatmapId = currentBeatmapId;
+         Console.WriteLine($"Current Beatmap ID: {currentBeatmapId}"); 
+         Console.WriteLine($"Beatmap changed to ID: {currentBeatmapId}"); 
+         BeatmapChanged?.Invoke(); 
     }
 
     public GraphData? GetGraphData()

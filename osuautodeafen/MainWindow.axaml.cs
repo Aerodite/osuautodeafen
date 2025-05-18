@@ -51,6 +51,8 @@ public partial class MainWindow : Window
 
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private readonly object _updateLock = new();
+    
+    private PropertyChangedEventHandler? _backgroundPropertyChangedHandler;
 
 
     private readonly object _updateLogoLock = new();
@@ -139,7 +141,7 @@ public partial class MainWindow : Window
         _parallaxCheckTimer.Tick += CheckParallaxSetting;
         _parallaxCheckTimer.Start();
 
-        _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(20) };
+        _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
@@ -1339,12 +1341,8 @@ private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoin
         // Disable background if ViewModel indicates
         if (!ViewModel.IsBackgroundEnabled)
         {
-            if (!ViewModel.IsBackgroundEnabled)
-            {
-                if (_blurredBackground != null) _blurredBackground.IsVisible = false;
-                if (_normalBackground != null) _normalBackground.IsVisible = false;
-            }
-
+            if (_blurredBackground != null) _blurredBackground.IsVisible = false;
+            if (_normalBackground != null) _normalBackground.IsVisible = false;
             return;
         }
 
@@ -1369,29 +1367,33 @@ private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoin
             IsBlackBackgroundDisplayed = false;
         }
 
-        if (_currentBitmap != null)
-            ViewModel.PropertyChanged += async (sender, args) =>
-            {
-                if (args.PropertyName == nameof(ViewModel.IsParallaxEnabled) ||
-                    args.PropertyName == nameof(ViewModel.IsBlurEffectEnabled))
-                    await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
+        // Remove previous handler if exists
+        if (_backgroundPropertyChangedHandler != null)
+            ViewModel.PropertyChanged -= _backgroundPropertyChangedHandler;
 
-                //probably a better way of doing this but this is very much bandaid fix
-                if (args.PropertyName == nameof(ViewModel.IsBackgroundEnabled))
+        _backgroundPropertyChangedHandler = async (s, args) =>
+        {
+            if (args.PropertyName == nameof(ViewModel.IsParallaxEnabled) ||
+                args.PropertyName == nameof(ViewModel.IsBlurEffectEnabled))
+                await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
+
+            if (args.PropertyName == nameof(ViewModel.IsBackgroundEnabled))
+            {
+                if (ViewModel.IsBackgroundEnabled == false)
                 {
-                    if (ViewModel.IsBackgroundEnabled == false)
-                    {
-                        if (IsBlackBackgroundDisplayed) return;
-                        await DisplayBlackBackground();
-                    }
-                    else
-                    {
-                        if (!IsBlackBackgroundDisplayed) return;
-                        await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
-                        IsBlackBackgroundDisplayed = false;
-                    }
+                    if (IsBlackBackgroundDisplayed) return;
+                    await DisplayBlackBackground();
                 }
-            };
+                else
+                {
+                    if (!IsBlackBackgroundDisplayed) return;
+                    await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
+                    IsBlackBackgroundDisplayed = false;
+                }
+            }
+        };
+
+        ViewModel.PropertyChanged += _backgroundPropertyChangedHandler;
 
         UpdateBackgroundVisibility();
     }
@@ -1428,126 +1430,136 @@ private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoin
     }
 
     private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
+{
+    try
     {
-        try
+        // Use last valid bitmap if input is null
+        if (bitmap == null)
         {
+            Console.WriteLine("[WARN] Bitmap is null, using the last valid bitmap.");
+            bitmap = _lastValidBitmap;
             if (bitmap == null)
             {
-                Console.WriteLine("[WARN] Bitmap is null, using the last valid bitmap.");
-                bitmap = _lastValidBitmap;
+                Console.WriteLine("[ERROR] No valid bitmap available, cannot update UI.");
+                return;
+            }
+        }
+        else
+        {
+            _lastValidBitmap = bitmap;
+        }
+
+        CancellationTokenSource cts;
+        lock (_updateLock)
+        {
+            try { _cancellationTokenSource.Cancel(); } catch { }
+            _cancellationTokenSource = new CancellationTokenSource();
+            cts = _cancellationTokenSource;
+        }
+
+        var token = cts.Token;
+
+        async Task UpdateUI()
+        {
+            if (token.IsCancellationRequested)
+                return;
+
+            try
+            {
+                if (Content is not Grid mainGrid)
+                {
+                    Content = new Grid();
+                    mainGrid = (Grid)Content;
+                }
+
                 if (bitmap == null)
                 {
-                    Console.WriteLine("[ERROR] No valid bitmap available, cannot update UI.");
+                    Console.WriteLine("[ERROR] Bitmap is null inside UpdateUI, aborting.");
                     return;
                 }
-            }
-            else
-            {
-                _lastValidBitmap = bitmap;
-            }
 
-            CancellationTokenSource cts;
-            lock (_updateLock)
-            {
-                _cancellationTokenSource.Cancel();
-                _cancellationTokenSource = new CancellationTokenSource();
-                cts = _cancellationTokenSource;
-            }
+                var newImageControl = new Image
+                {
+                    Source = bitmap,
+                    Stretch = Stretch.UniformToFill,
+                    Opacity = 0.25,
+                    ZIndex = -1,
+                    Effect = ViewModel?.IsBlurEffectEnabled == true ? new BlurEffect { Radius = 17.27 } : null,
+                    Clip = new RectangleGeometry(new Rect(0, 0, Math.Max(1, mainGrid.Bounds.Width * 1.05),
+                        Math.Max(1, mainGrid.Bounds.Height * 1.05)))
+                };
 
-            var token = cts.Token;
+                var transition = new DoubleTransition
+                {
+                    Property = OpacityProperty,
+                    Duration = TimeSpan.FromSeconds(0.3),
+                    Easing = new QuarticEaseInOut()
+                };
 
-            async Task UpdateUI()
-            {
+                var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
+                if (backgroundLayer == null)
+                {
+                    backgroundLayer = new Grid { Name = "BackgroundLayer", ZIndex = -1 };
+                    mainGrid.Children.Insert(0, backgroundLayer);
+                }
+                else
+                {
+                    backgroundLayer.Children.Clear();
+                }
+
+                backgroundLayer.RenderTransform = new ScaleTransform(1.05, 1.05);
+
+                var oldBackground = backgroundLayer.Children.OfType<Image>().FirstOrDefault();
+                if (oldBackground != null)
+                {
+                    oldBackground.Transitions = new Transitions { transition };
+                    oldBackground.Opacity = 0.25;
+
+                    try
+                    {
+                        await Task.Delay(250, token);
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        // Ignore
+                    }
+
+                    if (!token.IsCancellationRequested)
+                    {
+                        backgroundLayer.Children.Remove(oldBackground);
+                        // Do not set Source to null to avoid NullReferenceException in Avalonia
+                    }
+                }
+
                 if (token.IsCancellationRequested)
                     return;
 
-                try
-                {
-                    if (Content is not Grid mainGrid)
-                    {
-                        Content = new Grid();
-                        mainGrid = (Grid)Content;
-                    }
+                backgroundLayer.Children.Add(newImageControl);
+                newImageControl.Transitions = new Transitions { transition };
+                newImageControl.Opacity = 0.5;
+                backgroundLayer.Opacity = _currentBackgroundOpacity;
 
-                    var newImageControl = new Image
-                    {
-                        Source = bitmap,
-                        Stretch = Stretch.UniformToFill,
-                        Opacity = 0.25,
-                        ZIndex = -1,
-                        Effect = ViewModel?.IsBlurEffectEnabled == true ? new BlurEffect { Radius = 17.27 } : null,
-                        Clip = new RectangleGeometry(new Rect(0, 0, Math.Max(1, mainGrid.Bounds.Width * 1.05),
-                            Math.Max(1, mainGrid.Bounds.Height * 1.05)))
-                    };
+                if (ViewModel != null && ParallaxToggle?.IsChecked == true && BackgroundToggle?.IsChecked == true)
+                    ApplyParallax(_mouseX, _mouseY);
 
-                    var transition = new DoubleTransition
-                    {
-                        Property = OpacityProperty,
-                        Duration = TimeSpan.FromSeconds(0.3),
-                        Easing = new QuarticEaseInOut()
-                    };
-
-                    var backgroundLayer =
-                        mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer")
-                        ?? new Grid { Name = "BackgroundLayer", ZIndex = -1 };
-
-                    if (!mainGrid.Children.Contains(backgroundLayer))
-                        mainGrid.Children.Insert(0, backgroundLayer);
-                    else
-                        backgroundLayer.Children.Clear();
-
-                    backgroundLayer.RenderTransform = new ScaleTransform(1.05, 1.05);
-
-                    var oldBackground = backgroundLayer.Children.OfType<Image>().FirstOrDefault();
-                    if (oldBackground != null)
-                    {
-                        oldBackground.Transitions = new Transitions { transition };
-                        oldBackground.Opacity = 0.25;
-
-                        try
-                        {
-                            await Task.Delay(250, token);
-                        }
-                        catch (TaskCanceledException)
-                        {
-                        }
-
-                        if (!token.IsCancellationRequested)
-                        {
-                            backgroundLayer.Children.Remove(oldBackground);
-                            oldBackground.Source = null;
-                        }
-                    }
-
-                    if (token.IsCancellationRequested)
-                        return;
-
-                    backgroundLayer.Children.Add(newImageControl);
-                    newImageControl.Transitions = new Transitions { transition };
-                    newImageControl.Opacity = 0.5;
-                    backgroundLayer.Opacity = _currentBackgroundOpacity;
-
-                    if (ViewModel != null && ParallaxToggle?.IsChecked == true && BackgroundToggle?.IsChecked == true)
-                        ApplyParallax(_mouseX, _mouseY);
-
-                    Console.WriteLine("UpdateUIWithNewBackground: Update completed.");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("[ERROR] Error updating UI: " + ex);
-                }
+                Console.WriteLine("UpdateUIWithNewBackground: Update completed.");
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[ERROR] Error updating UI: " + ex);
+            }
+        }
 
-            if (Dispatcher.UIThread.CheckAccess())
-                await UpdateUI();
-            else
-                await Dispatcher.UIThread.InvokeAsync(UpdateUI);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("[ERROR] Exception in UpdateUIWithNewBackgroundAsync: " + ex);
-        }
+        if (Dispatcher.UIThread.CheckAccess())
+            await UpdateUI();
+        else
+            await Dispatcher.UIThread.InvokeAsync(UpdateUI);
     }
+    catch (Exception ex)
+    {
+        Console.WriteLine("[ERROR] Exception in UpdateUIWithNewBackgroundAsync: " + ex);
+    }
+}
 
     private void UpdateBackgroundVisibility()
     {
