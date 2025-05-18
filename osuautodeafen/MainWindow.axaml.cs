@@ -246,8 +246,6 @@ public partial class MainWindow : Window
             }
         });
     }
-
-    private bool BlurEffectUpdate { get; set; }
     private SharedViewModel ViewModel { get; }
     private bool IsBlackBackgroundDisplayed { get; set; }
 
@@ -255,25 +253,7 @@ public partial class MainWindow : Window
     public ISeries[] Series { get; set; }
     public Axis[] XAxes { get; set; }
     public Axis[] YAxes { get; set; }
-
-    public TimeSpan Interval { get; set; }
-    public object? UpdateUrl { get; }
-
-    public HotKey? DeafenKeybind
-    {
-        get => _deafenKeybind;
-        set
-        {
-            if (_deafenKeybind != value)
-            {
-                _deafenKeybind = value;
-                OnPropertyChanged(nameof(DeafenKeybind));
-                var button = this.FindControl<Button>("DeafenKeybindButton");
-                if (button != null) button.Content = value.ToString();
-            }
-        }
-    }
-
+    
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(SharedViewModel.CompletionPercentage))
@@ -1452,7 +1432,12 @@ private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoin
         CancellationTokenSource cts;
         lock (_updateLock)
         {
-            try { _cancellationTokenSource.Cancel(); } catch { }
+            try { _cancellationTokenSource.Cancel(); }
+            catch
+            {
+                // ignored
+            }
+
             _cancellationTokenSource = new CancellationTokenSource();
             cts = _cancellationTokenSource;
         }
