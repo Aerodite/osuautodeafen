@@ -1798,12 +1798,24 @@ private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoin
     //this is just here because i dont want to add a massive blocking call to wait for tosuapi with ui loading
     private async Task<string?> TryGetLowResBitmapPathAsync(int maxAttempts, int delayMilliseconds)
     {
+        if (maxAttempts <= 0) throw new ArgumentOutOfRangeException(nameof(maxAttempts));
+        if (delayMilliseconds < 0) throw new ArgumentOutOfRangeException(nameof(delayMilliseconds));
+
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            var lowResBitmapPath = _getLowResBackground.GetLowResBitmapPath();
-            if (!string.IsNullOrEmpty(lowResBitmapPath)) return lowResBitmapPath;
+            try
+            {
+                var lowResBitmapPath = _getLowResBackground.GetLowResBitmapPath();
+                if (!string.IsNullOrEmpty(lowResBitmapPath))
+                    return lowResBitmapPath;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WARN] Exception on attempt {attempt}: {ex.Message}");
+            }
+
             Console.WriteLine($"Attempt {attempt} failed. Retrying in {delayMilliseconds}ms...");
-            await Task.Delay(delayMilliseconds);
+            await Task.Delay(delayMilliseconds).ConfigureAwait(false);
         }
 
         Console.WriteLine("[ERROR] Failed to get low resolution bitmap path after multiple attempts.");
