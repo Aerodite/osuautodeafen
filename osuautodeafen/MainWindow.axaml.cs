@@ -160,13 +160,14 @@ public partial class MainWindow : Window
         
         _tosuApi.BeatmapChanged += async () =>
         {
-            await Dispatcher.UIThread.InvokeAsync(() => UpdateBackground(null, null));
             var logoImage = this.FindControl<Image>("LogoImage");
             if (logoImage != null)
             {
                 logoImage.Source = _colorChangingImage;
                 logoImage.IsVisible = true;
             }
+            
+            await Dispatcher.UIThread.InvokeAsync(() => UpdateBackground(null, null));
             
             // Calculate the new average color from the background or logo
             var skBitmap = ConvertToSKBitmap(_currentBitmap);
@@ -956,6 +957,7 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(CheckForUpdatesIfNeeded);
         Dispatcher.UIThread.InvokeAsync(() => CheckBlankSetting(sender, e));
     }
+
 
     private void CheckIsFCRequiredSetting(object? sender, EventArgs? e)
     {
@@ -1927,15 +1929,6 @@ private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
             {
                 Console.WriteLine($"RetryLoadLogoAsync failed: {retryEx.Message}");
             }
-        }
-
-        try
-        {
-            await UpdateLogoAsync();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"UpdateLogoAsync failed: {ex.Message}");
         }
     }
 
