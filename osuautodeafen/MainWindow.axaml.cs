@@ -347,7 +347,15 @@ private void ResetLogoSize()
 
         // Stop the spin timer if running
         _spinTimer?.Stop();
-        if (logoImage.RenderTransform is RotateTransform rotate)
+
+        // Reset rotation if using a TransformGroup
+        if (logoImage.RenderTransform is TransformGroup group)
+        {
+            var rotate = group.Children.OfType<RotateTransform>().FirstOrDefault();
+            if (rotate != null)
+                rotate.Angle = 0;
+        }
+        else if (logoImage.RenderTransform is RotateTransform rotate)
         {
             rotate.Angle = 0;
         }
@@ -976,24 +984,38 @@ private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoin
 
     public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)
     {
+        var button = this.FindControl<Button>("CheckForUpdatesButton");
+        if (button == null) return;
+
+        button.Content = "Checking for updates...";
+        await Task.Delay(2000);
+
         await _updateChecker.FetchLatestVersionAsync();
 
         if (string.IsNullOrEmpty(_updateChecker.latestVersion))
         {
-            Console.WriteLine("Latest version string is null or empty.");
+            button.Content = "No updates found";
+            await Task.Delay(2000);
+            button.Content = "Check for updates";
             return;
         }
 
         var currentVersion = new Version(UpdateChecker.currentVersion);
         var latestVersion = new Version(_updateChecker.latestVersion);
 
-        if (latestVersion > currentVersion) ShowUpdateNotification();
-        if (string.IsNullOrEmpty(_updateChecker.latestVersion))
-            ViewModel.UpdateStatusMessage = "Failed to check for updates.";
-        else if (latestVersion > currentVersion)
-            ViewModel.UpdateStatusMessage = $"Update available: v{_updateChecker.latestVersion}";
+        if (latestVersion > currentVersion)
+        {
+            ShowUpdateNotification();
+            button.Content = "Update available!";
+            await Task.Delay(2000);
+            button.Content = "Check for updates";
+        }
         else
-            ViewModel.UpdateStatusMessage = "No updates available.";
+        {
+            button.Content = "You are on the latest version";
+            await Task.Delay(2000);
+            button.Content = "Check for updates";
+        }
     }
 
     private void LoadSettings()
