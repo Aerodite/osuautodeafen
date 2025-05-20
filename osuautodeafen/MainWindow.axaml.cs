@@ -348,16 +348,28 @@ private void ResetLogoSize()
         // Stop the spin timer if running
         _spinTimer?.Stop();
 
-        // Reset rotation if using a TransformGroup
+        // Reset rotation and scale if using a TransformGroup
         if (logoImage.RenderTransform is TransformGroup group)
         {
             var rotate = group.Children.OfType<RotateTransform>().FirstOrDefault();
             if (rotate != null)
                 rotate.Angle = 0;
+
+            var scale = group.Children.OfType<ScaleTransform>().FirstOrDefault();
+            if (scale != null)
+            {
+                scale.ScaleX = 1.0;
+                scale.ScaleY = 1.0;
+            }
         }
         else if (logoImage.RenderTransform is RotateTransform rotate)
         {
             rotate.Angle = 0;
+        }
+        else if (logoImage.RenderTransform is ScaleTransform scale)
+        {
+            scale.ScaleX = 1.0;
+            scale.ScaleY = 1.0;
         }
     }
 }
