@@ -99,31 +99,82 @@
                                 </ToolTip.Tip>
                             </TextBox>
                         </StackPanel>
-                        <Button Content="Reset to Default" Click="ResetButton_Click" Margin="0,7,0,0" FontSize="12"
-                                Foreground="White" HorizontalAlignment="Center"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,25,0,0" HorizontalAlignment="Center">
-                            <Image Source="avares://osuautodeafen/Icons/crown-solid.png" Width="25" Height="25"
-                                   Margin="0,0,5,0" />
+                        <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center">
+                            <Image Source="avares://osuautodeafen/Icons/crown-solid.png" Width="25" Height="25" Margin="0,0,5,0" />
                             <CheckBox x:Name="FCToggle" Content="FC Required?" Foreground="White"
                                       IsChecked="{Binding IsFCRequired, Mode=TwoWay}"
-                                      HorizontalAlignment="Left" Margin="0">
+                                      HorizontalAlignment="Left" Margin="0" Width="120">
                                 <ToolTip.Tip>
                                     <TextBlock Text="Toggle if an FC is required to deafen" />
                                 </ToolTip.Tip>
                             </CheckBox>
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
-                            <Image Source="avares://osuautodeafen/Icons/shooting-star-solid.png" Width="25" Height="25"
-                                   Margin="0,0,5,0" />
-                            <CheckBox x:Name="UndeafenOnMissToggle" Content="Undeafen on..." Foreground="White"
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,0" HorizontalAlignment="Center">
+                            <Image Source="avares://osuautodeafen/Icons/shooting-star-solid.png" Width="25" Height="25" Margin="0,0,5,0" />
+                            <CheckBox x:Name="UndeafenOnMissToggle" Content="Undeafen on miss" Foreground="White"
                                       IsChecked="{Binding UndeafenAfterMiss, Mode=TwoWay}"
                                       IsEnabled="{Binding ElementName=FCToggle, Path=IsChecked}"
-                                      HorizontalAlignment="Left" Margin="0">
+                                      HorizontalAlignment="Left" Margin="0" Width="120">
                                 <ToolTip.Tip>
                                     <TextBlock Text="Do you get undeafened after a miss?" />
                                 </ToolTip.Tip>
                             </CheckBox>
                         </StackPanel>
+                        <Button Content="Reset to Default" Click="ResetButton_Click" Margin="0,7,0,0" FontSize="12"
+                                Foreground="White" HorizontalAlignment="Center"/>
+                        <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
+                        <!--title-->
+                        <TextBlock Text="Discord Settings"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,8"
+                                   Foreground="White"
+                                   FontWeight="Bold"
+                                   FontSize="16"/>
+                        <StackPanel HorizontalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <Image Source="avares://osuautodeafen/Icons/keyboard-solid.png" Width="27"
+                                       Height="27" Margin="0,0,5,0" />
+                                <Button x:Name="DeafenKeybindButton" Width="91" Height="40"
+                                        HorizontalAlignment="Left" FontSize="11" Margin="0"
+                                        Content="{Binding DeafenKeybindDisplay}"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center"
+                                        Click="DeafenKeybindButton_Click">
+                                    <ToolTip.Tip>
+                                        <TextBlock Text="Click to set your Discord Toggle Deafen keybind" />
+                                    </ToolTip.Tip>
+                                    <Button.Flyout>
+                                        <Flyout>
+                                            <TextBlock Text="Press any key for the keybind..." />
+                                        </Flyout>
+                                    </Button.Flyout>
+                                </Button>
+                            </StackPanel>
+                        </StackPanel>
+                        <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
+                        <!--title-->
+                        <TextBlock Text="Other Settings"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,8"
+                                   Foreground="White"
+                                   FontWeight="Bold"
+                                   FontSize="16"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0" HorizontalAlignment="Center">
+                            <Image Source="avares://osuautodeafen/Icons/map-location-dot-solid.png" Width="25"
+                                   Height="25"
+                                   Margin="0,0,5,0" />
+                            <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
+                                      IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
+                                      HorizontalAlignment="Left" Margin="0"
+                                      IsCheckedChanged="BreakUndeafenToggle_IsCheckChanged">
+                                <ToolTip.Tip>
+                                    <TextBlock>
+                                        <Run Text="Toggle to decide whether or not breaks should be undeafened" />
+                                    </TextBlock>
+                                </ToolTip.Tip>
+                            </CheckBox>
+                        </StackPanel>
+                        <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
                         <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center">
                             <Image Source="avares://osuautodeafen/Icons/image-solid.png" Width="25" Height="25"
                                    Margin="0,0,5,0" />
@@ -156,42 +207,6 @@
                                       HorizontalAlignment="Left" Margin="0">
                                 <ToolTip.Tip>
                                     <TextBlock Text="Enable or disable the blur effect" />
-                                </ToolTip.Tip>
-                            </CheckBox>
-                        </StackPanel>
-                        <StackPanel HorizontalAlignment="Center">
-                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                <Image Source="avares://osuautodeafen/Icons/keyboard-solid.png" Width="27"
-                                       Height="27" Margin="0,0,5,0" />
-                                <Button x:Name="DeafenKeybindButton" Width="91" Height="40"
-                                        HorizontalAlignment="Left" FontSize="11" Margin="0"
-                                        Content="{Binding DeafenKeybindDisplay}"
-                                        HorizontalContentAlignment="Center"
-                                        VerticalContentAlignment="Center"
-                                        Click="DeafenKeybindButton_Click">
-                                    <ToolTip.Tip>
-                                        <TextBlock Text="Click to set your Discord Toggle Deafen keybind" />
-                                    </ToolTip.Tip>
-                                    <Button.Flyout>
-                                        <Flyout>
-                                            <TextBlock Text="Press any key for the keybind..." />
-                                        </Flyout>
-                                    </Button.Flyout>
-                                </Button>
-                            </StackPanel>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0" HorizontalAlignment="Center">
-                            <Image Source="avares://osuautodeafen/Icons/map-location-dot-solid.png" Width="25"
-                                   Height="25"
-                                   Margin="0,0,5,0" />
-                            <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
-                                      IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
-                                      HorizontalAlignment="Left" Margin="0"
-                                      IsCheckedChanged="BreakUndeafenToggle_IsCheckChanged">
-                                <ToolTip.Tip>
-                                    <TextBlock>
-                                        <Run Text="Toggle to decide whether or not breaks should be undeafened" />
-                                    </TextBlock>
                                 </ToolTip.Tip>
                             </CheckBox>
                         </StackPanel>

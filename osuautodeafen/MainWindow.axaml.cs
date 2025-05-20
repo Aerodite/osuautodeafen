@@ -167,6 +167,14 @@ public partial class MainWindow : Window
                 logoImage.Source = _colorChangingImage;
                 logoImage.IsVisible = true;
             }
+            
+            // Calculate the new average color from the background or logo
+            var skBitmap = ConvertToSKBitmap(_currentBitmap);
+            if (skBitmap != null)
+            {
+                var newAverageColor = CalculateAverageColor(skBitmap);
+                await UpdateAverageColorAsync(newAverageColor);
+            }
 
             var currentBeatmapSet = _tosuApi.GetBeatmapSetId();
             Console.WriteLine($"Current Beatmap Set ID: {currentBeatmapSet}");
@@ -177,14 +185,6 @@ public partial class MainWindow : Window
             else
             {
                 ResetLogoSize();
-            }
-
-            // Calculate the new average color from the background or logo
-            var skBitmap = ConvertToSKBitmap(_currentBitmap);
-            if (skBitmap != null)
-            {
-                var newAverageColor = CalculateAverageColor(skBitmap);
-                await UpdateAverageColorAsync(newAverageColor);
             }
 
             OnGraphDataUpdated(_tosuApi.GetGraphData());
@@ -1992,31 +1992,44 @@ private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoin
     
     private SKColor _oldAverageColorPublic = SKColors.Transparent;
 
+    private CancellationTokenSource? _colorTransitionCts;
+
     public async Task UpdateAverageColorAsync(SKColor newColor)
     {
+        _colorTransitionCts?.Cancel();
+        _colorTransitionCts = new CancellationTokenSource();
+        var token = _colorTransitionCts.Token;
+
         var steps = 20;
         var delay = 10; // ms
 
         var from = _oldAverageColorPublic;
         var to = newColor;
 
-        for (int i = 0; i <= steps; i++)
+        try
         {
-            float t = i / (float)steps;
-            var interpolated = InterpolateColor(from, to, t);
-            var avaloniaColor = Color.FromArgb(interpolated.Alpha, interpolated.Red, interpolated.Green, interpolated.Blue);
-
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            for (int i = 0; i <= steps; i++)
             {
-                ViewModel.AverageColorBrush = new SolidColorBrush(avaloniaColor);
-            });
+                token.ThrowIfCancellationRequested();
+                float t = i / (float)steps;
+                var interpolated = InterpolateColor(from, to, t);
+                var avaloniaColor = Color.FromArgb(interpolated.Alpha, interpolated.Red, interpolated.Green, interpolated.Blue);
 
-            await Task.Delay(delay);
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    ViewModel.AverageColorBrush = new SolidColorBrush(avaloniaColor);
+                });
+
+                await Task.Delay(delay, token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Swallow the exception, as cancellation is expected
         }
 
         _oldAverageColorPublic = newColor;
     }
-
 
     private async Task UpdateLogoAsync()
     {
