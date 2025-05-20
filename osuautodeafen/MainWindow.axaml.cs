@@ -382,11 +382,11 @@ private void ResetLogoSize()
 
     private void OnGraphDataUpdated(GraphData? graphData)
     {
-        if (graphData.Series.Count > 1)
-        {
-            graphData.Series[0].Name = "aim";
-            graphData.Series[1].Name = "speed";
-        }
+        if (graphData == null || graphData.Series.Count < 2)
+            return;
+
+        graphData.Series[0].Name = "aim";
+        graphData.Series[1].Name = "speed";
 
         ChartData.Series1Values = graphData.Series[0].Data
             .Select((value, index) => new ObservablePoint(index, value))
