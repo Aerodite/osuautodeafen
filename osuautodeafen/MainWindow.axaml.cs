@@ -129,7 +129,6 @@ public partial class MainWindow : Window
 
         // Settings panel
         var settingsPanel = new SettingsPanel();
-        var settingsPanel1 = new SettingsPanel();
 
         _deafen = new Deafen(_tosuApi, settingsPanel1, _breakPeriod, _viewModel);
 
@@ -159,14 +158,33 @@ public partial class MainWindow : Window
         InitializeViewModel();
         InitializeLogo();
         
-        _tosuApi.BeatmapChanged += () =>
+        _tosuApi.BeatmapChanged += async () =>
         {
-            Dispatcher.UIThread.InvokeAsync(() => UpdateBackground(null, null));
+            await Dispatcher.UIThread.InvokeAsync(() => UpdateBackground(null, null));
             var logoImage = this.FindControl<Image>("LogoImage");
             if (logoImage != null)
             {
                 logoImage.Source = _colorChangingImage;
                 logoImage.IsVisible = true;
+            }
+
+            var currentBeatmapSet = _tosuApi.GetBeatmapSetId();
+            Console.WriteLine($"Current Beatmap Set ID: {currentBeatmapSet}");
+            if (currentBeatmapSet == 2058976)
+            {
+                HeatAbnormalEasterEgg();
+            }
+            else
+            {
+                ResetLogoSize();
+            }
+
+            // Calculate the new average color from the background or logo
+            var skBitmap = ConvertToSKBitmap(_currentBitmap);
+            if (skBitmap != null)
+            {
+                var newAverageColor = CalculateAverageColor(skBitmap);
+                await UpdateAverageColorAsync(newAverageColor);
             }
 
             OnGraphDataUpdated(_tosuApi.GetGraphData());
@@ -253,6 +271,88 @@ public partial class MainWindow : Window
     public ISeries[] Series { get; set; }
     public Axis[] XAxes { get; set; }
     public Axis[] YAxes { get; set; }
+    
+    private double? _originalLogoWidth;
+    private double? _originalLogoHeight;
+
+private Animation? _logoSpinAnimation;
+private CancellationTokenSource? _logoSpinCts;
+
+private DispatcherTimer? _spinTimer;
+
+private void HeatAbnormalEasterEgg()
+{
+    var logoImage = this.FindControl<Image>("LogoImage");
+    if (logoImage != null)
+    {
+        if (_originalLogoWidth == null || _originalLogoHeight == null)
+        {
+            _originalLogoWidth = logoImage.Width;
+            _originalLogoHeight = logoImage.Height;
+        }
+
+        logoImage.Width = 2 * _originalLogoWidth.Value;
+        logoImage.Height = 2 * _originalLogoHeight.Value;
+        logoImage.Margin = new Thickness(0, 0, 0, 0);
+        logoImage.IsVisible = true;
+
+        // Create or reuse transforms
+        TransformGroup group;
+        RotateTransform rotate;
+        ScaleTransform scale;
+
+        if (logoImage.RenderTransform is TransformGroup existingGroup &&
+            existingGroup.Children.Count == 2 &&
+            existingGroup.Children[0] is RotateTransform r &&
+            existingGroup.Children[1] is ScaleTransform s)
+        {
+            group = existingGroup;
+            rotate = r;
+            scale = s;
+        }
+        else
+        {
+            rotate = new RotateTransform();
+            scale = new ScaleTransform();
+            group = new TransformGroup { Children = { rotate, scale } };
+            logoImage.RenderTransform = group;
+        }
+
+        _spinTimer?.Stop();
+        _spinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        double angle = 0;
+        double t = 0;
+        _spinTimer.Tick += (s, e) =>
+        {
+            angle = (angle + 6) % 360;
+            rotate.Angle = angle;
+
+            // Animate scale with a sine wave (pulsing effect)
+            t += 0.1;
+            double scaleValue = 1.0 + 0.2 * Math.Sin(t); // Range: 0.8 to 1.2
+            scale.ScaleX = scale.ScaleY = scaleValue;
+        };
+        _spinTimer.Start();
+    }
+}
+
+private void ResetLogoSize()
+{
+    var logoImage = this.FindControl<Image>("LogoImage");
+    if (logoImage != null && _originalLogoWidth != null && _originalLogoHeight != null)
+    {
+        logoImage.Width = _originalLogoWidth.Value;
+        logoImage.Height = _originalLogoHeight.Value;
+        logoImage.Margin = new Thickness(0, 0, 0, 0);
+
+        // Stop the spin timer if running
+        _spinTimer?.Stop();
+        if (logoImage.RenderTransform is RotateTransform rotate)
+        {
+            rotate.Angle = 0;
+        }
+    }
+}
     
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {

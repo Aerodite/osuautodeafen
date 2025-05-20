@@ -42,14 +42,6 @@ public class UpdateChecker
 
     public async Task<bool> FetchLatestVersionAsync()
     {
-        // this is mainly to stop rate limiting github api
-        //TODO: this is kinda unnecessary now so get rid in future
-        if (lastSuccessfulCheck.HasValue && DateTime.Now - lastSuccessfulCheck.Value < cacheDuration)
-        {
-            Console.WriteLine("Using cached version data.");
-            return false; // cached data is being used, no new fetch
-        }
-
         var url = "https://api.github.com/repos/Aerodite/osuautodeafen/releases";
         client.DefaultRequestHeaders.Add("User-Agent", "C# App");
 

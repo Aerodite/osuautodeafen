@@ -19,6 +19,7 @@ public class TosuApi : IDisposable
     private readonly Timer _reconnectTimer;
     private readonly Timer _timer;
     private int _beatmapId;
+    private int _beatmapSetId;
     private BreakPeriod _breakPeriod = null!;
     private double _combo;
     private double _completionPercentage;
@@ -219,6 +220,8 @@ public class TosuApi : IDisposable
 
                         if (beatmap.TryGetProperty("id", out var beatmapId)) 
                             _beatmapId = beatmapId.GetInt32();
+                        if (beatmap.TryGetProperty("set", out var beatmapSetId)) 
+                            _beatmapSetId = beatmapSetId.GetInt32();
                         if (beatmap.TryGetProperty("checksum", out var checksum))
                             beatmapChecksum = checksum.GetString() ?? throw new InvalidOperationException();
                     }
@@ -430,6 +433,11 @@ public class TosuApi : IDisposable
     public int GetBeatmapId()
     {
         return _beatmapId;
+    }
+
+    public int GetBeatmapSetId()
+    {
+        return _beatmapSetId;
     }
     
     // Alternative method to GetBeatmapId()
