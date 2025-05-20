@@ -43,39 +43,36 @@ public class UpdateChecker
     public async Task<bool> FetchLatestVersionAsync()
     {
         var url = "https://api.github.com/repos/Aerodite/osuautodeafen/releases";
-        client.DefaultRequestHeaders.Add("User-Agent", "C# App");
 
         try
         {
-            var response = await client.GetStringAsync(url);
-            var releases = JArray.Parse(response);
-            switch (releases.Count)
+            if (!client.DefaultRequestHeaders.Contains("User-Agent"))
+                client.DefaultRequestHeaders.Add("User-Agent", "C# App");
+
+            var response = await client.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
             {
-                case > 0:
-                {
-                    var latestRelease = releases[0];
-                    latestVersion = latestRelease["tag_name"]?.ToString().TrimStart('v');
-                    lastSuccessfulCheck = DateTime.Now;
-                    return true;
-                }
-                default:
-                    Console.WriteLine("No releases found.");
-                    return false;
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            switch (ex.StatusCode)
-            {
-                case HttpStatusCode.Forbidden:
+                if (response.StatusCode == HttpStatusCode.Forbidden)
                     Console.WriteLine("Rate limit exceeded. Please wait and try again later.");
-                    break;
-                default:
-                    Console.WriteLine($"An error occurred: {ex.Message}");
-                    break;
+                else
+                    Console.WriteLine($"HTTP error: {response.StatusCode}");
+                return false;
             }
 
-            return false;
+            var content = await response.Content.ReadAsStringAsync();
+            var releases = JArray.Parse(content);
+            if (releases.Count > 0)
+            {
+                var latestRelease = releases[0];
+                latestVersion = latestRelease["tag_name"]?.ToString().TrimStart('v');
+                lastSuccessfulCheck = DateTime.Now;
+                return true;
+            }
+            else
+            {
+                Console.WriteLine("No releases found.");
+                return false;
+            }
         }
         catch (Exception ex)
         {
