@@ -1855,6 +1855,33 @@ private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoin
             throw;
         }
     }
+    
+    private SKColor _oldAverageColorPublic = SKColors.Transparent;
+
+    public async Task UpdateAverageColorAsync(SKColor newColor)
+    {
+        var steps = 20;
+        var delay = 10; // ms
+
+        var from = _oldAverageColorPublic;
+        var to = newColor;
+
+        for (int i = 0; i <= steps; i++)
+        {
+            float t = i / (float)steps;
+            var interpolated = InterpolateColor(from, to, t);
+            var avaloniaColor = Color.FromArgb(interpolated.Alpha, interpolated.Red, interpolated.Green, interpolated.Blue);
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                ViewModel.AverageColorBrush = new SolidColorBrush(avaloniaColor);
+            });
+
+            await Task.Delay(delay);
+        }
+
+        _oldAverageColorPublic = newColor;
+    }
 
 
     private async Task UpdateLogoAsync()
@@ -1930,6 +1957,8 @@ private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoin
                 try
                 {
                     newAverageColor = await CalculateAverageColorAsync(skBitmap);
+                    var avgColor = await CalculateAverageColorAsync(skBitmap);
+                    await UpdateAverageColorAsync(avgColor);
                 }
                 catch (Exception ex)
                 {
@@ -2226,12 +2255,10 @@ private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan durati
             var updateBar = this.FindControl<Button>("UpdateNotificationBar");
             var isUpdateBarVisible = updateBar != null && updateBar.IsVisible;
             var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
-            var settingsPanel2 = this.FindControl<DockPanel>("SettingsPanel2");
             var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
             var osuautodeafenLogoPanel = TextBlockPanel.FindControl<StackPanel>("osuautodeafenLogoPanel");
             var versionPanel = TextBlockPanel.FindControl<TextBlock>("VersionPanel");
             var settingsPanelMargin = settingsPanel.Margin;
-            var settingsPanel2Margin = settingsPanel2.Margin;
             var textBlockPanelMargin = textBlockPanel.Margin;
 
             settingsPanel.Transitions =
@@ -2277,8 +2304,7 @@ private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan durati
             if (settingsPanel.IsVisible)
             {
                 settingsPanel.IsVisible = false;
-                AdjustMargins(isUpdateBarVisible, settingsPanel, settingsPanel2, textBlockPanel, settingsPanelMargin,
-                    settingsPanel2Margin, textBlockPanelMargin);
+                AdjustMargins(isUpdateBarVisible, settingsPanel, textBlockPanel, settingsPanelMargin, textBlockPanelMargin);
 
                 var adjustOpacityTask = AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.5));
                 var adjustTextBlockPanelMarginTask = InvokeOnUIThreadAsync(() =>
@@ -2293,8 +2319,7 @@ private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan durati
             else
             {
                 settingsPanel.IsVisible = true;
-                AdjustMargins(isUpdateBarVisible, settingsPanel, settingsPanel2, textBlockPanel, settingsPanelMargin,
-                    settingsPanel2Margin, textBlockPanelMargin);
+                AdjustMargins(isUpdateBarVisible, settingsPanel, textBlockPanel, settingsPanelMargin, textBlockPanelMargin);
 
                 var adjustOpacityTask = AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.5));
                 var adjustTextBlockPanelMarginTask = InvokeOnUIThreadAsync(() =>
@@ -2313,16 +2338,13 @@ private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan durati
         }
     }
 
-    private static void AdjustMargins(bool isUpdateBarVisible, DockPanel settingsPanel, DockPanel settingsPanel2,
-        StackPanel textBlockPanel, Thickness settingsPanelMargin, Thickness settingsPanel2Margin,
-        Thickness textBlockPanelMargin)
+    private static void AdjustMargins(bool isUpdateBarVisible, DockPanel settingsPanel,
+        StackPanel textBlockPanel, Thickness settingsPanelMargin, Thickness textBlockPanelMargin)
     {
         if (isUpdateBarVisible)
         {
             settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
                 settingsPanelMargin.Right, 28);
-            settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
-                settingsPanel2Margin.Right, 28);
             textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
                 textBlockPanelMargin.Right, 28);
         }
@@ -2330,8 +2352,6 @@ private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan durati
         {
             settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
                 settingsPanelMargin.Right, 0);
-            settingsPanel2.Margin = new Thickness(settingsPanel2Margin.Left, settingsPanel2Margin.Top,
-                settingsPanel2Margin.Right, 0);
             textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
                 textBlockPanelMargin.Right, 0);
         }
@@ -2423,16 +2443,6 @@ private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan durati
         }
     }
 
-    private class ObservablePointComparer : IComparer<ObservablePoint>
-    {
-        public int Compare(ObservablePoint? x, ObservablePoint? y)
-        {
-            if (x?.X < y?.X) return -1;
-            if (x?.X > y?.X) return 1;
-            return 0;
-        }
-    }
-
     public class HotKey
     {
         public Key Key { get; init; }
@@ -2453,36 +2463,6 @@ private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan durati
             parts.Add(FriendlyName);
 
             return string.Join("+", parts).Replace("==", "="); // Fix for equal key
-        }
-
-        public static HotKey Parse(string str)
-        {
-            if (string.IsNullOrEmpty(str))
-                throw new ArgumentException("Invalid hotkey format. Expected 'KeyModifierKey'.");
-
-            var parts = str.Split('+');
-            if (parts.Length < 2) throw new ArgumentException("Invalid hotkey format. Expected 'KeyModifierKey'.");
-
-            var modifiers = KeyModifiers.None;
-            var key = Key.None;
-            var friendlyName = "";
-
-            foreach (var part in parts)
-                if (Enum.TryParse(part, true, out KeyModifiers modifier))
-                {
-                    modifiers |= modifier;
-                }
-                else if (Enum.TryParse(part, true, out Key parsedKey))
-                {
-                    key = parsedKey;
-                    friendlyName = part;
-                }
-                else
-                {
-                    friendlyName = part;
-                }
-
-            return new HotKey { Key = key, ModifierKeys = modifiers, FriendlyName = friendlyName };
         }
     }
 }

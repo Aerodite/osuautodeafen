@@ -46,15 +46,12 @@
             </Button>
         </StackPanel>
 
-        <!-- Settings panel -->
+        <!--- settings panel -->
         <DockPanel x:Name="SettingsPanel" Grid.Column="1" Background="#171717" Width="450" IsVisible="False"
                    Margin="0,42,0,0" ZIndex="3"
                    x:DataType="cs:SharedViewModel">
-            <!--<DockPanel.DataContext>
-                <cs:SharedViewModel />
-            </DockPanel.DataContext>-->
             <ScrollViewer VerticalScrollBarVisibility="Visible">
-                <StackPanel DockPanel.Dock="Top" x:DataType="cs:SharedViewModel">
+                <StackPanel>
                     <!--<StackPanel.DataContext>
                         <cs:SharedViewModel />
                     </StackPanel.DataContext>-->
@@ -66,10 +63,6 @@
                         <Button Width="50" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top"
                                 Background="Transparent" Margin="0" Click="SettingsButton_Click">
                             <Image Source="avares://osuautodeafen/Icons/angles-left-solid.png" />
-                        </Button>
-                        <Button Width="50" Height="50" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                Background="Transparent" Margin="0" Click="SecondPage_Click" Grid.Column="1">
-                            <Image Source="avares://osuautodeafen/Icons/angles-right-solid.png" />
                         </Button>
                     </Grid>
                     <StackPanel Orientation="Horizontal" Margin="55, 0, 0, 0">
@@ -194,64 +187,51 @@
                             </Button>
                         </StackPanel>
                     </StackPanel>
-                    <Button Content="Check for updates" Click="CheckForUpdatesButton_Click" Margin="55, 16.5, 0, 0"
+                    
+                                        <StackPanel Orientation="Horizontal" Margin="60, 10, 0, 0">
+                        <Image Source="avares://osuautodeafen/Icons/map-location-dot-solid.png" Width="25" Height="25"
+                               Margin="0, 0, 5, 0" />
+                        <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
+                                  IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
+                                  HorizontalAlignment="Left" Margin="0,0,0,0"
+                                  IsCheckedChanged="BreakUndeafenToggle_IsCheckChanged">
+                            <ToolTip.Tip>
+                                <TextBlock>
+                                    <Run Text="Toggle to decide whether or not breaks should be undeafened" />
+                                </TextBlock>
+                            </ToolTip.Tip>
+                        </CheckBox>
+                    </StackPanel>
+                    <!--might return in the future but not for now sry-->
+                    <!--<StackPanel Orientation="Horizontal" Margin="60, 10, 0, 0">
+                        <Image Source="avares://osuautodeafen/Icons/eye-slash-solid.png" Width="25" Height="25"
+                               Margin="0, 0, 5, 0" />
+                        <CheckBox x:Name="BlankEffectToggle" Content="Blank" Foreground="White"
+                                  IsChecked="{Binding IsBlankScreenEnabled, Mode=TwoWay}"
+                                  HorizontalAlignment="Left" Margin="0,0,0,0"
+                                  IsCheckedChanged="BlankEffectToggle_IsCheckedChanged"
+                                  IsEnabled="False">
+                            <ToolTip.Tip>
+                                <TextBlock>
+                                    <Run
+                                        Text="Blank out your monitors during an FC (**make sure your monitors are all set to the same scaling and that your osu! is at the primary monitor**)" />
+                                    <LineBreak />
+                                    <Run Text="(This option is only available on Windows)" />
+                                </TextBlock>
+                            </ToolTip.Tip>
+                        </CheckBox>
+                    </StackPanel>-->
+
+                    <!-- originally settings 2 -->
+                    <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
+                    <Button Content="Check for updates" Click="CheckForUpdatesButton_Click" Margin="55, 16.5, 0, 10"
                             FontSize="12" Foreground="White" VerticalAlignment="Bottom" />
+                    <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom" VerticalAlignment="Bottom"
+                               Margin="40,0,0,8" Foreground="White" FontSize="14" />
                 </StackPanel>
             </ScrollViewer>
-            <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom" VerticalAlignment="Bottom"
-                       Margin="40,0,0,8" Foreground="White" FontSize="14" />
         </DockPanel>
-        <!-- Settings panel 2 -->
-        <DockPanel x:Name="SettingsPanel2" Grid.Column="1" Background="#171717" Width="450" IsVisible="False"
-                   Margin="0,42,0,0" ZIndex="4"
-                   x:DataType="cs:SharedViewModel">
-            <!--<DockPanel.DataContext>
-                <cs:SharedViewModel />
-            </DockPanel.DataContext>-->
-            <StackPanel DockPanel.Dock="Top" x:DataType="cs:SharedViewModel">
-                <!--<StackPanel.DataContext>
-                    <cs:SharedViewModel />
-                </StackPanel.DataContext>-->
-                <Button Width="50" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top"
-                        Background="Transparent" Margin="0" Click="FirstPage_Click">
-                    <Image Source="avares://osuautodeafen/Icons/angles-left-solid.png" />
-                </Button>
-                <StackPanel Orientation="Horizontal" Margin="60, 10, 0, 0">
-                    <Image Source="avares://osuautodeafen/Icons/map-location-dot-solid.png" Width="25" Height="25"
-                           Margin="0, 0, 5, 0" />
-                    <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
-                              IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
-                              HorizontalAlignment="Left" Margin="0,0,0,0"
-                              IsCheckedChanged="BreakUndeafenToggle_IsCheckChanged">
-                        <ToolTip.Tip>
-                            <TextBlock>
-                                <Run Text="Toggle to decide whether or not breaks should be undeafened" />
-                            </TextBlock>
-                        </ToolTip.Tip>
-                    </CheckBox>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="60, 10, 0, 0">
-                    <Image Source="avares://osuautodeafen/Icons/eye-slash-solid.png" Width="25" Height="25"
-                           Margin="0, 0, 5, 0" />
-                    <CheckBox x:Name="BlankEffectToggle" Content="Blank" Foreground="White"
-                              IsChecked="{Binding IsBlankScreenEnabled, Mode=TwoWay}"
-                              HorizontalAlignment="Left" Margin="0,0,0,0"
-                              IsCheckedChanged="BlankEffectToggle_IsCheckedChanged"
-                              IsEnabled="False">
-                        <ToolTip.Tip>
-                            <TextBlock>
-                                <Run
-                                    Text="Blank out your monitors during an FC (**make sure your monitors are all set to the same scaling and that your osu! is at the primary monitor**)" />
-                                <LineBreak />
-                                <Run Text="(This option is only available on Windows)" />
-                            </TextBlock>
-                        </ToolTip.Tip>
-                    </CheckBox>
-                </StackPanel>
-            </StackPanel>
-            <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom" VerticalAlignment="Bottom"
-                       Margin="40,0,0,8" Foreground="White" FontSize="14" />
-        </DockPanel>
+
 
         <Grid x:Name="MainContainer">
             <!-- Existing content -->

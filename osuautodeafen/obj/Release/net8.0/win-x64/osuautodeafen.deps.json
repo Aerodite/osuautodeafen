@@ -16,15 +16,248 @@
           "ILMerge": "3.0.41",
           "LiveChartsCore.SkiaSharpView": "2.0.0-rc2",
           "LiveChartsCore.SkiaSharpView.Avalonia": "2.0.0-rc2",
-          "Microsoft.NET.ILLink.Tasks": "8.0.5",
+          "Microsoft.NET.ILLink.Tasks": "8.0.11",
           "Newtonsoft.Json": "13.0.3",
           "ReactiveUI": "20.1.1",
           "SharpHook": "5.3.8",
           "Svg.Skia": "2.0.0",
-          "WebSocketSharp": "1.0.3-rc11"
+          "WebSocketSharp": "1.0.3-rc11",
+          "runtimepack.Microsoft.NETCore.App.Runtime.win-x64": "8.0.11"
         },
         "runtime": {
           "osuautodeafen.dll": {}
+        }
+      },
+      "runtimepack.Microsoft.NETCore.App.Runtime.win-x64/8.0.11": {
+        "runtime": {
+          "Microsoft.CSharp.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "Microsoft.Win32.Registry.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Collections.Concurrent.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Collections.Immutable.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Collections.NonGeneric.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Collections.Specialized.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Collections.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.ComponentModel.Annotations.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.ComponentModel.Primitives.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.ComponentModel.TypeConverter.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.ComponentModel.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Console.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Data.Common.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Diagnostics.DiagnosticSource.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Diagnostics.Process.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Diagnostics.StackTrace.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Diagnostics.TraceSource.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Drawing.Primitives.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Drawing.dll": {
+            "assemblyVersion": "4.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Formats.Asn1.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.IO.Compression.Brotli.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.IO.Compression.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.IO.MemoryMappedFiles.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Linq.Expressions.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Linq.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Memory.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Net.Http.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Net.NameResolution.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Net.NetworkInformation.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Net.Primitives.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Net.Quic.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Net.Requests.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Net.Security.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Net.ServicePoint.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Net.Sockets.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Net.WebHeaderCollection.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Net.WebSockets.Client.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Net.WebSockets.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.ObjectModel.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Private.CoreLib.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Private.Uri.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Private.Xml.Linq.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Private.Xml.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Reflection.Metadata.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Runtime.InteropServices.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Runtime.Numerics.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Runtime.Serialization.Formatters.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Runtime.Serialization.Primitives.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Security.Claims.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Security.Cryptography.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Security.Principal.Windows.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Text.Json.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Text.RegularExpressions.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Threading.Channels.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Threading.Tasks.Parallel.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.Xml.Linq.dll": {
+            "assemblyVersion": "4.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          },
+          "System.dll": {
+            "assemblyVersion": "4.0.0.0",
+            "fileVersion": "8.0.1124.51707"
+          }
         }
       },
       "Avalonia/11.0.10": {
@@ -42,10 +275,6 @@
           "lib/net6.0/Avalonia.Controls.dll": {
             "assemblyVersion": "11.0.10.0",
             "fileVersion": "11.0.10.0"
-          },
-          "lib/net6.0/Avalonia.DesignerSupport.dll": {
-            "assemblyVersion": "0.7.0.0",
-            "fileVersion": "0.7.0.0"
           },
           "lib/net6.0/Avalonia.Dialogs.dll": {
             "assemblyVersion": "11.0.10.0",
@@ -68,10 +297,6 @@
             "fileVersion": "11.0.10.0"
           },
           "lib/net6.0/Avalonia.OpenGL.dll": {
-            "assemblyVersion": "11.0.10.0",
-            "fileVersion": "11.0.10.0"
-          },
-          "lib/net6.0/Avalonia.dll": {
             "assemblyVersion": "11.0.10.0",
             "fileVersion": "11.0.10.0"
           }
@@ -115,33 +340,14 @@
         "dependencies": {
           "Avalonia": "11.0.10",
           "Tmds.DBus.Protocol": "0.15.0"
-        },
-        "runtime": {
-          "lib/net6.0/Avalonia.FreeDesktop.dll": {
-            "assemblyVersion": "11.0.10.0",
-            "fileVersion": "11.0.10.0"
-          }
         }
       },
       "Avalonia.Native/11.0.10": {
         "dependencies": {
           "Avalonia": "11.0.10"
-        },
-        "runtime": {
-          "lib/net6.0/Avalonia.Native.dll": {
-            "assemblyVersion": "11.0.10.0",
-            "fileVersion": "11.0.10.0"
-          }
         }
       },
-      "Avalonia.Remote.Protocol/11.0.10": {
-        "runtime": {
-          "lib/net6.0/Avalonia.Remote.Protocol.dll": {
-            "assemblyVersion": "11.0.10.0",
-            "fileVersion": "11.0.10.0"
-          }
-        }
-      },
+      "Avalonia.Remote.Protocol/11.0.10": {},
       "Avalonia.Skia/11.0.10": {
         "dependencies": {
           "Avalonia": "11.0.10",
@@ -188,23 +394,11 @@
           "Avalonia": "11.0.10",
           "Avalonia.FreeDesktop": "11.0.10",
           "Avalonia.Skia": "11.0.10"
-        },
-        "runtime": {
-          "lib/net6.0/Avalonia.X11.dll": {
-            "assemblyVersion": "11.0.10.0",
-            "fileVersion": "11.0.10.0"
-          }
         }
       },
       "DynamicData/8.4.1": {
         "dependencies": {
           "System.Reactive": "6.0.0"
-        },
-        "runtime": {
-          "lib/net8.0/DynamicData.dll": {
-            "assemblyVersion": "8.4.0.0",
-            "fileVersion": "8.4.1.20756"
-          }
         }
       },
       "ExCSS/4.2.3": {
@@ -284,7 +478,7 @@
           }
         }
       },
-      "Microsoft.NET.ILLink.Tasks/8.0.5": {},
+      "Microsoft.NET.ILLink.Tasks/8.0.11": {},
       "Newtonsoft.Json/13.0.3": {
         "runtime": {
           "lib/net6.0/Newtonsoft.Json.dll": {
@@ -298,12 +492,6 @@
           "DynamicData": "8.4.1",
           "Splat": "15.1.1",
           "System.ComponentModel.Annotations": "5.0.0"
-        },
-        "runtime": {
-          "lib/net8.0/ReactiveUI.dll": {
-            "assemblyVersion": "20.1.0.0",
-            "fileVersion": "20.1.1.46356"
-          }
         }
       },
       "SharpHook/5.3.8": {
@@ -365,14 +553,7 @@
           }
         }
       },
-      "Splat/15.1.1": {
-        "runtime": {
-          "lib/net8.0/Splat.dll": {
-            "assemblyVersion": "15.1.0.0",
-            "fileVersion": "15.1.1.17670"
-          }
-        }
-      },
+      "Splat/15.1.1": {},
       "Svg.Custom/2.0.0": {
         "dependencies": {
           "ExCSS": "4.2.3"
@@ -411,47 +592,25 @@
         }
       },
       "System.ComponentModel.Annotations/5.0.0": {},
-      "System.IO.Pipelines/6.0.0": {
-        "runtime": {
-          "lib/net6.0/System.IO.Pipelines.dll": {
-            "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.0.21.52210"
-          }
-        }
-      },
+      "System.IO.Pipelines/6.0.0": {},
       "System.Numerics.Vectors/4.5.0": {},
-      "System.Reactive/6.0.0": {
-        "runtime": {
-          "lib/net6.0/System.Reactive.dll": {
-            "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.0.0.1"
-          }
-        }
-      },
+      "System.Reactive/6.0.0": {},
       "Tmds.DBus.Protocol/0.15.0": {
         "dependencies": {
           "System.IO.Pipelines": "6.0.0"
-        },
-        "runtime": {
-          "lib/net6.0/Tmds.DBus.Protocol.dll": {
-            "assemblyVersion": "0.15.0.0",
-            "fileVersion": "0.15.0.0"
-          }
         }
       },
-      "WebSocketSharp/1.0.3-rc11": {
-        "runtime": {
-          "lib/websocket-sharp.dll": {
-            "assemblyVersion": "1.0.2.59611",
-            "fileVersion": "1.0.2.59611"
-          }
-        }
-      }
+      "WebSocketSharp/1.0.3-rc11": {}
     }
   },
   "libraries": {
     "osuautodeafen/1.0.0": {
       "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "runtimepack.Microsoft.NETCore.App.Runtime.win-x64/8.0.11": {
+      "type": "runtimepack",
       "serviceable": false,
       "sha512": ""
     },
@@ -623,12 +782,12 @@
       "path": "microcom.runtime/0.11.0",
       "hashPath": "microcom.runtime.0.11.0.nupkg.sha512"
     },
-    "Microsoft.NET.ILLink.Tasks/8.0.5": {
+    "Microsoft.NET.ILLink.Tasks/8.0.11": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-4ISW1Ndgz86FkIbu5rVlMqhhtojdy5rUlxC/N+9kPh9qbYcvHiCvYbHKzAPVIx9OPYIjT9trXt7JI42Y5Ukq6A==",
-      "path": "microsoft.net.illink.tasks/8.0.5",
-      "hashPath": "microsoft.net.illink.tasks.8.0.5.nupkg.sha512"
+      "sha512": "sha512-zk5lnZrYJgtuJG8L4v17Ej8rZ3PUcR2iweNV08BaO5LbYHIi2wNaVNcJoLxvqgQdnjLlKnCCfVGLDr6QHeAarQ==",
+      "path": "microsoft.net.illink.tasks/8.0.11",
+      "hashPath": "microsoft.net.illink.tasks.8.0.11.nupkg.sha512"
     },
     "Newtonsoft.Json/13.0.3": {
       "type": "package",
@@ -770,5 +929,12 @@
       "path": "websocketsharp/1.0.3-rc11",
       "hashPath": "websocketsharp.1.0.3-rc11.nupkg.sha512"
     }
+  },
+  "runtimes": {
+    "win-x64": [
+      "win",
+      "any",
+      "base"
+    ]
   }
 }

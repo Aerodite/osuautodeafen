@@ -6,8 +6,10 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using SkiaSharp;
 
 namespace osuautodeafen.cs;
 
@@ -118,6 +120,20 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _deafenKeybindDisplay = value;
                 OnPropertyChanged();
+            }
+        }
+    }
+    
+    private SolidColorBrush _averageColorBrush = new SolidColorBrush(Colors.Gray);
+    public SolidColorBrush AverageColorBrush
+    {
+        get => _averageColorBrush;
+        set
+        {
+            if (_averageColorBrush != value)
+            {
+                _averageColorBrush = value;
+                OnPropertyChanged(nameof(AverageColorBrush));
             }
         }
     }
