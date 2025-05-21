@@ -2362,240 +2362,63 @@ public partial class MainWindow : Window
         _tosuApi.Dispose();
     }
 
-    private void TosuAPI_MessageReceived(double completionPercentage)
+private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
+{
+    try
     {
-        Console.WriteLine("Received: {0}", completionPercentage);
-    }
+        var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
+        var buttonContainer = this.FindControl<Border>("SettingsButtonContainer");
+        if (settingsPanel == null || buttonContainer == null) return;
+        
+        var showMargin = new Thickness(0, 42, 0, 0);
+        var hideMargin = new Thickness(200, 42, -200, 0);
 
-    private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan duration,
-        CancellationToken cancellationToken = default)
-    {
-        if (Content is Grid mainGrid)
+        settingsPanel.Transitions = new Transitions
         {
-            var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
-            if (backgroundLayer != null)
+            new ThicknessTransition
             {
-                var currentOpacity = backgroundLayer.Opacity;
-
-                _opacityCts?.Cancel();
-                _opacityCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-                var animation = new Animation
-                {
-                    Duration = duration,
-                    Easing = new QuarticEaseInOut()
-                };
-
-                animation.Children.Add(new KeyFrame
-                {
-                    Cue = new Cue(0),
-                    Setters = { new Setter(OpacityProperty, currentOpacity) }
-                });
-                animation.Children.Add(new KeyFrame
-                {
-                    Cue = new Cue(1),
-                    Setters = { new Setter(OpacityProperty, targetOpacity) }
-                });
-
-                try
-                {
-                    if (!_opacityCts.Token.IsCancellationRequested)
-                    {
-                        backgroundLayer.Opacity = targetOpacity;
-                        _currentBackgroundOpacity = targetOpacity;
-                    }
-
-                    await animation.RunAsync(backgroundLayer, _opacityCts.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    backgroundLayer.Opacity = currentOpacity;
-                    _currentBackgroundOpacity = currentOpacity;
-                }
+                Property = DockPanel.MarginProperty,
+                Duration = TimeSpan.FromMilliseconds(250),
+                Easing = new QuarticEaseInOut()
             }
-        }
-    }
+        };
 
-    private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
-    {
-        try
+        buttonContainer.Transitions = new Transitions
         {
-            var updateBar = this.FindControl<Button>("UpdateNotificationBar");
-            var isUpdateBarVisible = updateBar != null && updateBar.IsVisible;
-            var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
-            var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
-            var osuautodeafenLogoPanel = TextBlockPanel.FindControl<StackPanel>("osuautodeafenLogoPanel");
-            var versionPanel = TextBlockPanel.FindControl<TextBlock>("VersionPanel");
-            var settingsPanelMargin = settingsPanel.Margin;
-            var textBlockPanelMargin = textBlockPanel.Margin;
-
-            settingsPanel.Transitions =
-            [
-                new ThicknessTransition
-                {
-                    Property = MarginProperty,
-                    Duration = TimeSpan.FromSeconds(0.25),
-                    Easing = new LinearEasing()
-                }
-            ];
-
-            textBlockPanel.Transitions =
-            [
-                new ThicknessTransition
-                {
-                    Property = MarginProperty,
-                    Duration = TimeSpan.FromSeconds(0.25),
-                    Easing = new CircularEaseInOut()
-                }
-            ];
-
-            osuautodeafenLogoPanel!.Transitions =
-            [
-                new ThicknessTransition
-                {
-                    Property = MarginProperty,
-                    Duration = TimeSpan.FromSeconds(0.5),
-                    Easing = new BackEaseOut()
-                }
-            ];
-
-            versionPanel!.Transitions =
-            [
-                new ThicknessTransition
-                {
-                    Property = MarginProperty,
-                    Duration = TimeSpan.FromSeconds(0.6),
-                    Easing = new BackEaseOut()
-                }
-            ];
-
-            if (settingsPanel.IsVisible)
+            new ThicknessTransition
             {
-                settingsPanel.IsVisible = false;
-                AdjustMargins(isUpdateBarVisible, settingsPanel, textBlockPanel, settingsPanelMargin,
-                    textBlockPanelMargin);
-
-                var adjustOpacityTask = AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.5));
-                var adjustTextBlockPanelMarginTask = InvokeOnUIThreadAsync(() =>
-                {
-                    //textBlockPanel.Margin = new Thickness(0, 42, 0, 0);
-                    osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
-                    versionPanel.Margin = new Thickness(0, 0, 0, 0);
-                });
-
-                await Task.WhenAll(adjustOpacityTask, adjustTextBlockPanelMarginTask);
+                Property = Border.MarginProperty,
+                Duration = TimeSpan.FromMilliseconds(250),
+                Easing = new QuarticEaseInOut()
             }
-            else
-            {
-                settingsPanel.IsVisible = true;
-                AdjustMargins(isUpdateBarVisible, settingsPanel, textBlockPanel, settingsPanelMargin,
-                    textBlockPanelMargin);
+        };
 
-                var adjustOpacityTask = AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.5));
-                var adjustTextBlockPanelMarginTask = InvokeOnUIThreadAsync(() =>
-                {
-                    //textBlockPanel.Margin = new Thickness(0, 42, 225, 0);
-                    osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
-                    versionPanel.Margin = new Thickness(0, 0, 225, 0);
-                });
+        var buttonRightMargin = new Thickness(0, 42, 0, 10); // original position (right)
+        var buttonLeftMargin = new Thickness(0, 42, 200, 10); // move left by panelWidth
 
-                await Task.WhenAll(adjustOpacityTask, adjustTextBlockPanelMarginTask);
-            }
-        }
-        catch (Exception ex)
+        if (!settingsPanel.IsVisible)
         {
-            Console.WriteLine($"[ERROR] Exception in SettingsButton_Click: {ex.Message}");
-        }
-    }
+            settingsPanel.Margin = hideMargin;
+            buttonContainer.Margin = buttonRightMargin;
+            settingsPanel.IsVisible = true;
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render);
 
-    private static void AdjustMargins(bool isUpdateBarVisible, DockPanel settingsPanel,
-        StackPanel textBlockPanel, Thickness settingsPanelMargin, Thickness textBlockPanelMargin)
-    {
-        if (isUpdateBarVisible)
-        {
-            settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
-                settingsPanelMargin.Right, 28);
-            textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
-                textBlockPanelMargin.Right, 28);
+            settingsPanel.Margin = showMargin;
+            buttonContainer.Margin = buttonLeftMargin;
         }
         else
         {
-            settingsPanel.Margin = new Thickness(settingsPanelMargin.Left, settingsPanelMargin.Top,
-                settingsPanelMargin.Right, 0);
-            textBlockPanel.Margin = new Thickness(textBlockPanelMargin.Left, textBlockPanelMargin.Top,
-                textBlockPanelMargin.Right, 0);
+            settingsPanel.Margin = hideMargin;
+            buttonContainer.Margin = buttonRightMargin;
+            await Task.Delay(250);
+            settingsPanel.IsVisible = false;
         }
     }
-
-    private static Task InvokeOnUIThreadAsync(Action action)
+    catch (Exception ex)
     {
-        var tcs = new TaskCompletionSource<object?>();
-
-        Dispatcher.UIThread.Post(() =>
-        {
-            try
-            {
-                action();
-                tcs.SetResult(null);
-            }
-            catch (Exception ex)
-            {
-                tcs.SetException(ex);
-            }
-        });
-
-        return tcs.Task;
+        Console.WriteLine($"[ERROR] Exception in SettingsButton_Click: {ex.Message}");
     }
-
-    private void SecondPage_Click(object sender, RoutedEventArgs e)
-    {
-        var secondPage = this.FindControl<DockPanel>("SettingsPanel2");
-        var firstPage = this.FindControl<DockPanel>("SettingsPanel");
-
-        secondPage.IsVisible = true;
-        firstPage.IsVisible = false;
-    }
-
-    private void FirstPage_Click(object sender, RoutedEventArgs e)
-    {
-        var secondPage = this.FindControl<DockPanel>("SettingsPanel2");
-        var firstPage = this.FindControl<DockPanel>("SettingsPanel");
-
-        secondPage.IsVisible = false;
-        firstPage.IsVisible = true;
-    }
-
-    public async void BlankEffectToggle_IsCheckedChanged(object? sender, RoutedEventArgs e)
-    {
-        try
-        {
-            return;
-            // im saving this for 1.0.7 this is a pain.
-            if (!OperatingSystem.IsWindows())
-            {
-                Console.WriteLine("Blank effect is only supported on Windows.");
-                return;
-            }
-
-            if (sender is CheckBox checkBox)
-            {
-                if (_screenBlankerForm == null)
-                    // Initialize _screenBlankerForm if it is null
-                    _screenBlankerForm = new ScreenBlankerForm(this);
-
-                if (checkBox.IsChecked == true)
-                    // Initialize blanking windows if not already initialized
-                    _screenBlankerForm.InitializeBlankingWindows();
-                else
-                    // Unblank screens
-                    await _screenBlankerForm.UnblankScreensAsync();
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[ERROR] Exception in BlankEffectToggle_IsCheckedChanged: {ex.Message}");
-        }
-    }
+}
 
     private void InitializeKeybindButtonText()
     {

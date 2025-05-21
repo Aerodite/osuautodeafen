@@ -70,6 +70,13 @@
         <AvaloniaResource Include="Resources\osu_whitestroke.png" />
         <None Remove="Icons\map-location-dot-solid.png" />
         <AvaloniaResource Include="Icons\map-location-dot-solid.png" />
+        <AvaloniaResource Include="Icons\gear-solid-outline.png" />
+        <None Remove="Icons\gear-solid-outline.png" />
+        <AvaloniaResource Include="Icons\gear-solid-outline.png" />
+        <None Remove="Icons\outline.png" />
+        <AvaloniaResource Include="Icons\outline.png" />
+        <None Remove="Icons\gear-solid-small.png" />
+        <AvaloniaResource Include="Icons\gear-solid-small.png" />
     </ItemGroup>
 
     <ItemGroup>

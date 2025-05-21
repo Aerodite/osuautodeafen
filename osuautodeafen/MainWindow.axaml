@@ -36,26 +36,33 @@
         </StackPanel>
 
         <!-- Main content -->
-        <StackPanel Grid.Column="0" ZIndex="2">
-            <Button Width="50" Height="50" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent"
-                    Margin="10,42,10,10" Click="SettingsButton_Click"
-                    IsVisible="{Binding ElementName=SettingsPanel, Path=IsVisible, Converter={StaticResource NotConverter}}">
-                <Image Source="avares://osuautodeafen/Icons/gear-solid.png" />
-            </Button>
+        <StackPanel Grid.Column="0" ZIndex="9">
+            <Border x:Name="SettingsButtonContainer" Margin="0,42,0,0">
+                <Grid HorizontalAlignment="Right" VerticalAlignment="Top">
+                    <Image Source="avares://osuautodeafen/Icons/outline.png"
+                           Width="50" Height="50"/>
+                    <Button x:Name="SettingsButton"
+                            Width="50" Height="50"
+                            Background="{x:Null}"
+                            BorderBrush="{x:Null}"
+                            BorderThickness="0"
+                            CornerRadius="0"
+                            Click="SettingsButton_Click"
+                            IsVisible="True"
+                            ZIndex="1">
+                        <Image Source="avares://osuautodeafen/Icons/gear-solid-small.png"
+                               Width="50" Height="50"/>
+                    </Button>
+                </Grid>
+            </Border>
         </StackPanel>
 
         <!--- settings panel -->
         <DockPanel x:Name="SettingsPanel" Grid.Column="1" Background="#171717" Width="200" IsVisible="False"
                    Margin="0,42,0,0" ZIndex="3"
                    x:DataType="cs:SharedViewModel" HorizontalAlignment="Right">
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Visible">
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Visible" Margin="0,42,0,0">
                     <StackPanel HorizontalAlignment="Center">
-                        <Grid HorizontalAlignment="Left">
-                            <Button Width="50" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top"
-                                    Background="Transparent" Margin="0" Click="SettingsButton_Click">
-                                <Image Source="avares://osuautodeafen/Icons/angles-left-solid.png" />
-                            </Button>
-                        </Grid>
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Image Source="avares://osuautodeafen/Icons/clock-solid.png" Width="25" Height="25"
                                    Margin="0,0,5,0" />
