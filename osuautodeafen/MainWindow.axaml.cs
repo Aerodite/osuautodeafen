@@ -50,6 +50,9 @@ public partial class MainWindow : Window
     private readonly GetLowResBackground? _getLowResBackground;
     private readonly DispatcherTimer _mainTimer;
     private readonly DispatcherTimer _parallaxCheckTimer;
+    
+    public bool IsSliderTooltipOpen { get; set; }
+    private bool _isDraggingSlider = false;
 
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private readonly object _updateLock = new();
@@ -267,6 +270,9 @@ public partial class MainWindow : Window
                 await Task.Delay(500);
             }
         });
+        var sliderTooltipHelper = new SliderTooltipHelper(this, CompletionPercentageSlider, SliderTooltipPopup);
+        var tooltipHelper = new SliderTooltipHelper(this, StarRatingSlider, StarRatingSliderTooltipPopup);
+        var helper = new SliderTooltipHelper(this, PPSlider, PPSliderTooltipPopup);
     }
 
     private SharedViewModel ViewModel { get; }

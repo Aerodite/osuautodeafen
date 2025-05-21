@@ -452,6 +452,34 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
+    private bool _isSliderTooltipOpen;
+    public bool IsSliderTooltipOpen
+    {
+        get => _isSliderTooltipOpen;
+        set
+        {
+            if (_isSliderTooltipOpen != value)
+            {
+                _isSliderTooltipOpen = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private double _sliderTooltipOffsetX;
+    public double SliderTooltipOffsetX
+    {
+        get => _sliderTooltipOffsetX;
+        set
+        {
+            if (Math.Abs(_sliderTooltipOffsetX - value) > 0.01)
+            {
+                _sliderTooltipOffsetX = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     public event PropertyChangedEventHandler PropertyChanged;
 
     private async Task UpdateCompletionPercentageAsync()

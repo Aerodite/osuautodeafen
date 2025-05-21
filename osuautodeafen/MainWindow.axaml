@@ -24,15 +24,15 @@
                 <Template>
                     <StackPanel>
                         <Border Background="#333" CornerRadius="8" Padding="8" BorderBrush="#888" BorderThickness="1">
-                            <ContentPresenter/>
+                            <ContentPresenter />
                         </Border>
-                        <Polygon Points="10,0 20,10 0,10" Fill="#333" HorizontalAlignment="Center"/>
+                        <Polygon Points="10,0 20,10 0,10" Fill="#333" HorizontalAlignment="Center" />
                     </StackPanel>
                 </Template>
             </Setter>
         </Style>
     </Window.Styles>
-    
+
 
     <Grid ZIndex="5">
         <Grid.ColumnDefinitions>
@@ -86,64 +86,62 @@
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/clock-solid.png" Width="25" Height="25"
                                Margin="0,0,5,0" />
-                        <Slider
-                            x:Name="CompletionPercentageSlider"
-                            Minimum="0"
-                            Maximum="100"
-                            TickFrequency="1"
-                            IsSnapToTickEnabled="True"
-                            Value="{Binding MinCompletionPercentage, Mode=TwoWay}"
-                            Width="100"
-                            HorizontalAlignment="Center" >
-                            
-                            <Slider.Styles>
-                                <Style Selector="Slider /template/ Thumb">
-                                    <Setter Property="ToolTip.Tip" Value="{Binding $parent[Slider].Value, Mode=OneWay, StringFormat='\{0:f\}%'}" />
-                                    <Setter Property="ToolTip.Placement" Value="Top" />
-                                    <Setter Property="ToolTip.VerticalOffset" Value="-10" />
-                                    <Setter Property="ToolTip.HorizontalOffset" Value="0" />
-                                </Style>
-                            </Slider.Styles>
-                        </Slider>
-                        
+                        <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                            <Slider x:Name="CompletionPercentageSlider"
+                                    Minimum="0"
+                                    Maximum="100"
+                                    TickFrequency="1"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding MinCompletionPercentage, Mode=TwoWay}"
+                                    Width="100"
+                                    HorizontalAlignment="Center" />
+                            <Popup x:Name="SliderTooltipPopup"
+                                   VerticalOffset="-40">
+                                <Border Background="#333" CornerRadius="4" Padding="4">
+                                    <TextBlock
+                                        Text="{Binding ElementName=CompletionPercentageSlider, Path=Value, StringFormat='{}{0:F0}%'}"
+                                        Foreground="White" />
+                                </Border>
+                            </Popup>
+                        </StackPanel>
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/star-solid.png" Width="25" Height="25"
                                Margin="0,5,5,0" />
-                        <Slider x:Name="StarRatingSlider"
-                                Minimum="0" Maximum="10" TickFrequency="0.1" IsSnapToTickEnabled="True"
-                                Value="{Binding StarRating, Mode=TwoWay}"
-                                Width="100" HorizontalAlignment="Center"
-                                ToolTip.ShowDelay="5"
-                                ToolTip.Placement="Pointer">
-                            <ToolTip.Tip>
-                                <TextBlock>
-                                    <Run Text="{Binding Value, ElementName=StarRatingSlider, StringFormat='{}{0}★'}"/>
-                                    <LineBreak/>
-                                    <Run Text="Minimum Star Rating for a deafen"/>
-                                </TextBlock>
-                            </ToolTip.Tip>
-                        </Slider>
+                        <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                            <Slider x:Name="StarRatingSlider"
+                                    Minimum="0" Maximum="10" TickFrequency="0.1" IsSnapToTickEnabled="True"
+                                    Value="{Binding StarRating, Mode=TwoWay}"
+                                    Width="100" HorizontalAlignment="Center" />
+                            <Popup x:Name="StarRatingSliderTooltipPopup"
+                                   VerticalOffset="-40">
+                                <Border Background="#333" CornerRadius="4" Padding="4">
+                                    <TextBlock
+                                        Text="{Binding ElementName=StarRatingSlider, Path=Value, StringFormat='{}{0}★'}"
+                                        Foreground="White" />
+                                </Border>
+                            </Popup>
+                        </StackPanel>
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/medal-solid.png" Width="25" Height="25"
                                Margin="0,7,5,0" />
-                        <Slider x:Name="PPSlider"
-                                Minimum="0" Maximum="1000" TickFrequency="10" IsSnapToTickEnabled="True"
-                                Value="{Binding PerformancePoints, Mode=TwoWay}"
-                                Width="100" HorizontalAlignment="Center"
-                                ToolTip.ShowDelay="5"
-                                ToolTip.Placement="Pointer">
-                            <ToolTip.Tip>
-                                <TextBlock>
-                                    <Run Text="{Binding Value, ElementName=PPSlider, StringFormat='{}{0}pp'}"/>
-                                    <LineBreak/>
-                                    <Run Text="Minimum PP a map must give for a deafen"/>
-                                </TextBlock>
-                            </ToolTip.Tip>
-                        </Slider>
+                        <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                            <Slider x:Name="PPSlider"
+                                    Minimum="0" Maximum="1000" TickFrequency="10" IsSnapToTickEnabled="True"
+                                    Value="{Binding PerformancePoints, Mode=TwoWay}"
+                                    Width="100" HorizontalAlignment="Center" />
+                            <Popup x:Name="PPSliderTooltipPopup"
+                                   VerticalOffset="-40">
+                                <Border Background="#333" CornerRadius="4" Padding="4">
+                                    <TextBlock
+                                        Text="{Binding ElementName=PPSlider, Path=Value, StringFormat='{}{0}pp'}"
+                                        Foreground="White" />
+                                </Border>
+                            </Popup>
+                        </StackPanel>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/crown-solid.png" Width="25" Height="25"
