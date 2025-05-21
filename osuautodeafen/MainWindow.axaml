@@ -27,7 +27,8 @@
 
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" x:Name="TextBlockPanel" Margin="0,82,0,0">
             <StackPanel Orientation="Horizontal" Margin="0,0,0,0" x:Name="osuautodeafenLogoPanel">
-                <Image Name="osuLogo" Source="avares://osuautodeafen/Resources/osu_whitestroke.png" Height="60" Margin="0,0,0,0" />
+                <Image Name="osuLogo" Source="avares://osuautodeafen/Resources/osu_whitestroke.png" Height="60"
+                       Margin="0,0,0,0" />
                 <ContentControl Name="LogoHost" Margin="0,0,0,0" />
             </StackPanel>
             <TextBlock Text="{Binding CurrentAppVersion}" HorizontalAlignment="Center" VerticalAlignment="Top"
@@ -40,7 +41,7 @@
             <Border x:Name="SettingsButtonContainer" Margin="0,42,0,0">
                 <Grid HorizontalAlignment="Right" VerticalAlignment="Top">
                     <Image Source="avares://osuautodeafen/Icons/outline.png"
-                           Width="50" Height="50"/>
+                           Width="50" Height="50" />
                     <Button x:Name="SettingsButton"
                             Width="50" Height="50"
                             Background="{x:Null}"
@@ -55,7 +56,7 @@
                                Width="50" Height="50"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
-                               RenderTransformOrigin="0.5,0.5"/>
+                               RenderTransformOrigin="0.5,0.5" />
                     </Button>
                 </Grid>
             </Border>
@@ -65,180 +66,202 @@
         <DockPanel x:Name="SettingsPanel" Grid.Column="1" Background="#171717" Width="200" IsVisible="False"
                    Margin="0,42,0,0" ZIndex="3"
                    x:DataType="cs:SharedViewModel" HorizontalAlignment="Right">
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Visible" Margin="0,42,0,0">
-                    <StackPanel HorizontalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
-                            <Image Source="avares://osuautodeafen/Icons/clock-solid.png" Width="25" Height="25"
-                                   Margin="0,0,5,0" />
-                            <TextBox x:Name="CompletionPercentageTextBox" Width="80"
-                                     Text="{Binding MinCompletionPercentage, Mode=TwoWay}"
-                                     LostFocus="CompletionPercentageTextBox_LostFocus"
-                                     TextInput="CompletionPercentageTextBox_TextInput"
-                                     HorizontalAlignment="Left">
-                                <ToolTip.Tip>
-                                    <TextBlock
-                                        Text="How much (in percentage) of the map you have to pass until you get deafened"
-                                        Foreground="White" />
-                                </ToolTip.Tip>
-                            </TextBox>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
-                            <Image Source="avares://osuautodeafen/Icons/star-solid.png" Width="25" Height="25"
-                                   Margin="0,5,5,0" />
-                            <TextBox x:Name="StarRatingTextBox" Width="80"
-                                     Text="{Binding StarRating, Mode=TwoWay}"
-                                     LostFocus="StarRatingTextBox_LostFocus"
-                                     TextInput="StarRatingTextBox_TextInput"
-                                     HorizontalAlignment="Left">
-                                <ToolTip.Tip>
-                                    <TextBlock Text="Minimum Star Rating for a deafen" Foreground="White" />
-                                </ToolTip.Tip>
-                            </TextBox>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
-                            <Image Source="avares://osuautodeafen/Icons/medal-solid.png" Width="25" Height="25"
-                                   Margin="0,7,5,0" />
-                            <TextBox x:Name="PPTextBox" Width="80"
-                                     Text="{Binding PerformancePoints, Mode=TwoWay}"
-                                     LostFocus="PPTextBox_LostFocus"
-                                     TextInput="PPTextBox_TextInput"
-                                     HorizontalAlignment="Left">
-                                <ToolTip.Tip>
-                                    <TextBlock Text="Minimum PP a map must give for a deafen" />
-                                </ToolTip.Tip>
-                            </TextBox>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center">
-                            <Image Source="avares://osuautodeafen/Icons/crown-solid.png" Width="25" Height="25" Margin="0,0,5,0" />
-                            <CheckBox x:Name="FCToggle" Content="FC Required?" Foreground="White"
-                                      IsChecked="{Binding IsFCRequired, Mode=TwoWay}"
-                                      HorizontalAlignment="Left" Margin="0" Width="120">
-                                <ToolTip.Tip>
-                                    <TextBlock Text="Toggle if an FC is required to deafen" />
-                                </ToolTip.Tip>
-                            </CheckBox>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,0" HorizontalAlignment="Center">
-                            <Image Source="avares://osuautodeafen/Icons/shooting-star-solid.png" Width="25" Height="25" Margin="0,0,5,0" />
-                            <CheckBox x:Name="UndeafenOnMissToggle" Content="Undeafen on miss" Foreground="White"
-                                      IsChecked="{Binding UndeafenAfterMiss, Mode=TwoWay}"
-                                      IsEnabled="{Binding ElementName=FCToggle, Path=IsChecked}"
-                                      HorizontalAlignment="Left" Margin="0" Width="120">
-                                <ToolTip.Tip>
-                                    <TextBlock Text="Do you get undeafened after a miss?" />
-                                </ToolTip.Tip>
-                            </CheckBox>
-                        </StackPanel>
-                        <Button Content="Reset to Default" Click="ResetButton_Click" Margin="0,7,0,0" FontSize="12"
-                                Foreground="White" HorizontalAlignment="Center"/>
-                        <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
-                        <!--title-->
-                        <TextBlock Text="Discord Settings"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,0,0,8"
-                                   Foreground="White"
-                                   FontSize="16"/>
-                        <StackPanel HorizontalAlignment="Center">
-                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                <Image Source="avares://osuautodeafen/Icons/keyboard-solid.png" Width="27"
-                                       Height="27" Margin="0,0,5,0" />
-                                <Button x:Name="DeafenKeybindButton" Width="91" Height="40"
-                                        HorizontalAlignment="Left" FontSize="11" Margin="0"
-                                        Content="{Binding DeafenKeybindDisplay}"
-                                        HorizontalContentAlignment="Center"
-                                        VerticalContentAlignment="Center"
-                                        Click="DeafenKeybindButton_Click">
-                                    <ToolTip.Tip>
-                                        <TextBlock Text="Click to set your Discord Toggle Deafen keybind" />
-                                    </ToolTip.Tip>
-                                    <Button.Flyout>
-                                        <Flyout>
-                                            <TextBlock Text="Press any key for the keybind..." />
-                                        </Flyout>
-                                    </Button.Flyout>
-                                </Button>
-                            </StackPanel>
-                        </StackPanel>
-                        <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
-                        <!--title-->
-                        <TextBlock Text="Other Settings"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,0,0,8"
-                                   Foreground="White"
-                                   FontSize="16"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0" HorizontalAlignment="Center">
-                            <Image Source="avares://osuautodeafen/Icons/map-location-dot-solid.png" Width="25"
-                                   Height="25"
-                                   Margin="0,0,5,0" />
-                            <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
-                                      IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
-                                      HorizontalAlignment="Left" Margin="0"
-                                      IsCheckedChanged="BreakUndeafenToggle_IsCheckChanged">
-                                <ToolTip.Tip>
-                                    <TextBlock>
-                                        <Run Text="Toggle to decide whether or not breaks should be undeafened" />
-                                    </TextBlock>
-                                </ToolTip.Tip>
-                            </CheckBox>
-                        </StackPanel>
-                        <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
-                        <!--title-->
-                        <TextBlock Text="UI Settings"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,0,0,8"
-                                   Foreground="White"
-                                   FontSize="16"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center">
-                            <Image Source="avares://osuautodeafen/Icons/image-solid.png" Width="25" Height="25"
-                                   Margin="0,0,5,0" />
-                            <CheckBox x:Name="BackgroundToggle" Content="Background" Foreground="White"
-                                      IsChecked="{Binding IsBackgroundEnabled, Mode=TwoWay}"
-                                      HorizontalAlignment="Left" Margin="0">
-                                <ToolTip.Tip>
-                                    <TextBlock Text="Enable or disable the background" />
-                                </ToolTip.Tip>
-                            </CheckBox>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
-                            <Image Source="avares://osuautodeafen/Icons/arrows.png" Width="19" Height="19"
-                                   Margin="0,0,5,0" />
-                            <CheckBox x:Name="ParallaxToggle" Content="Parallax" Foreground="White"
-                                      IsChecked="{Binding IsParallaxEnabled, Mode=TwoWay}"
-                                      IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
-                                      HorizontalAlignment="Left" Margin="0">
-                                <ToolTip.Tip>
-                                    <TextBlock Text="Enable or disable the parallax effect" />
-                                </ToolTip.Tip>
-                            </CheckBox>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
-                            <Image Source="avares://osuautodeafen/Icons/images-solid.png" Width="19" Height="19"
-                                   Margin="0,0,5,0" />
-                            <CheckBox x:Name="BlurEffectToggle" Content="Blur" Foreground="White"
-                                      IsChecked="{Binding IsBlurEffectEnabled, Mode=TwoWay}"
-                                      IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
-                                      HorizontalAlignment="Left" Margin="0">
-                                <ToolTip.Tip>
-                                    <TextBlock Text="Enable or disable the blur effect" />
-                                </ToolTip.Tip>
-                            </CheckBox>
-                        </StackPanel>
-                        <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
-                        <Button x:Name="CheckForUpdatesButton"
-                                Content="Check for updates"
-                                HorizontalContentAlignment="Center"
-                                Click="CheckForUpdatesButton_Click"
-                                Width="180"
-                                HorizontalAlignment="Center"
-                                Margin="0,16.5,0,10"
-                                FontSize="12"
-                                Foreground="White"
-                                VerticalAlignment="Bottom" />
-                        <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom"
-                                   VerticalAlignment="Bottom" HorizontalAlignment="Center"
-                                   Margin="0,0,0,8" Foreground="White" FontSize="14" />
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Visible" Margin="0,42,0,0">
+                <StackPanel HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                        <Image Source="avares://osuautodeafen/Icons/clock-solid.png" Width="25" Height="25"
+                               Margin="0,0,5,0" />
+                        <Slider x:Name="CompletionPercentageSlider"
+                                Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True"
+                                Value="{Binding MinCompletionPercentage, Mode=TwoWay}"
+                                Width="120" HorizontalAlignment="Left">
+                            <ToolTip.Tip>
+                                <TextBlock
+                                    Text="How much (in percentage) of the map you have to pass until you get deafened"
+                                    Foreground="White" />
+                            </ToolTip.Tip>
+                        </Slider>
+              <TextBlock Text="{Binding MinCompletionPercentage}"
+           Width="32"
+           Margin="8,0,0,0"
+           Foreground="White"
+           VerticalAlignment="Center"
+           TextAlignment="Right"
+           FontFamily="Consolas"/>
                     </StackPanel>
-                </ScrollViewer>
+
+                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                        <Image Source="avares://osuautodeafen/Icons/star-solid.png" Width="25" Height="25"
+                               Margin="0,5,5,0" />
+                        <Slider x:Name="StarRatingSlider"
+                                Minimum="0" Maximum="10" TickFrequency="0.1" IsSnapToTickEnabled="True"
+                                Value="{Binding StarRating, Mode=TwoWay}"
+                                Width="120" HorizontalAlignment="Left">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Minimum Star Rating for a deafen" Foreground="White" />
+                            </ToolTip.Tip>
+                        </Slider>
+                        <TextBlock Text="{Binding StarRating}"
+                                   Width="32"
+                                   Margin="8,0,0,0"
+                                   Foreground="White"
+                                   VerticalAlignment="Center"
+                                   TextAlignment="Right"
+                                   FontFamily="Consolas"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                        <Image Source="avares://osuautodeafen/Icons/medal-solid.png" Width="25" Height="25"
+                               Margin="0,7,5,0" />
+                        <Slider x:Name="PPSlider"
+                                Minimum="0" Maximum="1000" TickFrequency="10" IsSnapToTickEnabled="True"
+                                Value="{Binding PerformancePoints, Mode=TwoWay}"
+                                Width="120" HorizontalAlignment="Left">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Minimum PP a map must give for a deafen" Foreground="White" />
+                            </ToolTip.Tip>
+                        </Slider>
+                        <TextBlock Text="{Binding PerformancePoints}"
+                                   Width="32"
+                                   Margin="8,0,0,0"
+                                   Foreground="White"
+                                   VerticalAlignment="Center"
+                                   TextAlignment="Right"
+                                   FontFamily="Consolas"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center">
+                        <Image Source="avares://osuautodeafen/Icons/crown-solid.png" Width="25" Height="25"
+                               Margin="0,0,5,0" />
+                        <CheckBox x:Name="FCToggle" Content="FC Required?" Foreground="White"
+                                  IsChecked="{Binding IsFCRequired, Mode=TwoWay}"
+                                  HorizontalAlignment="Left" Margin="0" Width="120">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Toggle if an FC is required to deafen" />
+                            </ToolTip.Tip>
+                        </CheckBox>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,0" HorizontalAlignment="Center">
+                        <Image Source="avares://osuautodeafen/Icons/shooting-star-solid.png" Width="25" Height="25"
+                               Margin="0,0,5,0" />
+                        <CheckBox x:Name="UndeafenOnMissToggle" Content="Undeafen on miss" Foreground="White"
+                                  IsChecked="{Binding UndeafenAfterMiss, Mode=TwoWay}"
+                                  IsEnabled="{Binding ElementName=FCToggle, Path=IsChecked}"
+                                  HorizontalAlignment="Left" Margin="0" Width="120">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Do you get undeafened after a miss?" />
+                            </ToolTip.Tip>
+                        </CheckBox>
+                    </StackPanel>
+                    <Button Content="Reset to Default" Click="ResetButton_Click" Margin="0,7,0,0" FontSize="12"
+                            Foreground="White" HorizontalAlignment="Center" />
+                    <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
+                    <!--title-->
+                    <TextBlock Text="Discord Settings"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,8"
+                               Foreground="White"
+                               FontSize="16" />
+                    <StackPanel HorizontalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Image Source="avares://osuautodeafen/Icons/keyboard-solid.png" Width="27"
+                                   Height="27" Margin="0,0,5,0" />
+                            <Button x:Name="DeafenKeybindButton" Width="91" Height="40"
+                                    HorizontalAlignment="Left" FontSize="11" Margin="0"
+                                    Content="{Binding DeafenKeybindDisplay}"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Click="DeafenKeybindButton_Click">
+                                <ToolTip.Tip>
+                                    <TextBlock Text="Click to set your Discord Toggle Deafen keybind" />
+                                </ToolTip.Tip>
+                                <Button.Flyout>
+                                    <Flyout>
+                                        <TextBlock Text="Press any key for the keybind..." />
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                    <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
+                    <!--title-->
+                    <TextBlock Text="Other Settings"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,8"
+                               Foreground="White"
+                               FontSize="16" />
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0" HorizontalAlignment="Center">
+                        <Image Source="avares://osuautodeafen/Icons/map-location-dot-solid.png" Width="25"
+                               Height="25"
+                               Margin="0,0,5,0" />
+                        <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
+                                  IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
+                                  HorizontalAlignment="Left" Margin="0"
+                                  IsCheckedChanged="BreakUndeafenToggle_IsCheckChanged">
+                            <ToolTip.Tip>
+                                <TextBlock>
+                                    <Run Text="Toggle to decide whether or not breaks should be undeafened" />
+                                </TextBlock>
+                            </ToolTip.Tip>
+                        </CheckBox>
+                    </StackPanel>
+                    <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
+                    <!--title-->
+                    <TextBlock Text="UI Settings"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,8"
+                               Foreground="White"
+                               FontSize="16" />
+                    <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center">
+                        <Image Source="avares://osuautodeafen/Icons/image-solid.png" Width="25" Height="25"
+                               Margin="0,0,5,0" />
+                        <CheckBox x:Name="BackgroundToggle" Content="Background" Foreground="White"
+                                  IsChecked="{Binding IsBackgroundEnabled, Mode=TwoWay}"
+                                  HorizontalAlignment="Left" Margin="0">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Enable or disable the background" />
+                            </ToolTip.Tip>
+                        </CheckBox>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                        <Image Source="avares://osuautodeafen/Icons/arrows.png" Width="19" Height="19"
+                               Margin="0,0,5,0" />
+                        <CheckBox x:Name="ParallaxToggle" Content="Parallax" Foreground="White"
+                                  IsChecked="{Binding IsParallaxEnabled, Mode=TwoWay}"
+                                  IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
+                                  HorizontalAlignment="Left" Margin="0">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Enable or disable the parallax effect" />
+                            </ToolTip.Tip>
+                        </CheckBox>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                        <Image Source="avares://osuautodeafen/Icons/images-solid.png" Width="19" Height="19"
+                               Margin="0,0,5,0" />
+                        <CheckBox x:Name="BlurEffectToggle" Content="Blur" Foreground="White"
+                                  IsChecked="{Binding IsBlurEffectEnabled, Mode=TwoWay}"
+                                  IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
+                                  HorizontalAlignment="Left" Margin="0">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Enable or disable the blur effect" />
+                            </ToolTip.Tip>
+                        </CheckBox>
+                    </StackPanel>
+                    <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
+                    <Button x:Name="CheckForUpdatesButton"
+                            Content="Check for updates"
+                            HorizontalContentAlignment="Center"
+                            Click="CheckForUpdatesButton_Click"
+                            Width="180"
+                            HorizontalAlignment="Center"
+                            Margin="0,16.5,0,10"
+                            FontSize="12"
+                            Foreground="White"
+                            VerticalAlignment="Bottom" />
+                    <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom"
+                               VerticalAlignment="Bottom" HorizontalAlignment="Center"
+                               Margin="0,0,0,8" Foreground="White" FontSize="14" />
+                </StackPanel>
+            </ScrollViewer>
         </DockPanel>
 
 

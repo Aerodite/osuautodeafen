@@ -251,9 +251,9 @@ public partial class MainWindow : Window
         // UI textboxes and keybinds
         InitializeKeybindButtonText();
         UpdateDeafenKeybindDisplay();
-        CompletionPercentageTextBox.Text = ViewModel.MinCompletionPercentage.ToString();
-        StarRatingTextBox.Text = ViewModel.StarRating.ToString();
-        PPTextBox.Text = ViewModel.PerformancePoints.ToString();
+        CompletionPercentageSlider.Value = ViewModel.MinCompletionPercentage;
+        StarRatingSlider.Value = ViewModel.StarRating;
+        PPSlider.Value = ViewModel.PerformancePoints;
 
         _isConstructorFinished = true;
 
@@ -1373,87 +1373,7 @@ public partial class MainWindow : Window
         if (_bitmapQueue.Count > 0) _bitmapQueue.Dequeue().Dispose();
         _disposeTimer.Stop();
     }
-
-    private void CompletionPercentageTextBox_TextInput(object sender, TextInputEventArgs e)
-    {
-        var regex = new Regex("^[0-9]{1,2}$");
-        if (e.Text != null && !regex.IsMatch(e.Text)) e.Handled = true;
-    }
-
-    private void CompletionPercentageTextBox_LostFocus(object sender, RoutedEventArgs e)
-    {
-        if (int.TryParse(CompletionPercentageTextBox.Text, out var parsedPercentage))
-        {
-            if (parsedPercentage >= 0 && parsedPercentage <= 99)
-            {
-                ViewModel.MinCompletionPercentage = parsedPercentage;
-                SaveSettingsToFile(ViewModel.MinCompletionPercentage, "MinCompletionPercentage");
-            }
-            else
-            {
-                CompletionPercentageTextBox.Text = ViewModel.MinCompletionPercentage.ToString();
-            }
-        }
-        else
-        {
-            CompletionPercentageTextBox.Text = ViewModel.MinCompletionPercentage.ToString();
-        }
-
-        if (Graph != null) UpdateChart(Graph);
-    }
-
-    private void StarRatingTextBox_TextInput(object sender, TextInputEventArgs e)
-    {
-        var regex = new Regex("^[0-9]{1,2}$");
-        if (e.Text != null && !regex.IsMatch(e.Text)) e.Handled = true;
-    }
-
-    private void StarRatingTextBox_LostFocus(object sender, RoutedEventArgs e)
-    {
-        if (int.TryParse(StarRatingTextBox.Text, out var parsedRating))
-        {
-            if (parsedRating >= 0 && parsedRating <= 15)
-            {
-                ViewModel.StarRating = parsedRating;
-                SaveSettingsToFile(ViewModel.StarRating, "StarRating");
-            }
-            else
-            {
-                StarRatingTextBox.Text = ViewModel.StarRating.ToString();
-            }
-        }
-        else
-        {
-            StarRatingTextBox.Text = ViewModel.StarRating.ToString();
-        }
-    }
-
-    private void PPTextBox_TextInput(object sender, TextInputEventArgs e)
-    {
-        var regex = new Regex("^[0-9]{1,4}$");
-        if (e.Text != null && !regex.IsMatch(e.Text)) e.Handled = true;
-    }
-
-    private void PPTextBox_LostFocus(object sender, RoutedEventArgs e)
-    {
-        if (int.TryParse(PPTextBox.Text, out var parsedPP))
-        {
-            if (parsedPP >= 0 && parsedPP <= 9999)
-            {
-                ViewModel.PerformancePoints = parsedPP;
-                SaveSettingsToFile(ViewModel.PerformancePoints, "PerformancePoints");
-            }
-            else
-            {
-                PPTextBox.Text = ViewModel.PerformancePoints.ToString();
-            }
-        }
-        else
-        {
-            PPTextBox.Text = ViewModel.PerformancePoints.ToString();
-        }
-    }
-
+    
     private void SaveSettingsToFile(object value, string settingName)
     {
         var settingsFilePath =
@@ -2275,28 +2195,7 @@ public partial class MainWindow : Window
 
     public void ResetButton_Click(object sender, RoutedEventArgs e)
     {
-        ViewModel.MinCompletionPercentage = 60;
-        ViewModel.StarRating = 0;
-        ViewModel.PerformancePoints = 0;
-
-        SaveSettingsToFile(ViewModel.MinCompletionPercentage, "MinCompletionPercentage");
-        SaveSettingsToFile(ViewModel.StarRating, "StarRating");
-        SaveSettingsToFile(ViewModel.PerformancePoints, "PerformancePoints");
-        SaveSettingsToFile(ViewModel.IsParallaxEnabled ? true : false, "IsParallaxEnabled");
-        SaveSettingsToFile(ViewModel.IsBlurEffectEnabled ? true : false, "IsBlurEffectEnabled");
-
-        CompletionPercentageTextBox.Text = ViewModel.MinCompletionPercentage.ToString();
-        StarRatingTextBox.Text = ViewModel.StarRating.ToString();
-        PPTextBox.Text = ViewModel.PerformancePoints.ToString();
-
-        if (Graph != null)
-        {
-            // Clear and re-add the series to force the chart to refresh
-            var tempSeries = PlotView.Series.ToList();
-            PlotView.Series = new List<ISeries>();
-            PlotView.Series = tempSeries;
-            UpdateChart(Graph);
-        }
+      // redoing....
     }
 
     private void UpdateErrorMessage(object? sender, EventArgs e)
