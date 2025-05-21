@@ -197,10 +197,11 @@ public partial class MainWindow : Window
 
             var currentBeatmapSet = _tosuApi.GetBeatmapSetId();
             Console.WriteLine($"Current Beatmap Set ID: {currentBeatmapSet}");
-            if (currentBeatmapSet == 2058976)
-                HeatAbnormalEasterEgg();
-            else
-                ResetLogoSize();
+            //if (currentBeatmapSet == 2058976)
+                //HeatAbnormalEasterEgg();
+                //sry too lazy to fix after LogoControl() refactor
+           // else
+                //ResetLogoSize();
 
             OnGraphDataUpdated(_tosuApi.GetGraphData());
         };
