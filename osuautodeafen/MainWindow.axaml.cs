@@ -492,7 +492,7 @@ public partial class MainWindow : Window
                 if (existingLineSeries != null)
                 {
                     existingLineSeries.Values = smoothedValues;
-                    existingLineSeries.TooltipLabelFormatter = null;
+                    existingLineSeries.TooltipLabelFormatter = _ => "";
                 }
                 else
                 {
@@ -506,7 +506,7 @@ public partial class MainWindow : Window
                         GeometryStroke = null,
                         LineSmoothness = 1,
                         EasingFunction = EasingFunctions.ExponentialOut,
-                        TooltipLabelFormatter = null
+                        TooltipLabelFormatter = _ => ""
                     });
                 }
             }
@@ -556,6 +556,8 @@ public partial class MainWindow : Window
 
             Series = seriesList.ToArray();
             PlotView.Series = seriesList.ToArray();
+            
+            PlotView.TooltipPosition = LiveChartsCore.Measure.TooltipPosition.Hidden;
 
             // Always use the current data's length for MaxLimit so the right side is never empty
             XAxes = new[]
