@@ -1580,6 +1580,7 @@ public partial class MainWindow : Window
 
 private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
 {
+    // Use last valid bitmap if null
     if (bitmap == null)
     {
         Console.WriteLine("[WARN] Bitmap is null, using last valid bitmap.");
@@ -1594,52 +1595,36 @@ private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
     {
         _lastValidBitmap = bitmap;
     }
-    
-    try
-    {
-        var _ = bitmap.Size;
-    }
+
+    // Validate bitmap
+    try { var _ = bitmap.Size; }
     catch (Exception ex)
     {
         Console.WriteLine("[ERROR] Bitmap is invalid or disposed: " + ex);
         return;
     }
-    
+
+    // Cancel previous update
     CancellationTokenSource cts;
     lock (_updateLock)
     {
-        try { _cancellationTokenSource?.Cancel(); } catch { }
+        _cancellationTokenSource?.Cancel();
         _cancellationTokenSource = new CancellationTokenSource();
         cts = _cancellationTokenSource;
     }
     var token = cts.Token;
-    
+
     async Task UpdateUI()
     {
-        if (token.IsCancellationRequested)
-            return;
+        if (token.IsCancellationRequested) return;
 
         try
         {
             // Ensure Content is a Grid
             if (Content is not Grid mainGrid)
             {
-                var newGrid = new Grid();
-                Content = newGrid;
-                mainGrid = newGrid;
-            }
-
-            // Defensive: check bitmap again
-            if (bitmap == null)
-            {
-                Console.WriteLine("[ERROR] Bitmap is null inside UpdateUI.");
-                return;
-            }
-            try { var _ = bitmap.Size; }
-            catch (Exception ex)
-            {
-                Console.WriteLine("[ERROR] Bitmap is invalid or disposed inside UpdateUI: " + ex);
-                return;
+                mainGrid = new Grid();
+                Content = mainGrid;
             }
 
             // Calculate bounds
@@ -1647,32 +1632,24 @@ private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
             double width = Math.Max(1, bounds.Width);
             double height = Math.Max(1, bounds.Height);
 
-            // Create Image control safely
-            Image? newImageControl = null;
-            try
+            // Create new background image
+            var newImage = new Image
             {
-                newImageControl = new Image
+                Source = bitmap,
+                Stretch = Stretch.UniformToFill,
+                Opacity = 0.5,
+                ZIndex = -1,
+                Effect = (ViewModel?.IsBlurEffectEnabled == true) ? new BlurEffect { Radius = 17.27 } : null,
+                Clip = new RectangleGeometry(new Rect(0, 0, width * 1.05, height * 1.05)),
+                Transitions = new Transitions
                 {
-                    Source = bitmap,
-                    Stretch = Stretch.UniformToFill,
-                    Opacity = 0.45,
-                    ZIndex = -1,
-                    Effect = (ViewModel?.IsBlurEffectEnabled == true) ? new BlurEffect { Radius = 17.27 } : null,
-                    Clip = new RectangleGeometry(new Rect(0, 0, width * 1.05, height * 1.05))
-                };
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("[ERROR] Failed to create Image control: " + ex);
-                return;
-            }
-
-            // Setup transition
-            var transition = new DoubleTransition
-            {
-                Property = OpacityProperty,
-                Duration = TimeSpan.FromSeconds(0.3),
-                Easing = new QuarticEaseInOut()
+                    new DoubleTransition
+                    {
+                        Property = OpacityProperty,
+                        Duration = TimeSpan.FromSeconds(0.3),
+                        Easing = new QuarticEaseInOut()
+                    }
+                }
             };
 
             // Find or create background layer
@@ -1688,45 +1665,37 @@ private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
             }
             backgroundLayer.RenderTransform = new ScaleTransform(1.05, 1.05);
 
-            // Remove old background with transition
+            // Remove old background with fade
             var oldBackground = backgroundLayer.Children.OfType<Image>().FirstOrDefault();
             if (oldBackground != null)
             {
-                oldBackground.Transitions = new Transitions { transition };
-                oldBackground.Opacity = 0.5;
-                try { await Task.Delay(250, token); } catch (TaskCanceledException) { }
+                oldBackground.Opacity = 0.0;
+                await Task.Delay(250, token).ContinueWith(_ => { }, TaskContinuationOptions.OnlyOnRanToCompletion);
                 if (!token.IsCancellationRequested)
                     backgroundLayer.Children.Remove(oldBackground);
             }
 
-            if (token.IsCancellationRequested)
-                return;
+            if (token.IsCancellationRequested) return;
 
             // Add new background
-            backgroundLayer.Children.Add(newImageControl!);
-            newImageControl!.Transitions = new Transitions { transition };
-            newImageControl.Opacity = 0.5;
+            backgroundLayer.Children.Add(newImage);
             backgroundLayer.Opacity = _currentBackgroundOpacity;
 
-            // Parallax logic
-            var parallaxToggle = this.FindControl<CheckBox>("ParallaxToggle");
-            var backgroundToggle = this.FindControl<CheckBox>("BackgroundToggle");
+            // Parallax
             if (ViewModel?.IsParallaxEnabled == true &&
-                parallaxToggle?.IsChecked == true &&
-                backgroundToggle?.IsChecked == true)
+                this.FindControl<CheckBox>("ParallaxToggle")?.IsChecked == true &&
+                this.FindControl<CheckBox>("BackgroundToggle")?.IsChecked == true)
             {
                 try { ApplyParallax(_mouseX, _mouseY); }
                 catch (Exception ex) { Console.WriteLine("[WARN] Parallax failed: " + ex); }
             }
-
-            Console.WriteLine("UpdateUIWithNewBackground: Update completed.");
         }
         catch (Exception ex)
         {
             Console.WriteLine("[ERROR] Error updating UI: " + ex);
         }
     }
-    
+
     try
     {
         if (Dispatcher.UIThread.CheckAccess())
