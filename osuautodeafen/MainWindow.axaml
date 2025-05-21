@@ -50,8 +50,12 @@
                             Click="SettingsButton_Click"
                             IsVisible="True"
                             ZIndex="1">
-                        <Image Source="avares://osuautodeafen/Icons/gear-solid-small.png"
-                               Width="50" Height="50"/>
+                        <Image x:Name="SettingsCogImage"
+                               Source="avares://osuautodeafen/Icons/gear-solid-small.png"
+                               Width="50" Height="50"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               RenderTransformOrigin="0.5,0.5"/>
                     </Button>
                 </Grid>
             </Border>
