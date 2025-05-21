@@ -4,32 +4,26 @@ using System.Linq;
 using System.Threading.Tasks;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
-using LiveChartsCore.SkiaSharpView;
-using LiveChartsCore.SkiaSharpView.Painting;
 using LiveChartsCore.Drawing;
 using LiveChartsCore.Measure;
+using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Avalonia;
+using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
 using osuautodeafen.cs.StrainGraph;
 using SkiaSharp;
 
 public class ChartManager
 {
-    public ISeries[] Series { get; private set; } = Array.Empty<ISeries>();
-    public Axis[] XAxes { get; private set; } = Array.Empty<Axis>();
-    public Axis[] YAxes { get; private set; } = Array.Empty<Axis>();
-    public double MaxYValue { get; private set; }
-    public double MaxLimit { get; private set; }
-    public CartesianChart PlotView { get; }
     private readonly BreakPeriodCalculator _breakPeriod;
+    private readonly LineSeries<ObservablePoint> _progressIndicator;
+    private readonly ProgressIndicatorHelper _progressIndicatorHelper;
     private readonly TosuApi _tosuApi;
     private readonly SharedViewModel _viewModel;
     private readonly List<RectangularSection> cachedBreakPeriods = new();
-    private readonly ProgressIndicatorHelper _progressIndicatorHelper;
-    private readonly LineSeries<ObservablePoint> _progressIndicator;
+    private string? cachedOsuFilePath;
     private double maxLimit;
     private double maxYValue;
-    private string? cachedOsuFilePath;
 
     public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel)
     {
@@ -70,6 +64,13 @@ public class ChartManager
         PlotView.DrawMargin = new Margin(0, 0, 0, 0);
     }
 
+    public ISeries[] Series { get; private set; } = Array.Empty<ISeries>();
+    public Axis[] XAxes { get; private set; } = Array.Empty<Axis>();
+    public Axis[] YAxes { get; private set; } = Array.Empty<Axis>();
+    public double MaxYValue { get; private set; }
+    public double MaxLimit { get; private set; }
+    public CartesianChart PlotView { get; }
+
     public void EnsureProgressIndicator(LineSeries<ObservablePoint> indicator)
     {
         if (!Series.Contains(indicator))
@@ -78,6 +79,7 @@ public class ChartManager
             PlotView.Series = Series;
         }
     }
+
     public async Task UpdateChart(GraphData? graphData, double minCompletionPercentage)
     {
         if (graphData == null) return;
@@ -88,8 +90,9 @@ public class ChartManager
         // Find max Y
         var maxY = 0.0;
         foreach (var s in graphData.Series)
-            foreach (var v in s.Data)
-                if (v != -100 && v > maxY) maxY = v;
+        foreach (var v in s.Data)
+            if (v != -100 && v > maxY)
+                maxY = v;
         maxYValue = maxY;
 
         // Update or add series
@@ -158,7 +161,8 @@ public class ChartManager
         var osuFilePath = _tosuApi.GetFullFilePath();
         if (osuFilePath != null && osuFilePath != cachedOsuFilePath)
         {
-            var breaks = await _breakPeriod.ParseBreakPeriodsAsync(osuFilePath, graphData.XAxis, graphData.Series[0].Data);
+            var breaks =
+                await _breakPeriod.ParseBreakPeriodsAsync(osuFilePath, graphData.XAxis, graphData.Series[0].Data);
             cachedBreakPeriods.Clear();
             foreach (var breakPeriod in breaks)
                 cachedBreakPeriods.Add(new RectangularSection
@@ -171,16 +175,15 @@ public class ChartManager
                 });
             cachedOsuFilePath = osuFilePath;
         }
+
         sections.AddRange(cachedBreakPeriods);
 
         // Adjust deafen rectangle for overlap
         foreach (var breakPeriod in sections)
-        {
             if (breakPeriod.Fill is SolidColorPaint paint &&
                 paint.Color == new SKColor(0xFF, 0xFF, 0x00, 64) &&
                 deafenRectangle.Xi < breakPeriod.Xj && deafenRectangle.Xj > breakPeriod.Xi)
                 deafenRectangle.Xi = breakPeriod.Xj;
-        }
 
         PlotView.Sections = sections;
 
@@ -233,6 +236,7 @@ public class ChartManager
             var idx = (int)(i * step);
             result[i] = data[idx];
         }
+
         return result;
     }
 

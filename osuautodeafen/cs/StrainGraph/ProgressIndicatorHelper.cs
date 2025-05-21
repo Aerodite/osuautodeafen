@@ -3,17 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.SkiaSharpView;
-using LiveChartsCore.SkiaSharpView.Painting;
-using SKColor = SkiaSharp.SKColor;
 
 namespace osuautodeafen.cs.StrainGraph;
 
 public class ProgressIndicatorHelper
 {
     private readonly ChartManager _chartManager;
+    private readonly LineSeries<ObservablePoint> _progressIndicator;
     private readonly TosuApi _tosuApi;
     private readonly SharedViewModel _viewModel;
-    private readonly LineSeries<ObservablePoint> _progressIndicator;
     private double _lastCompletionPercentage = -1;
 
     public ProgressIndicatorHelper(
@@ -61,7 +59,8 @@ public class ProgressIndicatorHelper
 
             if (lineSeriesList.Length == 0) return;
 
-            var sortedPointsCache = new Dictionary<LineSeries<ObservablePoint>, List<ObservablePoint>>(lineSeriesList.Length);
+            var sortedPointsCache =
+                new Dictionary<LineSeries<ObservablePoint>, List<ObservablePoint>>(lineSeriesList.Length);
             foreach (var series in lineSeriesList)
             {
                 var values = series.Values as List<ObservablePoint> ?? series.Values.ToList();
@@ -145,6 +144,7 @@ public class ProgressIndicatorHelper
                 else if (points[mid].X > x) hi = mid - 1;
                 else return mid;
             }
+
             return lo - 1;
         }
 
@@ -170,5 +170,8 @@ public class ProgressIndicatorHelper
         return (double)(ly + (ry - ly) * (x - lx) / (rx - lx));
     }
 
-    public LineSeries<ObservablePoint> GetIndicatorSeries() => _progressIndicator;
+    public LineSeries<ObservablePoint> GetIndicatorSeries()
+    {
+        return _progressIndicator;
+    }
 }

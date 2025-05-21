@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
 using osuautodeafen.cs;
+using osuautodeafen.cs.Settings;
 using SharpHook;
 using SharpHook.Data;
 using SharpHook.Native;
@@ -44,7 +45,7 @@ public class Deafen : IDisposable
     public bool screenBlankEnabled;
     public double StarRating; // User Set Minimum Star Rating
 
-    public Deafen(TosuApi tosuAPI, SettingsPanel settingsPanel, BreakPeriodCalculator breakPeriodCalculator,
+    public Deafen(TosuApi tosuAPI, SettingsHandler settingsHandler, BreakPeriodCalculator breakPeriodCalculator,
         SharedViewModel viewModel)
     {
         _tosuAPI = tosuAPI;

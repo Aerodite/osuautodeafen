@@ -9,7 +9,6 @@ using System.Windows.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using SkiaSharp;
 
 namespace osuautodeafen.cs;
 
@@ -19,6 +18,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     private readonly TosuApi _tosuApi;
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
+
+    private SolidColorBrush _averageColorBrush = new(Colors.Gray);
     private bool _breakUndeafenEnabled;
 
     private double _completionPercentage;
@@ -35,10 +36,14 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     private bool _isKeybindCaptureFlyoutOpen;
     private bool _isParallaxEnabled;
+
+    private bool _isSliderTooltipOpen;
     private int _minCompletionPercentage;
 
     private Bitmap? _modifiedLogoImage;
     private int _performancePoints;
+
+    private double _sliderTooltipOffsetX;
     private int _starRating;
 
     private string _statusMessage;
@@ -123,8 +128,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             }
         }
     }
-    
-    private SolidColorBrush _averageColorBrush = new SolidColorBrush(Colors.Gray);
+
     public SolidColorBrush AverageColorBrush
     {
         get => _averageColorBrush;
@@ -133,7 +137,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             if (_averageColorBrush != value)
             {
                 _averageColorBrush = value;
-                OnPropertyChanged(nameof(AverageColorBrush));
+                OnPropertyChanged();
             }
         }
     }
@@ -452,7 +456,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    private bool _isSliderTooltipOpen;
     public bool IsSliderTooltipOpen
     {
         get => _isSliderTooltipOpen;
@@ -466,7 +469,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    private double _sliderTooltipOffsetX;
     public double SliderTooltipOffsetX
     {
         get => _sliderTooltipOffsetX;

@@ -26,7 +26,8 @@
           "SkiaSharp.NativeAssets.macOS": "2.88.9",
           "SkiaSharp.Views": "2.88.3",
           "Svg.Skia": "2.0.0.4",
-          "WebSocketSharp": "1.0.3-rc11"
+          "WebSocketSharp": "1.0.3-rc11",
+          "ini-parser": "2.5.2"
         },
         "runtime": {
           "osuautodeafen.dll": {}
@@ -350,6 +351,14 @@
         }
       },
       "ILMerge/3.0.41": {},
+      "ini-parser/2.5.2": {
+        "runtime": {
+          "lib/net20/INIFileParser.dll": {
+            "assemblyVersion": "2.5.2.0",
+            "fileVersion": "2.5.2.0"
+          }
+        }
+      },
       "LiveChartsCore/2.0.0-rc2": {
         "runtime": {
           "lib/net6.0/LiveChartsCore.dll": {
@@ -969,6 +978,13 @@
       "sha512": "sha512-u9n45xs40bSGoNFcmMYJkh3zkGYKR4BqzQaX2uHc2Ay4drdiQOTeo/1ECps3ttDXOu4Q6qbTnsIbQWb/06ShqA==",
       "path": "ilmerge/3.0.41",
       "hashPath": "ilmerge.3.0.41.nupkg.sha512"
+    },
+    "ini-parser/2.5.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-hp3gKmC/14+6eKLgv7Jd1Z7OV86lO+tNfOXr/stQbwmRhdQuXVSvrRAuAe7G5+lwhkov0XkqZ8/bn1PYWMx6eg==",
+      "path": "ini-parser/2.5.2",
+      "hashPath": "ini-parser.2.5.2.nupkg.sha512"
     },
     "LiveChartsCore/2.0.0-rc2": {
       "type": "package",

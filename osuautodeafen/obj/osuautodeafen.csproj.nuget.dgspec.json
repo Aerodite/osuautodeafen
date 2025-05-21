@@ -119,6 +119,10 @@
             "WebSocketSharp": {
               "target": "Package",
               "version": "[1.0.3-rc11, )"
+            },
+            "ini-parser": {
+              "target": "Package",
+              "version": "[2.5.2, )"
             }
           },
           "imports": [

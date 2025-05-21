@@ -21,15 +21,12 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
-using LiveChartsCore;
 using LiveChartsCore.Defaults;
-using LiveChartsCore.Drawing;
-using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
-using LiveChartsCore.SkiaSharpView.Avalonia;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Screen;
+using osuautodeafen.cs.Settings;
 using osuautodeafen.cs.StrainGraph;
 using SkiaSharp;
 using Svg.Skia;
@@ -45,17 +42,16 @@ public partial class MainWindow : Window
     private readonly AnimationManager _animationManager = new();
     private readonly Queue<Bitmap> _bitmapQueue = new(1);
     private readonly BreakPeriodCalculator _breakPeriod;
+    private SettingsHandler? _settingsHandler;
+
+    private readonly ChartManager _chartManager;
     private readonly Bitmap _colorChangingImage = null!;
     private readonly Deafen _deafen;
     private readonly DispatcherTimer _disposeTimer;
     private readonly GetLowResBackground? _getLowResBackground;
     private readonly DispatcherTimer _mainTimer;
-    private readonly DispatcherTimer _parallaxCheckTimer;
-    
-    private ChartManager _chartManager;
-    private ProgressIndicatorHelper _progressIndicatorHelper;
-    
-    private bool _isDraggingSlider = false;
+    private readonly DispatcherTimer _parallaxCheckTimer = null!;
+    private readonly ProgressIndicatorHelper _progressIndicatorHelper;
 
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private readonly object _updateLock = new();
@@ -64,11 +60,10 @@ public partial class MainWindow : Window
     private readonly object _updateLogoLock = new();
 
     private readonly SharedViewModel _viewModel;
-    private readonly SettingsPanel settingsPanel1 = null!;
+
     private BlurEffect? _backgroundBlurEffect;
 
     private PropertyChangedEventHandler? _backgroundPropertyChangedHandler;
-    private Grid? _blackBackground;
     private Image? _blurredBackground;
     private SKSvg? _cachedLogoSvg;
 
@@ -84,12 +79,12 @@ public partial class MainWindow : Window
 
     private double _currentBackgroundOpacity = 1.0;
     private Bitmap? _currentBitmap;
-    private KeyModifiers _currentKeyModifiers = KeyModifiers.None;
-    private HotKey? _deafenKeybind;
     private LineSeries<ObservablePoint> _deafenMarker = null!;
     private Thread _graphDataThread = null!;
     private bool _hasDisplayed = false;
     private bool _isConstructorFinished;
+
+    private bool _isDraggingSlider = false;
     private bool _isTransitioning = false;
     private double _lastCompletionPercentage = -1;
 
@@ -100,35 +95,21 @@ public partial class MainWindow : Window
     private Bitmap? _lastValidBitmap;
     private LogoControl? _logoControl;
 
-    private Animation? _logoSpinAnimation;
-    private CancellationTokenSource? _logoSpinCts;
-
     private Bitmap? _lowResBitmap;
     private double _mouseX;
     private double _mouseY;
-    private Image? _normalBackground;
     private SKColor _oldAverageColor = SKColors.Transparent;
 
     private SKColor _oldAverageColorPublic = SKColors.Transparent;
 
     private CancellationTokenSource? _opacityCts;
-    private double? _originalLogoHeight;
-
-    private double? _originalLogoWidth;
 
     private Canvas _progressIndicatorCanvas = null!;
     private Line _progressIndicatorLine = null!;
-    private ScreenBlanker _screenBlanker = null!;
-    private ScreenBlankerForm? _screenBlankerForm;
-
-    private DispatcherTimer? _spinTimer;
+    
     public TosuApi _tosuApi = new();
-    private DispatcherTimer? _visibilityCheckTimer;
-    private string? cachedOsuFilePath;
-    private double deafenProgressPercentage;
-    private double deafenTimestamp;
-
-    private LineSeries<ObservablePoint>? progressIndicator;
+    
+    private Image? _normalBackground;
 
 
     //<summary>
@@ -143,33 +124,24 @@ public partial class MainWindow : Window
         ViewModel = _viewModel;
         DataContext = _viewModel;
 
-        // Settings and resources
-        LoadSettings();
         Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.favicon.ico"));
 
         // Core services
         _getLowResBackground = new GetLowResBackground(_tosuApi);
 
         // Settings panel
-        var settingsPanel = new SettingsPanel();
+        var settingsPanel = new SettingsHandler();
 
-        _deafen = new Deafen(_tosuApi, settingsPanel1, _breakPeriod, _viewModel);
+        _deafen = new Deafen(_tosuApi, settingsPanel, _breakPeriod, _viewModel);
 
         // Timers
         _disposeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _disposeTimer.Tick += DisposeTimer_Tick;
 
-        _parallaxCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _parallaxCheckTimer.Tick += CheckParallaxSetting;
-        _parallaxCheckTimer.Start();
-
         _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
-
-        // UI setup
-        InitializeVisibilityCheckTimer();
 
         var oldContent = Content;
         Content = null;
@@ -234,10 +206,11 @@ public partial class MainWindow : Window
         PPSlider.Value = ViewModel.PerformancePoints;
 
         _isConstructorFinished = true;
-        var sliderTooltipHelper = new SliderTooltipHelper(this, CompletionPercentageSlider, CompletionPercentageSliderTooltipPopup);
+        var sliderTooltipHelper =
+            new SliderTooltipHelper(this, CompletionPercentageSlider, CompletionPercentageSliderTooltipPopup);
         var tooltipHelper = new SliderTooltipHelper(this, StarRatingSlider, StarRatingSliderTooltipPopup);
         var helper = new SliderTooltipHelper(this, PPSlider, PPSliderTooltipPopup);
-        progressIndicator = new LineSeries<ObservablePoint>
+        var progressIndicator1 = new LineSeries<ObservablePoint>
         {
             Stroke = new SolidColorPaint(new SKColor(0xFF, 0xFF, 0xFF, 192)) { StrokeThickness = 5 },
             GeometryFill = null,
@@ -245,12 +218,12 @@ public partial class MainWindow : Window
             LineSmoothness = 0,
             Values = new List<ObservablePoint>()
         };
-        
+
         _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel);
-        
-        _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel, progressIndicator);
-        
-        
+
+        _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel, progressIndicator1);
+
+
         // this is only here to replace that stupid timer logic :)
         // good sacrifice if you ask me
         Task.Run(async () =>
@@ -265,11 +238,12 @@ public partial class MainWindow : Window
 
     private SharedViewModel ViewModel { get; }
     private bool IsBlackBackgroundDisplayed { get; set; }
-    
+
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(SharedViewModel.CompletionPercentage))
-            Dispatcher.UIThread.InvokeAsync(() => _progressIndicatorHelper.UpdateProgressIndicator(_tosuApi.GetCompletionPercentage()));
+            Dispatcher.UIThread.InvokeAsync(() =>
+                _progressIndicatorHelper.UpdateProgressIndicator(_tosuApi.GetCompletionPercentage()));
     }
 
     private void OnGraphDataUpdated(GraphData? graphData)
@@ -318,47 +292,11 @@ public partial class MainWindow : Window
         (PlotView.Parent as Grid)?.Children.Add(_progressIndicatorCanvas);
     }
 
-    private void InitializeVisibilityCheckTimer()
-    {
-        _visibilityCheckTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(100)
-        };
-        _visibilityCheckTimer.Tick += VisibilityCheckTimer_Tick;
-        _visibilityCheckTimer.Start();
-    }
-
-    private void VisibilityCheckTimer_Tick(object? sender, EventArgs e)
-    {
-        _blurredBackground.IsVisible = ViewModel.IsBlurEffectEnabled;
-        _normalBackground.IsVisible = !ViewModel.IsBlurEffectEnabled;
-    }
-
     // show the update notification bar if an update is available
     private async void InitializeViewModel()
     {
         await _updateChecker.FetchLatestVersionAsync();
         DataContext = ViewModel;
-    }
-
-    private async void CheckForUpdatesIfNeeded()
-    {
-        if ((DateTime.Now - _lastUpdateCheck).TotalMinutes > 20)
-        {
-            _lastUpdateCheck = DateTime.Now;
-            await _updateChecker.FetchLatestVersionAsync();
-
-            if (string.IsNullOrEmpty(_updateChecker.latestVersion))
-            {
-                Console.WriteLine("Latest version string is null or empty.");
-                return;
-            }
-
-            var currentVersion = new Version(UpdateChecker.currentVersion);
-            var latestVersion = new Version(_updateChecker.latestVersion);
-
-            if (latestVersion > currentVersion) ShowUpdateNotification();
-        }
     }
 
     // grab the keybind from the settings file and update the display
@@ -420,9 +358,6 @@ public partial class MainWindow : Window
         // create and set the new hotkey
         var friendlyKeyName = GetFriendlyKeyName(e.Key);
         ViewModel.DeafenKeybind = new HotKey { Key = e.Key, ModifierKeys = modifiers, FriendlyName = friendlyKeyName };
-
-        // save the new hotkey to settings
-        SaveSettingsToFile(ViewModel.DeafenKeybind.ToString(), "Hotkey");
 
         e.Handled = true;
     }
@@ -501,53 +436,8 @@ public partial class MainWindow : Window
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
         _tosuApi.CheckForBeatmapChange();
-        Dispatcher.UIThread.InvokeAsync(() => CheckIsFCRequiredSetting(sender, e));
-        Dispatcher.UIThread.InvokeAsync(() => CheckBackgroundSetting(sender, e));
-        Dispatcher.UIThread.InvokeAsync(() => CheckParallaxSetting(sender, e));
         Dispatcher.UIThread.InvokeAsync(() => UpdateErrorMessage(sender, e));
-        Dispatcher.UIThread.InvokeAsync(() => CheckBlurEffectSetting(sender, e));
-        Dispatcher.UIThread.InvokeAsync(() => CheckBreakUndeafenEnabled(sender, e));
         Dispatcher.UIThread.InvokeAsync(UpdateDeafenKeybindDisplay);
-        Dispatcher.UIThread.InvokeAsync(() => CheckMissUndeafenSetting(sender, e));
-        Dispatcher.UIThread.InvokeAsync(CheckForUpdatesIfNeeded);
-        Dispatcher.UIThread.InvokeAsync(() => CheckBlankSetting(sender, e));
-    }
-
-
-    private void CheckIsFCRequiredSetting(object? sender, EventArgs? e)
-    {
-        {
-            var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "osuautodeafen", "settings.txt");
-
-            if (File.Exists(settingsFilePath))
-            {
-                var lines = File.ReadAllLines(settingsFilePath);
-                var fcSettingLine = Array.Find(lines, line => line.StartsWith("IsFCRequired"));
-                if (fcSettingLine != null)
-                {
-                    var settings = fcSettingLine.Split('=');
-                    if (settings.Length == 2 && bool.TryParse(settings[1], out var parsedisFcRequired))
-                    {
-                        ViewModel.IsFCRequired = parsedisFcRequired;
-                        this.FindControl<CheckBox>("FCToggle")!.IsChecked = parsedisFcRequired;
-                    }
-                }
-                else
-                {
-                    ViewModel.IsFCRequired = false;
-                    SaveSettingsToFile(false, "IsFcRequired");
-                    this.FindControl<CheckBox>("FCToggle")!.IsChecked = false;
-                }
-            }
-            else
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath));
-                ViewModel.IsFCRequired = false;
-                SaveSettingsToFile(false, "IsFCRequired");
-                this.FindControl<CheckBox>("FCToggle").IsChecked = false;
-            }
-        }
     }
 
     public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)
@@ -586,95 +476,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private void LoadSettings()
-    {
-        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.txt");
-
-        if (!File.Exists(settingsFilePath))
-        {
-            ViewModel.MinCompletionPercentage = 60;
-            ViewModel.StarRating = 0;
-            ViewModel.PerformancePoints = 0;
-            ViewModel.IsParallaxEnabled = true;
-            ViewModel.IsBlurEffectEnabled = true;
-            ViewModel.IsFCRequired = true;
-            ViewModel.UndeafenAfterMiss = false;
-            SaveSettingsToFile();
-            return;
-        }
-
-        var settingsLines = File.ReadAllLines(settingsFilePath);
-        foreach (var line in settingsLines)
-        {
-            var settings = line.Split('=');
-            if (settings.Length != 2) continue;
-
-            switch (settings[0].Trim())
-            {
-                case "Hotkey":
-                    break;
-                case "MinCompletionPercentage":
-                    if (int.TryParse(settings[1], out var parsedPercentage))
-                        ViewModel.MinCompletionPercentage = parsedPercentage;
-
-                    break;
-                case "StarRating":
-                    if (int.TryParse(settings[1], out var parsedRating)) ViewModel.StarRating = parsedRating;
-
-                    break;
-                case "PerformancePoints":
-                    if (int.TryParse(settings[1], out var parsedPP)) ViewModel.PerformancePoints = parsedPP;
-
-                    break;
-                case "IsParallaxEnabled":
-                    if (bool.TryParse(settings[1], out var parsedIsParallaxEnabled))
-                        ViewModel.IsParallaxEnabled = parsedIsParallaxEnabled;
-
-                    break;
-                case "IsBlurEffectEnabled":
-                    if (bool.TryParse(settings[1], out var parsedIsBlurEffectEnabled))
-                        ViewModel.IsBlurEffectEnabled = parsedIsBlurEffectEnabled;
-
-                    break;
-                case "UndeafenAfterMiss":
-                    if (bool.TryParse(settings[1], out var parsedUndeafenAfterMiss))
-                        ViewModel.UndeafenAfterMiss = parsedUndeafenAfterMiss;
-
-                    break;
-                case "IsBlankScreenEnabled":
-                    if (bool.TryParse(settings[1], out var parsedIsBlankScreenEnabled))
-                        ViewModel.IsBlankScreenEnabled = parsedIsBlankScreenEnabled;
-                    break;
-            }
-        }
-    }
-
-    private void SaveSettingsToFile()
-    {
-        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.txt");
-
-        Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath) ?? throw new InvalidOperationException());
-
-        string[] settingsLines =
-        {
-            $"MinCompletionPercentage={ViewModel.MinCompletionPercentage}",
-            $"StarRating={ViewModel.StarRating}",
-            $"PerformancePoints={ViewModel.PerformancePoints}",
-            $"IsParallaxEnabled={ViewModel.IsParallaxEnabled}",
-            $"IsBlurEffectEnabled={ViewModel.IsBlurEffectEnabled}",
-            $"Hotkey={ViewModel.DeafenKeybind}",
-            $"IsBlankScreenEnabled={ViewModel.IsBlankScreenEnabled}"
-        };
-
-        // update updatedeafenkeybinddisplay with hotkey
-        UpdateDeafenKeybindDisplay();
-
-
-        File.WriteAllLines(settingsFilePath, settingsLines);
-    }
-
     private bool IsModifierKey(Key key)
     {
         return key == Key.LeftCtrl || key == Key.RightCtrl ||
@@ -682,247 +483,10 @@ public partial class MainWindow : Window
                key == Key.LeftShift || key == Key.RightShift;
     }
 
-    private void CheckBackgroundSetting(object? sender, EventArgs? e)
-    {
-        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.txt");
-
-        if (File.Exists(settingsFilePath))
-        {
-            var lines = File.ReadAllLines(settingsFilePath);
-            var backgroundSettingLine = Array.Find(lines, line => line.StartsWith("IsBackgroundEnabled"));
-            if (backgroundSettingLine != null)
-            {
-                var settings = backgroundSettingLine.Split('=');
-                if (settings.Length == 2 && bool.TryParse(settings[1], out var parsedIsBackgroundEnabled))
-                {
-                    ViewModel.IsBackgroundEnabled = parsedIsBackgroundEnabled;
-                    this.FindControl<CheckBox>("BackgroundToggle")!.IsChecked = parsedIsBackgroundEnabled;
-                }
-            }
-            else
-            {
-                ViewModel.IsBackgroundEnabled = true;
-                SaveSettingsToFile(true, "IsBackgroundEnabled");
-                this.FindControl<CheckBox>("BackgroundToggle")!.IsChecked = true;
-            }
-        }
-        else
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath) ?? throw new InvalidOperationException());
-            ViewModel.IsBackgroundEnabled = true;
-            SaveSettingsToFile(true, "IsBackgroundEnabled");
-            this.FindControl<CheckBox>("BackgroundToggle")!.IsChecked = true;
-        }
-    }
-
-    private void CheckMissUndeafenSetting(object? sender, EventArgs? e)
-    {
-        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.txt");
-
-        if (File.Exists(settingsFilePath))
-        {
-            var lines = File.ReadAllLines(settingsFilePath);
-            var missUndeafenSettingLine = Array.Find(lines, line => line.StartsWith("UndeafenAfterMiss"));
-            if (missUndeafenSettingLine != null)
-            {
-                var settings = missUndeafenSettingLine.Split('=');
-                if (settings.Length == 2 && bool.TryParse(settings[1], out var parsedUndeafenAfterMiss))
-                {
-                    ViewModel.UndeafenAfterMiss = parsedUndeafenAfterMiss;
-                    this.FindControl<CheckBox>("UndeafenOnMiss")!.IsChecked = parsedUndeafenAfterMiss;
-                }
-            }
-            else
-            {
-                ViewModel.UndeafenAfterMiss = true;
-                SaveSettingsToFile(true, "UnAfterMiss");
-                this.FindControl<CheckBox>("UndeafenOnMiss")!.IsChecked = true;
-            }
-        }
-        else
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath) ?? throw new InvalidOperationException());
-            ViewModel.UndeafenAfterMiss = true;
-            SaveSettingsToFile(true, "UndeafenAfterMiss");
-            this.FindControl<CheckBox>("UndeafenOnMiss")!.IsChecked = true;
-        }
-    }
-
-    private void CheckBlankSetting(object? sender, EventArgs? e)
-    {
-        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.txt");
-
-        if (File.Exists(settingsFilePath))
-        {
-            var lines = File.ReadAllLines(settingsFilePath);
-            var blankSettingLine = Array.Find(lines, line => line.StartsWith("IsBlankScreenEnabled"));
-            if (blankSettingLine != null)
-            {
-                var settings = blankSettingLine.Split('=');
-                if (settings.Length == 2 && bool.TryParse(settings[1], out var parsedIsBlankScreenEnabled))
-                {
-                    ViewModel.IsBlankScreenEnabled = parsedIsBlankScreenEnabled;
-                    this.FindControl<CheckBox>("BlankEffectToggle")!.IsChecked = parsedIsBlankScreenEnabled;
-                }
-            }
-            else
-            {
-                ViewModel.IsBlankScreenEnabled = true;
-                SaveSettingsToFile(true, "IsBlankScreenEnabled");
-                this.FindControl<CheckBox>("BlankEffectToggle")!.IsChecked = true;
-            }
-        }
-        else
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath) ?? throw new InvalidOperationException());
-            ViewModel.IsBlankScreenEnabled = true;
-            SaveSettingsToFile(true, "IsBlankScreenEnabled");
-            this.FindControl<CheckBox>("BlankEffectToggle")!.IsChecked = true;
-        }
-    }
-
-    private void CheckParallaxSetting(object? sender, EventArgs? e)
-    {
-        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.txt");
-
-        if (File.Exists(settingsFilePath))
-        {
-            var lines = File.ReadAllLines(settingsFilePath);
-            var parallaxSettingLine = Array.Find(lines, line => line.StartsWith("IsParallaxEnabled"));
-            if (parallaxSettingLine != null)
-            {
-                var settings = parallaxSettingLine.Split('=');
-                if (settings.Length == 2 && bool.TryParse(settings[1], out var parsedIsParallaxEnabled))
-                {
-                    ViewModel.IsParallaxEnabled = parsedIsParallaxEnabled;
-                    this.FindControl<CheckBox>("ParallaxToggle")!.IsChecked = parsedIsParallaxEnabled;
-                }
-            }
-            else
-            {
-                ViewModel.IsParallaxEnabled = true;
-                SaveSettingsToFile(true, "IsParallaxEnabled");
-                this.FindControl<CheckBox>("ParallaxToggle")!.IsChecked = true;
-            }
-        }
-        else
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath) ?? throw new InvalidOperationException());
-            ViewModel.IsParallaxEnabled = true;
-            SaveSettingsToFile(true, "IsParallaxEnabled");
-            this.FindControl<CheckBox>("ParallaxToggle")!.IsChecked = true;
-        }
-    }
-
-    private void CheckBlurEffectSetting(object? sender, EventArgs? e)
-    {
-        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.txt");
-
-        var defaultBlurEffectEnabled = true;
-
-        if (File.Exists(settingsFilePath))
-            try
-            {
-                string?[] lines = File.ReadAllLines(settingsFilePath);
-                var blurEffectSettingLine =
-                    Array.Find(lines, line => line != null && line.StartsWith("IsBlurEffectEnabled"));
-                if (blurEffectSettingLine != null)
-                {
-                    var parts = blurEffectSettingLine.Split('=');
-                    if (parts.Length == 2 && bool.TryParse(parts[1], out var parsedIsBlurEffectEnabled))
-                        ViewModel.IsBlurEffectEnabled = parsedIsBlurEffectEnabled;
-                    else
-                        ViewModel.IsBlurEffectEnabled = defaultBlurEffectEnabled;
-                }
-                else
-                {
-                    ViewModel.IsBlurEffectEnabled = defaultBlurEffectEnabled;
-                }
-            }
-            catch
-            {
-                ViewModel.IsBlurEffectEnabled = defaultBlurEffectEnabled;
-            }
-        else
-            ViewModel.IsBlurEffectEnabled = defaultBlurEffectEnabled;
-
-        this.FindControl<CheckBox>("BlurEffectToggle")!.IsChecked = ViewModel.IsBlurEffectEnabled;
-    }
-
-    private void CheckBreakUndeafenEnabled(object? sender, EventArgs? e)
-    {
-        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.txt");
-
-        if (File.Exists(settingsFilePath))
-        {
-            var lines = File.ReadAllLines(settingsFilePath);
-            var breakUndeafenSettingLine = Array.Find(lines, line => line.StartsWith("BreakUndeafenEnabled"));
-            if (breakUndeafenSettingLine != null)
-            {
-                var settings = breakUndeafenSettingLine.Split('=');
-                if (settings.Length == 2 && bool.TryParse(settings[1], out var parsedIsBreakUndeafenEnabled))
-                {
-                    ViewModel.BreakUndeafenEnabled = parsedIsBreakUndeafenEnabled;
-                    this.FindControl<CheckBox>("BreakUndeafenToggle")!.IsChecked = parsedIsBreakUndeafenEnabled;
-                }
-            }
-            else
-            {
-                ViewModel.BreakUndeafenEnabled = true;
-                SaveSettingsToFile(true, "BreakUndeafenEnabled");
-                this.FindControl<CheckBox>("BreakUndeafenToggle")!.IsChecked = true;
-            }
-        }
-        else
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(settingsFilePath) ?? throw new InvalidOperationException());
-            ViewModel.BreakUndeafenEnabled = true;
-            SaveSettingsToFile(true, "BreakUndeafenEnabled");
-            this.FindControl<CheckBox>("BreakUndeafenToggle")!.IsChecked = true;
-        }
-    }
-
     private void DisposeTimer_Tick(object? sender, EventArgs e)
     {
         if (_bitmapQueue.Count > 0) _bitmapQueue.Dequeue().Dispose();
         _disposeTimer.Stop();
-    }
-    
-    private void SaveSettingsToFile(object value, string settingName)
-    {
-        var settingsFilePath =
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen",
-                "settings.txt");
-        try
-        {
-            var lines = File.ReadAllLines(settingsFilePath);
-
-            var index = Array.FindIndex(lines, line => line.StartsWith(settingName));
-
-            var valueString = value is bool b ? b ? "true" : "false" : value.ToString();
-
-            if (index != -1)
-            {
-                lines[index] = $"{settingName}={valueString}";
-            }
-            else
-            {
-                var newLines = new List<string>(lines) { $"{settingName}={valueString}" };
-                lines = newLines.ToArray();
-            }
-
-            File.WriteAllLines(settingsFilePath, lines);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex);
-        }
     }
 
 
@@ -1715,7 +1279,7 @@ public partial class MainWindow : Window
 
     public void ResetButton_Click(object sender, RoutedEventArgs e)
     {
-      // redoing....
+        // redoing....
     }
 
     private void UpdateErrorMessage(object? sender, EventArgs e)
@@ -1729,161 +1293,162 @@ public partial class MainWindow : Window
     {
         _tosuApi.Dispose();
     }
-    
-private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
-{
-    try
+
+    private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
     {
-        var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
-        var buttonContainer = this.FindControl<Border>("SettingsButtonContainer");
-        var cogImage = this.FindControl<Image>("SettingsCogImage");
-        var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
-        var osuautodeafenLogoPanel = textBlockPanel?.FindControl<StackPanel>("osuautodeafenLogoPanel");
-        var versionPanel = textBlockPanel?.FindControl<TextBlock>("VersionPanel");
-        if (settingsPanel == null || buttonContainer == null || cogImage == null ||
-            textBlockPanel == null || osuautodeafenLogoPanel == null || versionPanel == null)
-            return;
-
-        var showMargin = new Thickness(0, 42, 0, 0);
-        var hideMargin = new Thickness(200, 42, -200, 0);
-        var buttonRightMargin = new Thickness(0, 42, 0, 10);
-        var buttonLeftMargin = new Thickness(0, 42, 200, 10);
-
-        Task EnsureCogCenterAsync()
+        try
         {
-            return Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                cogImage.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
-                if (cogImage.RenderTransform is not RotateTransform)
-                    cogImage.RenderTransform = new RotateTransform(0);
-            }).GetTask();
-        }
+            var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
+            var buttonContainer = this.FindControl<Border>("SettingsButtonContainer");
+            var cogImage = this.FindControl<Image>("SettingsCogImage");
+            var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
+            var osuautodeafenLogoPanel = textBlockPanel?.FindControl<StackPanel>("osuautodeafenLogoPanel");
+            var versionPanel = textBlockPanel?.FindControl<TextBlock>("VersionPanel");
+            if (settingsPanel == null || buttonContainer == null || cogImage == null ||
+                textBlockPanel == null || osuautodeafenLogoPanel == null || versionPanel == null)
+                return;
 
-        if (!settingsPanel.IsVisible)
-        {
-            await EnsureCogCenterAsync();
-            var rotate = (RotateTransform)cogImage.RenderTransform!;
-            _cogSpinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-            _cogSpinTimer.Tick += (s, ev) =>
-            {
-                _cogCurrentAngle = (_cogCurrentAngle + 4) % 360;
-                rotate.Angle = _cogCurrentAngle;
-            };
-            _cogSpinTimer.Start();
+            var showMargin = new Thickness(0, 42, 0, 0);
+            var hideMargin = new Thickness(200, 42, -200, 0);
+            var buttonRightMargin = new Thickness(0, 42, 0, 10);
+            var buttonLeftMargin = new Thickness(0, 42, 200, 10);
 
-            // Set initial margins and transitions BEFORE making visible
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            Task EnsureCogCenterAsync()
             {
-                settingsPanel.Margin = hideMargin;
-                buttonContainer.Margin = buttonRightMargin;
-                settingsPanel.Transitions = new Transitions
+                return Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    new ThicknessTransition
-                    {
-                        Property = MarginProperty,
-                        Duration = TimeSpan.FromMilliseconds(250),
-                        Easing = new QuarticEaseInOut()
-                    }
-                };
-                buttonContainer.Transitions = new Transitions
-                {
-                    new ThicknessTransition
-                    {
-                        Property = MarginProperty,
-                        Duration = TimeSpan.FromMilliseconds(250),
-                        Easing = new QuarticEaseInOut()
-                    }
-                };
-                osuautodeafenLogoPanel.Transitions = new Transitions
-                {
-                    new ThicknessTransition
-                    {
-                        Property = MarginProperty,
-                        Duration = TimeSpan.FromMilliseconds(500),
-                        Easing = new BackEaseOut()
-                    }
-                };
-                versionPanel.Transitions = new Transitions
-                {
-                    new ThicknessTransition
-                    {
-                        Property = MarginProperty,
-                        Duration = TimeSpan.FromMilliseconds(600),
-                        Easing = new BackEaseOut()
-                    }
-                };
-            });
-
-            settingsPanel.IsVisible = true;
-            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render).GetTask();
-
-            // Animate margins in parallel (this triggers the animation)
-            await Task.WhenAll(
-                Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    settingsPanel.Margin = showMargin;
-                    buttonContainer.Margin = buttonLeftMargin;
-                }).GetTask()
-            );
-            
-            await Task.WhenAll(
-                Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
-                    versionPanel.Margin = new Thickness(0, 0, 225, 0);
-                }).GetTask(),
-                AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.5))
-            );
-        }
-        else
-        {
-            // Stop cog spin timer immediately
-            _cogSpinTimer?.Stop();
-            Task cogStopTask = Task.CompletedTask;
-            if (cogImage.RenderTransform is RotateTransform rotate)
-            {
-                var start = _cogCurrentAngle;
-                double end = 0;
-                var duration = 250;
-                var steps = 20;
-                var step = (end - start) / steps;
-                cogStopTask = Task.Run(async () =>
-                {
-                    for (var i = 1; i <= steps; i++)
-                    {
-                        await Task.Delay(duration / steps);
-                        var angle = start + step * i;
-                        await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle).GetTask();
-                    }
-                    await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = 0).GetTask();
-                    _cogCurrentAngle = 0;
-                });
+                    cogImage.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
+                    if (cogImage.RenderTransform is not RotateTransform)
+                        cogImage.RenderTransform = new RotateTransform(0);
+                }).GetTask();
             }
 
-            // Animate margins out in parallel with cog stop
-            var marginTask = Dispatcher.UIThread.InvokeAsync(() =>
+            if (!settingsPanel.IsVisible)
             {
-                settingsPanel.Margin = hideMargin;
-                buttonContainer.Margin = buttonRightMargin;
-            }).GetTask();
-            
-            var logoTask = Dispatcher.UIThread.InvokeAsync(() =>
+                await EnsureCogCenterAsync();
+                var rotate = (RotateTransform)cogImage.RenderTransform!;
+                _cogSpinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+                _cogSpinTimer.Tick += (s, ev) =>
+                {
+                    _cogCurrentAngle = (_cogCurrentAngle + 4) % 360;
+                    rotate.Angle = _cogCurrentAngle;
+                };
+                _cogSpinTimer.Start();
+
+                // Set initial margins and transitions BEFORE making visible
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    settingsPanel.Margin = hideMargin;
+                    buttonContainer.Margin = buttonRightMargin;
+                    settingsPanel.Transitions = new Transitions
+                    {
+                        new ThicknessTransition
+                        {
+                            Property = MarginProperty,
+                            Duration = TimeSpan.FromMilliseconds(250),
+                            Easing = new QuarticEaseInOut()
+                        }
+                    };
+                    buttonContainer.Transitions = new Transitions
+                    {
+                        new ThicknessTransition
+                        {
+                            Property = MarginProperty,
+                            Duration = TimeSpan.FromMilliseconds(250),
+                            Easing = new QuarticEaseInOut()
+                        }
+                    };
+                    osuautodeafenLogoPanel.Transitions = new Transitions
+                    {
+                        new ThicknessTransition
+                        {
+                            Property = MarginProperty,
+                            Duration = TimeSpan.FromMilliseconds(500),
+                            Easing = new BackEaseOut()
+                        }
+                    };
+                    versionPanel.Transitions = new Transitions
+                    {
+                        new ThicknessTransition
+                        {
+                            Property = MarginProperty,
+                            Duration = TimeSpan.FromMilliseconds(600),
+                            Easing = new BackEaseOut()
+                        }
+                    };
+                });
+
+                settingsPanel.IsVisible = true;
+                await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render).GetTask();
+
+                // Animate margins in parallel (this triggers the animation)
+                await Task.WhenAll(
+                    Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        settingsPanel.Margin = showMargin;
+                        buttonContainer.Margin = buttonLeftMargin;
+                    }).GetTask()
+                );
+
+                await Task.WhenAll(
+                    Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
+                        versionPanel.Margin = new Thickness(0, 0, 225, 0);
+                    }).GetTask(),
+                    AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.5))
+                );
+            }
+            else
             {
-                osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
-                versionPanel.Margin = new Thickness(0, 0, 0, 0);
-            }).GetTask();
-            var opacityTask = AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.5));
+                // Stop cog spin timer immediately
+                _cogSpinTimer?.Stop();
+                var cogStopTask = Task.CompletedTask;
+                if (cogImage.RenderTransform is RotateTransform rotate)
+                {
+                    var start = _cogCurrentAngle;
+                    double end = 0;
+                    var duration = 250;
+                    var steps = 20;
+                    var step = (end - start) / steps;
+                    cogStopTask = Task.Run(async () =>
+                    {
+                        for (var i = 1; i <= steps; i++)
+                        {
+                            await Task.Delay(duration / steps);
+                            var angle = start + step * i;
+                            await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle).GetTask();
+                        }
 
-            await Task.WhenAll(cogStopTask, marginTask, logoTask, opacityTask);
+                        await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = 0).GetTask();
+                        _cogCurrentAngle = 0;
+                    });
+                }
 
-            settingsPanel.IsVisible = false;
+                // Animate margins out in parallel with cog stop
+                var marginTask = Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    settingsPanel.Margin = hideMargin;
+                    buttonContainer.Margin = buttonRightMargin;
+                }).GetTask();
+
+                var logoTask = Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
+                    versionPanel.Margin = new Thickness(0, 0, 0, 0);
+                }).GetTask();
+                var opacityTask = AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.5));
+
+                await Task.WhenAll(cogStopTask, marginTask, logoTask, opacityTask);
+
+                settingsPanel.IsVisible = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Exception in SettingsButton_Click: {ex.Message}");
         }
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"[ERROR] Exception in SettingsButton_Click: {ex.Message}");
-    }
-}
 
     private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan duration,
         CancellationToken cancellationToken = default)
@@ -1934,26 +1499,6 @@ private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
         }
     }
 
-    private static Task InvokeOnUIThreadAsync(Action action)
-    {
-        var tcs = new TaskCompletionSource<object?>();
-
-        Dispatcher.UIThread.Post(() =>
-        {
-            try
-            {
-                action();
-                tcs.SetResult(null);
-            }
-            catch (Exception ex)
-            {
-                tcs.SetException(ex);
-            }
-        });
-
-        return tcs.Task;
-    }
-
     private void InitializeKeybindButtonText()
     {
         var currentKeybind = RetrieveKeybindFromSettings();
@@ -1963,11 +1508,7 @@ private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
 
     private void BreakUndeafenToggle_IsCheckChanged(object? sender, RoutedEventArgs e)
     {
-        if (sender is CheckBox checkBox)
-        {
-            ViewModel.BreakUndeafenEnabled = checkBox.IsChecked == true;
-            SaveSettingsToFile(ViewModel.BreakUndeafenEnabled, "BreakUndeafenEnabled");
-        }
+        if (sender is CheckBox checkBox) ViewModel.BreakUndeafenEnabled = checkBox.IsChecked == true;
     }
 
     public class HotKey

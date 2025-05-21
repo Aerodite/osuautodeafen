@@ -20,7 +20,8 @@ public class BreakPeriodCalculator
 {
     public List<BreakPeriod> BreakPeriods { get; } = new();
 
-    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string osuFilePath, List<double> xAxis, List<double> yAxis)
+    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string osuFilePath, List<double> xAxis,
+        List<double> yAxis)
     {
         BreakPeriods.Clear();
 

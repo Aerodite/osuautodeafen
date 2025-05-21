@@ -454,6 +454,19 @@
           "build/ILMerge.props": {}
         }
       },
+      "ini-parser/2.5.2": {
+        "type": "package",
+        "compile": {
+          "lib/net20/INIFileParser.dll": {
+            "related": ".dll.mdb;.xml"
+          }
+        },
+        "runtime": {
+          "lib/net20/INIFileParser.dll": {
+            "related": ".dll.mdb;.xml"
+          }
+        }
+      },
       "LiveChartsCore/2.0.0-rc2": {
         "type": "package",
         "compile": {
@@ -1714,6 +1727,20 @@
         "tools/net452/System.Compiler.dll"
       ]
     },
+    "ini-parser/2.5.2": {
+      "sha512": "hp3gKmC/14+6eKLgv7Jd1Z7OV86lO+tNfOXr/stQbwmRhdQuXVSvrRAuAe7G5+lwhkov0XkqZ8/bn1PYWMx6eg==",
+      "type": "package",
+      "path": "ini-parser/2.5.2",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "ini-parser.2.5.2.nupkg.sha512",
+        "ini-parser.nuspec",
+        "lib/net20/INIFileParser.dll",
+        "lib/net20/INIFileParser.dll.mdb",
+        "lib/net20/INIFileParser.xml"
+      ]
+    },
     "LiveChartsCore/2.0.0-rc2": {
       "sha512": "X55dG3oI3AVOGWUrly+J/bUJGmb/pmB2aTkaWJPyIXI2cr5cqPJG/6GLL17IJ8e3GOofFWgQCbg0Az0+myUQLg==",
       "type": "package",
@@ -2727,7 +2754,8 @@
       "SkiaSharp.NativeAssets.macOS >= 2.88.9",
       "SkiaSharp.Views >= 2.88.3",
       "Svg.Skia >= 2.0.0.4",
-      "WebSocketSharp >= 1.0.3-rc11"
+      "WebSocketSharp >= 1.0.3-rc11",
+      "ini-parser >= 2.5.2"
     ]
   },
   "packageFolders": {
@@ -2848,6 +2876,10 @@
           "WebSocketSharp": {
             "target": "Package",
             "version": "[1.0.3-rc11, )"
+          },
+          "ini-parser": {
+            "target": "Package",
+            "version": "[2.5.2, )"
           }
         },
         "imports": [
@@ -2895,6 +2927,16 @@
       "warningLevel": 1,
       "message": "Package 'System.Drawing.Common' 4.5.1 has a known critical severity vulnerability, https://github.com/advisories/GHSA-rxg9-xrhp-64gj",
       "libraryId": "System.Drawing.Common",
+      "targetGraphs": [
+        "net8.0"
+      ]
+    },
+    {
+      "code": "NU1701",
+      "level": "Warning",
+      "warningLevel": 1,
+      "message": "Package 'ini-parser 2.5.2' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0'. This package may not be fully compatible with your project.",
+      "libraryId": "ini-parser",
       "targetGraphs": [
         "net8.0"
       ]

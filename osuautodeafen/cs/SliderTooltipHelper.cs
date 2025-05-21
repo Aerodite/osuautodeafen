@@ -1,14 +1,13 @@
 ﻿using Avalonia.Controls;
-using Avalonia.Input;
-using System;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 
 public class SliderTooltipHelper
 {
-    private bool _isDragging;
-    private readonly Slider _slider;
     private readonly Popup _popup;
+    private readonly Slider _slider;
     private readonly Window _window;
+    private bool _isDragging;
 
     public SliderTooltipHelper(Window window, Slider slider, Popup popup)
     {
@@ -20,7 +19,10 @@ public class SliderTooltipHelper
         _slider.AddHandler(InputElement.PointerCaptureLostEvent, (s, e) => EndDrag());
         _slider.PointerPressed += (s, e) => StartDrag(e);
         _slider.PointerReleased += (s, e) => EndDrag();
-        _slider.PointerMoved += (s, e) => { if (_isDragging || _popup.IsOpen) UpdateTooltipPosition(e); };
+        _slider.PointerMoved += (s, e) =>
+        {
+            if (_isDragging || _popup.IsOpen) UpdateTooltipPosition(e);
+        };
     }
 
     private void StartDrag(PointerEventArgs e)
@@ -57,8 +59,8 @@ public class SliderTooltipHelper
 
     private void UpdateTooltipPosition(PointerEventArgs e)
     {
-        double percent = (_slider.Value - _slider.Minimum) / (_slider.Maximum - _slider.Minimum);
-        double thumbX = percent * (_slider.Bounds.Width - 16); // 16 = thumb width approx
+        var percent = (_slider.Value - _slider.Minimum) / (_slider.Maximum - _slider.Minimum);
+        var thumbX = percent * (_slider.Bounds.Width - 16); // 16 = thumb width approx
         _popup.HorizontalOffset = thumbX;
     }
 }

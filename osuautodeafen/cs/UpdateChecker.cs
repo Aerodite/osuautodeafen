@@ -68,11 +68,9 @@ public class UpdateChecker
                 lastSuccessfulCheck = DateTime.Now;
                 return true;
             }
-            else
-            {
-                Console.WriteLine("No releases found.");
-                return false;
-            }
+
+            Console.WriteLine("No releases found.");
+            return false;
         }
         catch (Exception ex)
         {

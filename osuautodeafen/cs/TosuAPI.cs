@@ -31,9 +31,8 @@ public class TosuApi : IDisposable
     private double _fullSR;
     private string? _gameDirectory;
     private JsonElement _graphData;
-    private int _lastBeatmapId = -1;
-    private string beatmapChecksum;
     private string? _lastBeatmapChecksum = "";
+    private int _lastBeatmapId = -1;
     private double _maxCombo;
     private double _maxPP;
     private double _missCount;
@@ -46,6 +45,7 @@ public class TosuApi : IDisposable
     private string? _settingsSongsDirectory;
     private string? _songFilePath;
     private ClientWebSocket _webSocket;
+    private string beatmapChecksum;
 
     public TosuApi()
     {
@@ -218,9 +218,9 @@ public class TosuApi : IDisposable
                             if (beatmap.TryGetProperty("number", out var statusNumber))
                                 _rankedStatus = statusNumber.GetDouble();
 
-                        if (beatmap.TryGetProperty("id", out var beatmapId)) 
+                        if (beatmap.TryGetProperty("id", out var beatmapId))
                             _beatmapId = beatmapId.GetInt32();
-                        if (beatmap.TryGetProperty("set", out var beatmapSetId)) 
+                        if (beatmap.TryGetProperty("set", out var beatmapSetId))
                             _beatmapSetId = beatmapSetId.GetInt32();
                         if (beatmap.TryGetProperty("checksum", out var checksum))
                             beatmapChecksum = checksum.GetString() ?? throw new InvalidOperationException();
@@ -439,7 +439,7 @@ public class TosuApi : IDisposable
     {
         return _beatmapSetId;
     }
-    
+
     // Alternative method to GetBeatmapId()
     // (probably for use in the case of an unsubmitted map, as they have an ID of 0 in the Tosu API)
     public string GetBeatmapChecksum()
@@ -448,7 +448,7 @@ public class TosuApi : IDisposable
     }
 
     /*
-     This isn't really needed thanks to GetBeatmapId(), 
+     This isn't really needed thanks to GetBeatmapId(),
      which should be used instead of recalculating the whole graph again to see if the map changed
      (thanks tosu for finally implementing that in the api :D)
     */
@@ -457,7 +457,7 @@ public class TosuApi : IDisposable
     {
         // Checks if the X-axis of the graph has changed at all,
         // if so, return true, else return false.
-        
+
         if (Graph?.Series == null) return true;
 
         if (Graph.Series.Count != newGraph.Series.Count) return true;
@@ -487,7 +487,7 @@ public class TosuApi : IDisposable
 
     public void CheckForBeatmapChange()
     {
-        int id = GetBeatmapId();
+        var id = GetBeatmapId();
         if (id < 0 || id == _lastBeatmapId)
             return;
         _lastBeatmapId = id;
@@ -508,7 +508,7 @@ public class TosuApi : IDisposable
             return null;
         }
     }
-    
+
     private GraphData? ParseGraphData(JsonElement graphElement)
     {
         try
@@ -521,7 +521,7 @@ public class TosuApi : IDisposable
 
             if (graphElement.TryGetProperty("series", out var seriesArray))
             {
-                int seriesCount = seriesArray.GetArrayLength();
+                var seriesCount = seriesArray.GetArrayLength();
                 newGraph.Series = new List<Series>(seriesCount);
 
                 foreach (var seriesElement in seriesArray.EnumerateArray())
@@ -531,7 +531,7 @@ public class TosuApi : IDisposable
 
                     if (seriesElement.TryGetProperty("data", out var dataArray))
                     {
-                        int dataCount = dataArray.GetArrayLength();
+                        var dataCount = dataArray.GetArrayLength();
                         var data = new List<double>(dataCount);
 
                         foreach (var dataElement in dataArray.EnumerateArray())
@@ -549,7 +549,7 @@ public class TosuApi : IDisposable
 
             if (graphElement.TryGetProperty("xaxis", out var xAxisArray))
             {
-                int xCount = xAxisArray.GetArrayLength();
+                var xCount = xAxisArray.GetArrayLength();
                 newGraph.XAxis = new List<double>(xCount);
 
                 foreach (var xElement in xAxisArray.EnumerateArray())

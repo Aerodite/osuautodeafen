@@ -1,21 +1,20 @@
-﻿using System;
+﻿using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
 using SkiaSharp;
 using Svg.Skia;
-using System.Runtime.CompilerServices;
-using Avalonia.Platform;
 
 namespace osuautodeafen.cs;
 
 public sealed class LogoControl : Control
 {
-    public SKSvg? Svg;
-    public SKColor ModulateColor = SKColors.White;
     private SkiaCustomDrawOperation _drawOp;
+    public SKColor ModulateColor = SKColors.White;
+    public SKSvg? Svg;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override void Render(DrawingContext context)
@@ -37,21 +36,25 @@ public sealed class LogoControl : Control
         public readonly Rect Bounds = bounds;
         public readonly SKPicture Picture = picture;
         public readonly SKColor Color = color;
-        private static readonly SKPaint SharedPaint = new SKPaint();
+        private static readonly SKPaint SharedPaint = new();
         private static SKColor _lastColor = SKColors.Transparent;
         private static SKColorFilter? _lastFilter;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Dispose() { }
+        public void Dispose()
+        {
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool HitTest(Point p) => true;
+        public bool HitTest(Point p)
+        {
+            return true;
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Render(ImmediateDrawingContext context)
         {
             if (context.TryGetFeature<ISkiaSharpApiLeaseFeature>(out var skiaFeature))
-            {
                 using (var lease = skiaFeature.Lease())
                 {
                     var canvas = lease.SkCanvas;
@@ -67,17 +70,21 @@ public sealed class LogoControl : Control
                         _lastFilter = SKColorFilter.CreateBlendMode(Color, SKBlendMode.Modulate);
                         _lastColor = Color;
                     }
+
                     SharedPaint.ColorFilter = _lastFilter;
                     canvas.DrawPicture(Picture, SharedPaint);
 
                     canvas.Restore();
                 }
-            }
         }
 
         Rect ICustomDrawOperation.Bounds => Bounds;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Equals(ICustomDrawOperation? other) => false; // Skip equality for speed
+        public bool Equals(ICustomDrawOperation? other)
+        {
+            return false;
+            // Skip equality for speed
+        }
     }
 }

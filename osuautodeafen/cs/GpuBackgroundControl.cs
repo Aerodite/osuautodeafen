@@ -1,9 +1,9 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using System.Runtime.CompilerServices;
 
 public sealed class GpuBackgroundControl : Control
 {
@@ -16,7 +16,7 @@ public sealed class GpuBackgroundControl : Control
         var bmp = Bitmap!;
         var bounds = Bounds;
         var srcSize = new Size(bmp.PixelSize.Width, bmp.PixelSize.Height);
-        
+
         double bw = bounds.Width, bh = bounds.Height, sw = srcSize.Width, sh = srcSize.Height;
         Rect destRect;
         switch (Stretch)
