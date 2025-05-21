@@ -2310,173 +2310,161 @@ public partial class MainWindow : Window
     {
         _tosuApi.Dispose();
     }
-
-    private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
+    
+private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
+{
+    try
     {
-        try
+        var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
+        var buttonContainer = this.FindControl<Border>("SettingsButtonContainer");
+        var cogImage = this.FindControl<Image>("SettingsCogImage");
+        var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
+        var osuautodeafenLogoPanel = textBlockPanel?.FindControl<StackPanel>("osuautodeafenLogoPanel");
+        var versionPanel = textBlockPanel?.FindControl<TextBlock>("VersionPanel");
+        if (settingsPanel == null || buttonContainer == null || cogImage == null ||
+            textBlockPanel == null || osuautodeafenLogoPanel == null || versionPanel == null)
+            return;
+
+        var showMargin = new Thickness(0, 42, 0, 0);
+        var hideMargin = new Thickness(200, 42, -200, 0);
+        var buttonRightMargin = new Thickness(0, 42, 0, 10);
+        var buttonLeftMargin = new Thickness(0, 42, 200, 10);
+
+        Task EnsureCogCenterAsync()
         {
-            // Cache controls to local variables (already done)
-            var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
-            var buttonContainer = this.FindControl<Border>("SettingsButtonContainer");
-            var cogImage = this.FindControl<Image>("SettingsCogImage");
-            var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
-            var osuautodeafenLogoPanel = textBlockPanel?.FindControl<StackPanel>("osuautodeafenLogoPanel");
-            var versionPanel = textBlockPanel?.FindControl<TextBlock>("VersionPanel");
-            if (settingsPanel == null || buttonContainer == null || cogImage == null ||
-                textBlockPanel == null || osuautodeafenLogoPanel == null || versionPanel == null)
-                return;
-
-            var showMargin = new Thickness(0, 42, 0, 0);
-            var hideMargin = new Thickness(200, 42, -200, 0);
-            var buttonRightMargin = new Thickness(0, 42, 0, 10);
-            var buttonLeftMargin = new Thickness(0, 42, 200, 10);
-
-            // Helper for cog transform
-            Task EnsureCogCenterAsync()
+            return Dispatcher.UIThread.InvokeAsync(() =>
             {
-                return Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    cogImage.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
-                    if (cogImage.RenderTransform is not RotateTransform)
-                        cogImage.RenderTransform = new RotateTransform(0);
-                }).GetTask();
-            }
+                cogImage.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
+                if (cogImage.RenderTransform is not RotateTransform)
+                    cogImage.RenderTransform = new RotateTransform(0);
+            }).GetTask();
+        }
 
-            if (!settingsPanel.IsVisible)
+        if (!settingsPanel.IsVisible)
+        {
+            await EnsureCogCenterAsync();
+            var rotate = (RotateTransform)cogImage.RenderTransform!;
+            _cogSpinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+            _cogSpinTimer.Tick += (s, ev) =>
             {
-                // Set initial margins in parallel
-                await Task.WhenAll(
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        settingsPanel.Margin = hideMargin;
-                        buttonContainer.Margin = buttonRightMargin;
-                    }).GetTask()
-                );
-                settingsPanel.IsVisible = true;
-                await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render).GetTask();
+                _cogCurrentAngle = (_cogCurrentAngle + 4) % 360;
+                rotate.Angle = _cogCurrentAngle;
+            };
+            _cogSpinTimer.Start();
 
-                // Animate margins in parallel
-                await Task.WhenAll(
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        settingsPanel.Margin = showMargin;
-                        buttonContainer.Margin = buttonLeftMargin;
-                    }).GetTask()
-                );
-
-                await EnsureCogCenterAsync();
-
-                // Set transitions in parallel
-                await Task.WhenAll(
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        settingsPanel.Transitions = new Transitions
-                        {
-                            new ThicknessTransition
-                            {
-                                Property = MarginProperty,
-                                Duration = TimeSpan.FromMilliseconds(250),
-                                Easing = new QuarticEaseInOut()
-                            }
-                        };
-                        buttonContainer.Transitions = new Transitions
-                        {
-                            new ThicknessTransition
-                            {
-                                Property = MarginProperty,
-                                Duration = TimeSpan.FromMilliseconds(250),
-                                Easing = new QuarticEaseInOut()
-                            }
-                        };
-                        osuautodeafenLogoPanel.Transitions = new Transitions
-                        {
-                            new ThicknessTransition
-                            {
-                                Property = MarginProperty,
-                                Duration = TimeSpan.FromMilliseconds(500),
-                                Easing = new BackEaseOut()
-                            }
-                        };
-                        versionPanel.Transitions = new Transitions
-                        {
-                            new ThicknessTransition
-                            {
-                                Property = MarginProperty,
-                                Duration = TimeSpan.FromMilliseconds(600),
-                                Easing = new BackEaseOut()
-                            }
-                        };
-                    }).GetTask()
-                );
-
-                // Animate logo and version panel in parallel with background opacity
-                await Task.WhenAll(
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
-                        versionPanel.Margin = new Thickness(0, 0, 225, 0);
-                    }).GetTask(),
-                    AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.5))
-                );
-
-                // Start cog spin timer
-                var rotate = (RotateTransform)cogImage.RenderTransform!;
-                _cogSpinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-                _cogSpinTimer.Tick += (s, ev) =>
+            // Set initial margins and transitions BEFORE making visible
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                settingsPanel.Margin = hideMargin;
+                buttonContainer.Margin = buttonRightMargin;
+                settingsPanel.Transitions = new Transitions
                 {
-                    _cogCurrentAngle = (_cogCurrentAngle + 4) % 360;
-                    rotate.Angle = _cogCurrentAngle;
+                    new ThicknessTransition
+                    {
+                        Property = MarginProperty,
+                        Duration = TimeSpan.FromMilliseconds(250),
+                        Easing = new QuarticEaseInOut()
+                    }
                 };
-                _cogSpinTimer.Start();
-            }
-            else
-            {
-                // Animate margins out in parallel
-                await Task.WhenAll(
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        settingsPanel.Margin = hideMargin;
-                        buttonContainer.Margin = buttonRightMargin;
-                    }).GetTask()
-                );
-
-                // Animate logo and version panel out in parallel with background opacity
-                await Task.WhenAll(
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
-                        versionPanel.Margin = new Thickness(0, 0, 0, 0);
-                    }).GetTask(),
-                    AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.5))
-                );
-
-                settingsPanel.IsVisible = false;
-
-                _cogSpinTimer?.Stop();
-                if (cogImage.RenderTransform is RotateTransform rotate)
+                buttonContainer.Transitions = new Transitions
                 {
-                    var start = _cogCurrentAngle;
-                    double end = 0;
-                    var duration = 250;
-                    var steps = 20;
-                    var step = (end - start) / steps;
+                    new ThicknessTransition
+                    {
+                        Property = MarginProperty,
+                        Duration = TimeSpan.FromMilliseconds(250),
+                        Easing = new QuarticEaseInOut()
+                    }
+                };
+                osuautodeafenLogoPanel.Transitions = new Transitions
+                {
+                    new ThicknessTransition
+                    {
+                        Property = MarginProperty,
+                        Duration = TimeSpan.FromMilliseconds(500),
+                        Easing = new BackEaseOut()
+                    }
+                };
+                versionPanel.Transitions = new Transitions
+                {
+                    new ThicknessTransition
+                    {
+                        Property = MarginProperty,
+                        Duration = TimeSpan.FromMilliseconds(600),
+                        Easing = new BackEaseOut()
+                    }
+                };
+            });
+
+            settingsPanel.IsVisible = true;
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render).GetTask();
+
+            // Animate margins in parallel (this triggers the animation)
+            await Task.WhenAll(
+                Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    settingsPanel.Margin = showMargin;
+                    buttonContainer.Margin = buttonLeftMargin;
+                }).GetTask()
+            );
+            
+            await Task.WhenAll(
+                Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
+                    versionPanel.Margin = new Thickness(0, 0, 225, 0);
+                }).GetTask(),
+                AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.5))
+            );
+        }
+        else
+        {
+            // Stop cog spin timer immediately
+            _cogSpinTimer?.Stop();
+            Task cogStopTask = Task.CompletedTask;
+            if (cogImage.RenderTransform is RotateTransform rotate)
+            {
+                var start = _cogCurrentAngle;
+                double end = 0;
+                var duration = 250;
+                var steps = 20;
+                var step = (end - start) / steps;
+                cogStopTask = Task.Run(async () =>
+                {
                     for (var i = 1; i <= steps; i++)
                     {
                         await Task.Delay(duration / steps);
                         var angle = start + step * i;
                         await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle).GetTask();
                     }
-
                     await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = 0).GetTask();
                     _cogCurrentAngle = 0;
-                }
+                });
             }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[ERROR] Exception in SettingsButton_Click: {ex.Message}");
+
+            // Animate margins out in parallel with cog stop
+            var marginTask = Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                settingsPanel.Margin = hideMargin;
+                buttonContainer.Margin = buttonRightMargin;
+            }).GetTask();
+            
+            var logoTask = Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
+                versionPanel.Margin = new Thickness(0, 0, 0, 0);
+            }).GetTask();
+            var opacityTask = AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.5));
+
+            await Task.WhenAll(cogStopTask, marginTask, logoTask, opacityTask);
+
+            settingsPanel.IsVisible = false;
         }
     }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[ERROR] Exception in SettingsButton_Click: {ex.Message}");
+    }
+}
 
     private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan duration,
         CancellationToken cancellationToken = default)
