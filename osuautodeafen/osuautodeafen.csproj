@@ -33,7 +33,7 @@
 
     <ItemGroup>
         <EmbeddedResource Include="Resources\autodeafen.svg" />
-        <EmbeddedResource Include="Resources\oad.ico" />
+        <EmbeddedResource Include="Resources\favicon.ico" />
     </ItemGroup>
 
     <ItemGroup>

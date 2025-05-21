@@ -139,7 +139,7 @@ public partial class MainWindow : Window
 
         // Settings and resources
         LoadSettings();
-        Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.oad.ico"));
+        Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.favicon.ico"));
 
         // Core services
         _getLowResBackground = new GetLowResBackground(_tosuApi);

@@ -1,3 +1,10 @@
+C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\osuautodeafen.csproj.AssemblyReference.cache
+C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\Avalonia\Resources.Inputs.cache
+C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\Avalonia\resources
+C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\osuautodeafen.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\osuautodeafen.AssemblyInfoInputs.cache
+C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\osuautodeafen.AssemblyInfo.cs
+C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\osuautodeafen.csproj.CoreCompileInputs.cache
 C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\bin\Debug\net8.0\osuautodeafen.exe
 C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\bin\Debug\net8.0\osuautodeafen.deps.json
 C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\bin\Debug\net8.0\osuautodeafen.runtimeconfig.json
@@ -92,13 +99,6 @@ C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\bin\Debug\net8.0\r
 C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\bin\Debug\net8.0\runtimes\unix\lib\netcoreapp2.0\System.Drawing.Common.dll
 C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\bin\Debug\net8.0\runtimes\win\lib\netcoreapp2.0\System.Drawing.Common.dll
 C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\bin\Debug\net8.0\runtimes\browser\lib\net8.0\System.Text.Encodings.Web.dll
-C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\osuautodeafen.csproj.AssemblyReference.cache
-C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\Avalonia\Resources.Inputs.cache
-C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\Avalonia\resources
-C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\osuautodeafen.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\osuautodeafen.AssemblyInfoInputs.cache
-C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\osuautodeafen.AssemblyInfo.cs
-C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\osuautodeafen.csproj.CoreCompileInputs.cache
 C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\osuautod.8F71579D.Up2Date
 C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\osuautodeafen.dll
 C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\refint\osuautodeafen.dll
