@@ -1635,13 +1635,13 @@ private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
             double width = Math.Max(1, bounds.Width);
             double height = Math.Max(1, bounds.Height);
 
-            // Create new background image
-            var newImage = new Image
+            // Create new GPU background control
+            var gpuBackground = new GpuBackgroundControl
             {
-                Source = bitmap,
-                Stretch = Stretch.UniformToFill,
+                Bitmap = bitmap,
                 Opacity = 0.5,
                 ZIndex = -1,
+                Stretch = Stretch.UniformToFill,
                 Effect = (ViewModel?.IsBlurEffectEnabled == true) ? new BlurEffect { Radius = 17.27 } : null,
                 Clip = new RectangleGeometry(new Rect(0, 0, width * 1.05, height * 1.05)),
                 Transitions = new Transitions
@@ -1669,7 +1669,7 @@ private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
             backgroundLayer.RenderTransform = new ScaleTransform(1.05, 1.05);
 
             // Remove old background with fade
-            var oldBackground = backgroundLayer.Children.OfType<Image>().FirstOrDefault();
+            var oldBackground = backgroundLayer.Children.OfType<Control>().FirstOrDefault();
             if (oldBackground != null)
             {
                 oldBackground.Opacity = 0.0;
@@ -1679,9 +1679,8 @@ private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
             }
 
             if (token.IsCancellationRequested) return;
-
-            // Add new background
-            backgroundLayer.Children.Add(newImage);
+            
+            backgroundLayer.Children.Add(gpuBackground);
             backgroundLayer.Opacity = _currentBackgroundOpacity;
 
             // Parallax
@@ -2226,39 +2225,33 @@ private async Task UpdateLogoAsync()
     private void ApplyParallax(double mouseX, double mouseY)
     {
         if (_currentBitmap == null || ParallaxToggle.IsChecked == false || BackgroundToggle.IsChecked == false) return;
-        // if cursor isnt on window return
         if (mouseX < 0 || mouseY < 0 || mouseX > Width || mouseY > Height) return;
+
         var windowWidth = Width;
         var windowHeight = Height;
-
         var centerX = windowWidth / 2;
         var centerY = windowHeight / 2;
 
         var relativeMouseX = mouseX - centerX;
         var relativeMouseY = mouseY - centerY;
 
-        // scaling factor to reduce movement intensity
         var scaleFactor = 0.015;
-
         var movementX = -(relativeMouseX * scaleFactor);
         var movementY = -(relativeMouseY * scaleFactor);
 
-        // ensure movement doesn't exceed maximum allowed movement
         double maxMovement = 15;
         movementX = Math.Max(-maxMovement, Math.Min(maxMovement, movementX));
         movementY = Math.Max(-maxMovement, Math.Min(maxMovement, movementY));
-
 
         if (Content is Grid mainGrid)
         {
             var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
             if (backgroundLayer != null && backgroundLayer.Children.Count > 0)
             {
-                var background = backgroundLayer.Children[0] as Image;
-                if (background != null)
+                var gpuBackground = backgroundLayer.Children.OfType<GpuBackgroundControl>().FirstOrDefault();
+                if (gpuBackground != null)
                 {
-                    var translateTransform = new TranslateTransform(movementX, movementY);
-                    background.RenderTransform = translateTransform;
+                    gpuBackground.RenderTransform = new TranslateTransform(movementX, movementY);
                 }
             }
         }

@@ -76,7 +76,7 @@ public class LogoControl : Control
 
         public void Render(ImmediateDrawingContext context)
         {
-            if (context.TryGetFeature<ISkiaSharpApiLeaseFeature>(out var skiaFeature) && skiaFeature != null)
+            if (context.TryGetFeature<ISkiaSharpApiLeaseFeature>(out var skiaFeature))
             {
                 using (var lease = skiaFeature.Lease())
                 {
@@ -91,10 +91,8 @@ public class LogoControl : Control
                         canvas.Scale(scaleX, scaleY);
                     }
 
-                    using var paint = new SKPaint
-                    {
-                        ColorFilter = SKColorFilter.CreateBlendMode(_color, SKBlendMode.Modulate)
-                    };
+                    using var paint = new SKPaint();
+                    paint.ColorFilter = SKColorFilter.CreateBlendMode(_color, SKBlendMode.Modulate);
                     canvas.DrawPicture(_picture, paint);
 
                     canvas.Restore();
