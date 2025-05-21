@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -27,9 +26,11 @@ using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
 using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Avalonia;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Screen;
+using osuautodeafen.cs.StrainGraph;
 using SkiaSharp;
 using Svg.Skia;
 using Animation = Avalonia.Animation.Animation;
@@ -51,7 +52,9 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _mainTimer;
     private readonly DispatcherTimer _parallaxCheckTimer;
     
-    public bool IsSliderTooltipOpen { get; set; }
+    private ChartManager _chartManager;
+    private ProgressIndicatorHelper _progressIndicatorHelper;
+    
     private bool _isDraggingSlider = false;
 
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
@@ -121,12 +124,9 @@ public partial class MainWindow : Window
     private DispatcherTimer? _spinTimer;
     public TosuApi _tosuApi = new();
     private DispatcherTimer? _visibilityCheckTimer;
-    private readonly List<RectangularSection> cachedBreakPeriods = new();
     private string? cachedOsuFilePath;
     private double deafenProgressPercentage;
     private double deafenTimestamp;
-    private double maxLimit;
-    private double maxYValue;
 
     private LineSeries<ObservablePoint>? progressIndicator;
 
@@ -149,7 +149,6 @@ public partial class MainWindow : Window
 
         // Core services
         _getLowResBackground = new GetLowResBackground(_tosuApi);
-        _breakPeriod = new BreakPeriodCalculator();
 
         // Settings panel
         var settingsPanel = new SettingsPanel();
@@ -197,30 +196,6 @@ public partial class MainWindow : Window
 
         PointerMoved += OnMouseMove;
 
-        // Chart setup
-        Series = [];
-        XAxes = new[] { new Axis { LabelsPaint = new SolidColorPaint(SKColors.White) } };
-        YAxes = new[] { new Axis { LabelsPaint = new SolidColorPaint(SKColors.White) } };
-        PlotView.Series = Series;
-        PlotView.XAxes = XAxes;
-        PlotView.YAxes = YAxes;
-
-        var series1 = new StackedAreaSeries<ObservablePoint>
-        {
-            Values = ChartData.Series1Values,
-            Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00) },
-            Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00) }
-        };
-        var series2 = new StackedAreaSeries<ObservablePoint>
-        {
-            Values = ChartData.Series2Values,
-            Fill = new SolidColorPaint { Color = new SKColor(0x00, 0xFF, 0x00) },
-            Stroke = new SolidColorPaint { Color = new SKColor(0x00, 0xFF, 0x00) }
-        };
-        PlotView.Series = new ISeries[] { series1, series2 };
-
-        PlotView.DrawMargin = new Margin(0, 0, 0, 0);
-
         InitializeProgressIndicator();
 
         settingsPanel.Transitions = new Transitions
@@ -259,7 +234,23 @@ public partial class MainWindow : Window
         PPSlider.Value = ViewModel.PerformancePoints;
 
         _isConstructorFinished = true;
-
+        var sliderTooltipHelper = new SliderTooltipHelper(this, CompletionPercentageSlider, CompletionPercentageSliderTooltipPopup);
+        var tooltipHelper = new SliderTooltipHelper(this, StarRatingSlider, StarRatingSliderTooltipPopup);
+        var helper = new SliderTooltipHelper(this, PPSlider, PPSliderTooltipPopup);
+        progressIndicator = new LineSeries<ObservablePoint>
+        {
+            Stroke = new SolidColorPaint(new SKColor(0xFF, 0xFF, 0xFF, 192)) { StrokeThickness = 5 },
+            GeometryFill = null,
+            GeometryStroke = null,
+            LineSmoothness = 0,
+            Values = new List<ObservablePoint>()
+        };
+        
+        _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel);
+        
+        _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel, progressIndicator);
+        
+        
         // this is only here to replace that stupid timer logic :)
         // good sacrifice if you ask me
         Task.Run(async () =>
@@ -270,116 +261,15 @@ public partial class MainWindow : Window
                 await Task.Delay(500);
             }
         });
-        var sliderTooltipHelper = new SliderTooltipHelper(this, CompletionPercentageSlider, SliderTooltipPopup);
-        var tooltipHelper = new SliderTooltipHelper(this, StarRatingSlider, StarRatingSliderTooltipPopup);
-        var helper = new SliderTooltipHelper(this, PPSlider, PPSliderTooltipPopup);
     }
 
     private SharedViewModel ViewModel { get; }
     private bool IsBlackBackgroundDisplayed { get; set; }
-
-    public GraphData? Graph { get; set; }
-    public ISeries[] Series { get; set; }
-    public Axis[] XAxes { get; set; }
-    public Axis[] YAxes { get; set; }
-
-    private void HeatAbnormalEasterEgg()
-    {
-        var logoImage = this.FindControl<Image>("LogoImage");
-        if (logoImage != null)
-        {
-            if (_originalLogoWidth == null || _originalLogoHeight == null)
-            {
-                _originalLogoWidth = logoImage.Width;
-                _originalLogoHeight = logoImage.Height;
-            }
-
-            logoImage.Width = 2 * _originalLogoWidth.Value;
-            logoImage.Height = 2 * _originalLogoHeight.Value;
-            logoImage.Margin = new Thickness(0, 0, 0, 0);
-            logoImage.IsVisible = true;
-
-            TransformGroup group;
-            RotateTransform rotate;
-            ScaleTransform scale;
-
-            if (logoImage.RenderTransform is TransformGroup existingGroup &&
-                existingGroup.Children.Count == 2 &&
-                existingGroup.Children[0] is RotateTransform r &&
-                existingGroup.Children[1] is ScaleTransform s)
-            {
-                group = existingGroup;
-                rotate = r;
-                scale = s;
-            }
-            else
-            {
-                rotate = new RotateTransform();
-                scale = new ScaleTransform();
-                group = new TransformGroup { Children = { rotate, scale } };
-                logoImage.RenderTransform = group;
-            }
-
-            _spinTimer?.Stop();
-            _spinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-            double angle = 0;
-            double t = 0;
-            _spinTimer.Tick += (s, e) =>
-            {
-                angle = (angle + 6) % 360;
-                rotate.Angle = angle;
-
-                // Animate scale with a sine wave (pulsing effect)
-                t += 0.1;
-                var scaleValue = 1.0 + 0.2 * Math.Sin(t); // Range: 0.8 to 1.2
-                scale.ScaleX = scale.ScaleY = scaleValue;
-            };
-            _spinTimer.Start();
-        }
-    }
-
-    private void ResetLogoSize()
-    {
-        var logoImage = this.FindControl<Image>("LogoImage");
-        if (logoImage != null && _originalLogoWidth != null && _originalLogoHeight != null)
-        {
-            logoImage.Width = _originalLogoWidth.Value;
-            logoImage.Height = _originalLogoHeight.Value;
-            logoImage.Margin = new Thickness(0, 0, 0, 0);
-
-            // Stop the spin timer if running
-            _spinTimer?.Stop();
-
-            // Reset rotation and scale if using a TransformGroup
-            if (logoImage.RenderTransform is TransformGroup group)
-            {
-                var rotate = group.Children.OfType<RotateTransform>().FirstOrDefault();
-                if (rotate != null)
-                    rotate.Angle = 0;
-
-                var scale = group.Children.OfType<ScaleTransform>().FirstOrDefault();
-                if (scale != null)
-                {
-                    scale.ScaleX = 1.0;
-                    scale.ScaleY = 1.0;
-                }
-            }
-            else if (logoImage.RenderTransform is RotateTransform rotate)
-            {
-                rotate.Angle = 0;
-            }
-            else if (logoImage.RenderTransform is ScaleTransform scale)
-            {
-                scale.ScaleX = 1.0;
-                scale.ScaleY = 1.0;
-            }
-        }
-    }
-
+    
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(SharedViewModel.CompletionPercentage))
-            Dispatcher.UIThread.InvokeAsync(() => UpdateProgressIndicator(_tosuApi.GetCompletionPercentage()));
+            Dispatcher.UIThread.InvokeAsync(() => _progressIndicatorHelper.UpdateProgressIndicator(_tosuApi.GetCompletionPercentage()));
     }
 
     private void OnGraphDataUpdated(GraphData? graphData)
@@ -407,235 +297,7 @@ public partial class MainWindow : Window
         ChartData.Series2Values = list1;
 
         _deafen.MinCompletionPercentage = ViewModel.MinCompletionPercentage;
-        Dispatcher.UIThread.InvokeAsync(() => UpdateChart(graphData));
-    }
-
-    public async Task UpdateChart(GraphData? graphData)
-    {
-        if (progressIndicator == null)
-            progressIndicator = new LineSeries<ObservablePoint>
-            {
-                Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0xFF, 0xFF, 192), StrokeThickness = 5 },
-                GeometryFill = null,
-                GeometryStroke = null,
-                LineSmoothness = 0,
-                Values = Array.Empty<ObservablePoint>()
-            };
-
-        var seriesArr = PlotView.Series as ISeries[] ??
-                        (PlotView.Series != null ? PlotView.Series.ToArray() : Array.Empty<ISeries>());
-        var maxPoints = 1000;
-
-        var maxY = 0.0;
-        var seriesCount = graphData.Series.Count;
-        for (var s = 0; s < seriesCount; s++)
-        {
-            var data = graphData.Series[s].Data;
-            var dataCount = data.Count;
-            for (var i = 0; i < dataCount; i++)
-            {
-                var v = data[i];
-                if (v != -100 && v > maxY) maxY = v;
-            }
-        }
-
-        maxYValue = maxY;
-
-        for (var sIdx = 0; sIdx < seriesCount; sIdx++)
-        {
-            var series = graphData.Series[sIdx];
-            var data = series.Data;
-            var dataCount = data.Count;
-            int start = 0, end = dataCount - 1;
-            while (start <= end && data[start] == -100) start++;
-            while (end >= start && data[end] == -100) end--;
-            if (end < start) continue;
-
-            var updatedCount = end - start + 1;
-            var updatedValues = new ObservablePoint[updatedCount];
-            var idx = 0;
-            for (var i = start; i <= end; i++)
-            {
-                var value = data[i];
-                if (value != -100)
-                    updatedValues[idx++] = new ObservablePoint(i - start, value);
-            }
-
-            maxLimit = idx;
-
-            var downsampled = Downsample(updatedValues, idx, maxPoints);
-            var smoothed = SmoothData(downsampled, 10, 0.2);
-
-            var color = series.Name == "aim"
-                ? new SKColor(0x00, 0xFF, 0x00, 192)
-                : new SKColor(0x00, 0x00, 0xFF, 140);
-            var name = series.Name == "aim" ? "Aim" : "Speed";
-
-            LineSeries<ObservablePoint> existing = null;
-            var arrLen = seriesArr.Length;
-            for (var j = 0; j < arrLen; j++)
-                if (seriesArr[j] is LineSeries<ObservablePoint> ls && ls.Name == name)
-                {
-                    existing = ls;
-                    break;
-                }
-
-            if (existing != null)
-            {
-                existing.Values = smoothed;
-                existing.TooltipLabelFormatter = _ => "";
-            }
-            else
-            {
-                var newSeries = new LineSeries<ObservablePoint>
-                {
-                    Values = smoothed,
-                    Fill = new SolidColorPaint { Color = color },
-                    Stroke = new SolidColorPaint { Color = color },
-                    Name = name,
-                    GeometryFill = null,
-                    GeometryStroke = null,
-                    LineSmoothness = 1,
-                    EasingFunction = EasingFunctions.ExponentialOut,
-                    TooltipLabelFormatter = _ => ""
-                };
-                Array.Resize(ref seriesArr, arrLen + 1);
-                seriesArr[arrLen] = newSeries;
-            }
-        }
-
-        var deafenStart = ViewModel.MinCompletionPercentage * maxLimit / 100.0;
-        var deafenRectangle = new RectangularSection
-        {
-            Xi = deafenStart,
-            Xj = maxLimit,
-            Yi = 0,
-            Yj = maxYValue,
-            Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00, 64) }
-        };
-
-        var sections = new List<RectangularSection>(16) { deafenRectangle };
-
-        var osuFilePath = _tosuApi.GetFullFilePath();
-        if (osuFilePath != null && osuFilePath != cachedOsuFilePath)
-        {
-            var breaks =
-                await _breakPeriod.ParseBreakPeriodsAsync(osuFilePath, graphData.XAxis, graphData.Series[0].Data);
-            cachedBreakPeriods.Clear();
-            foreach (var breakPeriod in breaks)
-                cachedBreakPeriods.Add(new RectangularSection
-                {
-                    Xi = breakPeriod.StartIndex / _tosuApi.GetRateAdjustRate(),
-                    Xj = breakPeriod.EndIndex / _tosuApi.GetRateAdjustRate(),
-                    Yi = 0,
-                    Yj = maxYValue,
-                    Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0xFF, 0x00, 98) }
-                });
-            cachedOsuFilePath = osuFilePath;
-        }
-
-        sections.AddRange(cachedBreakPeriods);
-
-        for (var i = 0; i < sections.Count; i++)
-        {
-            var breakPeriod = sections[i];
-            if (breakPeriod.Fill is SolidColorPaint paint &&
-                paint.Color == new SKColor(0xFF, 0xFF, 0x00, 64) &&
-                deafenRectangle.Xi < breakPeriod.Xj && deafenRectangle.Xj > breakPeriod.Xi)
-                deafenRectangle.Xi = breakPeriod.Xj;
-        }
-
-        PlotView.Sections = sections;
-
-        var found = false;
-        for (var i = 0; i < seriesArr.Length; i++)
-            if (seriesArr[i] == progressIndicator)
-            {
-                found = true;
-                break;
-            }
-
-        if (!found)
-        {
-            Array.Resize(ref seriesArr, seriesArr.Length + 1);
-            seriesArr[seriesArr.Length - 1] = progressIndicator;
-        }
-
-        Series = seriesArr;
-        PlotView.Series = seriesArr;
-
-        PlotView.TooltipPosition = TooltipPosition.Hidden;
-
-        XAxes = new[]
-        {
-            new Axis
-            {
-                LabelsPaint = new SolidColorPaint(SKColors.Transparent),
-                MinLimit = 0,
-                MaxLimit = maxLimit,
-                Padding = new Padding(2),
-                TextSize = 12
-            }
-        };
-        YAxes = new[]
-        {
-            new Axis
-            {
-                LabelsPaint = new SolidColorPaint(SKColors.Transparent),
-                MinLimit = 0,
-                MaxLimit = maxYValue,
-                Padding = new Padding(2),
-                SeparatorsPaint = new SolidColorPaint(SKColors.Transparent)
-            }
-        };
-
-        PlotView.XAxes = XAxes;
-        PlotView.YAxes = YAxes;
-
-        UpdateProgressIndicator(_tosuApi.GetCompletionPercentage());
-        PlotView.InvalidateVisual();
-    }
-
-    private static ObservablePoint[] Downsample(ObservablePoint[] data, int dataCount, int maxPoints)
-    {
-        if (dataCount <= maxPoints) return data;
-        var result = new ObservablePoint[maxPoints];
-        var step = (double)dataCount / maxPoints;
-        for (var i = 0; i < maxPoints; i++)
-        {
-            var idx = (int)(i * step);
-            result[i] = data[idx];
-        }
-
-        return result;
-    }
-
-    private static ObservablePoint[] SmoothData(ObservablePoint[] data, int windowSize, double smoothingFactor)
-    {
-        var n = data.Length;
-        var smoothedData = new ObservablePoint[n];
-        var adjustedWindow = Math.Max(1, (int)(windowSize * smoothingFactor));
-        var sum = 0.0;
-        var count = 0;
-        var left = 0;
-
-        for (var i = 0; i < n; i++)
-        {
-            var y = data[i].Y ?? 0.0;
-            sum += y;
-            count++;
-
-            if (i - left + 1 > adjustedWindow * 2 + 1)
-            {
-                sum -= data[left].Y ?? 0.0;
-                left++;
-                count--;
-            }
-
-            smoothedData[i] = new ObservablePoint(data[i].X, sum / count);
-        }
-
-        return smoothedData;
+        Dispatcher.UIThread.InvokeAsync(() => _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage));
     }
 
     private void InitializeProgressIndicator()
@@ -654,154 +316,6 @@ public partial class MainWindow : Window
 
         _progressIndicatorCanvas.Children.Add(_progressIndicatorLine);
         (PlotView.Parent as Grid)?.Children.Add(_progressIndicatorCanvas);
-    }
-
-    private void UpdateProgressIndicator(double completionPercentage)
-    {
-        try
-        {
-            if (XAxes.Length == 0 || completionPercentage < 0 || completionPercentage > 100)
-                return;
-
-            if (_tosuApi.GetRawBanchoStatus() == 2)
-            {
-                ViewModel.StatusMessage = "Progress Indicator not updating while in game.";
-                return;
-            }
-
-            ViewModel.StatusMessage = "";
-
-            if (Math.Abs(completionPercentage - _lastCompletionPercentage) < 0.1) return;
-            _lastCompletionPercentage = completionPercentage;
-
-            var xAxis = XAxes[0];
-            var maxXLimit = xAxis.MaxLimit;
-            if (!maxXLimit.HasValue) return;
-
-            var progressPosition = completionPercentage / 100 * maxXLimit.Value;
-            var leftEdgePosition = Math.Max(progressPosition - 0.1, 0);
-
-            // Get relevant series and cache sorted points
-            var lineSeriesList = Series.OfType<LineSeries<ObservablePoint>>()
-                .Where(s => s.Name == "Aim" || s.Name == "Speed")
-                .ToArray();
-
-            if (lineSeriesList.Length == 0) return;
-
-            var sortedPointsCache =
-                new Dictionary<LineSeries<ObservablePoint>, List<ObservablePoint>>(lineSeriesList.Length);
-            foreach (var series in lineSeriesList)
-            {
-                var values = series.Values as List<ObservablePoint> ?? series.Values.ToList();
-                if (values.Count > 1 && !IsSortedByX(values))
-                    values.Sort((a, b) => Nullable.Compare(a.X, b.X));
-                sortedPointsCache[series] = values;
-            }
-
-            const int steps = 8;
-            var step = (progressPosition - leftEdgePosition) / steps;
-            if (step <= 0) step = 0.1;
-
-            // Reuse the list if possible
-            var topContourPoints = progressIndicator.Values as List<ObservablePoint>;
-            if (topContourPoints == null)
-                topContourPoints = new List<ObservablePoint>(steps + 4);
-            else
-                topContourPoints.Clear();
-
-            topContourPoints.Add(new ObservablePoint(leftEdgePosition, 0));
-
-            for (var i = 0; i <= steps; i++)
-            {
-                var x = leftEdgePosition + i * step;
-                if (x > progressPosition) x = progressPosition;
-
-                double maxInterpolatedY = 0;
-                foreach (var series in lineSeriesList)
-                {
-                    var points = sortedPointsCache[series];
-                    if (points.Count == 0) continue;
-
-                    var leftIndex = BinarySearchX(points, x);
-                    var leftPoint = points[Math.Max(leftIndex, 0)];
-                    var rightPoint = points[Math.Min(leftIndex + 1, points.Count - 1)];
-
-                    var interpolatedY = InterpolateY(leftPoint, rightPoint, x);
-                    if (interpolatedY > maxInterpolatedY)
-                        maxInterpolatedY = interpolatedY;
-                }
-
-                topContourPoints.Add(new ObservablePoint(x, maxInterpolatedY));
-            }
-
-            // Right edge Y
-            double rightEdgeY = 0;
-            foreach (var series in lineSeriesList)
-            {
-                var points = sortedPointsCache[series];
-                if (points.Count == 0) continue;
-
-                var leftIndex = BinarySearchX(points, progressPosition);
-                var leftPoint = points[Math.Max(leftIndex, 0)];
-                var rightPoint = points[Math.Min(leftIndex + 1, points.Count - 1)];
-
-                var interpolatedY = InterpolateY(leftPoint, rightPoint, progressPosition);
-                if (interpolatedY > rightEdgeY)
-                    rightEdgeY = interpolatedY;
-            }
-
-            topContourPoints.Add(new ObservablePoint(progressPosition, rightEdgeY));
-            topContourPoints.Add(new ObservablePoint(progressPosition, 0));
-            topContourPoints.Add(new ObservablePoint(leftEdgePosition, 0));
-
-            progressIndicator.Values = topContourPoints;
-
-            if (!Series.Contains(progressIndicator))
-                Series = Series.Append(progressIndicator).ToArray();
-
-            PlotView.InvalidateVisual();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An error occurred while updating the progress indicator: {ex.Message}");
-        }
-
-        // Helper: binary search for X in sorted list
-        static int BinarySearchX(List<ObservablePoint> points, double x)
-        {
-            int lo = 0, hi = points.Count - 1;
-            while (lo <= hi)
-            {
-                var mid = lo + ((hi - lo) >> 1);
-                if (points[mid].X < x) lo = mid + 1;
-                else if (points[mid].X > x) hi = mid - 1;
-                else return mid;
-            }
-
-            return lo - 1;
-        }
-
-        // Helper: check if list is sorted by X
-        static bool IsSortedByX(List<ObservablePoint> points)
-        {
-            for (var i = 1; i < points.Count; i++)
-                if (points[i - 1].X > points[i].X)
-                    return false;
-            return true;
-        }
-    }
-
-    private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoint, double x)
-    {
-        var lx = leftPoint.X;
-        var rx = rightPoint.X;
-        var ly = leftPoint.Y ?? 0.0;
-        var ry = rightPoint.Y ?? 0.0;
-
-        if (lx == rx)
-            return ly;
-
-        return (double)(ly + (ry - ly) * (x - lx) / (rx - lx));
     }
 
     private void InitializeVisibilityCheckTimer()

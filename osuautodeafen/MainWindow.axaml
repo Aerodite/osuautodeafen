@@ -95,7 +95,7 @@
                                     Value="{Binding MinCompletionPercentage, Mode=TwoWay}"
                                     Width="100"
                                     HorizontalAlignment="Center" />
-                            <Popup x:Name="SliderTooltipPopup"
+                            <Popup x:Name="CompletionPercentageSliderTooltipPopup"
                                    VerticalOffset="-40">
                                 <Border Background="#333" CornerRadius="4" Padding="4">
                                     <TextBlock
