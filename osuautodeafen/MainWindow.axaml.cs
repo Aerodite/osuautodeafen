@@ -2051,192 +2051,185 @@ private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
         _oldAverageColorPublic = newColor;
     }
 
-    private async Task UpdateLogoAsync()
+private async Task UpdateLogoAsync()
+{
+    if (_getLowResBackground == null)
     {
-        if (_getLowResBackground == null)
+        Console.WriteLine("[ERROR] _getLowResBackground is null");
+        return;
+    }
+
+    try
+    {
+        // Load low-res bitmap path and high-res SVG in parallel
+        var lowResBitmapTask = TryGetLowResBitmapPathAsync(5, 1000);
+        var highResLogoTask = Task.Run(() =>
         {
-            Console.WriteLine("[ERROR] _getLowResBackground is null");
+            try { return LoadHighResolutionLogo("osuautodeafen.Resources.autodeafen.svg"); }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Exception while loading high-resolution logo: {ex.Message}");
+                return null;
+            }
+        });
+
+        var lowResBitmapPath = await lowResBitmapTask;
+        if (string.IsNullOrWhiteSpace(lowResBitmapPath) || !File.Exists(lowResBitmapPath))
+        {
+            Console.WriteLine("[ERROR] Low-resolution bitmap path is invalid or does not exist");
             return;
         }
 
-        string? lowResBitmapPath = null;
-        SKSvg? highResLogoSvg = null;
-        Bitmap? lowResBitmap = null;
-
+        Bitmap? lowResBitmap;
         try
         {
-            // Start loading low-res bitmap and high-res SVG in parallel
-            var lowResBitmapTask = TryGetLowResBitmapPathAsync(5, 1000);
-            var highResLogoTask = Task.Run(() =>
-            {
-                try
-                {
-                    return LoadHighResolutionLogo("osuautodeafen.Resources.autodeafen.svg");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[ERROR] Exception while loading high-resolution logo: {ex.Message}");
-                    return null;
-                }
-            });
-
-            lowResBitmapPath = await lowResBitmapTask;
-            if (string.IsNullOrWhiteSpace(lowResBitmapPath) || !File.Exists(lowResBitmapPath))
-            {
-                Console.WriteLine("[ERROR] Low-resolution bitmap path is invalid or does not exist");
-                return;
-            }
-
-            // Safely load bitmap from file
-            try
-            {
-                using var stream =
-                    new FileStream(lowResBitmapPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                lowResBitmap = new Bitmap(stream);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[ERROR] Failed to load low-resolution bitmap: {ex.Message}");
-                return;
-            }
-
-            if (lowResBitmap == null)
-            {
-                Console.WriteLine("[ERROR] Low-resolution bitmap is null after loading");
-                return;
-            }
-
-            _lowResBitmap = lowResBitmap;
-            Console.WriteLine("Low resolution bitmap successfully loaded");
-
-            highResLogoSvg = await highResLogoTask;
-            if (highResLogoSvg == null)
-            {
-                Console.WriteLine("[ERROR] Failed to load high-resolution logo");
-                return;
-            }
-
-            _cachedLogoSvg = highResLogoSvg;
-
-            var newAverageColor = SKColors.White;
-            var skBitmap = ConvertToSKBitmap(_lowResBitmap);
-            if (skBitmap != null)
-                try
-                {
-                    newAverageColor = await CalculateAverageColorAsync(skBitmap);
-                    var avgColor = await CalculateAverageColorAsync(skBitmap);
-                    await UpdateAverageColorAsync(avgColor);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[ERROR] Failed to calculate average color: {ex.Message}");
-                }
-                finally
-                {
-                    skBitmap.Dispose();
-                }
-
-            var steps = 20;
-            var delay = 1;
-
-            await _animationManager.EnqueueAnimation(async () =>
-            {
-                if (_cachedLogoSvg?.Picture == null)
-                {
-                    Console.WriteLine("[ERROR] Cached logo SVG or its picture is null");
-                    return;
-                }
-
-                var originalPicture = _cachedLogoSvg.Picture;
-                var width = (int)originalPicture.CullRect.Width;
-                var height = (int)originalPicture.CullRect.Height;
-
-                for (var i = 0; i <= steps; i++)
-                {
-                    var t = i / (float)steps;
-                    var interpolatedColor = InterpolateColor(_oldAverageColor, newAverageColor, t);
-
-                    SKBitmap? bitmap = null;
-                    try
-                    {
-                        bitmap = await Task.Run(() =>
-                        {
-                            var tempBitmap = new SKBitmap(width, height);
-                            using (var canvas = new SKCanvas(tempBitmap))
-                            {
-                                canvas.Clear(SKColors.Transparent);
-                                using var paint = new SKPaint();
-                                canvas.DrawPicture(originalPicture, paint);
-
-                                for (var y = 0; y < tempBitmap.Height; y++)
-                                for (var x = 0; x < tempBitmap.Width; x++)
-                                {
-                                    var pixel = tempBitmap.GetPixel(x, y);
-                                    var newColor = new SKColor(
-                                        interpolatedColor.Red,
-                                        interpolatedColor.Green,
-                                        interpolatedColor.Blue,
-                                        pixel.Alpha
-                                    );
-                                    tempBitmap.SetPixel(x, y, newColor);
-                                }
-                            }
-
-                            return tempBitmap;
-                        });
-
-                        using var image = SKImage.FromBitmap(bitmap);
-                        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-                        if (data == null)
-                        {
-                            Console.WriteLine("[ERROR] Data encoding failed");
-                            continue;
-                        }
-
-                        var pngBytes = data.ToArray();
-
-                        try
-                        {
-                            using var colorChangingStream = new MemoryStream(pngBytes);
-                            _colorChangingImage = new Bitmap(colorChangingStream);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[ERROR] Exception while creating Bitmap from stream: {ex.Message}");
-                        }
-
-                        await Dispatcher.UIThread.InvokeAsync(() =>
-                        {
-                            if (DataContext is SharedViewModel viewModel)
-                                try
-                                {
-                                    using var viewModelStream = new MemoryStream(pngBytes);
-                                    viewModel.ModifiedLogoImage = new Bitmap(viewModelStream);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Console.WriteLine(
-                                        $"[ERROR] Exception while setting ViewModel's ModifiedLogoImage: {ex.Message}");
-                                }
-                        });
-                    }
-                    finally
-                    {
-                        bitmap?.Dispose();
-                    }
-
-                    await Task.Delay(delay);
-                }
-
-                _oldAverageColor = newAverageColor;
-            });
+            using var stream = new FileStream(lowResBitmapPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            lowResBitmap = new Bitmap(stream);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Exception in UpdateLogoAsync: {ex.Message}");
+            Console.WriteLine($"[ERROR] Failed to load low-resolution bitmap: {ex.Message}");
+            return;
         }
-    }
 
+        if (lowResBitmap == null)
+        {
+            Console.WriteLine("[ERROR] Low-resolution bitmap is null after loading");
+            return;
+        }
+
+        _lowResBitmap = lowResBitmap;
+        Console.WriteLine("Low resolution bitmap successfully loaded");
+
+        var highResLogoSvg = await highResLogoTask;
+        if (highResLogoSvg == null)
+        {
+            Console.WriteLine("[ERROR] Failed to load high-resolution logo");
+            return;
+        }
+
+        _cachedLogoSvg = highResLogoSvg;
+
+        // Calculate new average color
+        var skBitmap = ConvertToSKBitmap(_lowResBitmap);
+        SKColor newAverageColor = SKColors.White;
+        if (skBitmap != null)
+        {
+            try
+            {
+                newAverageColor = await CalculateAverageColorAsync(skBitmap);
+                await UpdateAverageColorAsync(newAverageColor);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Failed to calculate average color: {ex.Message}");
+            }
+            finally
+            {
+                skBitmap.Dispose();
+            }
+        }
+
+        // Optimization: skip animation if color hasn't changed
+        if (_oldAverageColor == newAverageColor)
+            return;
+
+        const int steps = 10; // Fewer steps for less CPU
+        const int delay = 16; // ~60fps
+
+        // Throttle: only one animation at a time
+        await _animationManager.EnqueueAnimation(async () =>
+        {
+            if (_cachedLogoSvg?.Picture == null)
+            {
+                Console.WriteLine("[ERROR] Cached logo SVG or its picture is null");
+                return;
+            }
+
+            var originalPicture = _cachedLogoSvg.Picture;
+            var width = (int)originalPicture.CullRect.Width;
+            var height = (int)originalPicture.CullRect.Height;
+
+            // Reuse a single buffer for the PNG bytes
+            byte[]? pngBytes = null;
+
+            for (var i = 0; i <= steps; i++)
+            {
+                var t = i / (float)steps;
+                var interpolatedColor = InterpolateColor(_oldAverageColor, newAverageColor, t);
+
+                SKBitmap? bitmap = null;
+                try
+                {
+                    bitmap = await Task.Run(() =>
+                    {
+                        var tempBitmap = new SKBitmap(width, height);
+                        using (var canvas = new SKCanvas(tempBitmap))
+                        {
+                            canvas.Clear(SKColors.Transparent);
+                            using var paint = new SKPaint
+                            {
+                                ColorFilter = SKColorFilter.CreateBlendMode(interpolatedColor, SKBlendMode.Modulate)
+                            };
+                            canvas.DrawPicture(originalPicture, paint);
+                        }
+                        return tempBitmap;
+                    });
+
+                    using var image = SKImage.FromBitmap(bitmap);
+                    using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+                    if (data == null)
+                    {
+                        Console.WriteLine("[ERROR] Data encoding failed");
+                        continue;
+                    }
+
+                    // Reuse buffer if possible
+                    pngBytes = data.ToArray();
+
+                    try
+                    {
+                        using var colorChangingStream = new MemoryStream(pngBytes, false);
+                        _colorChangingImage = new Bitmap(colorChangingStream);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[ERROR] Exception while creating Bitmap from stream: {ex.Message}");
+                    }
+
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        if (DataContext is SharedViewModel viewModel)
+                        {
+                            try
+                            {
+                                using var viewModelStream = new MemoryStream(pngBytes, false);
+                                viewModel.ModifiedLogoImage = new Bitmap(viewModelStream);
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine(
+                                    $"[ERROR] Exception while setting ViewModel's ModifiedLogoImage: {ex.Message}");
+                            }
+                        }
+                    });
+                }
+                finally
+                {
+                    bitmap?.Dispose();
+                }
+
+                await Task.Delay(delay);
+            }
+
+            _oldAverageColor = newAverageColor;
+        });
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[ERROR] Exception in UpdateLogoAsync: {ex.Message}");
+    }
+}
     private async Task<SKColor> CalculateAverageColorAsync(SKBitmap bitmap)
     {
         return await Task.Run(() => CalculateAverageColor(bitmap));
