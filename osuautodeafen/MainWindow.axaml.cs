@@ -16,6 +16,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -40,6 +41,8 @@ namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
+    private LogoControl? _logoControl;
+    
     private readonly AnimationManager _animationManager = new();
     private readonly Queue<Bitmap> _bitmapQueue = new(1);
     private readonly BreakPeriodCalculator _breakPeriod;
@@ -1496,7 +1499,7 @@ public partial class MainWindow : Window
 
             var bitmapForUI = _currentBitmap;
             await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(bitmapForUI));
-            await Task.Run(UpdateLogoAsync);
+            await Dispatcher.UIThread.InvokeAsync(UpdateLogoAsync);
             IsBlackBackgroundDisplayed = false;
         }
 
@@ -1883,8 +1886,24 @@ private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
         const string resourceName = "osuautodeafen.Resources.autodeafen.svg";
         try
         {
-            var logoImage = await LoadLogoAsync(resourceName);
-            UpdateViewModelWithLogo(logoImage);
+            var svg = await Task.Run(() => LoadHighResolutionLogo(resourceName));
+
+            if (_logoControl == null)
+            {
+                _logoControl = new LogoControl
+                {
+                    Width = 240,
+                    Height = 72,
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                };
+            }
+            _logoControl.Svg = svg;
+            _logoControl.ModulateColor = SKColors.White;
+            
+            var logoHost = this.FindControl<ContentControl>("LogoHost");
+            if (logoHost != null)
+                logoHost.Content = _logoControl;
+
             Console.WriteLine("SVG loaded successfully.");
         }
         catch (Exception ex)
@@ -1900,7 +1919,6 @@ private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
             }
         }
     }
-
     private async Task<Bitmap> LoadLogoAsync(string resourceName)
     {
         using var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
@@ -2061,7 +2079,6 @@ private async Task UpdateLogoAsync()
 
     try
     {
-        // Load low-res bitmap path and high-res SVG in parallel
         var lowResBitmapTask = TryGetLowResBitmapPathAsync(5, 1000);
         var highResLogoTask = Task.Run(() =>
         {
@@ -2080,7 +2097,7 @@ private async Task UpdateLogoAsync()
             return;
         }
 
-        Bitmap? lowResBitmap;
+        Bitmap? lowResBitmap = null;
         try
         {
             using var stream = new FileStream(lowResBitmapPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
@@ -2102,15 +2119,14 @@ private async Task UpdateLogoAsync()
         Console.WriteLine("Low resolution bitmap successfully loaded");
 
         var highResLogoSvg = await highResLogoTask;
-        if (highResLogoSvg == null)
+        if (highResLogoSvg == null || highResLogoSvg.Picture == null)
         {
-            Console.WriteLine("[ERROR] Failed to load high-resolution logo");
+            Console.WriteLine("[ERROR] Failed to load high-resolution logo or picture is null");
             return;
         }
 
         _cachedLogoSvg = highResLogoSvg;
 
-        // Calculate new average color
         var skBitmap = ConvertToSKBitmap(_lowResBitmap);
         SKColor newAverageColor = SKColors.White;
         if (skBitmap != null)
@@ -2130,14 +2146,12 @@ private async Task UpdateLogoAsync()
             }
         }
 
-        // Optimization: skip animation if color hasn't changed
         if (_oldAverageColor == newAverageColor)
             return;
 
-        const int steps = 10; // Fewer steps for less CPU
-        const int delay = 16; // ~60fps
+        const int steps = 10;
+        const int delay = 16;
 
-        // Throttle: only one animation at a time
         await _animationManager.EnqueueAnimation(async () =>
         {
             if (_cachedLogoSvg?.Picture == null)
@@ -2146,78 +2160,25 @@ private async Task UpdateLogoAsync()
                 return;
             }
 
-            var originalPicture = _cachedLogoSvg.Picture;
-            var width = (int)originalPicture.CullRect.Width;
-            var height = (int)originalPicture.CullRect.Height;
-
-            // Reuse a single buffer for the PNG bytes
-            byte[]? pngBytes = null;
-
             for (var i = 0; i <= steps; i++)
             {
                 var t = i / (float)steps;
                 var interpolatedColor = InterpolateColor(_oldAverageColor, newAverageColor, t);
 
-                SKBitmap? bitmap = null;
-                try
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    bitmap = await Task.Run(() =>
+                    if (_logoControl is { } skiaLogo)
                     {
-                        var tempBitmap = new SKBitmap(width, height);
-                        using (var canvas = new SKCanvas(tempBitmap))
-                        {
-                            canvas.Clear(SKColors.Transparent);
-                            using var paint = new SKPaint
-                            {
-                                ColorFilter = SKColorFilter.CreateBlendMode(interpolatedColor, SKBlendMode.Modulate)
-                            };
-                            canvas.DrawPicture(originalPicture, paint);
-                        }
-                        return tempBitmap;
-                    });
-
-                    using var image = SKImage.FromBitmap(bitmap);
-                    using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-                    if (data == null)
-                    {
-                        Console.WriteLine("[ERROR] Data encoding failed");
-                        continue;
+                        skiaLogo.Svg = _cachedLogoSvg;
+                        skiaLogo.ModulateColor = interpolatedColor;
+                        skiaLogo.InvalidateVisual();
                     }
 
-                    // Reuse buffer if possible
-                    pngBytes = data.ToArray();
-
-                    try
+                    if (DataContext is SharedViewModel viewModel)
                     {
-                        using var colorChangingStream = new MemoryStream(pngBytes, false);
-                        _colorChangingImage = new Bitmap(colorChangingStream);
+                        viewModel.ModifiedLogoImage = null;
                     }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[ERROR] Exception while creating Bitmap from stream: {ex.Message}");
-                    }
-
-                    await Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        if (DataContext is SharedViewModel viewModel)
-                        {
-                            try
-                            {
-                                using var viewModelStream = new MemoryStream(pngBytes, false);
-                                viewModel.ModifiedLogoImage = new Bitmap(viewModelStream);
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine(
-                                    $"[ERROR] Exception while setting ViewModel's ModifiedLogoImage: {ex.Message}");
-                            }
-                        }
-                    });
-                }
-                finally
-                {
-                    bitmap?.Dispose();
-                }
+                });
 
                 await Task.Delay(delay);
             }
@@ -2227,7 +2188,7 @@ private async Task UpdateLogoAsync()
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"[ERROR] Exception in UpdateLogoAsync: {ex.Message}");
+        Console.WriteLine($"[ERROR] Exception in UpdateLogoAsync: {ex}");
     }
 }
     private async Task<SKColor> CalculateAverageColorAsync(SKBitmap bitmap)

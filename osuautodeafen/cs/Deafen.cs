@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Timers;
 using osuautodeafen.cs;
 using SharpHook;
+using SharpHook.Data;
 using SharpHook.Native;
 using Timer = System.Timers.Timer;
 

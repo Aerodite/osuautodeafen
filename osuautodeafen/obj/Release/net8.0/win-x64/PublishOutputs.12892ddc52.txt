@@ -1,5 +1,0 @@
-C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Release\net8.0\win-x64\publish\osuautodeafen.pdb
-C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Release\net8.0\win-x64\publish\av_libglesv2.dll
-C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Release\net8.0\win-x64\publish\libHarfBuzzSharp.dll
-C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Release\net8.0\win-x64\publish\libSkiaSharp.dll
-C:\Users\Anthony\RiderProjects\osuautodeafen\osuautodeafen\bin\Release\net8.0\win-x64\publish\osuautodeafen.exe

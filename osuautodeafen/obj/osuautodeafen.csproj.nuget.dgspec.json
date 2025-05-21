@@ -46,23 +46,27 @@
           "dependencies": {
             "Avalonia": {
               "target": "Package",
-              "version": "[11.0.10, )"
+              "version": "[11.3.0, )"
             },
             "Avalonia.Desktop": {
               "target": "Package",
-              "version": "[11.0.10, )"
+              "version": "[11.3.0, )"
             },
             "Avalonia.Diagnostics": {
               "target": "Package",
-              "version": "[11.0.10, )"
+              "version": "[11.3.0, )"
             },
             "Avalonia.Fonts.Inter": {
               "target": "Package",
-              "version": "[11.0.10, )"
+              "version": "[11.3.0, )"
+            },
+            "Avalonia.Skia": {
+              "target": "Package",
+              "version": "[11.3.0, )"
             },
             "Avalonia.Themes.Fluent": {
               "target": "Package",
-              "version": "[11.0.10, )"
+              "version": "[11.3.0, )"
             },
             "ILMerge": {
               "target": "Package",
@@ -82,15 +86,35 @@
             },
             "ReactiveUI": {
               "target": "Package",
-              "version": "[20.1.1, )"
+              "version": "[20.2.45, )"
             },
             "SharpHook": {
               "target": "Package",
-              "version": "[5.3.8, )"
+              "version": "[6.0.0, )"
+            },
+            "SkiaSharp": {
+              "target": "Package",
+              "version": "[2.88.9, )"
+            },
+            "SkiaSharp.NativeAssets.Linux": {
+              "target": "Package",
+              "version": "[2.88.9, )"
+            },
+            "SkiaSharp.NativeAssets.Win32": {
+              "target": "Package",
+              "version": "[2.88.9, )"
+            },
+            "SkiaSharp.NativeAssets.macOS": {
+              "target": "Package",
+              "version": "[2.88.9, )"
+            },
+            "SkiaSharp.Views": {
+              "target": "Package",
+              "version": "[2.88.3, )"
             },
             "Svg.Skia": {
               "target": "Package",
-              "version": "[2.0.0, )"
+              "version": "[2.0.0.4, )"
             },
             "WebSocketSharp": {
               "target": "Package",

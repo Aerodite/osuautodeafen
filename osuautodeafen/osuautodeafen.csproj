@@ -10,64 +10,70 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Avalonia" Version="11.0.10"/>
-        <PackageReference Include="Avalonia.Desktop" Version="11.0.10"/>
-        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.10"/>
-        <PackageReference Include="Avalonia.Fonts.Inter" Version="11.0.10"/>
-        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.10"/>
-        <PackageReference Include="LiveChartsCore.SkiaSharpView" Version="2.0.0-rc2"/>
-        <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc2"/>
-        <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
-        <PackageReference Include="ReactiveUI" Version="20.1.1"/>
-        <PackageReference Include="SharpHook" Version="5.3.8"/>
-        <PackageReference Include="Svg.Skia" Version="2.0.0"/>
-        <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11"/>
-        <PackageReference Include="ILMerge" Version="3.0.41"/>
+        <PackageReference Include="Avalonia" Version="11.3.0" />
+        <PackageReference Include="Avalonia.Desktop" Version="11.3.0" />
+        <PackageReference Include="Avalonia.Skia" Version="11.3.0" />
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.0" />
+        <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.0" />
+        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.3.0" />
+        <PackageReference Include="LiveChartsCore.SkiaSharpView" Version="2.0.0-rc2" />
+        <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc2" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+        <PackageReference Include="ReactiveUI" Version="20.2.45" />
+        <PackageReference Include="SharpHook" Version="6.0.0" />
+        <PackageReference Include="SkiaSharp" Version="2.88.9" />
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.9" />
+        <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="2.88.9" />
+        <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="2.88.9" />
+        <PackageReference Include="SkiaSharp.Views" Version="2.88.3" />
+        <PackageReference Include="Svg.Skia" Version="2.0.0.4" />
+        <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11" />
+        <PackageReference Include="ILMerge" Version="3.0.41" />
     </ItemGroup>
 
     <ItemGroup>
-        <EmbeddedResource Include="Resources\autodeafen.svg"/>
-        <EmbeddedResource Include="Resources\oad.ico"/>
+        <EmbeddedResource Include="Resources\autodeafen.svg" />
+        <EmbeddedResource Include="Resources\oad.ico" />
     </ItemGroup>
 
     <ItemGroup>
-        <None Remove="Icons\gear-solid.svg"/>
-        <None Remove="Icons\gear-solid.png"/>
-        <AvaloniaResource Include="Icons\gear-solid.png"/>
-        <None Remove="Icons\angles-left-solid.png"/>
-        <AvaloniaResource Include="Icons\angles-left-solid.png"/>
-        <None Remove="Icons\jong.png"/>
-        <None Remove="Icons\clock-solid.png"/>
-        <AvaloniaResource Include="Icons\clock-solid.png"/>
-        <None Remove="Icons\medal-solid.png"/>
-        <AvaloniaResource Include="Icons\medal-solid.png"/>
-        <None Remove="Icons\star-solid.png"/>
-        <AvaloniaResource Include="Icons\star-solid.png"/>
-        <None Remove="Icons\image-solid.png"/>
-        <AvaloniaResource Include="Icons\image-solid.png"/>
-        <None Remove="Icons\arrows.png"/>
-        <AvaloniaResource Include="Icons\arrows.png"/>
-        <None Remove="Icons\keyboard-solid.png"/>
-        <AvaloniaResource Include="Icons\keyboard-solid.png"/>
-        <None Remove="Icons\crown-solid.png"/>
-        <AvaloniaResource Include="Icons\crown-solid.png"/>
-        <None Remove="Icons\images-solid.png"/>
-        <AvaloniaResource Include="Icons\images-solid.png"/>
-        <None Remove="Icons\shooting-star-solid.png"/>
-        <AvaloniaResource Include="Icons\shooting-star-solid.png"/>
-        <None Remove="Icons\eye-slash-solid.png"/>
-        <AvaloniaResource Include="Icons\eye-slash-solid.png"/>
-        <None Remove="Icons\angles-right-solid.png"/>
-        <AvaloniaResource Include="Icons\angles-right-solid.png"/>
-        <None Remove="Resources\oad.ico"/>
-        <None Remove="Resources\osu_whitestroke.png"/>
-        <AvaloniaResource Include="Resources\osu_whitestroke.png"/>
-        <None Remove="Icons\map-location-dot-solid.png"/>
-        <AvaloniaResource Include="Icons\map-location-dot-solid.png"/>
+        <None Remove="Icons\gear-solid.svg" />
+        <None Remove="Icons\gear-solid.png" />
+        <AvaloniaResource Include="Icons\gear-solid.png" />
+        <None Remove="Icons\angles-left-solid.png" />
+        <AvaloniaResource Include="Icons\angles-left-solid.png" />
+        <None Remove="Icons\jong.png" />
+        <None Remove="Icons\clock-solid.png" />
+        <AvaloniaResource Include="Icons\clock-solid.png" />
+        <None Remove="Icons\medal-solid.png" />
+        <AvaloniaResource Include="Icons\medal-solid.png" />
+        <None Remove="Icons\star-solid.png" />
+        <AvaloniaResource Include="Icons\star-solid.png" />
+        <None Remove="Icons\image-solid.png" />
+        <AvaloniaResource Include="Icons\image-solid.png" />
+        <None Remove="Icons\arrows.png" />
+        <AvaloniaResource Include="Icons\arrows.png" />
+        <None Remove="Icons\keyboard-solid.png" />
+        <AvaloniaResource Include="Icons\keyboard-solid.png" />
+        <None Remove="Icons\crown-solid.png" />
+        <AvaloniaResource Include="Icons\crown-solid.png" />
+        <None Remove="Icons\images-solid.png" />
+        <AvaloniaResource Include="Icons\images-solid.png" />
+        <None Remove="Icons\shooting-star-solid.png" />
+        <AvaloniaResource Include="Icons\shooting-star-solid.png" />
+        <None Remove="Icons\eye-slash-solid.png" />
+        <AvaloniaResource Include="Icons\eye-slash-solid.png" />
+        <None Remove="Icons\angles-right-solid.png" />
+        <AvaloniaResource Include="Icons\angles-right-solid.png" />
+        <None Remove="Resources\oad.ico" />
+        <None Remove="Resources\osu_whitestroke.png" />
+        <AvaloniaResource Include="Resources\osu_whitestroke.png" />
+        <None Remove="Icons\map-location-dot-solid.png" />
+        <AvaloniaResource Include="Icons\map-location-dot-solid.png" />
     </ItemGroup>
 
     <ItemGroup>
-        <None Remove="Resources\noise.png"/>
+        <None Remove="Resources\noise.png" />
     </ItemGroup>
 
     <ItemGroup>
