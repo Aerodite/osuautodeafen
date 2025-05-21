@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace osuautodeafen.cs;
 
@@ -19,11 +20,11 @@ public class BreakPeriodCalculator
 {
     public List<BreakPeriod> BreakPeriods { get; } = new();
 
-    public List<BreakPeriod> ParseBreakPeriods(string osuFilePath, List<double> xAxis, List<double> yAxis)
+    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string osuFilePath, List<double> xAxis, List<double> yAxis)
     {
         BreakPeriods.Clear();
 
-        var lines = File.ReadAllLines(osuFilePath);
+        var lines = await File.ReadAllLinesAsync(osuFilePath);
         var inBreakPeriodSection = false;
 
         // Filter out x-values corresponding to y-values of -100

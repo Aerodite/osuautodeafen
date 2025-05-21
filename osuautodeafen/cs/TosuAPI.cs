@@ -487,14 +487,13 @@ public class TosuApi : IDisposable
 
     public void CheckForBeatmapChange()
     {
-        // Check if the beatmap ID has changed, if so, invoke the BeatmapChanged event
-         var currentBeatmapId = GetBeatmapId();
-         if (currentBeatmapId < 0 || currentBeatmapId == _lastBeatmapId)
-             return; 
-         _lastBeatmapId = currentBeatmapId;
-         Console.WriteLine($"Current Beatmap ID: {currentBeatmapId}"); 
-         Console.WriteLine($"Beatmap changed to ID: {currentBeatmapId}"); 
-         BeatmapChanged?.Invoke(); 
+        int id = GetBeatmapId();
+        if (id < 0 || id == _lastBeatmapId)
+            return;
+        _lastBeatmapId = id;
+        var handler = BeatmapChanged;
+        if (handler != null)
+            handler();
     }
 
     public GraphData? GetGraphData()
