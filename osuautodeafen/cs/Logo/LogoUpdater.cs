@@ -41,27 +41,27 @@ public class LogoUpdater
     }
 
     #region Public API
-    
-    public void SetOldAverageColor(SKColor color)
-    {
-        _oldAverageColor = color;
-    }
-    
     public async Task UpdateLogoAsync()
     {
         Console.WriteLine("UpdateLogoAsync started");
         try
         {
-            var lowResBitmapPath = await GetLowResBitmapPathAsync();
+            // Start both tasks in parallel
+            var lowResBitmapPathTask = GetLowResBitmapPathAsync();
+            var highResLogoTask = LoadHighResLogoAsync();
+
+            var lowResBitmapPath = await lowResBitmapPathTask.ConfigureAwait(false);
             if (lowResBitmapPath == null) return;
 
-            var lowResBitmap = await LoadLowResBitmapAsync(lowResBitmapPath);
-            if (lowResBitmap == null) return;
-            _lowResBitmap = lowResBitmap;
+            var lowResBitmapTask = LoadLowResBitmapAsync(lowResBitmapPath);
 
-            var highResLogoSvg = await LoadHighResLogoAsync();
+            var highResLogoSvg = await highResLogoTask.ConfigureAwait(false);
             if (highResLogoSvg == null) return;
             _cachedLogoSvg = highResLogoSvg;
+
+            var lowResBitmap = await lowResBitmapTask.ConfigureAwait(false);
+            if (lowResBitmap == null) return;
+            _lowResBitmap = lowResBitmap;
 
             using var skBitmap = ConvertToSKBitmap(_lowResBitmap);
             if (skBitmap == null)
@@ -73,7 +73,6 @@ public class LogoUpdater
             var newAverageColor = await CalculateAverageColorAsync(skBitmap).ConfigureAwait(false);
             Console.WriteLine($"newAverageColor: {newAverageColor}");
 
-            // Set initial color to white if not set yet
             if (_oldAverageColor == default)
                 _oldAverageColor = SKColors.White;
 
@@ -82,10 +81,8 @@ public class LogoUpdater
                 Console.WriteLine("Average color unchanged, skipping animation");
                 return;
             }
-
-            await UpdateAverageColorAsync(newAverageColor);
-
-            await AnimateLogoColorAsync(newAverageColor);
+            await AnimateLogoColorAsync(newAverageColor).ConfigureAwait(false);
+            await UpdateAverageColorAsync(newAverageColor).ConfigureAwait(false);
             _oldAverageColor = newAverageColor;
         }
         catch (Exception ex)
@@ -113,8 +110,8 @@ public class LogoUpdater
         try
         {
             Console.WriteLine("Opening low-res bitmap file");
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            var bitmap = new Bitmap(stream);
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 4096, FileOptions.Asynchronous);
+            var bitmap = await Task.Run(() => new Bitmap(stream)).ConfigureAwait(false);
             Console.WriteLine("Low resolution bitmap successfully loaded");
             return bitmap;
         }
@@ -154,6 +151,10 @@ public class LogoUpdater
     private async Task AnimateLogoColorAsync(SKColor newAverageColor)
     {
         Console.WriteLine("Enqueuing color animation");
+        _colorTransitionCts?.Cancel();
+        _colorTransitionCts = new CancellationTokenSource();
+        var token = _colorTransitionCts.Token;
+
         await _animationManager.EnqueueAnimation(async () =>
         {
             if (_cachedLogoSvg?.Picture == null)
@@ -162,9 +163,10 @@ public class LogoUpdater
                 return;
             }
 
+            // Only set SVG if not already set
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (_logoControl is { } skiaLogo)
+                if (_logoControl is { } skiaLogo && skiaLogo.Svg != _cachedLogoSvg)
                     skiaLogo.Svg = _cachedLogoSvg;
                 _viewModel.ModifiedLogoImage = null;
             });
@@ -176,6 +178,7 @@ public class LogoUpdater
 
             for (var i = 0; i <= steps; i++)
             {
+                token.ThrowIfCancellationRequested();
                 var t = i / (float)steps;
                 var interpolatedColor = InterpolateColor(fromColor, toColor, t);
 
@@ -189,7 +192,7 @@ public class LogoUpdater
                     }
                 }, DispatcherPriority.Render);
 
-                await Task.Delay(delay).ConfigureAwait(false);
+                await Task.Delay(delay, token).ConfigureAwait(false);
             }
 
             Console.WriteLine("Color animation complete");
@@ -199,25 +202,6 @@ public class LogoUpdater
     private async Task<SKColor> CalculateAverageColorAsync(SKBitmap bitmap)
     {
         return await Task.Run(() => CalculateAverageColor(bitmap));
-    }
-
-    private Bitmap? CreateBlackBitmap(int width = 600, int height = 600)
-    {
-        var renderTargetBitmap = new RenderTargetBitmap(new PixelSize(width, height), new Vector(96, 96));
-        using (var drawingContext = renderTargetBitmap.CreateDrawingContext())
-        {
-            var rect = new Rect(0, 0, width, height);
-            var brush = new SolidColorBrush(Colors.Black);
-            drawingContext.FillRectangle(brush, rect);
-        }
-
-        using (var stream = new MemoryStream())
-        {
-            renderTargetBitmap.Save(stream);
-            stream.Position = 0; // reset stream position to the beginning
-
-            return new Bitmap(stream);
-        }
     }
 
     public async Task UpdateAverageColorAsync(SKColor newColor)
