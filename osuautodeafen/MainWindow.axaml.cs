@@ -151,13 +151,6 @@ public partial class MainWindow : Window
         };
 
         InitializeViewModel();
-        _logoUpdater = new LogoUpdater(
-            _getLowResBackground,
-            _logoControl,
-            _animationManager,
-            ViewModel,
-            LoadHighResolutionLogo
-        );
         _tosuApi.BeatmapChanged += async () =>
         {
             await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
@@ -753,8 +746,7 @@ public partial class MainWindow : Window
             var logoHost = this.FindControl<ContentControl>("LogoHost");
             if (logoHost != null)
                 logoHost.Content = _logoControl;
-
-            // Initialize _logoUpdater here, after _logoControl is set
+            
             _logoUpdater = new LogoUpdater(
                 _getLowResBackground,
                 _logoControl,
