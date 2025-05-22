@@ -244,17 +244,7 @@ public partial class MainWindow : Window
             new SliderTooltipHelper(this, CompletionPercentageSlider, CompletionPercentageSliderTooltipPopup);
         var tooltipHelper = new SliderTooltipHelper(this, StarRatingSlider, StarRatingSliderTooltipPopup);
         var helper = new SliderTooltipHelper(this, PPSlider, PPSliderTooltipPopup);
-
-        // this is only here to replace that stupid timer logic :)
-        // good sacrifice if you ask me
-        Task.Run(async () =>
-        {
-            for (var i = 0; i < 4; i++) // 2 Seconds
-            {
-                await Task.Run(() => UpdateBackground(null, null));
-                await Task.Delay(500);
-            }
-        });
+        
     }
     
     //Settings
