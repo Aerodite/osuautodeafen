@@ -9,6 +9,7 @@ using System.Windows.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using osuautodeafen.cs.Settings;
 
 namespace osuautodeafen.cs;
 
@@ -26,16 +27,12 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private MainWindow.HotKey _deafenKeybind;
 
     private string _deafenKeybindDisplay;
-    private bool _isBackgroundEnabled;
 
     private bool _isBlankScreenEnabled;
-
-    private bool _isBlurEffectEnabled;
+    
     private bool _IsBreakUndeafenToggleEnabled;
-    public bool _isFCRequired;
 
     private bool _isKeybindCaptureFlyoutOpen;
-    private bool _isParallaxEnabled;
 
     private bool _isSliderTooltipOpen;
     private int _minCompletionPercentage;
@@ -44,18 +41,19 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private int _performancePoints;
 
     private double _sliderTooltipOffsetX;
-    private int _starRating;
+    private double _starRating;
 
     private string _statusMessage;
 
-    private bool _UndeafenAfterMiss;
-
+    private readonly SettingsHandler _settingsHandler;
+    
     private string _updateStatusMessage;
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
 
     public SharedViewModel(TosuApi tosuApi)
     {
+        _settingsHandler = new SettingsHandler();
         OpenUpdateUrlCommand = new RelayCommand(OpenUpdateUrl);
         Task.Run(InitializeAsync);
         _tosuApi = tosuApi;
@@ -69,39 +67,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     // this file might be the worst organized file in this entire app but most of everything depends on it.
     // TODO: rewrite basically this entire file
     //</remarks>
-
-    public bool IsParallaxEnabled
-    {
-        get => _isParallaxEnabled;
-        set
-        {
-            if (_isParallaxEnabled != value)
-            {
-                _isParallaxEnabled = value;
-                OnPropertyChanged();
-
-                var settingsFilePath =
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen",
-                        "settings.txt");
-
-                var lines = File.ReadAllLines(settingsFilePath);
-
-                var index = Array.FindIndex(lines, line => line.StartsWith("IsParallaxEnabled"));
-
-                if (index != -1)
-                {
-                    lines[index] = $"IsParallaxEnabled={value}";
-                }
-                else
-                {
-                    var newLines = new List<string>(lines) { $"IsParallaxEnabled={value}" };
-                    lines = newLines.ToArray();
-                }
-
-                File.WriteAllLines(settingsFilePath, lines);
-            }
-        }
-    }
 
     public bool IsKeybindCaptureFlyoutOpen
     {
@@ -141,8 +106,52 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             }
         }
     }
+    
+    private bool _isBackgroundEnabled;
+    public bool IsBackgroundEnabled
+    {
+        get => _isBackgroundEnabled;
+        set
+        {
+            if (_isBackgroundEnabled != value)
+            {
+                _isBackgroundEnabled = value;
+                OnPropertyChanged();
+                _settingsHandler?.SaveSetting("UI", "IsBackgroundEnabled", value);
+            }
+        }
+    }
 
-    //isbreakundeafentoggleenabled
+    private bool _isParallaxEnabled;
+    public bool IsParallaxEnabled
+    {
+        get => _isParallaxEnabled;
+        set
+        {
+            if (_isParallaxEnabled != value)
+            {
+                _isParallaxEnabled = value;
+                OnPropertyChanged();
+                _settingsHandler?.SaveSetting("UI", "IsParallaxEnabled", value);
+            }
+        }
+    }
+
+    private bool _isBlurEffectEnabled;
+    public bool IsBlurEffectEnabled
+    {
+        get => _isBlurEffectEnabled;
+        set
+        {
+            if (_isBlurEffectEnabled != value)
+            {
+                _isBlurEffectEnabled = value;
+                OnPropertyChanged();
+                _settingsHandler?.SaveSetting("UI", "IsBlurEffectEnabled", value);
+            }
+        }
+    }
+    
     public bool IsBreakUndeafenToggleEnabled
     {
         get => _IsBreakUndeafenToggleEnabled;
@@ -156,45 +165,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    public bool IsFCRequired
-    {
-        get => _isFCRequired;
-        set
-        {
-            if (!_canUpdateSettings) return;
-            if (_isFCRequired != value)
-            {
-                _isFCRequired = value;
-                OnPropertyChanged();
+    private bool _isFCRequired;
 
-                var settingsFilePath =
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen",
-                        "settings.txt");
-
-                var lines = File.ReadAllLines(settingsFilePath);
-
-                var index = Array.FindIndex(lines, line => line.StartsWith("IsFCRequired"));
-
-                if (index != -1)
-                {
-                    lines[index] = $"IsFCRequired={value}";
-                }
-                else
-                {
-                    var newLines = new List<string>(lines) { $"IsFCRequired={value}" };
-                    lines = newLines.ToArray();
-                }
-
-                // Use FileStream with FileShare.ReadWrite
-                using (var fileStream = new FileStream(settingsFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite,
-                           FileShare.ReadWrite))
-                using (var writer = new StreamWriter(fileStream))
-                {
-                    foreach (var line in lines) writer.WriteLine(line);
-                }
-            }
-        }
-    }
 
     public string StatusMessage
     {
@@ -206,136 +178,32 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
+    private bool _undeafenAfterMiss;
+
     public bool UndeafenAfterMiss
     {
-        get => _UndeafenAfterMiss;
+        get => _undeafenAfterMiss;
         set
         {
-            if (_UndeafenAfterMiss != value)
+            if (_undeafenAfterMiss != value)
             {
-                _UndeafenAfterMiss = value;
+                _undeafenAfterMiss = value;
                 OnPropertyChanged();
-
-                var settingsFilePath =
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen",
-                        "settings.txt");
-
-                var lines = File.ReadAllLines(settingsFilePath);
-
-                var index = Array.FindIndex(lines, line => line.StartsWith("UndeafenAfterMiss"));
-
-                if (index != -1)
-                {
-                    lines[index] = $"UndeafenAfterMiss={value}";
-                }
-                else
-                {
-                    var newLines = new List<string>(lines) { $"UndeafenAfterMiss={value}" };
-                    lines = newLines.ToArray();
-                }
-
-                File.WriteAllLines(settingsFilePath, lines);
+                _settingsHandler?.SaveSetting("Behavior", "UndeafenAfterMiss", value);
             }
         }
     }
 
-    public bool IsBlankScreenEnabled
+    public bool IsFCRequired
     {
-        get => _isBlankScreenEnabled;
+        get => _isFCRequired;
         set
         {
-            if (_isBlankScreenEnabled != value)
+            if (_isFCRequired != value)
             {
-                _isBlankScreenEnabled = value;
+                _isFCRequired = value;
                 OnPropertyChanged();
-
-                var settingsFilePath =
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen",
-                        "settings.txt");
-
-                var lines = File.ReadAllLines(settingsFilePath);
-
-                var index = Array.FindIndex(lines, line => line.StartsWith("IsBlankScreenEnabled"));
-
-                if (index != -1)
-                {
-                    lines[index] = $"IsBlankScreenEnabled={value}";
-                }
-                else
-                {
-                    var newLines = new List<string>(lines) { $"IsBlankScreenEnabled={value}" };
-                    lines = newLines.ToArray();
-                }
-
-                File.WriteAllLines(settingsFilePath, lines);
-            }
-        }
-    }
-
-    public bool IsBlurEffectEnabled
-    {
-        get => _isBlurEffectEnabled;
-        set
-        {
-            if (_isBlurEffectEnabled != value)
-            {
-                _isBlurEffectEnabled = value;
-                OnPropertyChanged();
-
-                var settingsFilePath =
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen",
-                        "settings.txt");
-
-                var lines = File.ReadAllLines(settingsFilePath);
-
-                var index = Array.FindIndex(lines, line => line.StartsWith("IsBlurEffectEnabled"));
-
-                if (index != -1)
-                {
-                    lines[index] = $"IsBlurEffectEnabled={value}";
-                }
-                else
-                {
-                    var newLines = new List<string>(lines) { $"IsBlurEffectEnabled={value}" };
-                    lines = newLines.ToArray();
-                }
-
-                File.WriteAllLines(settingsFilePath, lines);
-            }
-        }
-    }
-
-    public bool IsBackgroundEnabled
-    {
-        get => _isBackgroundEnabled;
-        set
-        {
-            if (_isBackgroundEnabled != value)
-            {
-                _isBackgroundEnabled = value;
-                OnPropertyChanged();
-
-                var settingsFilePath =
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen",
-                        "settings.txt");
-
-                var lines = File.ReadAllLines(settingsFilePath);
-
-                var index = Array.FindIndex(lines, line => line.StartsWith("IsBackgroundEnabled"));
-
-                if (index != -1)
-                {
-                    lines[index] = $"IsBackgroundEnabled={value}";
-                }
-                else
-                {
-                    var newLines = new List<string>(lines) { $"IsBackgroundEnabled={value}" };
-                    lines = newLines.ToArray();
-                }
-
-                File.WriteAllLines(settingsFilePath, lines);
-
-                BackgroundEnabledChanged?.Invoke();
+                _settingsHandler?.SaveSetting("Behavior", "IsFCRequired", value);
             }
         }
     }
@@ -349,6 +217,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _deafenKeybind = value;
                 OnPropertyChanged();
+                _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybind", value.ToString());
             }
         }
     }
@@ -362,24 +231,12 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _minCompletionPercentage = value;
                 OnPropertyChanged();
+                _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", value);
             }
         }
     }
 
-    public double CompletionPercentage
-    {
-        get => _completionPercentage;
-        set
-        {
-            if (Math.Abs(_completionPercentage - value) > 0.01)
-            {
-                _completionPercentage = value;
-                OnPropertyChanged();
-            }
-        }
-    }
-
-    public int StarRating
+    public double StarRating
     {
         get => _starRating;
         set
@@ -388,6 +245,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _starRating = value;
                 OnPropertyChanged();
+                _settingsHandler?.SaveSetting("General", "StarRating", value);
             }
         }
     }
@@ -400,6 +258,20 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             if (_performancePoints != value)
             {
                 _performancePoints = value;
+                OnPropertyChanged();
+                _settingsHandler?.SaveSetting("General", "PerformancePoints", value);
+            }
+        }
+    }
+
+    public double CompletionPercentage
+    {
+        get => _completionPercentage;
+        set
+        {
+            if (Math.Abs(_completionPercentage - value) > 0.01)
+            {
+                _completionPercentage = value;
                 OnPropertyChanged();
             }
         }
@@ -516,85 +388,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     {
         _updateChecker.latestVersion = latestVersion;
         CheckAndUpdateStatusMessage();
-    }
-
-    public void UpdateUndeafenAfterMiss()
-    {
-        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.txt");
-        if (File.Exists(settingsFilePath))
-            foreach (var line in File.ReadLines(settingsFilePath))
-            {
-                var settings = line.Split('=');
-                if (settings.Length == 2 && settings[0].Trim() == "UndeafenAfterMiss")
-                {
-                    UndeafenAfterMiss = bool.Parse(settings[1].Trim());
-                    //Console.WriteLine($"Updated UndeafenAfterMiss to {UndeafenAfterMiss}");
-                    break;
-                }
-            }
-        else
-            Console.WriteLine("Settings file does not exist");
-    }
-
-    public event Action BackgroundEnabledChanged;
-
-    public void UpdateIsFCRequired()
-    {
-        if (!_canUpdateSettings) return;
-        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.txt");
-        if (File.Exists(settingsFilePath))
-            foreach (var line in File.ReadLines(settingsFilePath))
-            {
-                var settings = line.Split('=');
-                if (settings.Length == 2 && settings[0].Trim() == "IsFCRequired")
-                {
-                    IsFCRequired = bool.Parse(settings[1].Trim());
-                    //Console.WriteLine($"Updated IsFCRequired to {IsFCRequired}");
-                    break;
-                }
-            }
-        else
-            Console.WriteLine("Settings file does not exist");
-    }
-
-    public void UpdateIsBlankScreenEnabled()
-    {
-        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.txt");
-        if (File.Exists(settingsFilePath))
-            foreach (var line in File.ReadLines(settingsFilePath))
-            {
-                var settings = line.Split('=');
-                if (settings.Length == 2 && settings[0].Trim() == "IsBlankScreenEnabled")
-                {
-                    IsBlankScreenEnabled = bool.Parse(settings[1].Trim());
-                    //Console.WriteLine($"Updated IsBlankScreenEnabled to {IsBlankScreenEnabled}");
-                    break;
-                }
-            }
-        else
-            Console.WriteLine("Settings file does not exist");
-    }
-
-    public void UpdateIsBreakUndeafenToggleEnabled()
-    {
-        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.txt");
-        if (File.Exists(settingsFilePath))
-            foreach (var line in File.ReadLines(settingsFilePath))
-            {
-                var settings = line.Split('=');
-                if (settings.Length == 2 && settings[0].Trim() == "BreakUndeafenEnabled")
-                {
-                    BreakUndeafenEnabled = bool.Parse(settings[1].Trim());
-                    //Console.WriteLine($"Updated BreakUndeafenEnabled to {BreakUndeafenEnabled}");
-                    break;
-                }
-            }
-        else
-            Console.WriteLine("Settings file does not exist");
     }
 
     public void CheckAndUpdateStatusMessage()

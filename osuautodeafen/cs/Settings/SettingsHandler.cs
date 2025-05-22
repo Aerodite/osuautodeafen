@@ -11,7 +11,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 {
     private readonly string _iniPath;
     private readonly FileIniDataParser _parser = new();
-    private IniData _data;
+    public IniData _data;
 
     public SettingsHandler()
     {
@@ -19,7 +19,16 @@ public class SettingsHandler : Control, INotifyPropertyChanged
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen", "settings.ini");
         Directory.CreateDirectory(Path.GetDirectoryName(_iniPath)!);
-        _data = File.Exists(_iniPath) ? _parser.ReadFile(_iniPath) : new IniData();
+
+        if (!File.Exists(_iniPath))
+        {
+            // Optionally add default sections/keys here
+            _data = new IniData();
+            _data.Sections.AddSection("General");
+            _parser.WriteFile(_iniPath, _data);
+        }
+
+        _data = _parser.ReadFile(_iniPath);
         LoadSettings();
     }
 
@@ -45,23 +54,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         set { if (Set(ref _performancePoints, value)) SaveSetting("General", "PerformancePoints", value); }
     }
 
-    private bool _isFCRequired;
-    public bool IsFCRequired
-    {
-        get => _isFCRequired;
-        set { if (Set(ref _isFCRequired, value)) SaveSetting("General", "IsFCRequired", value); }
-    }
-
-    private bool _undeafenAfterMiss;
-    public bool UndeafenAfterMiss
-    {
-        get => _undeafenAfterMiss;
-        set { if (Set(ref _undeafenAfterMiss, value)) SaveSetting("General", "UndeafenAfterMiss", value); }
-    }
-
     // Helper for property changed
     public event PropertyChangedEventHandler? PropertyChanged;
-    protected bool Set<T>(ref T field, T value, string? propertyName = null)
+    protected bool Set<T>(ref T field, T value, [System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
     {
         if (Equals(field, value)) return false;
         field = value;
@@ -69,17 +64,39 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         return true;
     }
 
+    public bool IsFCRequired { get; set; }
+    public bool UndeafenAfterMiss { get; set; }
+    public bool IsBackgroundEnabled { get; set; }
+    public bool IsParallaxEnabled { get; set; }
+    public bool IsBlurEffectEnabled { get; set; }
+    public string DeafenKeybind { get; set; }
+    public bool IsBreakUndeafenToggleEnabled { get; set; }
+
     public void LoadSettings()
     {
+        // General
         MinCompletionPercentage = double.TryParse(_data["General"]["MinCompletionPercentage"], out var mcp) ? mcp : 0;
         StarRating = double.TryParse(_data["General"]["StarRating"], out var sr) ? sr : 0;
         PerformancePoints = double.TryParse(_data["General"]["PerformancePoints"], out var pp) ? pp : 0;
-        IsFCRequired = bool.TryParse(_data["General"]["IsFCRequired"], out var fc) && fc;
-        UndeafenAfterMiss = bool.TryParse(_data["General"]["UndeafenAfterMiss"], out var uam) && uam;
+        IsBreakUndeafenToggleEnabled = bool.TryParse(_data["General"]["IsBreakUndeafenToggleEnabled"], out var bu) && bu;
+
+        // Behavior
+        IsFCRequired = bool.TryParse(_data["Behavior"]["IsFCRequired"], out var fc) && fc;
+        UndeafenAfterMiss = bool.TryParse(_data["Behavior"]["UndeafenAfterMiss"], out var uam) && uam;
+
+        // Hotkeys
+        DeafenKeybind = _data["Hotkeys"]["DeafenKeybind"];
+
+        // UI
+        IsBackgroundEnabled = bool.TryParse(_data["UI"]["IsBackgroundEnabled"], out var bg) && bg;
+        IsParallaxEnabled = bool.TryParse(_data["UI"]["IsParallaxEnabled"], out var px) && px;
+        IsBlurEffectEnabled = bool.TryParse(_data["UI"]["IsBlurEffectEnabled"], out var blur) && blur;
     }
 
-    private void SaveSetting(string section, string key, object value)
+    public void SaveSetting(string section, string key, object value)
     {
+        if (!_data.Sections.ContainsSection(section))
+            _data.Sections.AddSection(section);
         _data[section][key] = value.ToString();
         _parser.WriteFile(_iniPath, _data);
     }

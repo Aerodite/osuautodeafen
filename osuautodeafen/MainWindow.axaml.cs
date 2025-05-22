@@ -12,6 +12,7 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -128,9 +129,34 @@ public partial class MainWindow : Window
 
         // Core services
         _getLowResBackground = new GetLowResBackground(_tosuApi);
-
-        // Settings panel
+        
         var settingsPanel = new SettingsHandler();
+        _settingsHandler = settingsPanel;
+        
+        _settingsHandler.LoadSettings();
+        
+        _viewModel.MinCompletionPercentage = (int)Math.Round(_settingsHandler.MinCompletionPercentage);
+        _viewModel.StarRating = _settingsHandler.StarRating;
+        _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
+        _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
+        _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
+        _viewModel.BreakUndeafenEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
+        
+        _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
+        _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
+        _viewModel.IsBlurEffectEnabled = _settingsHandler.IsBlurEffectEnabled;
+        
+        CompletionPercentageSlider.Value = _viewModel.MinCompletionPercentage;
+        StarRatingSlider.Value = _viewModel.StarRating;
+        PPSlider.Value = _viewModel.PerformancePoints;
+        
+        FCToggle.IsChecked = _viewModel.IsFCRequired;
+        UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
+        BreakUndeafenToggle.IsChecked = _viewModel.BreakUndeafenEnabled;
+        
+        BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
+        ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
+        BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
 
         _deafen = new Deafen(_tosuApi, settingsPanel, _breakPeriod, _viewModel);
 
@@ -225,6 +251,34 @@ public partial class MainWindow : Window
             }
         });
     }
+    
+    //Settings
+    private async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
+        int roundedValue = (int)Math.Round(slider.Value);
+        Console.WriteLine($"Min Comp. % Value: {roundedValue}");
+        vm.MinCompletionPercentage = roundedValue;
+        _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", roundedValue);
+        
+        _chartManager?.UpdateDeafenOverlay(roundedValue);
+    }
+    private void StarRatingSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs rangeBaseValueChangedEventArgs)
+    {
+        if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
+        var roundedValue = Math.Round(slider.Value, 1);
+        Console.WriteLine($"Min SR Value: {roundedValue:F1}");
+        vm.StarRating = roundedValue;
+        _settingsHandler?.SaveSetting("General", "StarRating", roundedValue);
+    }
+    private void PPSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
+        int roundedValue = (int)Math.Round(slider.Value);
+        Console.WriteLine($"Min PP Value: {roundedValue}");
+        vm.PerformancePoints = roundedValue;
+        _settingsHandler?.SaveSetting("General", "PerformancePoints", roundedValue);
+    }
 
     private SharedViewModel ViewModel { get; }
     private bool IsBlackBackgroundDisplayed { get; set; }
@@ -292,47 +346,70 @@ public partial class MainWindow : Window
         }
     }
 
-    // capture the keybind and save it to the settings file
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
 
         if (!ViewModel.IsKeybindCaptureFlyoutOpen) return;
-
         if (e.Key == Key.NumLock) return;
 
-        Flyout? flyout;
         if (e.Key == Key.Escape)
         {
             ViewModel.IsKeybindCaptureFlyoutOpen = false;
-            flyout = Resources["KeybindCaptureFlyout"] as Flyout;
-            if (flyout != null) flyout.Hide();
+            (Resources["KeybindCaptureFlyout"] as Flyout)?.Hide();
             return;
         }
 
         var currentTime = DateTime.Now;
-
-        if (e.Key == _lastKeyPressed &&
-            (currentTime - _lastKeyPressTime).TotalMilliseconds <
-            2500) return; // considered a repeat key press, ignore it
-
+        if (e.Key == _lastKeyPressed && (currentTime - _lastKeyPressTime).TotalMilliseconds < 2500) return;
         _lastKeyPressed = e.Key;
         _lastKeyPressTime = currentTime;
 
         if (IsModifierKey(e.Key)) return;
 
-        // capture the key and its modifiers
         var modifiers = KeyModifiers.None;
         if (e.KeyModifiers.HasFlag(KeyModifiers.Control)) modifiers |= KeyModifiers.Control;
         if (e.KeyModifiers.HasFlag(KeyModifiers.Alt)) modifiers |= KeyModifiers.Alt;
         if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) modifiers |= KeyModifiers.Shift;
 
-        // create and set the new hotkey
         var friendlyKeyName = GetFriendlyKeyName(e.Key);
-        ViewModel.DeafenKeybind = new HotKey { Key = e.Key, ModifierKeys = modifiers, FriendlyName = friendlyKeyName };
+        var hotKey = new HotKey { Key = e.Key, ModifierKeys = modifiers, FriendlyName = friendlyKeyName };
+        ViewModel.DeafenKeybind = hotKey;
+
+        // Save to settings
+        _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybind", $"{modifiers}|{e.Key}");
+
+        ViewModel.IsKeybindCaptureFlyoutOpen = false;
+        (Resources["KeybindCaptureFlyout"] as Flyout)?.Hide();
+
+        // Update display
+        UpdateDeafenKeybindDisplay();
 
         e.Handled = true;
     }
+    
+    private string RetrieveKeybindFromSettings()
+    {
+        var keybindString = _settingsHandler?._data["Hotkeys"]["DeafenKeybind"];
+        if (string.IsNullOrEmpty(keybindString))
+            return "Set Keybind";
+
+        var parts = keybindString.Split('|');
+        if (parts.Length != 2)
+            return "Set Keybind";
+
+        var modifiers = parts[0];
+        var key = parts[1];
+
+        // Build display string
+        var display = "";
+        if (modifiers.Contains("Control")) display += "Ctrl+";
+        if (modifiers.Contains("Alt")) display += "Alt+";
+        if (modifiers.Contains("Shift")) display += "Shift+";
+        display += GetFriendlyKeyName(Enum.Parse<Key>(key));
+        return display;
+    }
+
 
     private string GetFriendlyKeyName(Key key)
     {
@@ -364,21 +441,6 @@ public partial class MainWindow : Window
             _ => key.ToString()
         };
     }
-
-    private string RetrieveKeybindFromSettings()
-    {
-        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.txt");
-        if (File.Exists(settingsFilePath))
-        {
-            var lines = File.ReadAllLines(settingsFilePath);
-            var keybindLine = lines.FirstOrDefault(line => line.StartsWith("Hotkey="));
-            if (keybindLine != null) return keybindLine.Split('=')[1];
-        }
-
-        return "Set Keybind";
-    }
-
     public void ShowUpdateNotification()
     {
         var notificationBar = this.FindControl<Button>("UpdateNotificationBar");
@@ -401,7 +463,6 @@ public partial class MainWindow : Window
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
         _tosuApi.CheckForBeatmapChange();
-        Dispatcher.UIThread.InvokeAsync(UpdateDeafenKeybindDisplay);
     }
 
     public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)
@@ -1143,7 +1204,12 @@ public partial class MainWindow : Window
 
     private void BreakUndeafenToggle_IsCheckChanged(object? sender, RoutedEventArgs e)
     {
-        if (sender is CheckBox checkBox) ViewModel.BreakUndeafenEnabled = checkBox.IsChecked == true;
+        if (sender is CheckBox checkBox && DataContext is SharedViewModel vm)
+        {
+            bool isChecked = checkBox.IsChecked == true;
+            vm.IsBreakUndeafenToggleEnabled = isChecked;
+            _settingsHandler?.SaveSetting("General", "IsBreakUndeafenToggleEnabled", isChecked);
+        }
     }
 
     public class HotKey

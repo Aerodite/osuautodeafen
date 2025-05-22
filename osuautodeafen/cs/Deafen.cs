@@ -90,12 +90,7 @@ public class Deafen : IDisposable
 
         try
         {
-            _viewModel.UpdateIsFCRequired();
-            _viewModel.UpdateUndeafenAfterMiss();
-            _viewModel.UpdateIsBlankScreenEnabled();
-            _viewModel.UpdateIsBreakUndeafenToggleEnabled();
-            screenBlankEnabled = _viewModel.IsBlankScreenEnabled;
-            LoadSettings();
+
         }
         finally
         {

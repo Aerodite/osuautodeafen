@@ -110,7 +110,8 @@
                                     Value="{Binding MinCompletionPercentage, Mode=TwoWay}"
                                     Width="100"
                                     HorizontalAlignment="Center"
-                                    Foreground="{Binding AverageColorBrush}">
+                                    Foreground="{Binding AverageColorBrush}"
+                                    ValueChanged="CompletionPercentageSlider_ValueChanged">
                                 <Slider.Styles>
                                     <Style Selector="Thumb">
                                         <Setter Property="Background" Value="{Binding AverageColorBrush}" />
@@ -137,7 +138,8 @@
                             <Slider x:Name="StarRatingSlider"
                                     Minimum="0" Maximum="10" TickFrequency="0.1" IsSnapToTickEnabled="True"
                                     Value="{Binding StarRating, Mode=TwoWay}"
-                                    Width="100" HorizontalAlignment="Center" />
+                                    Width="100" HorizontalAlignment="Center"
+                                    ValueChanged="StarRatingSlider_ValueChanged" />
                             <Popup x:Name="StarRatingSliderTooltipPopup"
                                    VerticalOffset="-40">
                                 <Border Background="#333" CornerRadius="4" Padding="4">
@@ -156,7 +158,8 @@
                             <Slider x:Name="PPSlider"
                                     Minimum="0" Maximum="1000" TickFrequency="10" IsSnapToTickEnabled="True"
                                     Value="{Binding PerformancePoints, Mode=TwoWay}"
-                                    Width="100" HorizontalAlignment="Center" />
+                                    Width="100" HorizontalAlignment="Center"
+                                    ValueChanged="PPSlider_ValueChanged" />
                             <Popup x:Name="PPSliderTooltipPopup"
                                    VerticalOffset="-40">
                                 <Border Background="#333" CornerRadius="4" Padding="4">
