@@ -16,6 +16,13 @@
 
     <Window.Resources>
         <local:UpdateNotificationMarginConverter x:Key="UpdateNotificationMarginConverter" />
+        
+        <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
     </Window.Resources>
     <Window.Styles>
         <Style Selector="ToolTip#ChatBoxTip">
@@ -29,6 +36,15 @@
                     </StackPanel>
                 </Template>
             </Setter>
+        </Style>
+        <Style Selector="Slider Thumb">
+            <Setter Property="Foreground" Value="{Binding AverageColorBrush}" x:DataType="cs:SharedViewModel" />
+        </Style>
+        <Style Selector="Slider">
+            <Setter Property="Foreground" Value="{Binding AverageColorBrush}" x:DataType="cs:SharedViewModel" />
+        </Style>
+        <Style Selector="Slider">
+            <Setter Property="Foreground" Value="{Binding AverageColorBrush}" x:DataType="cs:SharedViewModel" />
         </Style>
     </Window.Styles>
 
@@ -93,7 +109,16 @@
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding MinCompletionPercentage, Mode=TwoWay}"
                                     Width="100"
-                                    HorizontalAlignment="Center" />
+                                    HorizontalAlignment="Center"
+                                    Foreground="{Binding AverageColorBrush}">
+                                <Slider.Styles>
+                                    <Style Selector="Thumb">
+                                        <Setter Property="Background" Value="{Binding AverageColorBrush}" />
+                                    </Style>
+                                </Slider.Styles>
+                            </Slider>
+
+                            
                             <Popup x:Name="CompletionPercentageSliderTooltipPopup"
                                    VerticalOffset="-40">
                                 <Border Background="#333" CornerRadius="4" Padding="4">
@@ -117,7 +142,7 @@
                                    VerticalOffset="-40">
                                 <Border Background="#333" CornerRadius="4" Padding="4">
                                     <TextBlock
-                                        Text="{Binding ElementName=StarRatingSlider, Path=Value, StringFormat='{}{0}★'}"
+                                        Text="{Binding ElementName=StarRatingSlider, Path=Value, StringFormat='{}{0:F1}★'}"
                                         Foreground="White" />
                                 </Border>
                             </Popup>

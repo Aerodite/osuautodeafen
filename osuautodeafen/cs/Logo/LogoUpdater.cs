@@ -25,6 +25,8 @@ public class LogoUpdater
     private CancellationTokenSource? _colorTransitionCts;
     private SKColor _oldAverageColor;
     private readonly Func<string, SKSvg> _loadHighResLogo;
+    
+    private SKColor _currentColor;
 
     public LogoUpdater(
         GetLowResBackground getLowResBackground,
@@ -81,8 +83,10 @@ public class LogoUpdater
                 Console.WriteLine("Average color unchanged, skipping animation");
                 return;
             }
-            await AnimateLogoColorAsync(newAverageColor).ConfigureAwait(false);
-            await UpdateAverageColorAsync(newAverageColor).ConfigureAwait(false);
+            
+            await UpdateAverageColorAsync(newAverageColor);
+            await AnimateLogoColorAsync(newAverageColor);
+            
             _oldAverageColor = newAverageColor;
         }
         catch (Exception ex)
@@ -163,7 +167,6 @@ public class LogoUpdater
                 return;
             }
 
-            // Only set SVG if not already set
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (_logoControl is { } skiaLogo && skiaLogo.Svg != _cachedLogoSvg)
@@ -173,32 +176,37 @@ public class LogoUpdater
 
             const int steps = 10;
             const int delay = 16;
-            var fromColor = _oldAverageColor;
+            var fromColor = _currentColor == default ? _oldAverageColor : _currentColor;
             var toColor = newAverageColor;
 
             for (var i = 0; i <= steps; i++)
             {
-                token.ThrowIfCancellationRequested();
+                if (token.IsCancellationRequested)
+                {
+                    _oldAverageColor = _currentColor;
+                    return;
+                }
                 var t = i / (float)steps;
                 var interpolatedColor = InterpolateColor(fromColor, toColor, t);
+                _currentColor = interpolatedColor;
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     if (_logoControl is { } skiaLogo)
                     {
-                        Console.WriteLine($"Setting ModulateColor: {interpolatedColor}");
                         skiaLogo.ModulateColor = interpolatedColor;
                         skiaLogo.InvalidateVisual();
                     }
                 }, DispatcherPriority.Render);
 
-                await Task.Delay(delay, token).ConfigureAwait(false);
+                await Task.Delay(delay, token).ContinueWith(_ => { });
             }
 
+            _oldAverageColor = toColor;
+            _currentColor = toColor;
             Console.WriteLine("Color animation complete");
         }).ConfigureAwait(false);
     }
-
     private async Task<SKColor> CalculateAverageColorAsync(SKBitmap bitmap)
     {
         return await Task.Run(() => CalculateAverageColor(bitmap));
@@ -213,32 +221,38 @@ public class LogoUpdater
         const int steps = 10;
         const int delay = 16;
 
-        var from = _oldAverageColor;
-        var to = newColor;
+        var fromColor = _currentColor == default ? _oldAverageColor : _currentColor;
+        var toColor = newColor;
 
-        try
+        for (var i = 0; i <= steps; i++)
         {
-            for (var i = 0; i <= steps; i++)
+            if (token.IsCancellationRequested)
             {
-                token.ThrowIfCancellationRequested();
-                var t = i / (float)steps;
-                var interpolated = InterpolateColor(from, to, t);
-                var avaloniaColor = Color.FromArgb(interpolated.Alpha, interpolated.Red, interpolated.Green, interpolated.Blue);
-
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    _viewModel.AverageColorBrush = new SolidColorBrush(avaloniaColor);
-                });
-
-                await Task.Delay(delay, token);
+                _oldAverageColor = _currentColor;
+                return;
             }
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected on cancellation
-        }
-    }
+            var t = i / (float)steps;
+            var interpolatedColor = InterpolateColor(fromColor, toColor, t);
+            _currentColor = interpolatedColor;
 
+            var avaloniaColor = Color.FromArgb(interpolatedColor.Alpha, interpolatedColor.Red, interpolatedColor.Green, interpolatedColor.Blue);
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                _viewModel.AverageColorBrush = new SolidColorBrush(avaloniaColor);
+                if (_logoControl is { } skiaLogo)
+                {
+                    skiaLogo.ModulateColor = interpolatedColor;
+                    skiaLogo.InvalidateVisual();
+                }
+            }, DispatcherPriority.Render);
+
+            await Task.Delay(delay, token);
+        }
+
+        _oldAverageColor = toColor;
+        _currentColor = toColor;
+    }
     #endregion
 
     #region Helpers
