@@ -280,7 +280,7 @@ public class Deafen : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"An error occurred in the Deafen Timer: {ex.Message}");
+            //Console.WriteLine($"An error occurred in the Deafen Timer: {ex.Message}");
         }
         finally
         {

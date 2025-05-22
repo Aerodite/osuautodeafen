@@ -222,7 +222,7 @@ public class ChartManager
         PlotView.XAxes = XAxes;
         PlotView.YAxes = YAxes;
 
-        _progressIndicatorHelper.UpdateProgressIndicator(_tosuApi.GetCompletionPercentage());
+        //_progressIndicatorHelper.UpdateProgressIndicator(_tosuApi.GetCompletionPercentage());
         PlotView.InvalidateVisual();
     }
 
