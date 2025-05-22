@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
@@ -24,6 +25,7 @@ public class ChartManager
     private string? cachedOsuFilePath;
     private double maxLimit;
     private double maxYValue;
+    private CancellationTokenSource? _deafenOverlayCts;
 
     public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel)
     {
@@ -80,30 +82,50 @@ public class ChartManager
         }
     }
     
-    public void UpdateDeafenOverlay(double minCompletionPercentage)
+    public async Task UpdateDeafenOverlayAsync(double minCompletionPercentage, int durationMs = 60, int steps = 4)
     {
-        // Remove any existing deafen rectangle
-        PlotView.Sections = PlotView.Sections
-            .Where(s => !(s is RectangularSection rs && rs.Fill is SolidColorPaint paint &&
-                          paint.Color == new SKColor(0xFF, 0x00, 0x00, 64)))
-            .ToList();
+        // Cancel any previous animation
+        _deafenOverlayCts?.Cancel();
+        _deafenOverlayCts = new CancellationTokenSource();
+        var token = _deafenOverlayCts.Token;
 
-        // Add new deafen rectangle
-        var deafenStart = minCompletionPercentage * maxLimit / 100.0;
-        var deafenRectangle = new RectangularSection
+        var color = new SKColor(0xFF, 0x00, 0x00, 64);
+        var sections = PlotView.Sections.ToList();
+        var deafenRect = sections
+            .OfType<RectangularSection>()
+            .FirstOrDefault(rs => rs.Fill is SolidColorPaint paint && paint.Color == color);
+
+        var newXi = minCompletionPercentage * maxLimit / 100.0;
+
+        if (deafenRect == null)
         {
-            Xi = deafenStart,
-            Xj = maxLimit,
-            Yi = 0,
-            Yj = maxYValue,
-            Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00, 64) }
-        };
+            deafenRect = new RectangularSection
+            {
+                Xi = newXi,
+                Xj = maxLimit,
+                Yi = 0,
+                Yj = maxYValue,
+                Fill = new SolidColorPaint { Color = color }
+            };
+            sections.Add(deafenRect);
+            PlotView.Sections = sections;
+            PlotView.InvalidateVisual();
+            return;
+        }
 
-        PlotView.Sections = PlotView.Sections.Append(deafenRectangle).ToList();
+        double? oldXi = deafenRect.Xi;
+        for (int i = 1; i <= steps; i++)
+        {
+            token.ThrowIfCancellationRequested();
+            deafenRect.Xi = oldXi + (newXi - oldXi) * i / steps;
+            PlotView.InvalidateVisual();
+            await Task.Delay(durationMs / steps, token);
+        }
+        deafenRect.Xi = newXi;
         PlotView.InvalidateVisual();
     }
 
-   public async Task UpdateChart(GraphData? graphData, double minCompletionPercentage)
+ public async Task UpdateChart(GraphData? graphData, double minCompletionPercentage)
 {
     if (graphData == null) return;
 
@@ -222,6 +244,8 @@ public class ChartManager
 
     PlotView.XAxes = XAxes;
     PlotView.YAxes = YAxes;
+    
+    await UpdateDeafenOverlayAsync(minCompletionPercentage);
 
     PlotView.InvalidateVisual();
 }

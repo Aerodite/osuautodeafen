@@ -177,11 +177,29 @@ public partial class MainWindow : Window
         };
 
         InitializeViewModel();
+        
+        var progressIndicator1 = new LineSeries<ObservablePoint>
+        {
+            Stroke = new SolidColorPaint(new SKColor(0xFF, 0xFF, 0xFF, 192)) { StrokeThickness = 5 },
+            GeometryFill = null,
+            GeometryStroke = null,
+            LineSmoothness = 0,
+            Values = new List<ObservablePoint>()
+        };
+
+        _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel);
+
+        _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel, progressIndicator1);
+
+        
         _tosuApi.BeatmapChanged += async () =>
         {
             await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
             await Task.Run(() => UpdateBackground(null, null));
-            
+        };
+        _tosuApi.HasModsChanged += async () =>
+        {
+            await _chartManager.UpdateChart(_tosuApi.GetGraphData(), ViewModel.MinCompletionPercentage);
         };
 
         PointerMoved += OnMouseMove;
@@ -226,19 +244,6 @@ public partial class MainWindow : Window
             new SliderTooltipHelper(this, CompletionPercentageSlider, CompletionPercentageSliderTooltipPopup);
         var tooltipHelper = new SliderTooltipHelper(this, StarRatingSlider, StarRatingSliderTooltipPopup);
         var helper = new SliderTooltipHelper(this, PPSlider, PPSliderTooltipPopup);
-        var progressIndicator1 = new LineSeries<ObservablePoint>
-        {
-            Stroke = new SolidColorPaint(new SKColor(0xFF, 0xFF, 0xFF, 192)) { StrokeThickness = 5 },
-            GeometryFill = null,
-            GeometryStroke = null,
-            LineSmoothness = 0,
-            Values = new List<ObservablePoint>()
-        };
-
-        _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel);
-
-        _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel, progressIndicator1);
-
 
         // this is only here to replace that stupid timer logic :)
         // good sacrifice if you ask me
@@ -261,7 +266,7 @@ public partial class MainWindow : Window
         vm.MinCompletionPercentage = roundedValue;
         _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", roundedValue);
         
-        _chartManager?.UpdateDeafenOverlay(roundedValue);
+        _chartManager?.UpdateDeafenOverlayAsync(roundedValue);
     }
     private void StarRatingSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs rangeBaseValueChangedEventArgs)
     {
@@ -463,6 +468,7 @@ public partial class MainWindow : Window
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
         _tosuApi.CheckForBeatmapChange();
+        _tosuApi.CheckForModChange();
     }
 
     public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)

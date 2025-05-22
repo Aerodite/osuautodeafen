@@ -20,11 +20,13 @@ public class TosuApi : IDisposable
     private readonly Timer _timer;
     private int _beatmapId;
     private int _beatmapSetId;
+    private double _lastModNumber = 0;
     private BreakPeriod _breakPeriod = null!;
     private double _combo;
     private double _completionPercentage;
     private double _current;
     private double _DTRate;
+    private int _modNumber;
     private double _firstObj;
     private double _full;
     private string? _fullPath;
@@ -85,6 +87,8 @@ public class TosuApi : IDisposable
     }
 
     public event Action? BeatmapChanged;
+    
+    public event Action? HasModsChanged;
 
     public event Action<GraphData>? GraphDataUpdated;
 
@@ -265,6 +269,7 @@ public class TosuApi : IDisposable
                         {
                             if (mods.TryGetProperty("name", out var modNames)) _modNames = modNames.GetString();
                             if (mods.TryGetProperty("rate", out var rate)) _DTRate = rate.GetDouble();
+                            if (mods.TryGetProperty("number", out var modNumber)) _modNumber = modNumber.GetInt32();
                         }
                     }
 
@@ -439,6 +444,11 @@ public class TosuApi : IDisposable
     {
         return _beatmapSetId;
     }
+    
+    public int GetModNumber()
+    {
+        return _modNumber;
+    }
 
     // Alternative method to GetBeatmapId()
     // (probably for use in the case of an unsubmitted map, as they have an ID of 0 in the Tosu API)
@@ -492,6 +502,17 @@ public class TosuApi : IDisposable
             return;
         _lastBeatmapId = id;
         var handler = BeatmapChanged;
+        if (handler != null)
+            handler();
+    }
+
+    public void CheckForModChange()
+    {
+        var modNumber = GetModNumber();
+        if (modNumber == _lastModNumber)
+            return;
+        _lastModNumber = modNumber;
+        var handler = HasModsChanged;
         if (handler != null)
             handler();
     }
