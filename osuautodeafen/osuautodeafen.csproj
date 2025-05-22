@@ -89,4 +89,8 @@
             <CopyToPublishDirectory>Never</CopyToPublishDirectory>
         </None>
     </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="cs\Background\" />
+    </ItemGroup>
 </Project>

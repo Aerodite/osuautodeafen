@@ -379,13 +379,6 @@ public partial class MainWindow : Window
         return "Set Keybind";
     }
 
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    protected virtual void OnPropertyChanged(string propertyName)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-
     public void ShowUpdateNotification()
     {
         var notificationBar = this.FindControl<Button>("UpdateNotificationBar");
@@ -408,7 +401,6 @@ public partial class MainWindow : Window
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
         _tosuApi.CheckForBeatmapChange();
-        Dispatcher.UIThread.InvokeAsync(() => UpdateErrorMessage(sender, e));
         Dispatcher.UIThread.InvokeAsync(UpdateDeafenKeybindDisplay);
     }
 
@@ -661,8 +653,9 @@ public partial class MainWindow : Window
                 {
                     ApplyParallax(_mouseX, _mouseY);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Console.WriteLine("[ERROR] Exception in ApplyParallax: " + ex);
                 }
 
             await AnimateBlurAsync(_backgroundBlurEffect, currentRadius, targetRadius, 150, token);
@@ -929,13 +922,6 @@ public partial class MainWindow : Window
     public void ResetButton_Click(object sender, RoutedEventArgs e)
     {
         // redoing....
-    }
-
-    private void UpdateErrorMessage(object? sender, EventArgs e)
-    {
-        var errorMessage = this.FindControl<TextBlock>("ErrorMessage");
-
-        if (errorMessage != null) errorMessage.Text = _tosuApi.GetErrorMessage();
     }
 
     private void MainWindow_Closing(object? sender, CancelEventArgs e)

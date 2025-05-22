@@ -19,7 +19,6 @@ public sealed class LogoControl : Control
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override void Render(DrawingContext context)
     {
-        // No null checks, assume Svg and Picture are always valid
         var picture = Svg!.Picture!;
         var bounds = Bounds;
         var color = ModulateColor;

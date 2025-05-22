@@ -46,22 +46,87 @@ public class LogoUpdater
     {
         _oldAverageColor = color;
     }
-
-    //TODO
-    //make this actually slowly extrapolate the color again im just lazy
-public async Task UpdateLogoAsync()
-{
-    Console.WriteLine("UpdateLogoAsync started");
-    if (_getLowResBackground == null)
+    
+    public async Task UpdateLogoAsync()
     {
-        Console.WriteLine("[ERROR] _getLowResBackground is null");
-        return;
+        Console.WriteLine("UpdateLogoAsync started");
+        try
+        {
+            var lowResBitmapPath = await GetLowResBitmapPathAsync();
+            if (lowResBitmapPath == null) return;
+
+            var lowResBitmap = await LoadLowResBitmapAsync(lowResBitmapPath);
+            if (lowResBitmap == null) return;
+            _lowResBitmap = lowResBitmap;
+
+            var highResLogoSvg = await LoadHighResLogoAsync();
+            if (highResLogoSvg == null) return;
+            _cachedLogoSvg = highResLogoSvg;
+
+            using var skBitmap = ConvertToSKBitmap(_lowResBitmap);
+            if (skBitmap == null)
+            {
+                Console.WriteLine("[ERROR] Failed to convert bitmap for color calculation");
+                return;
+            }
+
+            var newAverageColor = await CalculateAverageColorAsync(skBitmap).ConfigureAwait(false);
+            Console.WriteLine($"newAverageColor: {newAverageColor}");
+
+            // Set initial color to white if not set yet
+            if (_oldAverageColor == default)
+                _oldAverageColor = SKColors.White;
+
+            if (_oldAverageColor == newAverageColor)
+            {
+                Console.WriteLine("Average color unchanged, skipping animation");
+                return;
+            }
+
+            await UpdateAverageColorAsync(newAverageColor);
+
+            await AnimateLogoColorAsync(newAverageColor);
+            _oldAverageColor = newAverageColor;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Exception in UpdateLogoAsync: {ex}");
+        }
+        Console.WriteLine("UpdateLogoAsync finished");
     }
 
-    try
+    private async Task<string?> GetLowResBitmapPathAsync()
     {
         Console.WriteLine("Starting lowResBitmapPathTask and highResLogoTask");
-        var lowResBitmapPathTask = TryGetLowResBitmapPathAsync(5, 1000);
+        var lowResBitmapPath = await TryGetLowResBitmapPathAsync(5, 1000).ConfigureAwait(false);
+        Console.WriteLine($"lowResBitmapPath: {lowResBitmapPath}");
+        if (string.IsNullOrWhiteSpace(lowResBitmapPath) || !File.Exists(lowResBitmapPath))
+        {
+            Console.WriteLine("[ERROR] Low-resolution bitmap path is invalid or does not exist");
+            return null;
+        }
+        return lowResBitmapPath;
+    }
+
+    private async Task<Bitmap?> LoadLowResBitmapAsync(string path)
+    {
+        try
+        {
+            Console.WriteLine("Opening low-res bitmap file");
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            var bitmap = new Bitmap(stream);
+            Console.WriteLine("Low resolution bitmap successfully loaded");
+            return bitmap;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Failed to load low-resolution bitmap: {ex.Message}");
+            return null;
+        }
+    }
+
+    private async Task<SKSvg?> LoadHighResLogoAsync()
+    {
         var highResLogoTask = Task.Run(() =>
         {
             try
@@ -76,68 +141,18 @@ public async Task UpdateLogoAsync()
             }
         });
 
-        var lowResBitmapPath = await lowResBitmapPathTask.ConfigureAwait(false);
-        Console.WriteLine($"lowResBitmapPath: {lowResBitmapPath}");
-        if (string.IsNullOrWhiteSpace(lowResBitmapPath) || !File.Exists(lowResBitmapPath))
-        {
-            Console.WriteLine("[ERROR] Low-resolution bitmap path is invalid or does not exist");
-            return;
-        }
-
-        Bitmap? lowResBitmap;
-        try
-        {
-            Console.WriteLine("Opening low-res bitmap file");
-            using var stream = new FileStream(lowResBitmapPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            lowResBitmap = new Bitmap(stream);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[ERROR] Failed to load low-resolution bitmap: {ex.Message}");
-            return;
-        }
-
-        if (lowResBitmap == null)
-        {
-            Console.WriteLine("[ERROR] Low-resolution bitmap is null after loading");
-            return;
-        }
-
-        _lowResBitmap = lowResBitmap;
-        Console.WriteLine("Low resolution bitmap successfully loaded");
-
         var highResLogoSvg = await highResLogoTask.ConfigureAwait(false);
         Console.WriteLine($"highResLogoSvg loaded: {highResLogoSvg != null}");
         if (highResLogoSvg?.Picture == null)
         {
             Console.WriteLine("[ERROR] Failed to load high-resolution logo or picture is null");
-            return;
+            return null;
         }
+        return highResLogoSvg;
+    }
 
-        _cachedLogoSvg = highResLogoSvg;
-
-        Console.WriteLine("Converting to SKBitmap");
-        using var skBitmap = ConvertToSKBitmap(_lowResBitmap);
-        if (skBitmap == null)
-        {
-            Console.WriteLine("[ERROR] Failed to convert bitmap for color calculation");
-            return;
-        }
-
-        Console.WriteLine("Calculating average color");
-        var newAverageColor = await CalculateAverageColorAsync(skBitmap).ConfigureAwait(false);
-        Console.WriteLine($"newAverageColor: {newAverageColor}");
-
-        // Only animate the brush color if the color changed
-        if (_oldAverageColor == newAverageColor)
-        {
-            Console.WriteLine("Average color unchanged, skipping animation");
-            return;
-        }
-
-        Console.WriteLine("Updating average color brush");
-        await UpdateAverageColorAsync(newAverageColor);
-
+    private async Task AnimateLogoColorAsync(SKColor newAverageColor)
+    {
         Console.WriteLine("Enqueuing color animation");
         await _animationManager.EnqueueAnimation(async () =>
         {
@@ -156,7 +171,7 @@ public async Task UpdateLogoAsync()
 
             const int steps = 10;
             const int delay = 16;
-            var fromColor = _oldAverageColor; 
+            var fromColor = _oldAverageColor;
             var toColor = newAverageColor;
 
             for (var i = 0; i <= steps; i++)
@@ -177,16 +192,9 @@ public async Task UpdateLogoAsync()
                 await Task.Delay(delay).ConfigureAwait(false);
             }
 
-            _oldAverageColor = newAverageColor; // Only update after animation
             Console.WriteLine("Color animation complete");
         }).ConfigureAwait(false);
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"[ERROR] Exception in UpdateLogoAsync: {ex}");
-    }
-    Console.WriteLine("UpdateLogoAsync finished");
-}
 
     private async Task<SKColor> CalculateAverageColorAsync(SKBitmap bitmap)
     {
@@ -245,8 +253,6 @@ public async Task UpdateLogoAsync()
         {
             // Expected on cancellation
         }
-
-        _oldAverageColor = newColor;
     }
 
     #endregion
@@ -332,7 +338,7 @@ public async Task UpdateLogoAsync()
         }
     }
 
-   private unsafe SKColor CalculateAverageColor(SKBitmap bitmap)
+    private unsafe SKColor CalculateAverageColor(SKBitmap bitmap)
     {
         if (bitmap == null) throw new ArgumentNullException(nameof(bitmap));
         int width = bitmap.Width, height = bitmap.Height;
