@@ -31,7 +31,7 @@ public class TosuApi : IDisposable
     private double _fullSR;
     private string? _gameDirectory;
     private JsonElement _graphData;
-    private string? _lastBeatmapChecksum = "";
+    private string? _lastBeatmapChecksum = "abcdefghijklmnop";
     private int _lastBeatmapId = -1;
     private double _lastModNumber;
     private double _maxCombo;
@@ -497,13 +497,12 @@ public class TosuApi : IDisposable
 
     public void CheckForBeatmapChange()
     {
-        var id = GetBeatmapId();
-        if (id < 0 || id == _lastBeatmapId)
+        var checksum = GetBeatmapChecksum();
+        if (string.IsNullOrEmpty(checksum) || checksum == _lastBeatmapChecksum)
             return;
-        _lastBeatmapId = id;
+        _lastBeatmapChecksum = checksum;
         var handler = BeatmapChanged;
-        if (handler != null)
-            handler();
+        handler?.Invoke();
     }
 
     public void CheckForModChange()
