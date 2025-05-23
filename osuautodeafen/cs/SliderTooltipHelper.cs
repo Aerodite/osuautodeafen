@@ -17,18 +17,29 @@ public class SliderTooltipHelper
 
         _slider.AddHandler(InputElement.PointerEnteredEvent, (s, e) => ShowTooltip(e));
         _slider.AddHandler(InputElement.PointerCaptureLostEvent, (s, e) => EndDrag());
-        _slider.PointerPressed += (s, e) => StartDrag(e);
-        _slider.PointerReleased += (s, e) => EndDrag();
         _slider.PointerMoved += (s, e) =>
         {
             if (_isDragging || _popup.IsOpen) UpdateTooltipPosition(e);
         };
+
+        AttachThumbEvents();
     }
 
-    private void StartDrag(PointerEventArgs e)
+    private void AttachThumbEvents()
+    {
+        _slider.ApplyTemplate();
+        if (_slider.FindControl<Track>("PART_Track") is Track track &&
+            track.Thumb is Thumb thumb)
+        {
+            thumb.DragStarted += (s, e) => StartDrag();
+            thumb.DragCompleted += (s, e) => EndDrag();
+        }
+    }
+
+    private void StartDrag()
     {
         _isDragging = true;
-        ShowTooltip(e);
+        ShowTooltip();
         _window.PointerMoved += Window_PointerMoved;
     }
 
@@ -45,10 +56,10 @@ public class SliderTooltipHelper
             UpdateTooltipPosition(e);
     }
 
-    private void ShowTooltip(PointerEventArgs e)
+    private void ShowTooltip()
     {
         _popup.IsOpen = true;
-        UpdateTooltipPosition(e);
+        UpdateTooltipPosition(null);
     }
 
     private void HideTooltip()
@@ -57,7 +68,13 @@ public class SliderTooltipHelper
             _popup.IsOpen = false;
     }
 
-    private void UpdateTooltipPosition(PointerEventArgs e)
+    private void ShowTooltip(PointerEventArgs? e)
+    {
+        _popup.IsOpen = true;
+        UpdateTooltipPosition(e);
+    }
+
+    private void UpdateTooltipPosition(PointerEventArgs? e)
     {
         var percent = (_slider.Value - _slider.Minimum) / (_slider.Maximum - _slider.Minimum);
         var thumbX = percent * (_slider.Bounds.Width - 16); // 16 = thumb width approx

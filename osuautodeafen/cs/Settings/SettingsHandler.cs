@@ -15,24 +15,18 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private readonly FileIniDataParser _parser = new();
     public IniData _data;
 
-    // Example properties (add all you need)
     private double _minCompletionPercentage;
-
     private double _performancePoints;
-
     private double _starRating;
 
     public SettingsHandler()
     {
         _appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen");
-        _iniPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.ini");
-        Directory.CreateDirectory(Path.GetDirectoryName(_iniPath)!);
+        _iniPath = Path.Combine(_appPath, "settings.ini");
+        Directory.CreateDirectory(_appPath);
 
         if (!File.Exists(_iniPath))
         {
-            // Optionally add default sections/keys here
             _data = new IniData();
             _data.Sections.AddSection("General");
             _parser.WriteFile(_iniPath, _data);
@@ -41,11 +35,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         _data = _parser.ReadFile(_iniPath);
         LoadSettings();
     }
-    
-    public string GetPath()
-    {
-        return _appPath;
-    }
+
+    public string GetPath() => _appPath;
 
     public double MinCompletionPercentage
     {
@@ -82,7 +73,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public string DeafenKeybind { get; set; }
     public bool IsBreakUndeafenToggleEnabled { get; set; }
 
-    // Helper for property changed
     public event PropertyChangedEventHandler? PropertyChanged;
 
     protected bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
@@ -95,24 +85,26 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     public void LoadSettings()
     {
-        // General
-        MinCompletionPercentage = double.TryParse(_data["General"]["MinCompletionPercentage"], out var mcp) ? mcp : 0;
-        StarRating = double.TryParse(_data["General"]["StarRating"], out var sr) ? sr : 0;
-        PerformancePoints = double.TryParse(_data["General"]["PerformancePoints"], out var pp) ? pp : 0;
+        // Load directly into backing fields to avoid triggering SaveSetting
+        _minCompletionPercentage = double.TryParse(_data["General"]["MinCompletionPercentage"], out var mcp) ? mcp : 0;
+        _starRating = double.TryParse(_data["General"]["StarRating"], out var sr) ? sr : 0;
+        _performancePoints = double.TryParse(_data["General"]["PerformancePoints"], out var pp) ? pp : 0;
         IsBreakUndeafenToggleEnabled =
             bool.TryParse(_data["General"]["IsBreakUndeafenToggleEnabled"], out var bu) && bu;
 
-        // Behavior
         IsFCRequired = bool.TryParse(_data["Behavior"]["IsFCRequired"], out var fc) && fc;
         UndeafenAfterMiss = bool.TryParse(_data["Behavior"]["UndeafenAfterMiss"], out var uam) && uam;
 
-        // Hotkeys
         DeafenKeybind = _data["Hotkeys"]["DeafenKeybind"];
 
-        // UI
         IsBackgroundEnabled = bool.TryParse(_data["UI"]["IsBackgroundEnabled"], out var bg) && bg;
         IsParallaxEnabled = bool.TryParse(_data["UI"]["IsParallaxEnabled"], out var px) && px;
         IsBlurEffectEnabled = bool.TryParse(_data["UI"]["IsBlurEffectEnabled"], out var blur) && blur;
+
+        // Notify property changed for bindings
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MinCompletionPercentage)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StarRating)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PerformancePoints)));
     }
 
     public void SaveSetting(string section, string key, object value)

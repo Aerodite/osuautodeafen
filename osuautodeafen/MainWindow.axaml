@@ -121,7 +121,7 @@
                                     Maximum="100"
                                     TickFrequency="1"
                                     IsSnapToTickEnabled="True"
-                                    Value="{Binding MinCompletionPercentage, Mode=TwoWay}"
+                                    Value="{Binding MinCompletionPercentage, Mode=OneWayToSource}"
                                     Width="100"
                                     HorizontalAlignment="Center"
                                     Foreground="{Binding AverageColorBrush}"
@@ -151,7 +151,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="StarRatingSlider"
                                     Minimum="0" Maximum="10" TickFrequency="0.1" IsSnapToTickEnabled="True"
-                                    Value="{Binding StarRating, Mode=TwoWay}"
+                                    Value="{Binding StarRating, Mode=OneWayToSource}"
                                     Width="100" HorizontalAlignment="Center"
                                     ValueChanged="StarRatingSlider_ValueChanged" />
                             <Popup x:Name="StarRatingSliderTooltipPopup"
@@ -171,7 +171,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="PPSlider"
                                     Minimum="0" Maximum="1000" TickFrequency="10" IsSnapToTickEnabled="True"
-                                    Value="{Binding PerformancePoints, Mode=TwoWay}"
+                                    Value="{Binding PerformancePoints, Mode=OneWayToSource}"
                                     Width="100" HorizontalAlignment="Center"
                                     ValueChanged="PPSlider_ValueChanged" />
                             <Popup x:Name="PPSliderTooltipPopup"

@@ -120,7 +120,7 @@ public partial class MainWindow : Window
         _viewModel = new SharedViewModel(_tosuApi);
         ViewModel = _viewModel;
         DataContext = _viewModel;
-
+        
         InitializeLogo();
 
         Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.favicon.ico"));
@@ -132,12 +132,11 @@ public partial class MainWindow : Window
         _settingsHandler = settingsPanel;
 
         _settingsHandler.LoadSettings();
-
-        //stupid dumbass sliders
+        
         _viewModel.MinCompletionPercentage = (int)Math.Round(_settingsHandler.MinCompletionPercentage);
         _viewModel.StarRating = _settingsHandler.StarRating;
         _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
-
+        
         _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
         _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
         _viewModel.BreakUndeafenEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
@@ -145,11 +144,18 @@ public partial class MainWindow : Window
         _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
         _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
         _viewModel.IsBlurEffectEnabled = _settingsHandler.IsBlurEffectEnabled;
+        
+        CompletionPercentageSlider.ValueChanged -= CompletionPercentageSlider_ValueChanged;
+        StarRatingSlider.ValueChanged -= StarRatingSlider_ValueChanged;
+        PPSlider.ValueChanged -= PPSlider_ValueChanged;
 
-        //stupid dumbass sliders again
         CompletionPercentageSlider.Value = _viewModel.MinCompletionPercentage;
         StarRatingSlider.Value = _viewModel.StarRating;
         PPSlider.Value = _viewModel.PerformancePoints;
+
+        CompletionPercentageSlider.ValueChanged += CompletionPercentageSlider_ValueChanged;
+        StarRatingSlider.ValueChanged += StarRatingSlider_ValueChanged;
+        PPSlider.ValueChanged += PPSlider_ValueChanged;
 
         FCToggle.IsChecked = _viewModel.IsFCRequired;
         UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
