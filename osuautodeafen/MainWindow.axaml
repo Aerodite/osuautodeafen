@@ -125,23 +125,19 @@
                                     Width="100"
                                     HorizontalAlignment="Center"
                                     Foreground="{Binding AverageColorBrush}"
-                                    ValueChanged="CompletionPercentageSlider_ValueChanged">
+                                    ValueChanged="CompletionPercentageSlider_ValueChanged"
+                                    PointerMoved="CompletionPercentageSlider_PointerMoved"
+                                    PointerPressed="CompletionPercentageSlider_PointerPressed"
+                                    PointerReleased="CompletionPercentageSlider_PointerReleased">
                                 <Slider.Styles>
                                     <Style Selector="Thumb">
                                         <Setter Property="Background" Value="{Binding AverageColorBrush}" />
                                     </Style>
                                 </Slider.Styles>
+                                <ToolTip.Tip>
+                                    <TextBlock Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F0}%'}"/>
+                                </ToolTip.Tip>
                             </Slider>
-
-
-                            <Popup x:Name="CompletionPercentageSliderTooltipPopup"
-                                   VerticalOffset="-40">
-                                <Border Background="#333" CornerRadius="4" Padding="4">
-                                    <TextBlock
-                                        Text="{Binding ElementName=CompletionPercentageSlider, Path=Value, StringFormat='{}{0:F0}%'}"
-                                        Foreground="White" />
-                                </Border>
-                            </Popup>
                         </StackPanel>
                     </StackPanel>
 
@@ -153,15 +149,19 @@
                                     Minimum="0" Maximum="10" TickFrequency="0.1" IsSnapToTickEnabled="True"
                                     Value="{Binding StarRating, Mode=OneWayToSource}"
                                     Width="100" HorizontalAlignment="Center"
-                                    ValueChanged="StarRatingSlider_ValueChanged" />
-                            <Popup x:Name="StarRatingSliderTooltipPopup"
-                                   VerticalOffset="-40">
-                                <Border Background="#333" CornerRadius="4" Padding="4">
-                                    <TextBlock
-                                        Text="{Binding ElementName=StarRatingSlider, Path=Value, StringFormat='{}{0:F1}★'}"
-                                        Foreground="White" />
-                                </Border>
-                            </Popup>
+                                    ValueChanged="StarRatingSlider_ValueChanged"
+                                    PointerMoved="StarRatingSlider_PointerMoved"
+                                    PointerPressed="StarRatingSlider_PointerPressed"
+                                    PointerReleased="StarRatingSlider_PointerReleased">
+                                <Slider.Styles>
+                                    <Style Selector="Thumb">
+                                        <Setter Property="Background" Value="{Binding AverageColorBrush}" />
+                                    </Style>
+                                </Slider.Styles>
+                                <ToolTip.Tip>
+                                    <TextBlock Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F1}*'}"/>
+                                </ToolTip.Tip>
+                            </Slider>
                         </StackPanel>
                     </StackPanel>
 
@@ -173,15 +173,19 @@
                                     Minimum="0" Maximum="1000" TickFrequency="10" IsSnapToTickEnabled="True"
                                     Value="{Binding PerformancePoints, Mode=OneWayToSource}"
                                     Width="100" HorizontalAlignment="Center"
-                                    ValueChanged="PPSlider_ValueChanged" />
-                            <Popup x:Name="PPSliderTooltipPopup"
-                                   VerticalOffset="-40">
-                                <Border Background="#333" CornerRadius="4" Padding="4">
-                                    <TextBlock
-                                        Text="{Binding ElementName=PPSlider, Path=Value, StringFormat='{}{0}pp'}"
-                                        Foreground="White" />
-                                </Border>
-                            </Popup>
+                                    ValueChanged="PPSlider_ValueChanged"
+                                    PointerMoved="PPSlider_PointerMoved"
+                                    PointerPressed="PPSlider_PointerPressed"
+                                    PointerReleased="PPSlider_PointerReleased">
+                                <Slider.Styles>
+                                    <Style Selector="Thumb">
+                                        <Setter Property="Background" Value="{Binding AverageColorBrush}" />
+                                    </Style>
+                                </Slider.Styles>
+                                <ToolTip.Tip>
+                                    <TextBlock Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F0}pp'}"/>
+                                </ToolTip.Tip>
+                            </Slider>
                         </StackPanel>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center">

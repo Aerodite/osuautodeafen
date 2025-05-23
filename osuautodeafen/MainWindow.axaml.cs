@@ -247,10 +247,85 @@ public partial class MainWindow : Window
         PPSlider.Value = ViewModel.PerformancePoints;
 
         _isConstructorFinished = true;
-        var sliderTooltipHelper =
-            new SliderTooltipHelper(this, CompletionPercentageSlider, CompletionPercentageSliderTooltipPopup);
-        var tooltipHelper = new SliderTooltipHelper(this, StarRatingSlider, StarRatingSliderTooltipPopup);
-        var helper = new SliderTooltipHelper(this, PPSlider, PPSliderTooltipPopup);
+    }
+    private void CompletionPercentageSlider_PointerPressed(object sender, PointerPressedEventArgs e)
+    {
+        ToolTip.SetIsOpen(CompletionPercentageSlider, true);
+    }
+    private void CompletionPercentageSlider_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (sender is Slider slider)
+        {
+            if (e.GetCurrentPoint(slider).Properties.IsLeftButtonPressed)
+            {
+                ToolTip.SetTip(slider, $"{slider.Value:0}%");
+                ToolTip.SetPlacement(slider, PlacementMode.Pointer);
+                ToolTip.SetVerticalOffset(slider, -30);
+                ToolTip.SetIsOpen(slider, true);
+            }
+            else
+            {
+                ToolTip.SetIsOpen(slider, false);
+            }
+        }
+    }
+    private void CompletionPercentageSlider_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (sender is Slider slider)
+            ToolTip.SetIsOpen(slider, false);
+    }
+    
+    private void PPSlider_PointerPressed(object sender, PointerPressedEventArgs e)
+    {
+        ToolTip.SetIsOpen(CompletionPercentageSlider, true);
+    }
+    private void PPSlider_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (sender is Slider slider)
+        {
+            if (e.GetCurrentPoint(slider).Properties.IsLeftButtonPressed)
+            {
+                ToolTip.SetTip(slider, $"{slider.Value:0}pp");
+                ToolTip.SetPlacement(slider, PlacementMode.Pointer);
+                ToolTip.SetVerticalOffset(slider, -30);
+                ToolTip.SetIsOpen(slider, true);
+            }
+            else
+            {
+                ToolTip.SetIsOpen(slider, false);
+            }
+        }
+    }
+    private void PPSlider_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (sender is Slider slider)
+            ToolTip.SetIsOpen(slider, false);
+    }
+    private void StarRatingSlider_PointerPressed(object sender, PointerPressedEventArgs e)
+    {
+        ToolTip.SetIsOpen(CompletionPercentageSlider, true);
+    }
+    private void StarRatingSlider_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (sender is Slider slider)
+        {
+            if (e.GetCurrentPoint(slider).Properties.IsLeftButtonPressed)
+            {
+                ToolTip.SetTip(slider, $"{slider.Value:F1}*");
+                ToolTip.SetPlacement(slider, PlacementMode.Pointer);
+                ToolTip.SetVerticalOffset(slider, -30);
+                ToolTip.SetIsOpen(slider, true);
+            }
+            else
+            {
+                ToolTip.SetIsOpen(slider, false);
+            }
+        }
+    }
+    private void StarRatingSlider_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (sender is Slider slider)
+            ToolTip.SetIsOpen(slider, false);
     }
 
     private SharedViewModel ViewModel { get; }
