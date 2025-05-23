@@ -7,6 +7,8 @@
         xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
         xmlns:skiaSharpView="clr-namespace:LiveChartsCore.SkiaSharpView;assembly=LiveChartsCore.SkiaSharpView"
         xmlns:painting="clr-namespace:LiveChartsCore.SkiaSharpView.Painting;assembly=LiveChartsCore.SkiaSharpView"
+        xmlns:global="clr-namespace:"
+        xmlns:settings="clr-namespace:osuautodeafen.cs.Settings"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osu!autodeafen"
@@ -15,7 +17,8 @@
 
     <Window.Resources>
         <local:UpdateNotificationMarginConverter x:Key="UpdateNotificationMarginConverter" />
-
+        <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
+        <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
     </Window.Resources>
     <Window.Styles>
         <Style Selector="ToolTip#ChatBoxTip">
@@ -64,7 +67,14 @@
             <Border x:Name="SettingsButtonContainer" Margin="0,42,0,0">
                 <Grid HorizontalAlignment="Right" VerticalAlignment="Top">
                     <Image Source="avares://osuautodeafen/Icons/outline.png"
-                           Width="50" Height="50" />
+                           Width="50" Height="50">
+                        <Image.OpacityMask>
+                            <MultiBinding Converter="{StaticResource ColorBlendConverter}" x:DataType="cs:SharedViewModel">
+                                <Binding Path="Color" Source="{StaticResource BaseBackgroundBrush}" />
+                                <Binding Path="AverageColorBrush.Color" />
+                            </MultiBinding>
+                        </Image.OpacityMask>
+                    </Image>
                     <Button x:Name="SettingsButton"
                             Width="50" Height="50"
                             Background="{x:Null}"
@@ -86,9 +96,15 @@
         </StackPanel>
 
         <!--- settings panel -->
-        <DockPanel x:Name="SettingsPanel" Grid.Column="1" Background="#171717" Width="200" IsVisible="False"
+        <DockPanel x:Name="SettingsPanel" Grid.Column="1" Width="200" IsVisible="False"
                    Margin="0,42,0,0" ZIndex="3"
                    x:DataType="cs:SharedViewModel" HorizontalAlignment="Right">
+            <DockPanel.Background>
+                <MultiBinding Converter="{StaticResource ColorBlendConverter}">
+                    <Binding Path="Color" Source="{StaticResource BaseBackgroundBrush}" />
+                    <Binding Path="AverageColorBrush.Color" />
+                </MultiBinding>
+            </DockPanel.Background>
             <ScrollViewer VerticalScrollBarVisibility="Visible" Margin="0,20,0,0">
                 <StackPanel HorizontalAlignment="Center">
                     <TextBlock Text="Deafen Settings"
