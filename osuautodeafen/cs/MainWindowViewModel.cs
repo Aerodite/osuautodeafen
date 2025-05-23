@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -17,6 +15,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 {
     private readonly bool _canUpdateSettings = true;
 
+    private readonly SettingsHandler _settingsHandler;
+
     private readonly TosuApi _tosuApi;
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
 
@@ -28,11 +28,19 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     private string _deafenKeybindDisplay;
 
+    private bool _isBackgroundEnabled;
+
     private bool _isBlankScreenEnabled;
-    
+
+    private bool _isBlurEffectEnabled;
+
     private bool _IsBreakUndeafenToggleEnabled;
 
+    private bool _isFCRequired;
+
     private bool _isKeybindCaptureFlyoutOpen;
+
+    private bool _isParallaxEnabled;
 
     private bool _isSliderTooltipOpen;
     private int _minCompletionPercentage;
@@ -45,8 +53,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     private string _statusMessage;
 
-    private readonly SettingsHandler _settingsHandler;
-    
+    private bool _undeafenAfterMiss;
+
     private string _updateStatusMessage;
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
@@ -106,8 +114,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             }
         }
     }
-    
-    private bool _isBackgroundEnabled;
+
     public bool IsBackgroundEnabled
     {
         get => _isBackgroundEnabled;
@@ -122,7 +129,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    private bool _isParallaxEnabled;
     public bool IsParallaxEnabled
     {
         get => _isParallaxEnabled;
@@ -137,7 +143,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    private bool _isBlurEffectEnabled;
     public bool IsBlurEffectEnabled
     {
         get => _isBlurEffectEnabled;
@@ -151,7 +156,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             }
         }
     }
-    
+
     public bool IsBreakUndeafenToggleEnabled
     {
         get => _IsBreakUndeafenToggleEnabled;
@@ -165,8 +170,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    private bool _isFCRequired;
-
 
     public string StatusMessage
     {
@@ -177,8 +180,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             OnPropertyChanged();
         }
     }
-
-    private bool _undeafenAfterMiss;
 
     public bool UndeafenAfterMiss
     {
@@ -374,7 +375,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     public async Task InitializeAsync()
     {
-        await _updateChecker.FetchLatestVersionAsync();
         UpdateChecker.OnUpdateAvailable += UpdateChecker_OnUpdateAvailable;
         UpdateChecker.UpdateCheckCompleted += UpdateChecker_UpdateCheckCompleted;
     }

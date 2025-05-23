@@ -90,7 +90,6 @@ public class Deafen : IDisposable
 
         try
         {
-
         }
         finally
         {

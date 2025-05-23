@@ -1,6 +1,7 @@
 ﻿using System;
 using System.ComponentModel;
 using System.IO;
+using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using IniParser;
 using IniParser.Model;
@@ -10,11 +11,20 @@ namespace osuautodeafen.cs.Settings;
 public class SettingsHandler : Control, INotifyPropertyChanged
 {
     private readonly string _iniPath;
+    private readonly string _appPath;
     private readonly FileIniDataParser _parser = new();
     public IniData _data;
 
+    // Example properties (add all you need)
+    private double _minCompletionPercentage;
+
+    private double _performancePoints;
+
+    private double _starRating;
+
     public SettingsHandler()
     {
+        _appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen");
         _iniPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen", "settings.ini");
@@ -31,37 +41,37 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         _data = _parser.ReadFile(_iniPath);
         LoadSettings();
     }
+    
+    public string GetPath()
+    {
+        return _appPath;
+    }
 
-    // Example properties (add all you need)
-    private double _minCompletionPercentage;
     public double MinCompletionPercentage
     {
         get => _minCompletionPercentage;
-        set { if (Set(ref _minCompletionPercentage, value)) SaveSetting("General", "MinCompletionPercentage", value); }
+        set
+        {
+            if (Set(ref _minCompletionPercentage, value)) SaveSetting("General", "MinCompletionPercentage", value);
+        }
     }
 
-    private double _starRating;
     public double StarRating
     {
         get => _starRating;
-        set { if (Set(ref _starRating, value)) SaveSetting("General", "StarRating", value); }
+        set
+        {
+            if (Set(ref _starRating, value)) SaveSetting("General", "StarRating", value);
+        }
     }
 
-    private double _performancePoints;
     public double PerformancePoints
     {
         get => _performancePoints;
-        set { if (Set(ref _performancePoints, value)) SaveSetting("General", "PerformancePoints", value); }
-    }
-
-    // Helper for property changed
-    public event PropertyChangedEventHandler? PropertyChanged;
-    protected bool Set<T>(ref T field, T value, [System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
-    {
-        if (Equals(field, value)) return false;
-        field = value;
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName ?? string.Empty));
-        return true;
+        set
+        {
+            if (Set(ref _performancePoints, value)) SaveSetting("General", "PerformancePoints", value);
+        }
     }
 
     public bool IsFCRequired { get; set; }
@@ -72,13 +82,25 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public string DeafenKeybind { get; set; }
     public bool IsBreakUndeafenToggleEnabled { get; set; }
 
+    // Helper for property changed
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    protected bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    {
+        if (Equals(field, value)) return false;
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName ?? string.Empty));
+        return true;
+    }
+
     public void LoadSettings()
     {
         // General
         MinCompletionPercentage = double.TryParse(_data["General"]["MinCompletionPercentage"], out var mcp) ? mcp : 0;
         StarRating = double.TryParse(_data["General"]["StarRating"], out var sr) ? sr : 0;
         PerformancePoints = double.TryParse(_data["General"]["PerformancePoints"], out var pp) ? pp : 0;
-        IsBreakUndeafenToggleEnabled = bool.TryParse(_data["General"]["IsBreakUndeafenToggleEnabled"], out var bu) && bu;
+        IsBreakUndeafenToggleEnabled =
+            bool.TryParse(_data["General"]["IsBreakUndeafenToggleEnabled"], out var bu) && bu;
 
         // Behavior
         IsFCRequired = bool.TryParse(_data["Behavior"]["IsFCRequired"], out var fc) && fc;

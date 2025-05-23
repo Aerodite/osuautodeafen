@@ -22,10 +22,10 @@ public class ChartManager
     private readonly TosuApi _tosuApi;
     private readonly SharedViewModel _viewModel;
     private readonly List<RectangularSection> cachedBreakPeriods = new();
+    private CancellationTokenSource? _deafenOverlayCts;
     private string? cachedOsuFilePath;
     private double maxLimit;
     private double maxYValue;
-    private CancellationTokenSource? _deafenOverlayCts;
 
     public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel)
     {
@@ -81,7 +81,7 @@ public class ChartManager
             PlotView.Series = Series;
         }
     }
-    
+
     public async Task UpdateDeafenOverlayAsync(double minCompletionPercentage, int durationMs = 60, int steps = 4)
     {
         // Cancel any previous animation
@@ -113,142 +113,143 @@ public class ChartManager
             return;
         }
 
-        double? oldXi = deafenRect.Xi;
-        for (int i = 1; i <= steps; i++)
+        var oldXi = deafenRect.Xi;
+        for (var i = 1; i <= steps; i++)
         {
             token.ThrowIfCancellationRequested();
             deafenRect.Xi = oldXi + (newXi - oldXi) * i / steps;
             PlotView.InvalidateVisual();
             await Task.Delay(durationMs / steps, token);
         }
+
         deafenRect.Xi = newXi;
         PlotView.InvalidateVisual();
     }
 
- public async Task UpdateChart(GraphData? graphData, double minCompletionPercentage)
-{
-    if (graphData == null) return;
-
-    var seriesArr = PlotView.Series?.ToArray() ?? Array.Empty<ISeries>();
-    var maxPoints = 1000;
-
-    // Find max Y
-    var maxY = 0.0;
-    foreach (var s in graphData.Series)
-    foreach (var v in s.Data)
-        if (v != -100 && v > maxY)
-            maxY = v;
-    maxYValue = maxY;
-
-    // Update or add series
-    foreach (var series in graphData.Series)
+    public async Task UpdateChart(GraphData? graphData, double minCompletionPercentage)
     {
-        var data = series.Data;
-        int start = 0, end = data.Count - 1;
-        while (start <= end && data[start] == -100) start++;
-        while (end >= start && data[end] == -100) end--;
-        if (end < start) continue;
+        if (graphData == null) return;
 
-        var updatedCount = end - start + 1;
-        var updatedValues = new ObservablePoint[updatedCount];
-        var idx = 0;
-        for (var i = start; i <= end; i++)
-            if (data[i] != -100)
-                updatedValues[idx++] = new ObservablePoint(i - start, data[i]);
-        maxLimit = idx;
+        var seriesArr = PlotView.Series?.ToArray() ?? Array.Empty<ISeries>();
+        var maxPoints = 1000;
 
-        var downsampled = Downsample(updatedValues, idx, maxPoints);
-        var smoothed = SmoothData(downsampled, 10, 0.2);
+        // Find max Y
+        var maxY = 0.0;
+        foreach (var s in graphData.Series)
+        foreach (var v in s.Data)
+            if (v != -100 && v > maxY)
+                maxY = v;
+        maxYValue = maxY;
 
-        var color = series.Name == "aim"
-            ? new SKColor(0x00, 0xFF, 0x00, 192)
-            : new SKColor(0x00, 0x00, 0xFF, 140);
-        var name = series.Name == "aim" ? "Aim" : "Speed";
-
-        var existing = seriesArr.OfType<LineSeries<ObservablePoint>>().FirstOrDefault(ls => ls.Name == name);
-        if (existing != null)
+        // Update or add series
+        foreach (var series in graphData.Series)
         {
-            existing.Values = smoothed;
-            existing.TooltipLabelFormatter = _ => "";
-        }
-        else
-        {
-            var newSeries = new LineSeries<ObservablePoint>
+            var data = series.Data;
+            int start = 0, end = data.Count - 1;
+            while (start <= end && data[start] == -100) start++;
+            while (end >= start && data[end] == -100) end--;
+            if (end < start) continue;
+
+            var updatedCount = end - start + 1;
+            var updatedValues = new ObservablePoint[updatedCount];
+            var idx = 0;
+            for (var i = start; i <= end; i++)
+                if (data[i] != -100)
+                    updatedValues[idx++] = new ObservablePoint(i - start, data[i]);
+            maxLimit = idx;
+
+            var downsampled = Downsample(updatedValues, idx, maxPoints);
+            var smoothed = SmoothData(downsampled, 10, 0.2);
+
+            var color = series.Name == "aim"
+                ? new SKColor(0x00, 0xFF, 0x00, 192)
+                : new SKColor(0x00, 0x00, 0xFF, 140);
+            var name = series.Name == "aim" ? "Aim" : "Speed";
+
+            var existing = seriesArr.OfType<LineSeries<ObservablePoint>>().FirstOrDefault(ls => ls.Name == name);
+            if (existing != null)
             {
-                Values = smoothed,
-                Fill = new SolidColorPaint { Color = color },
-                Stroke = new SolidColorPaint { Color = color },
-                Name = name,
-                GeometryFill = null,
-                GeometryStroke = null,
-                LineSmoothness = 1,
-                EasingFunction = EasingFunctions.ExponentialOut,
-                TooltipLabelFormatter = _ => ""
-            };
-            seriesArr = seriesArr.Append(newSeries).ToArray();
-        }
-    }
-
-    // Break periods only
-    var osuFilePath = _tosuApi.GetFullFilePath();
-    if (osuFilePath != null && osuFilePath != cachedOsuFilePath)
-    {
-        var breaks =
-            await _breakPeriod.ParseBreakPeriodsAsync(osuFilePath, graphData.XAxis, graphData.Series[0].Data);
-        cachedBreakPeriods.Clear();
-        foreach (var breakPeriod in breaks)
-            cachedBreakPeriods.Add(new RectangularSection
+                existing.Values = smoothed;
+                existing.TooltipLabelFormatter = _ => "";
+            }
+            else
             {
-                Xi = breakPeriod.StartIndex / _tosuApi.GetRateAdjustRate(),
-                Xj = breakPeriod.EndIndex / _tosuApi.GetRateAdjustRate(),
-                Yi = 0,
-                Yj = maxYValue,
-                Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0xFF, 0x00, 98) }
-            });
-        cachedOsuFilePath = osuFilePath;
+                var newSeries = new LineSeries<ObservablePoint>
+                {
+                    Values = smoothed,
+                    Fill = new SolidColorPaint { Color = color },
+                    Stroke = new SolidColorPaint { Color = color },
+                    Name = name,
+                    GeometryFill = null,
+                    GeometryStroke = null,
+                    LineSmoothness = 1,
+                    EasingFunction = EasingFunctions.ExponentialOut,
+                    TooltipLabelFormatter = _ => ""
+                };
+                seriesArr = seriesArr.Append(newSeries).ToArray();
+            }
+        }
+
+        // Break periods only
+        var osuFilePath = _tosuApi.GetFullFilePath();
+        if (osuFilePath != null && osuFilePath != cachedOsuFilePath)
+        {
+            var breaks =
+                await _breakPeriod.ParseBreakPeriodsAsync(osuFilePath, graphData.XAxis, graphData.Series[0].Data);
+            cachedBreakPeriods.Clear();
+            foreach (var breakPeriod in breaks)
+                cachedBreakPeriods.Add(new RectangularSection
+                {
+                    Xi = breakPeriod.StartIndex / _tosuApi.GetRateAdjustRate(),
+                    Xj = breakPeriod.EndIndex / _tosuApi.GetRateAdjustRate(),
+                    Yi = 0,
+                    Yj = maxYValue,
+                    Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0xFF, 0x00, 98) }
+                });
+            cachedOsuFilePath = osuFilePath;
+        }
+
+        PlotView.Sections = cachedBreakPeriods.ToList();
+
+        // Ensure progress indicator is present
+        if (!seriesArr.Contains(_progressIndicator))
+            seriesArr = seriesArr.Append(_progressIndicator).ToArray();
+
+        Series = seriesArr;
+        PlotView.Series = seriesArr;
+
+        PlotView.TooltipPosition = TooltipPosition.Hidden;
+
+        XAxes = new[]
+        {
+            new Axis
+            {
+                LabelsPaint = new SolidColorPaint(SKColors.Transparent),
+                MinLimit = 0,
+                MaxLimit = maxLimit,
+                Padding = new Padding(2),
+                TextSize = 12
+            }
+        };
+        YAxes = new[]
+        {
+            new Axis
+            {
+                LabelsPaint = new SolidColorPaint(SKColors.Transparent),
+                MinLimit = 0,
+                MaxLimit = maxYValue,
+                Padding = new Padding(2),
+                SeparatorsPaint = new SolidColorPaint(SKColors.Transparent)
+            }
+        };
+
+        PlotView.XAxes = XAxes;
+        PlotView.YAxes = YAxes;
+
+        await UpdateDeafenOverlayAsync(minCompletionPercentage);
+
+        PlotView.InvalidateVisual();
     }
-
-    PlotView.Sections = cachedBreakPeriods.ToList();
-
-    // Ensure progress indicator is present
-    if (!seriesArr.Contains(_progressIndicator))
-        seriesArr = seriesArr.Append(_progressIndicator).ToArray();
-
-    Series = seriesArr;
-    PlotView.Series = seriesArr;
-
-    PlotView.TooltipPosition = TooltipPosition.Hidden;
-
-    XAxes = new[]
-    {
-        new Axis
-        {
-            LabelsPaint = new SolidColorPaint(SKColors.Transparent),
-            MinLimit = 0,
-            MaxLimit = maxLimit,
-            Padding = new Padding(2),
-            TextSize = 12
-        }
-    };
-    YAxes = new[]
-    {
-        new Axis
-        {
-            LabelsPaint = new SolidColorPaint(SKColors.Transparent),
-            MinLimit = 0,
-            MaxLimit = maxYValue,
-            Padding = new Padding(2),
-            SeparatorsPaint = new SolidColorPaint(SKColors.Transparent)
-        }
-    };
-
-    PlotView.XAxes = XAxes;
-    PlotView.YAxes = YAxes;
-    
-    await UpdateDeafenOverlayAsync(minCompletionPercentage);
-
-    PlotView.InvalidateVisual();
-}
 
     private static ObservablePoint[] Downsample(ObservablePoint[] data, int dataCount, int maxPoints)
     {

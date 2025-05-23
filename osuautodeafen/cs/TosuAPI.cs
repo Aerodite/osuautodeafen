@@ -20,13 +20,11 @@ public class TosuApi : IDisposable
     private readonly Timer _timer;
     private int _beatmapId;
     private int _beatmapSetId;
-    private double _lastModNumber = 0;
     private BreakPeriod _breakPeriod = null!;
     private double _combo;
     private double _completionPercentage;
     private double _current;
     private double _DTRate;
-    private int _modNumber;
     private double _firstObj;
     private double _full;
     private string? _fullPath;
@@ -35,10 +33,12 @@ public class TosuApi : IDisposable
     private JsonElement _graphData;
     private string? _lastBeatmapChecksum = "";
     private int _lastBeatmapId = -1;
+    private double _lastModNumber;
     private double _maxCombo;
     private double _maxPP;
     private double _missCount;
     private string? _modNames;
+    private int _modNumber;
     private string? _osuFilePath = "";
     private double _rankedStatus;
     private int _rawBanchoStatus = -1;
@@ -87,7 +87,7 @@ public class TosuApi : IDisposable
     }
 
     public event Action? BeatmapChanged;
-    
+
     public event Action? HasModsChanged;
 
     public event Action<GraphData>? GraphDataUpdated;
@@ -444,7 +444,7 @@ public class TosuApi : IDisposable
     {
         return _beatmapSetId;
     }
-    
+
     public int GetModNumber()
     {
         return _modNumber;

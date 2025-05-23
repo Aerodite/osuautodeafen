@@ -50,6 +50,7 @@ public class UpdateChecker
                 client.DefaultRequestHeaders.Add("User-Agent", "C# App");
 
             var response = await client.GetAsync(url);
+            Console.WriteLine($"GitHub Response Code: {response.StatusCode}");
             if (!response.IsSuccessStatusCode)
             {
                 if (response.StatusCode == HttpStatusCode.Forbidden)
@@ -66,6 +67,7 @@ public class UpdateChecker
                 var latestRelease = releases[0];
                 latestVersion = latestRelease["tag_name"]?.ToString().TrimStart('v');
                 lastSuccessfulCheck = DateTime.Now;
+                Console.WriteLine($"Latest version available: {latestVersion}");
                 return true;
             }
 

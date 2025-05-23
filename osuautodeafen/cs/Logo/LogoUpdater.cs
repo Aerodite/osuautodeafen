@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,18 +14,18 @@ namespace osuautodeafen.cs.Logo;
 
 public class LogoUpdater
 {
-    private readonly SharedViewModel _viewModel;
-    private readonly GetLowResBackground _getLowResBackground;
-    private readonly LogoControl _logoControl;
     private readonly AnimationManager _animationManager;
-
-    private Bitmap? _lowResBitmap;
+    private readonly GetLowResBackground _getLowResBackground;
+    private readonly Func<string, SKSvg> _loadHighResLogo;
+    private readonly LogoControl _logoControl;
+    private readonly SharedViewModel _viewModel;
     private SKSvg? _cachedLogoSvg;
     private CancellationTokenSource? _colorTransitionCts;
-    private SKColor _oldAverageColor;
-    private readonly Func<string, SKSvg> _loadHighResLogo;
-    
+
     private SKColor _currentColor;
+
+    private Bitmap? _lowResBitmap;
+    private SKColor _oldAverageColor;
 
     public LogoUpdater(
         GetLowResBackground getLowResBackground,
@@ -43,6 +42,7 @@ public class LogoUpdater
     }
 
     #region Public API
+
     public async Task UpdateLogoAsync()
     {
         Console.WriteLine("UpdateLogoAsync started");
@@ -83,16 +83,17 @@ public class LogoUpdater
                 Console.WriteLine("Average color unchanged, skipping animation");
                 return;
             }
-            
+
             await UpdateAverageColorAsync(newAverageColor);
             await AnimateLogoColorAsync(newAverageColor);
-            
+
             _oldAverageColor = newAverageColor;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[ERROR] Exception in UpdateLogoAsync: {ex}");
         }
+
         Console.WriteLine("UpdateLogoAsync finished");
     }
 
@@ -106,6 +107,7 @@ public class LogoUpdater
             Console.WriteLine("[ERROR] Low-resolution bitmap path is invalid or does not exist");
             return null;
         }
+
         return lowResBitmapPath;
     }
 
@@ -114,7 +116,8 @@ public class LogoUpdater
         try
         {
             Console.WriteLine("Opening low-res bitmap file");
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 4096, FileOptions.Asynchronous);
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 4096,
+                FileOptions.Asynchronous);
             var bitmap = await Task.Run(() => new Bitmap(stream)).ConfigureAwait(false);
             Console.WriteLine("Low resolution bitmap successfully loaded");
             return bitmap;
@@ -149,6 +152,7 @@ public class LogoUpdater
             Console.WriteLine("[ERROR] Failed to load high-resolution logo or picture is null");
             return null;
         }
+
         return highResLogoSvg;
     }
 
@@ -186,6 +190,7 @@ public class LogoUpdater
                     _oldAverageColor = _currentColor;
                     return;
                 }
+
                 var t = i / (float)steps;
                 var interpolatedColor = InterpolateColor(fromColor, toColor, t);
                 _currentColor = interpolatedColor;
@@ -207,6 +212,7 @@ public class LogoUpdater
             Console.WriteLine("Color animation complete");
         }).ConfigureAwait(false);
     }
+
     private async Task<SKColor> CalculateAverageColorAsync(SKBitmap bitmap)
     {
         return await Task.Run(() => CalculateAverageColor(bitmap));
@@ -231,11 +237,13 @@ public class LogoUpdater
                 _oldAverageColor = _currentColor;
                 return;
             }
+
             var t = i / (float)steps;
             var interpolatedColor = InterpolateColor(fromColor, toColor, t);
             _currentColor = interpolatedColor;
 
-            var avaloniaColor = Color.FromArgb(interpolatedColor.Alpha, interpolatedColor.Red, interpolatedColor.Green, interpolatedColor.Blue);
+            var avaloniaColor = Color.FromArgb(interpolatedColor.Alpha, interpolatedColor.Red, interpolatedColor.Green,
+                interpolatedColor.Blue);
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -253,6 +261,7 @@ public class LogoUpdater
         _oldAverageColor = toColor;
         _currentColor = toColor;
     }
+
     #endregion
 
     #region Helpers
@@ -305,7 +314,8 @@ public class LogoUpdater
             {
                 using (var drawingContext = renderTargetBitmap.CreateDrawingContext())
                 {
-                    drawingContext.DrawImage(avaloniaBitmap, new Rect(0, 0, width, height), new Rect(0, 0, width, height));
+                    drawingContext.DrawImage(avaloniaBitmap, new Rect(0, 0, width, height),
+                        new Rect(0, 0, width, height));
                 }
 
                 var pixelDataSize = width * height * 4;
@@ -344,7 +354,7 @@ public class LogoUpdater
 
         long totalR = 0, totalG = 0, totalB = 0;
         var pixelCount = (long)width * height;
-        
+
         var info = bitmap.Info;
         if (!bitmap.IsImmutable)
             bitmap.SetImmutable(); // Ensure safe access
@@ -409,7 +419,6 @@ public class LogoUpdater
 
         return new SKColor(r, g, b, a);
     }
-
 
     #endregion
 }

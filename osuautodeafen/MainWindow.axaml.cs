@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -27,7 +26,6 @@ using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Logo;
-using osuautodeafen.cs.Screen;
 using osuautodeafen.cs.Settings;
 using osuautodeafen.cs.StrainGraph;
 using SkiaSharp;
@@ -44,8 +42,6 @@ public partial class MainWindow : Window
     private readonly AnimationManager _animationManager = new();
     private readonly Queue<Bitmap> _bitmapQueue = new(1);
     private readonly BreakPeriodCalculator _breakPeriod;
-    private SettingsHandler? _settingsHandler;
-    public Bitmap _colorChangingImage = null!;
 
     private readonly ChartManager _chartManager;
     private readonly Deafen _deafen;
@@ -54,7 +50,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _mainTimer;
     private readonly DispatcherTimer _parallaxCheckTimer = null!;
     private readonly ProgressIndicatorHelper _progressIndicatorHelper;
-    private LogoControl? _logoControl;
+    private readonly SettingsHandler? _settingsHandler;
 
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private readonly object _updateLock = new();
@@ -75,8 +71,7 @@ public partial class MainWindow : Window
     private double _cogCurrentAngle;
 
     private DispatcherTimer? _cogSpinTimer;
-    
-    private LogoUpdater _logoUpdater;
+    public Bitmap _colorChangingImage = null!;
 
     private string? _currentBackgroundDirectory;
 
@@ -96,19 +91,22 @@ public partial class MainWindow : Window
     private DateTime _lastUpdateCheck = DateTime.MinValue;
 
     private Bitmap? _lastValidBitmap;
+    private LogoControl? _logoControl;
+
+    private LogoUpdater _logoUpdater;
 
     private Bitmap? _lowResBitmap;
     private double _mouseX;
     private double _mouseY;
 
+    private Image? _normalBackground;
+
     private CancellationTokenSource? _opacityCts;
 
     private Canvas _progressIndicatorCanvas = null!;
     private Line _progressIndicatorLine = null!;
-    
+
     public TosuApi _tosuApi = new();
-    
-    private Image? _normalBackground;
 
 
     //<summary>
@@ -122,38 +120,41 @@ public partial class MainWindow : Window
         _viewModel = new SharedViewModel(_tosuApi);
         ViewModel = _viewModel;
         DataContext = _viewModel;
-        
+
         InitializeLogo();
 
         Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.favicon.ico"));
 
         // Core services
         _getLowResBackground = new GetLowResBackground(_tosuApi);
-        
+
         var settingsPanel = new SettingsHandler();
         _settingsHandler = settingsPanel;
-        
+
         _settingsHandler.LoadSettings();
-        
+
+        //stupid dumbass sliders
         _viewModel.MinCompletionPercentage = (int)Math.Round(_settingsHandler.MinCompletionPercentage);
         _viewModel.StarRating = _settingsHandler.StarRating;
         _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
+
         _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
         _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
         _viewModel.BreakUndeafenEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
-        
+
         _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
         _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
         _viewModel.IsBlurEffectEnabled = _settingsHandler.IsBlurEffectEnabled;
-        
+
+        //stupid dumbass sliders again
         CompletionPercentageSlider.Value = _viewModel.MinCompletionPercentage;
         StarRatingSlider.Value = _viewModel.StarRating;
         PPSlider.Value = _viewModel.PerformancePoints;
-        
+
         FCToggle.IsChecked = _viewModel.IsFCRequired;
         UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
         BreakUndeafenToggle.IsChecked = _viewModel.BreakUndeafenEnabled;
-        
+
         BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
         ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
         BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
@@ -177,7 +178,7 @@ public partial class MainWindow : Window
         };
 
         InitializeViewModel();
-        
+
         var progressIndicator1 = new LineSeries<ObservablePoint>
         {
             Stroke = new SolidColorPaint(new SKColor(0xFF, 0xFF, 0xFF, 192)) { StrokeThickness = 5 },
@@ -191,7 +192,7 @@ public partial class MainWindow : Window
 
         _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel, progressIndicator1);
 
-        
+
         _tosuApi.BeatmapChanged += async () =>
         {
             await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
@@ -244,21 +245,25 @@ public partial class MainWindow : Window
             new SliderTooltipHelper(this, CompletionPercentageSlider, CompletionPercentageSliderTooltipPopup);
         var tooltipHelper = new SliderTooltipHelper(this, StarRatingSlider, StarRatingSliderTooltipPopup);
         var helper = new SliderTooltipHelper(this, PPSlider, PPSliderTooltipPopup);
-        
     }
-    
+
+    private SharedViewModel ViewModel { get; }
+    private bool IsBlackBackgroundDisplayed { get; set; }
+
     //Settings
     private async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
-        int roundedValue = (int)Math.Round(slider.Value);
+        var roundedValue = (int)Math.Round(slider.Value);
         Console.WriteLine($"Min Comp. % Value: {roundedValue}");
         vm.MinCompletionPercentage = roundedValue;
         _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", roundedValue);
-        
+
         _chartManager?.UpdateDeafenOverlayAsync(roundedValue);
     }
-    private void StarRatingSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs rangeBaseValueChangedEventArgs)
+
+    private void StarRatingSlider_ValueChanged(object? sender,
+        RangeBaseValueChangedEventArgs rangeBaseValueChangedEventArgs)
     {
         if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
         var roundedValue = Math.Round(slider.Value, 1);
@@ -266,17 +271,15 @@ public partial class MainWindow : Window
         vm.StarRating = roundedValue;
         _settingsHandler?.SaveSetting("General", "StarRating", roundedValue);
     }
+
     private void PPSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
-        int roundedValue = (int)Math.Round(slider.Value);
+        var roundedValue = (int)Math.Round(slider.Value);
         Console.WriteLine($"Min PP Value: {roundedValue}");
         vm.PerformancePoints = roundedValue;
         _settingsHandler?.SaveSetting("General", "PerformancePoints", roundedValue);
     }
-
-    private SharedViewModel ViewModel { get; }
-    private bool IsBlackBackgroundDisplayed { get; set; }
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -316,7 +319,7 @@ public partial class MainWindow : Window
     // show the update notification bar if an update is available
     private async void InitializeViewModel()
     {
-        await _updateChecker.FetchLatestVersionAsync();
+        await CheckForUpdates();
         DataContext = ViewModel;
     }
 
@@ -382,7 +385,7 @@ public partial class MainWindow : Window
 
         e.Handled = true;
     }
-    
+
     private string RetrieveKeybindFromSettings()
     {
         var keybindString = _settingsHandler?._data["Hotkeys"]["DeafenKeybind"];
@@ -436,8 +439,10 @@ public partial class MainWindow : Window
             _ => key.ToString()
         };
     }
+
     public void ShowUpdateNotification()
     {
+        Console.WriteLine("Showing Update Notification");
         var notificationBar = this.FindControl<Button>("UpdateNotificationBar");
         if (notificationBar != null)
             notificationBar.IsVisible = true;
@@ -467,14 +472,14 @@ public partial class MainWindow : Window
         if (button == null) return;
 
         button.Content = "Checking for updates...";
-        await Task.Delay(2000);
+        await Task.Delay(1000);
 
         await _updateChecker.FetchLatestVersionAsync();
 
         if (string.IsNullOrEmpty(_updateChecker.latestVersion))
         {
             button.Content = "No updates found";
-            await Task.Delay(2000);
+            await Task.Delay(1000);
             button.Content = "Check for updates";
             return;
         }
@@ -484,6 +489,7 @@ public partial class MainWindow : Window
 
         if (latestVersion > currentVersion)
         {
+            Console.WriteLine($"Update available: {latestVersion}");
             ShowUpdateNotification();
             button.Content = "Update available!";
             await Task.Delay(2000);
@@ -491,9 +497,36 @@ public partial class MainWindow : Window
         }
         else
         {
+            Console.WriteLine("You are on the latest version.");
             button.Content = "You are on the latest version";
             await Task.Delay(2000);
             button.Content = "Check for updates";
+        }
+    }
+    
+    public async Task<bool> CheckForUpdates()
+    {
+        await _updateChecker.FetchLatestVersionAsync();
+
+        if (string.IsNullOrEmpty(_updateChecker.latestVersion))
+        {
+            Console.WriteLine("No updates found");
+            return false;
+        }
+
+        var currentVersion = new Version(UpdateChecker.currentVersion);
+        var latestVersion = new Version(_updateChecker.latestVersion);
+
+        if (latestVersion > currentVersion)
+        {
+            Console.WriteLine($"Update available: {latestVersion}");
+            ShowUpdateNotification();
+            return true;
+        }
+        else
+        {
+            Console.WriteLine("You are on the latest version.");
+            return false;
         }
     }
 
@@ -511,7 +544,7 @@ public partial class MainWindow : Window
     }
 
 
-  private async Task UpdateBackground(object? sender, EventArgs? e)
+    private async Task UpdateBackground(object? sender, EventArgs? e)
     {
         try
         {
@@ -796,7 +829,7 @@ public partial class MainWindow : Window
             var logoHost = this.FindControl<ContentControl>("LogoHost");
             if (logoHost != null)
                 logoHost.Content = _logoControl;
-            
+
             _logoUpdater = new LogoUpdater(
                 _getLowResBackground,
                 _logoControl,
@@ -833,7 +866,7 @@ public partial class MainWindow : Window
             ? throw new InvalidOperationException("Failed to load SVG picture.")
             : ConvertSvgToBitmap(svg, 100, 100);
     }
-    
+
     private Bitmap ConvertSvgToBitmap(SKSvg svg, int width, int height)
     {
         if (svg == null)
@@ -901,7 +934,7 @@ public partial class MainWindow : Window
             Console.WriteLine("ModifiedLogoImage property set.");
         }
     }
-    
+
 
     private Bitmap? CreateBlackBitmap(int width = 600, int height = 600)
     {
@@ -1202,7 +1235,7 @@ public partial class MainWindow : Window
     {
         if (sender is CheckBox checkBox && DataContext is SharedViewModel vm)
         {
-            bool isChecked = checkBox.IsChecked == true;
+            var isChecked = checkBox.IsChecked == true;
             vm.IsBreakUndeafenToggleEnabled = isChecked;
             _settingsHandler?.SaveSetting("General", "IsBreakUndeafenToggleEnabled", isChecked);
         }
@@ -1229,6 +1262,41 @@ public partial class MainWindow : Window
 
             return string.Join("+", parts).Replace("==", "="); // Fix for equal key
         }
+    }
+
+    private void OpenFileLocationButton_Click(object? sender, RoutedEventArgs e)
+    {
+        var appPath = _settingsHandler?.GetPath();
+        if (appPath != null)
+        {
+            if (Directory.Exists(appPath))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = appPath,
+                    UseShellExecute = true
+                });
+            }
+            else
+            {
+                Console.WriteLine($"[ERROR] Directory does not exist: {appPath}");
+            }
+        }
+        else
+        {
+            Console.WriteLine("[ERROR] App path is null.");
+        }
+    }
+
+    private void ReportIssueButton_Click(object? sender, RoutedEventArgs e)
+    {
+        var issueUrl =
+          "https://github.com/aerodite/osuautodeafen/issues/new?template=help.md&title=[BUG]%20Something%20Broke&body=help&labels=bug";
+        Process.Start(new ProcessStartInfo 
+        {
+            FileName = issueUrl,
+            UseShellExecute = true
+        });
     }
 }
 

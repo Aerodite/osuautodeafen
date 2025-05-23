@@ -3,7 +3,6 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:osuautodeafen"
-        xmlns:global="clr-namespace:"
         xmlns:cs="clr-namespace:osuautodeafen.cs"
         xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
         xmlns:skiaSharpView="clr-namespace:LiveChartsCore.SkiaSharpView;assembly=LiveChartsCore.SkiaSharpView"
@@ -16,13 +15,7 @@
 
     <Window.Resources>
         <local:UpdateNotificationMarginConverter x:Key="UpdateNotificationMarginConverter" />
-        
-        <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
-        <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
-        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+
     </Window.Resources>
     <Window.Styles>
         <Style Selector="ToolTip#ChatBoxTip">
@@ -54,7 +47,7 @@
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="0" />
         </Grid.ColumnDefinitions>
-        
+
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" x:Name="TextBlockPanel" Margin="0,82,0,0">
             <StackPanel Orientation="Horizontal" Margin="0,0,0,0" x:Name="osuautodeafenLogoPanel">
                 <Image Name="osuLogo" Source="avares://osuautodeafen/Resources/osu_whitestroke.png" Height="60"
@@ -96,8 +89,13 @@
         <DockPanel x:Name="SettingsPanel" Grid.Column="1" Background="#171717" Width="200" IsVisible="False"
                    Margin="0,42,0,0" ZIndex="3"
                    x:DataType="cs:SharedViewModel" HorizontalAlignment="Right">
-            <ScrollViewer VerticalScrollBarVisibility="Visible" Margin="0,42,0,0">
+            <ScrollViewer VerticalScrollBarVisibility="Visible" Margin="0,20,0,0">
                 <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="Deafen Settings"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,8"
+                               Foreground="White"
+                               FontSize="16" />
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/clock-solid.png" Width="25" Height="25"
                                Margin="0,0,5,0" />
@@ -119,7 +117,7 @@
                                 </Slider.Styles>
                             </Slider>
 
-                            
+
                             <Popup x:Name="CompletionPercentageSliderTooltipPopup"
                                    VerticalOffset="-40">
                                 <Border Background="#333" CornerRadius="4" Padding="4">
@@ -301,6 +299,53 @@
                     <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom"
                                VerticalAlignment="Bottom" HorizontalAlignment="Center"
                                Margin="0,0,0,8" Foreground="White" FontSize="14" />
+                    <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
+                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                        <Button x:Name="OpenFileLocationButton"
+                                Background="{x:Null}"
+                                BorderBrush="{x:Null}"
+                                BorderThickness="0"
+                                CornerRadius="0"
+                                HorizontalContentAlignment="Center"
+                                Click="OpenFileLocationButton_Click"
+                                HorizontalAlignment="Center"
+                                Margin="0,0,0,10"
+                                FontSize="12"
+                                Foreground="White"
+                                VerticalAlignment="Bottom" >
+                            <Image x:Name="OpenFileLocationImage"
+                                   Source="avares://osuautodeafen/Icons/folder-open-solid.png"
+                                   Width="20" Height="20"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   RenderTransformOrigin="0.5,0.5" />
+                            <ToolTip.Tip>
+                                <TextBlock Text="Open AppData Folder"/>
+                            </ToolTip.Tip>
+                        </Button>
+                        <Button x:Name="ReportIssueButton"
+                                Background="{x:Null}"
+                                BorderBrush="{x:Null}"
+                                BorderThickness="0"
+                                CornerRadius="0"
+                                HorizontalContentAlignment="Center"
+                                Click="ReportIssueButton_Click"
+                                HorizontalAlignment="Center"
+                                Margin="0,0,0,10"
+                                FontSize="12"
+                                Foreground="White"
+                                VerticalAlignment="Bottom" >
+                            <Image x:Name="ReportIssueImage"
+                                   Source="avares://osuautodeafen/Icons/bug-solid.png"
+                                   Width="20" Height="20"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   RenderTransformOrigin="0.5,0.5" />
+                            <ToolTip.Tip>
+                                <TextBlock Text="Report an Issue"/>
+                            </ToolTip.Tip>
+                        </Button>
+                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </DockPanel>
