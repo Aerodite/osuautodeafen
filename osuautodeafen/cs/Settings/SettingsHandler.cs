@@ -97,7 +97,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public bool IsBackgroundEnabled { get; set; }
     public bool IsParallaxEnabled { get; set; }
     public bool IsBlurEffectEnabled { get; set; }
-    public string DeafenKeybind { get; set; }
+    public string? DeafenKeybind { get; set; }
     public bool IsBreakUndeafenToggleEnabled { get; set; }
 
     public event PropertyChangedEventHandler? PropertyChanged;

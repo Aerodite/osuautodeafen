@@ -18,7 +18,6 @@ public class Deafen : IDisposable
 {
     private readonly BreakPeriodCalculator _breakPeriodCalculator;
     private readonly object _deafenLock = new();
-    private readonly FCCalc _fcCalc;
     private readonly Timer _fileCheckTimer;
     private readonly IGlobalHook _hook = new SimpleGlobalHook();
     private readonly ScreenBlankerForm _screenBlanker;
@@ -49,7 +48,6 @@ public class Deafen : IDisposable
         SharedViewModel viewModel)
     {
         _tosuAPI = tosuAPI;
-        _fcCalc = new FCCalc(tosuAPI);
         _timer = new Timer(250);
         _timer.Elapsed += TimerElapsed;
         _timer.Start();
@@ -159,7 +157,7 @@ public class Deafen : IDisposable
             var minCompletionPercentage = MinCompletionPercentage;
             var maxCombo = _tosuAPI.GetMaxCombo();
             var rankedStatus = _tosuAPI.GetRankedStatus();
-            var isFullCombo = _fcCalc.IsFullCombo();
+            var isFullCombo = _tosuAPI.IsFullCombo();
             var isStarRatingMet = currentSR >= StarRating;
             var isPerformancePointsMet = currentPP >= PerformancePoints;
             var hitOneCircle = maxCombo != 0;

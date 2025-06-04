@@ -528,6 +528,14 @@ public class TosuApi : IDisposable
             return null;
         }
     }
+    
+    public bool IsFullCombo()
+    {
+        // if there are any misses or slider breaks, return false
+        if (GetMissCount() > 0 || GetSBCount() > 0) return false;
+        // if there are no misses and no slider breaks, return true
+        return true;
+    }
 
     private GraphData? ParseGraphData(JsonElement graphElement)
     {
