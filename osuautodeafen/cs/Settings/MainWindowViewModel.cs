@@ -58,7 +58,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private string _updateStatusMessage;
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
-
+    
     public SharedViewModel(TosuApi tosuApi)
     {
         _settingsHandler = new SettingsHandler();
@@ -114,7 +114,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             }
         }
     }
-
     public bool IsBackgroundEnabled
     {
         get => _isBackgroundEnabled;
@@ -122,9 +121,14 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         {
             if (_isBackgroundEnabled != value)
             {
+                bool wasDisabled = !_isBackgroundEnabled;
                 _isBackgroundEnabled = value;
                 OnPropertyChanged();
                 _settingsHandler?.SaveSetting("UI", "IsBackgroundEnabled", value);
+                if (wasDisabled && value)
+                {
+                    _tosuApi.ForceBeatmapChange();
+                }
             }
         }
     }

@@ -669,7 +669,7 @@ public partial class MainWindow : Window
                key == Key.LeftShift || key == Key.RightShift;
     }
 
-    private async Task UpdateBackground(object? sender, EventArgs? e)
+    public async Task UpdateBackground(object? sender, EventArgs? e)
     {
         try
         {

@@ -504,6 +504,14 @@ public class TosuApi : IDisposable
         var handler = BeatmapChanged;
         handler?.Invoke();
     }
+    
+    // This is exclusively used for the Background toggle, because it can't exactly check
+    // for a different checksum if its not checking for beatmaps in the first place 🤯
+    public void ForceBeatmapChange()
+    {
+        _lastBeatmapChecksum = "abcdefghijklmnop";
+        BeatmapChanged?.Invoke();
+    }
 
     public void CheckForModChange()
     {
