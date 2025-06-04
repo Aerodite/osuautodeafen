@@ -1090,162 +1090,151 @@ public partial class MainWindow : Window
         _tosuApi.Dispose();
     }
 
-    private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
+private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
+{
+    try
     {
-        try
+        var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
+        var buttonContainer = this.FindControl<Border>("SettingsButtonContainer");
+        var cogImage = this.FindControl<Image>("SettingsCogImage");
+        var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
+        var versionPanel = textBlockPanel?.FindControl<TextBlock>("VersionPanel");
+        if (settingsPanel == null || buttonContainer == null || cogImage == null ||
+            textBlockPanel == null || osuautodeafenLogoPanel == null || versionPanel == null)
+            return;
+
+        var showMargin = new Thickness(0, 42, 0, 0);
+        var hideMargin = new Thickness(200, 42, -200, 0);
+        var buttonRightMargin = new Thickness(0, 42, 0, 10);
+        var buttonLeftMargin = new Thickness(0, 42, 200, 10);
+
+        Task EnsureCogCenterAsync()
         {
-            var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
-            var buttonContainer = this.FindControl<Border>("SettingsButtonContainer");
-            var cogImage = this.FindControl<Image>("SettingsCogImage");
-            var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
-            var osuautodeafenLogoPanel = textBlockPanel?.FindControl<StackPanel>("osuautodeafenLogoPanel");
-            var versionPanel = textBlockPanel?.FindControl<TextBlock>("VersionPanel");
-            if (settingsPanel == null || buttonContainer == null || cogImage == null ||
-                textBlockPanel == null || osuautodeafenLogoPanel == null || versionPanel == null)
-                return;
-
-            var showMargin = new Thickness(0, 42, 0, 0);
-            var hideMargin = new Thickness(200, 42, -200, 0);
-            var buttonRightMargin = new Thickness(0, 42, 0, 10);
-            var buttonLeftMargin = new Thickness(0, 42, 200, 10);
-
-            Task EnsureCogCenterAsync()
+            return Dispatcher.UIThread.InvokeAsync(() =>
             {
-                return Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    cogImage.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
-                    if (cogImage.RenderTransform is not RotateTransform)
-                        cogImage.RenderTransform = new RotateTransform(0);
-                }).GetTask();
-            }
+                cogImage.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
+                if (cogImage.RenderTransform is not RotateTransform)
+                    cogImage.RenderTransform = new RotateTransform(0);
+            }).GetTask();
+        }
 
-            if (!settingsPanel.IsVisible)
+        if (!settingsPanel.IsVisible)
+        {
+            await EnsureCogCenterAsync();
+            var rotate = (RotateTransform)cogImage.RenderTransform!;
+            _cogSpinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+            _cogSpinTimer.Tick += (s, ev) =>
             {
-                await EnsureCogCenterAsync();
-                var rotate = (RotateTransform)cogImage.RenderTransform!;
-                _cogSpinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-                _cogSpinTimer.Tick += (s, ev) =>
+                _cogCurrentAngle = (_cogCurrentAngle + 4) % 360;
+                rotate.Angle = _cogCurrentAngle;
+            };
+            _cogSpinTimer.Start();
+
+            // Set initial margins and transitions BEFORE making visible
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                settingsPanel.Margin = hideMargin;
+                buttonContainer.Margin = buttonRightMargin;
+                settingsPanel.Transitions = new Transitions
                 {
-                    _cogCurrentAngle = (_cogCurrentAngle + 4) % 360;
-                    rotate.Angle = _cogCurrentAngle;
+                    new ThicknessTransition
+                    {
+                        Property = MarginProperty,
+                        Duration = TimeSpan.FromMilliseconds(250),
+                        Easing = new QuarticEaseInOut()
+                    }
                 };
-                _cogSpinTimer.Start();
-
-                // Set initial margins and transitions BEFORE making visible
-                await Dispatcher.UIThread.InvokeAsync(() =>
+                buttonContainer.Transitions = new Transitions
                 {
-                    settingsPanel.Margin = hideMargin;
-                    buttonContainer.Margin = buttonRightMargin;
-                    settingsPanel.Transitions = new Transitions
+                    new ThicknessTransition
                     {
-                        new ThicknessTransition
-                        {
-                            Property = MarginProperty,
-                            Duration = TimeSpan.FromMilliseconds(250),
-                            Easing = new QuarticEaseInOut()
-                        }
-                    };
-                    buttonContainer.Transitions = new Transitions
+                        Property = MarginProperty,
+                        Duration = TimeSpan.FromMilliseconds(250),
+                        Easing = new QuarticEaseInOut()
+                    }
+                };
+                osuautodeafenLogoPanel.Transitions = new Transitions
+                {
+                    new ThicknessTransition
                     {
-                        new ThicknessTransition
-                        {
-                            Property = MarginProperty,
-                            Duration = TimeSpan.FromMilliseconds(250),
-                            Easing = new QuarticEaseInOut()
-                        }
-                    };
-                    osuautodeafenLogoPanel.Transitions = new Transitions
+                        Property = MarginProperty,
+                        Duration = TimeSpan.FromMilliseconds(500),
+                        Easing = new BackEaseOut()
+                    }
+                };
+                versionPanel.Transitions = new Transitions
+                {
+                    new ThicknessTransition
                     {
-                        new ThicknessTransition
-                        {
-                            Property = MarginProperty,
-                            Duration = TimeSpan.FromMilliseconds(500),
-                            Easing = new BackEaseOut()
-                        }
-                    };
-                    versionPanel.Transitions = new Transitions
-                    {
-                        new ThicknessTransition
-                        {
-                            Property = MarginProperty,
-                            Duration = TimeSpan.FromMilliseconds(600),
-                            Easing = new BackEaseOut()
-                        }
-                    };
-                });
+                        Property = MarginProperty,
+                        Duration = TimeSpan.FromMilliseconds(600),
+                        Easing = new BackEaseOut()
+                    }
+                };
+            });
 
-                settingsPanel.IsVisible = true;
-                await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render).GetTask();
+            settingsPanel.IsVisible = true;
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render).GetTask();
 
-                // Animate margins in parallel (this triggers the animation)
-                await Task.WhenAll(
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        settingsPanel.Margin = showMargin;
-                        buttonContainer.Margin = buttonLeftMargin;
-                    }).GetTask()
-                );
-
-                await Task.WhenAll(
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
-                        versionPanel.Margin = new Thickness(0, 0, 225, 0);
-                    }).GetTask(),
-                    AdjustBackgroundOpacity(0.5, TimeSpan.FromSeconds(0.5))
-                );
-            }
-            else
+            // Animate all margins and opacity in parallel
+            await Task.WhenAll(
+                Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    settingsPanel.Margin = showMargin;
+                    buttonContainer.Margin = buttonLeftMargin;
+                    osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
+                    versionPanel.Margin = new Thickness(0, 0, 225, 0);
+                }).GetTask(),
+                AdjustBackgroundOpacity(0.5, TimeSpan.FromMilliseconds(250))
+            );
+        }
+        else
+        {
+            // Stop cog spin timer immediately
+            _cogSpinTimer?.Stop();
+            var cogStopTask = Task.CompletedTask;
+            if (cogImage.RenderTransform is RotateTransform rotate)
             {
-                // Stop cog spin timer immediately
-                _cogSpinTimer?.Stop();
-                var cogStopTask = Task.CompletedTask;
-                if (cogImage.RenderTransform is RotateTransform rotate)
+                var start = _cogCurrentAngle;
+                double end = 0;
+                var duration = 250;
+                var steps = 20;
+                var step = (end - start) / steps;
+                cogStopTask = Task.Run(async () =>
                 {
-                    var start = _cogCurrentAngle;
-                    double end = 0;
-                    var duration = 250;
-                    var steps = 20;
-                    var step = (end - start) / steps;
-                    cogStopTask = Task.Run(async () =>
+                    for (var i = 1; i <= steps; i++)
                     {
-                        for (var i = 1; i <= steps; i++)
-                        {
-                            await Task.Delay(duration / steps);
-                            var angle = start + step * i;
-                            await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle).GetTask();
-                        }
+                        await Task.Delay(duration / steps);
+                        var angle = start + step * i;
+                        await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle).GetTask();
+                    }
 
-                        await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = 0).GetTask();
-                        _cogCurrentAngle = 0;
-                    });
-                }
+                    await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = 0).GetTask();
+                    _cogCurrentAngle = 0;
+                });
+            }
 
-                // Animate margins out in parallel with cog stop
-                var marginTask = Dispatcher.UIThread.InvokeAsync(() =>
+            // Animate all margins and opacity out in parallel with cog stop
+            await Task.WhenAll(
+                cogStopTask,
+                Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     settingsPanel.Margin = hideMargin;
                     buttonContainer.Margin = buttonRightMargin;
-                }).GetTask();
-
-                var logoTask = Dispatcher.UIThread.InvokeAsync(() =>
-                {
                     osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
                     versionPanel.Margin = new Thickness(0, 0, 0, 0);
-                }).GetTask();
-                var opacityTask = AdjustBackgroundOpacity(1.0, TimeSpan.FromSeconds(0.5));
+                }).GetTask(),
+                AdjustBackgroundOpacity(1.0, TimeSpan.FromMilliseconds(250))
+            );
 
-                await Task.WhenAll(cogStopTask, marginTask, logoTask, opacityTask);
-
-                settingsPanel.IsVisible = false;
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[ERROR] Exception in SettingsButton_Click: {ex.Message}");
+            settingsPanel.IsVisible = false;
         }
     }
-
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[ERROR] Exception in SettingsButton_Click: {ex.Message}");
+    }
+}
     private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan duration,
         CancellationToken cancellationToken = default)
     {
