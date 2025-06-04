@@ -18,6 +18,31 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private double _minCompletionPercentage;
     private double _performancePoints;
     private double _starRating;
+    
+    public static IniData CreateDefaultIniData()
+    {
+        var data = new IniData();
+
+        data.Sections.AddSection("General");
+        data["General"]["MinCompletionPercentage"] = "60";
+        data["General"]["StarRating"] = "0";
+        data["General"]["PerformancePoints"] = "0";
+        data["General"]["IsBreakUndeafenToggleEnabled"] = "false";
+
+        data.Sections.AddSection("Behavior");
+        data["Behavior"]["IsFCRequired"] = "false";
+        data["Behavior"]["UndeafenAfterMiss"] = "false";
+
+        data.Sections.AddSection("Hotkeys");
+        data["Hotkeys"]["DeafenKeybind"] = "Control|D";
+
+        data.Sections.AddSection("UI");
+        data["UI"]["IsBackgroundEnabled"] = "true";
+        data["UI"]["IsParallaxEnabled"] = "true";
+        data["UI"]["IsBlurEffectEnabled"] = "false";
+
+        return data;
+    }
 
     public SettingsHandler()
     {
@@ -27,12 +52,14 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
         if (!File.Exists(_iniPath))
         {
-            _data = new IniData();
-            _data.Sections.AddSection("General");
+            _data = CreateDefaultIniData();
             _parser.WriteFile(_iniPath, _data);
         }
+        else
+        {
+            _data = _parser.ReadFile(_iniPath);
+        }
 
-        _data = _parser.ReadFile(_iniPath);
         LoadSettings();
     }
 
@@ -85,7 +112,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     public void LoadSettings()
     {
-        // Load directly into backing fields to avoid triggering SaveSetting
         _minCompletionPercentage = double.TryParse(_data["General"]["MinCompletionPercentage"], out var mcp) ? mcp : 0;
         _starRating = double.TryParse(_data["General"]["StarRating"], out var sr) ? sr : 0;
         _performancePoints = double.TryParse(_data["General"]["PerformancePoints"], out var pp) ? pp : 0;
@@ -101,7 +127,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         IsParallaxEnabled = bool.TryParse(_data["UI"]["IsParallaxEnabled"], out var px) && px;
         IsBlurEffectEnabled = bool.TryParse(_data["UI"]["IsBlurEffectEnabled"], out var blur) && blur;
 
-        // Notify property changed for bindings
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MinCompletionPercentage)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StarRating)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PerformancePoints)));
@@ -117,10 +142,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     public void ResetToDefaults()
     {
-        MinCompletionPercentage = 60;
-        StarRating = 0;
-        PerformancePoints = 0;
-        IsFCRequired = false;
-        UndeafenAfterMiss = false;
+        _data = CreateDefaultIniData();
+        _parser.WriteFile(_iniPath, _data);
+        LoadSettings();
     }
 }
