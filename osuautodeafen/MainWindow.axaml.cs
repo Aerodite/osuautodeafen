@@ -124,10 +124,11 @@ public partial class MainWindow : Window
         InitializeLogo();
 
         Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.favicon.ico"));
-
-        // Core services
+        
         _getLowResBackground = new GetLowResBackground(_tosuApi);
-
+        
+        // settings bs
+        
         var settingsPanel = new SettingsHandler();
         _settingsHandler = settingsPanel;
 
@@ -164,11 +165,13 @@ public partial class MainWindow : Window
         BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
         ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
         BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
+        
+        // end of settings bs
 
         _deafen = new Deafen(_tosuApi, settingsPanel, _breakPeriod, _viewModel);
-
-        // Timers
         
+        // ideally we could use no timers whatsoever but for now this works fine
+        // because it really only checks if events should be triggered
         _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1) };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
@@ -217,8 +220,7 @@ public partial class MainWindow : Window
                 Easing = new QuarticEaseInOut()
             }
         };
-
-        // Window appearance and events
+        
         ExtendClientAreaToDecorationsHint = true;
         ExtendClientAreaTitleBarHeightHint = 32;
         ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
@@ -236,7 +238,7 @@ public partial class MainWindow : Window
             if (point.Y <= titleBarHeight) BeginMoveDrag(e);
         };
 
-        // UI textboxes and keybinds
+        // Settings visuals and stuff
         InitializeKeybindButtonText();
         UpdateDeafenKeybindDisplay();
         CompletionPercentageSlider.Value = ViewModel.MinCompletionPercentage;
@@ -586,15 +588,15 @@ public partial class MainWindow : Window
             button.Content = "Check for updates";
         }
     }
-    
-    public async Task<bool> CheckForUpdates()
+
+    private async Task CheckForUpdates()
     {
         await _updateChecker.FetchLatestVersionAsync();
 
         if (string.IsNullOrEmpty(_updateChecker.latestVersion))
         {
             Console.WriteLine("No updates found");
-            return false;
+            return;
         }
 
         var currentVersion = new Version(UpdateChecker.currentVersion);
@@ -604,12 +606,10 @@ public partial class MainWindow : Window
         {
             Console.WriteLine($"Update available: {latestVersion}");
             ShowUpdateNotification();
-            return true;
         }
         else
         {
             Console.WriteLine("You are on the latest version.");
-            return false;
         }
     }
 
@@ -624,12 +624,6 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (ViewModel == null || _tosuApi == null)
-            {
-                Console.WriteLine("[ERROR] ViewModel or _tosuApi is null.");
-                return;
-            }
-
             if (!ViewModel.IsBackgroundEnabled)
             {
                 _blurredBackground?.SetValueSafe(x => x.IsVisible = false);
@@ -662,19 +656,19 @@ public partial class MainWindow : Window
                 {
                     try
                     {
-                        if (args.PropertyName == nameof(ViewModel.IsParallaxEnabled) ||
-                            args.PropertyName == nameof(ViewModel.IsBlurEffectEnabled))
+                        switch (args.PropertyName)
                         {
-                            await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
-                        }
-                        else if (args.PropertyName == nameof(ViewModel.IsBackgroundEnabled))
-                        {
-                            if (!ViewModel.IsBackgroundEnabled)
+                            case nameof(ViewModel.IsParallaxEnabled):
+                            case nameof(ViewModel.IsBlurEffectEnabled):
+                                await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
+                                break;
+                            case nameof(ViewModel.IsBackgroundEnabled) when !ViewModel.IsBackgroundEnabled:
                             {
                                 if (!IsBlackBackgroundDisplayed)
                                     await Dispatcher.UIThread.InvokeAsync(DisplayBlackBackground);
+                                break;
                             }
-                            else
+                            case nameof(ViewModel.IsBackgroundEnabled):
                             {
                                 if (IsBlackBackgroundDisplayed)
                                 {
@@ -682,6 +676,8 @@ public partial class MainWindow : Window
                                         UpdateUIWithNewBackgroundAsync(_currentBitmap));
                                     IsBlackBackgroundDisplayed = false;
                                 }
+
+                                break;
                             }
                         }
                     }
@@ -720,10 +716,8 @@ public partial class MainWindow : Window
 
             try
             {
-                using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                {
-                    return new Bitmap(stream);
-                }
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                return new Bitmap(stream);
             }
             catch (Exception ex)
             {
@@ -770,8 +764,14 @@ public partial class MainWindow : Window
         }
 
         var cts = Interlocked.Exchange(ref _cancellationTokenSource, new CancellationTokenSource());
-        cts?.Cancel();
+        await cts?.CancelAsync()!;
         var token = _cancellationTokenSource.Token;
+
+        if (Dispatcher.UIThread.CheckAccess())
+            await UpdateUI();
+        else
+            await Dispatcher.UIThread.InvokeAsync(UpdateUI);
+        return;
 
         async Task UpdateUI()
         {
@@ -826,11 +826,6 @@ public partial class MainWindow : Window
 
             await AnimateBlurAsync(_backgroundBlurEffect, currentRadius, targetRadius, 150, token);
         }
-
-        if (Dispatcher.UIThread.CheckAccess())
-            await UpdateUI();
-        else
-            await Dispatcher.UIThread.InvokeAsync(UpdateUI);
     }
 
     private void UpdateBackgroundVisibility()
