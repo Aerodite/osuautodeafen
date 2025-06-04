@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using LiveChartsCore.Defaults;
@@ -34,11 +34,11 @@ public class ProgressIndicatorHelper
         {
             if (XAxes.Length == 0 || completionPercentage < 0 || completionPercentage > 100)
                 return;
-            if (_tosuApi.GetRawBanchoStatus() == 2)
-            {
-                _viewModel.StatusMessage = "Progress Indicator not updating while in game.";
-                return;
-            }
+            // if (_tosuApi.GetRawBanchoStatus() == 2)
+            // {
+            //     _viewModel.StatusMessage = "Progress Indicator not updating while in game.";
+            //     return;
+            // }
 
             _viewModel.StatusMessage = "";
 

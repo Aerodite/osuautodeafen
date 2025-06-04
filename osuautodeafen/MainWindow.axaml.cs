@@ -168,10 +168,8 @@ public partial class MainWindow : Window
         _deafen = new Deafen(_tosuApi, settingsPanel, _breakPeriod, _viewModel);
 
         // Timers
-        _disposeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-        _disposeTimer.Tick += DisposeTimer_Tick;
-
-        _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        
+        _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1) };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
@@ -197,7 +195,6 @@ public partial class MainWindow : Window
         _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel);
 
         _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel, progressIndicator1);
-
 
         _tosuApi.BeatmapChanged += async () =>
         {
@@ -367,8 +364,13 @@ public partial class MainWindow : Window
         if (e.PropertyName == nameof(SharedViewModel.CompletionPercentage))
             Dispatcher.UIThread.InvokeAsync(() =>
                 _progressIndicatorHelper.UpdateProgressIndicator(_tosuApi.GetCompletionPercentage()));
+        if (e.PropertyName == nameof(SharedViewModel.CompletionPercentage))
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                _progressIndicatorHelper.UpdateProgressIndicator(_tosuApi.GetCompletionPercentage());
+            });
     }
-
+    
     private void OnGraphDataUpdated(GraphData? graphData)
     {
         if (graphData == null || graphData.Series.Count < 2)
@@ -617,13 +619,6 @@ public partial class MainWindow : Window
                key == Key.LeftAlt || key == Key.RightAlt ||
                key == Key.LeftShift || key == Key.RightShift;
     }
-
-    private void DisposeTimer_Tick(object? sender, EventArgs e)
-    {
-        if (_bitmapQueue.Count > 0) _bitmapQueue.Dequeue().Dispose();
-        _disposeTimer.Stop();
-    }
-
 
     private async Task UpdateBackground(object? sender, EventArgs? e)
     {

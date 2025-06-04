@@ -9,6 +9,7 @@
         xmlns:painting="clr-namespace:LiveChartsCore.SkiaSharpView.Painting;assembly=LiveChartsCore.SkiaSharpView"
         xmlns:global="clr-namespace:"
         xmlns:settings="clr-namespace:osuautodeafen.cs.Settings"
+        xmlns:strainGraph="clr-namespace:osuautodeafen.cs.StrainGraph"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osu!autodeafen"
@@ -20,29 +21,7 @@
         <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
     </Window.Resources>
-    <Window.Styles>
-        <Style Selector="ToolTip#ChatBoxTip">
-            <Setter Property="Template">
-                <Template>
-                    <StackPanel>
-                        <Border Background="#333" CornerRadius="8" Padding="8" BorderBrush="#888" BorderThickness="1">
-                            <ContentPresenter />
-                        </Border>
-                        <Polygon Points="10,0 20,10 0,10" Fill="#333" HorizontalAlignment="Center" />
-                    </StackPanel>
-                </Template>
-            </Setter>
-        </Style>
-        <Style Selector="Slider Thumb">
-            <Setter Property="Foreground" Value="{Binding AverageColorBrush}" x:DataType="cs:SharedViewModel" />
-        </Style>
-        <Style Selector="Slider">
-            <Setter Property="Foreground" Value="{Binding AverageColorBrush}" x:DataType="cs:SharedViewModel" />
-        </Style>
-        <Style Selector="Slider">
-            <Setter Property="Foreground" Value="{Binding AverageColorBrush}" x:DataType="cs:SharedViewModel" />
-        </Style>
-    </Window.Styles>
+    
 
 
     <Grid ZIndex="5">
@@ -129,11 +108,6 @@
                                     PointerMoved="CompletionPercentageSlider_PointerMoved"
                                     PointerPressed="CompletionPercentageSlider_PointerPressed"
                                     PointerReleased="CompletionPercentageSlider_PointerReleased">
-                                <Slider.Styles>
-                                    <Style Selector="Thumb">
-                                        <Setter Property="Background" Value="{Binding AverageColorBrush}" />
-                                    </Style>
-                                </Slider.Styles>
                                 <ToolTip.Tip>
                                     <TextBlock Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F0}%'}"/>
                                 </ToolTip.Tip>
@@ -146,18 +120,16 @@
                                Margin="0,5,5,0" />
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="StarRatingSlider"
-                                    Minimum="0" Maximum="10" TickFrequency="0.1" IsSnapToTickEnabled="True"
+                                    Minimum="0" 
+                                    Maximum="10" 
+                                    TickFrequency="0.1" 
+                                    IsSnapToTickEnabled="True"
                                     Value="{Binding StarRating, Mode=OneWayToSource}"
                                     Width="100" HorizontalAlignment="Center"
                                     ValueChanged="StarRatingSlider_ValueChanged"
                                     PointerMoved="StarRatingSlider_PointerMoved"
                                     PointerPressed="StarRatingSlider_PointerPressed"
                                     PointerReleased="StarRatingSlider_PointerReleased">
-                                <Slider.Styles>
-                                    <Style Selector="Thumb">
-                                        <Setter Property="Background" Value="{Binding AverageColorBrush}" />
-                                    </Style>
-                                </Slider.Styles>
                                 <ToolTip.Tip>
                                     <TextBlock Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F1}*'}"/>
                                 </ToolTip.Tip>
@@ -170,18 +142,16 @@
                                Margin="0,7,5,0" />
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="PPSlider"
-                                    Minimum="0" Maximum="1000" TickFrequency="10" IsSnapToTickEnabled="True"
+                                    Minimum="0" 
+                                    Maximum="1000" 
+                                    TickFrequency="10" 
+                                    IsSnapToTickEnabled="True"
                                     Value="{Binding PerformancePoints, Mode=OneWayToSource}"
                                     Width="100" HorizontalAlignment="Center"
                                     ValueChanged="PPSlider_ValueChanged"
                                     PointerMoved="PPSlider_PointerMoved"
                                     PointerPressed="PPSlider_PointerPressed"
                                     PointerReleased="PPSlider_PointerReleased">
-                                <Slider.Styles>
-                                    <Style Selector="Thumb">
-                                        <Setter Property="Background" Value="{Binding AverageColorBrush}" />
-                                    </Style>
-                                </Slider.Styles>
                                 <ToolTip.Tip>
                                     <TextBlock Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F0}pp'}"/>
                                 </ToolTip.Tip>
@@ -208,6 +178,25 @@
                                   HorizontalAlignment="Left" Margin="0" Width="120">
                             <ToolTip.Tip>
                                 <TextBlock Text="Do you get undeafened after a miss?" />
+                            </ToolTip.Tip>
+                        </CheckBox>
+                    </StackPanel>
+                    <!--
+                    5px shift right because it isn't lined up for some reason 🤔
+                    (which now that I think about it is probably due to image width)
+                    -->
+                    <StackPanel Orientation="Horizontal" Margin="5,0,0,0" HorizontalAlignment="Center">
+                        <Image Source="avares://osuautodeafen/Icons/map-location-dot-solid.png" Width="25"
+                               Height="25"
+                               Margin="0,0,5,0" />
+                        <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
+                                  IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
+                                  HorizontalAlignment="Left" Margin="0"
+                                  IsCheckedChanged="BreakUndeafenToggle_IsCheckChanged">
+                            <ToolTip.Tip>
+                                <TextBlock>
+                                    <Run Text="Toggle to decide whether or not breaks should be undeafened" />
+                                </TextBlock>
                             </ToolTip.Tip>
                         </CheckBox>
                     </StackPanel>
@@ -240,28 +229,6 @@
                                 </Button.Flyout>
                             </Button>
                         </StackPanel>
-                    </StackPanel>
-                    <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
-                    <!--title-->
-                    <TextBlock Text="Other Settings"
-                               HorizontalAlignment="Center"
-                               Margin="0,0,0,8"
-                               Foreground="White"
-                               FontSize="16" />
-                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0" HorizontalAlignment="Center">
-                        <Image Source="avares://osuautodeafen/Icons/map-location-dot-solid.png" Width="25"
-                               Height="25"
-                               Margin="0,0,5,0" />
-                        <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
-                                  IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
-                                  HorizontalAlignment="Left" Margin="0"
-                                  IsCheckedChanged="BreakUndeafenToggle_IsCheckChanged">
-                            <ToolTip.Tip>
-                                <TextBlock>
-                                    <Run Text="Toggle to decide whether or not breaks should be undeafened" />
-                                </TextBlock>
-                            </ToolTip.Tip>
-                        </CheckBox>
                     </StackPanel>
                     <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
                     <!--title-->
@@ -385,9 +352,9 @@
 
             <TextBlock Text="{Binding StatusMessage}" HorizontalAlignment="Center" VerticalAlignment="Top"
                        x:DataType="cs:SharedViewModel" Margin="0,0,0,0" Foreground="Red" FontSize="14" />
+            <Grid Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Bottom" Width="600" Height="100">
             <avalonia1:CartesianChart
                 x:Name="PlotView"
-                Grid.Row="1"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Bottom"
                 Width="600"
@@ -409,7 +376,7 @@
                     </skiaSharpView:Axis>
                 </avalonia1:CartesianChart.YAxes>
             </avalonia1:CartesianChart>
-
+        </Grid>
             <Grid HorizontalAlignment="Stretch" x:Name="UpdateNotificationGrid" VerticalAlignment="Bottom"
                   Grid.Row="2" IsVisible="{Binding IsVisible, ElementName=UpdateNotificationBar}">
                 <Grid.ColumnDefinitions>
