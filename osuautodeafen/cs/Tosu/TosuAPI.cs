@@ -33,11 +33,13 @@ public class TosuApi : IDisposable
     private JsonElement _graphData;
     private string? _lastBeatmapChecksum = "abcdefghijklmnop";
     private int _lastBeatmapId = -1;
+    private double? _lastBpm;
     private double _lastModNumber;
     private double _maxCombo;
     private double _maxPP;
     private double _missCount;
     private string? _modNames;
+    private double? realtimeBpm;
     private int _modNumber;
     private string? _osuFilePath = "";
     private double _rankedStatus;
@@ -89,6 +91,8 @@ public class TosuApi : IDisposable
     public event Action? BeatmapChanged;
 
     public event Action? HasModsChanged;
+    
+    public event Action? HasBPMChanged;
 
     public event Action<GraphData>? GraphDataUpdated;
 
@@ -228,6 +232,18 @@ public class TosuApi : IDisposable
                             _beatmapSetId = beatmapSetId.GetInt32();
                         if (beatmap.TryGetProperty("checksum", out var checksum))
                             beatmapChecksum = checksum.GetString() ?? throw new InvalidOperationException();
+                        if(beatmap.TryGetProperty("stats", out var beatmapStatistics) &&
+                           beatmapStatistics.TryGetProperty("bpm", out var bpm) &&
+                           bpm.TryGetProperty("realtime", out var realtime))
+                        {
+                            if (realtime.ValueKind == JsonValueKind.Number)
+                                realtimeBpm = realtime.GetDouble();
+                            else if (realtime.ValueKind == JsonValueKind.String)
+                                if (double.TryParse(realtime.GetString(), out var bpmValue))
+                                    realtimeBpm = bpmValue;
+                                else
+                                    realtimeBpm = 0;
+                        }
                     }
 
                     if (root.TryGetProperty("play", out var play))
@@ -348,7 +364,8 @@ public class TosuApi : IDisposable
             _completionPercentage = 100;
         else
             _completionPercentage = (_current - _firstObj) / (_full - _firstObj) * 100;
-
+        
+        //Console.WriteLine($"Completion Percentage: {_completionPercentage}");
         return _completionPercentage;
     }
 
@@ -356,6 +373,13 @@ public class TosuApi : IDisposable
     public double GetFullSR()
     {
         return _fullSR;
+    }
+    
+    public double GetCurrentBpm()
+    {
+        if (realtimeBpm.HasValue)
+            return realtimeBpm.Value;
+        return 0;
     }
 
     public string? GetOsuFilePath()
@@ -415,6 +439,7 @@ public class TosuApi : IDisposable
 
     // This probably shouldn't be used, instead i'd lean towards using GetRateAdjustRate()
     // Which justs return 1.00 if DT or NC aren't selected.
+    [Obsolete]
     public bool? IsDTSelected()
     {
         GetSelectedMods();
@@ -522,6 +547,16 @@ public class TosuApi : IDisposable
         var handler = HasModsChanged;
         if (handler != null)
             handler();
+    }
+    
+    public void CheckForBPMChange()
+    {
+        var bpm = GetCurrentBpm();
+        if (_lastBpm.HasValue && bpm == _lastBpm.Value) return;
+        _lastBpm = bpm;
+        var handler = HasBPMChanged;
+        handler?.Invoke();
+        Console.WriteLine($"BPM changed to: {bpm}");
     }
 
     public GraphData? GetGraphData()

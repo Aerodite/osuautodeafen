@@ -54,11 +54,12 @@ public partial class MainWindow : Window
 
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
     private readonly object _updateLock = new();
-
-
+    
     private readonly object _updateLogoLock = new();
 
     private readonly SharedViewModel _viewModel;
+    
+    private ProgressIndicatorOverlay _progressIndicatorOverlay;
 
     private BlurEffect? _backgroundBlurEffect;
 
@@ -172,7 +173,7 @@ public partial class MainWindow : Window
         
         // ideally we could use no timers whatsoever but for now this works fine
         // because it really only checks if events should be triggered
-        _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1) };
+        _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(0.5) };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
@@ -185,20 +186,17 @@ public partial class MainWindow : Window
         };
 
         InitializeViewModel();
-
-        var progressIndicator1 = new LineSeries<ObservablePoint>
-        {
-            Stroke = new SolidColorPaint(new SKColor(0xFF, 0xFF, 0xFF, 192)) { StrokeThickness = 5 },
-            GeometryFill = null,
-            GeometryStroke = null,
-            LineSmoothness = 0,
-            Values = new List<ObservablePoint>()
-        };
-
+        
         _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel);
+        _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel);
+        
+        ProgressOverlay.ChartXMin = _progressIndicatorHelper.ChartXMin;
+        ProgressOverlay.ChartXMax = _progressIndicatorHelper.ChartXMax;
+        ProgressOverlay.ChartYMin = _progressIndicatorHelper.ChartYMin;
+        ProgressOverlay.ChartYMax = _progressIndicatorHelper.ChartYMax;
 
-        _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel, progressIndicator1);
-
+        ProgressOverlay.Points =
+            _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage());
         _tosuApi.BeatmapChanged += async () =>
         {
             await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
@@ -207,6 +205,10 @@ public partial class MainWindow : Window
         _tosuApi.HasModsChanged += async () =>
         {
             await _chartManager.UpdateChart(_tosuApi.GetGraphData(), ViewModel.MinCompletionPercentage);
+        };
+        _tosuApi.HasBPMChanged += async () =>
+        {
+            await Dispatcher.UIThread.InvokeAsync(UpdateCogSpinBpm);
         };
 
         PointerMoved += OnMouseMove;
@@ -226,8 +228,8 @@ public partial class MainWindow : Window
         ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
         Background = Brushes.Black;
         BorderBrush = Brushes.Black;
-        Width = 600;
-        Height = 600;
+        Width = 630;
+        Height = 630;
         CanResize = false;
         Closing += MainWindow_Closing;
 
@@ -387,8 +389,18 @@ public partial class MainWindow : Window
         Console.WriteLine($"Min Comp. % Value: {roundedValue}");
         vm.MinCompletionPercentage = roundedValue;
         _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", roundedValue);
-
-        _chartManager?.UpdateDeafenOverlayAsync(roundedValue);
+        try
+        {
+            await _chartManager.UpdateDeafenOverlayAsync(roundedValue);
+        }
+        catch (TaskCanceledException)
+        {
+            Console.WriteLine("Task was canceled while updating deafen overlay.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Exception in CompletionPercentageSlider_ValueChanged: {ex}");
+        }
     }
 
     private void StarRatingSlider_ValueChanged(object? sender,
@@ -410,17 +422,25 @@ public partial class MainWindow : Window
         _settingsHandler?.SaveSetting("General", "PerformancePoints", roundedValue);
     }
 
-    private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+{
+    if (e.PropertyName == nameof(SharedViewModel.CompletionPercentage))
     {
-        if (e.PropertyName == nameof(SharedViewModel.CompletionPercentage))
-            Dispatcher.UIThread.InvokeAsync(() =>
-                _progressIndicatorHelper.UpdateProgressIndicator(_tosuApi.GetCompletionPercentage()));
-        if (e.PropertyName == nameof(SharedViewModel.CompletionPercentage))
-            Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                _progressIndicatorHelper.UpdateProgressIndicator(_tosuApi.GetCompletionPercentage());
-            });
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (_progressIndicatorHelper == null || _tosuApi == null || ProgressOverlay == null)
+                return;
+
+            ProgressOverlay.ChartXMin = _progressIndicatorHelper.ChartXMin;
+            ProgressOverlay.ChartXMax = _progressIndicatorHelper.ChartXMax;
+            ProgressOverlay.ChartYMin = _progressIndicatorHelper.ChartYMin;
+            ProgressOverlay.ChartYMax = _progressIndicatorHelper.ChartYMax;
+
+            var points = _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage(), force:true);
+            ProgressOverlay.Points = points;
+        });
     }
+}
     
     private void OnGraphDataUpdated(GraphData? graphData)
     {
@@ -598,6 +618,7 @@ public partial class MainWindow : Window
     {
         _tosuApi.CheckForBeatmapChange();
         _tosuApi.CheckForModChange();
+        _tosuApi.CheckForBPMChange();
     }
 
     public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)
@@ -776,28 +797,45 @@ public partial class MainWindow : Window
         });
     }
 
-    private async Task AnimateBlurAsync(BlurEffect blurEffect, double from, double to, int durationMs,
-        CancellationToken token)
+    private Task AnimateBlurAsync(BlurEffect blurEffect, double from, double to, int durationMs, CancellationToken token)
     {
-        try
-        {
-            const int steps = 30;
-            var step = (to - from) / steps;
-            var delay = durationMs / steps;
+        var tcs = new TaskCompletionSource();
+        const int steps = 10;
+        var step = (to - from) / steps;
+        var delay = durationMs / steps;
+        int i = 0;
+        double lastRadius = blurEffect.Radius;
 
-            for (var i = 0; i <= steps; i++)
+        IDisposable? timer = null;
+        timer = DispatcherTimer.Run(() =>
+        {
+            if (token.IsCancellationRequested)
             {
-                token.ThrowIfCancellationRequested();
-                blurEffect.Radius = from + step * i;
-                await Task.Delay(delay, token);
+                timer?.Dispose();
+                tcs.TrySetCanceled(token);
+                return false;
             }
 
-            blurEffect.Radius = to;
-        }
-        catch (TaskCanceledException)
-        {
-            // Expected, do not log
-        }
+            double radius = from + step * i;
+            // Only update if the value changed significantly
+            if (Math.Abs(radius - lastRadius) > 0.01)
+            {
+                blurEffect.Radius = radius;
+                lastRadius = radius;
+            }
+
+            i++;
+            if (i > steps)
+            {
+                blurEffect.Radius = to;
+                timer?.Dispose();
+                tcs.TrySetResult();
+                return false;
+            }
+            return true;
+        }, TimeSpan.FromMilliseconds(delay));
+
+        return tcs.Task;
     }
 
     private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
@@ -1133,7 +1171,7 @@ public partial class MainWindow : Window
     {
         _tosuApi.Dispose();
     }
-
+    
     private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
     {
         try
@@ -1152,125 +1190,23 @@ public partial class MainWindow : Window
             var buttonRightMargin = new Thickness(0, 42, 0, 10);
             var buttonLeftMargin = new Thickness(0, 42, 200, 10);
 
-            Task EnsureCogCenterAsync()
-            {
-                return Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    cogImage.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
-                    if (cogImage.RenderTransform is not RotateTransform)
-                        cogImage.RenderTransform = new RotateTransform(0);
-                }).GetTask();
-            }
-
             if (!settingsPanel.IsVisible)
             {
-                await EnsureCogCenterAsync();
-                var rotate = (RotateTransform)cogImage.RenderTransform!;
-                _cogSpinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-                _cogSpinTimer.Tick += (s, ev) =>
-                {
-                    _cogCurrentAngle = (_cogCurrentAngle + 4) % 360;
-                    rotate.Angle = _cogCurrentAngle;
-                };
-                _cogSpinTimer.Start();
-
-                // Set initial margins and transitions BEFORE making visible
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    settingsPanel.Margin = hideMargin;
-                    buttonContainer.Margin = buttonRightMargin;
-                    settingsPanel.Transitions = new Transitions
-                    {
-                        new ThicknessTransition
-                        {
-                            Property = MarginProperty,
-                            Duration = TimeSpan.FromMilliseconds(250),
-                            Easing = new QuarticEaseInOut()
-                        }
-                    };
-                    buttonContainer.Transitions = new Transitions
-                    {
-                        new ThicknessTransition
-                        {
-                            Property = MarginProperty,
-                            Duration = TimeSpan.FromMilliseconds(250),
-                            Easing = new QuarticEaseInOut()
-                        }
-                    };
-                    osuautodeafenLogoPanel.Transitions = new Transitions
-                    {
-                        new ThicknessTransition
-                        {
-                            Property = MarginProperty,
-                            Duration = TimeSpan.FromMilliseconds(500),
-                            Easing = new BackEaseOut()
-                        }
-                    };
-                    versionPanel.Transitions = new Transitions
-                    {
-                        new ThicknessTransition
-                        {
-                            Property = MarginProperty,
-                            Duration = TimeSpan.FromMilliseconds(600),
-                            Easing = new BackEaseOut()
-                        }
-                    };
-                });
-
+                await Task.WhenAll(
+                    EnsureCogCenterAsync(cogImage),
+                    SetupPanelTransitionsAsync(settingsPanel, buttonContainer, versionPanel)
+                );
+                StartCogSpin(cogImage);
                 settingsPanel.IsVisible = true;
                 await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render).GetTask();
-
-                // Animate all margins and opacity in parallel
-                await Task.WhenAll(
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        settingsPanel.Margin = showMargin;
-                        buttonContainer.Margin = buttonLeftMargin;
-                        osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
-                        versionPanel.Margin = new Thickness(0, 0, 225, 0);
-                    }).GetTask(),
-                    AdjustBackgroundOpacity(0.5, TimeSpan.FromMilliseconds(250))
-                );
+                await AnimatePanelInAsync(settingsPanel, buttonContainer, versionPanel, showMargin, buttonLeftMargin);
             }
             else
             {
-                // Stop cog spin timer immediately
-                _cogSpinTimer?.Stop();
-                var cogStopTask = Task.CompletedTask;
-                if (cogImage.RenderTransform is RotateTransform rotate)
-                {
-                    var start = _cogCurrentAngle;
-                    double end = 0;
-                    var duration = 250;
-                    var steps = 20;
-                    var step = (end - start) / steps;
-                    cogStopTask = Task.Run(async () =>
-                    {
-                        for (var i = 1; i <= steps; i++)
-                        {
-                            await Task.Delay(duration / steps);
-                            var angle = start + step * i;
-                            await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle).GetTask();
-                        }
-
-                        await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = 0).GetTask();
-                        _cogCurrentAngle = 0;
-                    });
-                }
-
-                // Animate all margins and opacity out in parallel with cog stop
                 await Task.WhenAll(
-                    cogStopTask,
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        settingsPanel.Margin = hideMargin;
-                        buttonContainer.Margin = buttonRightMargin;
-                        osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
-                        versionPanel.Margin = new Thickness(0, 0, 0, 0);
-                    }).GetTask(),
-                    AdjustBackgroundOpacity(1.0, TimeSpan.FromMilliseconds(250))
+                    StopCogSpinAsync(cogImage),
+                    AnimatePanelOutAsync(settingsPanel, buttonContainer, versionPanel, hideMargin, buttonRightMargin)
                 );
-
                 settingsPanel.IsVisible = false;
             }
         }
@@ -1278,6 +1214,162 @@ public partial class MainWindow : Window
         {
             Console.WriteLine($"[ERROR] Exception in SettingsButton_Click: {ex.Message}");
         }
+    }
+
+    private Task EnsureCogCenterAsync(Image cogImage)
+    {
+        return Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            cogImage.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
+            if (cogImage.RenderTransform is not RotateTransform)
+                cogImage.RenderTransform = new RotateTransform(0);
+        }).GetTask();
+    }
+
+    private DateTime _cogSpinStartTime;
+    private double _cogSpinStartAngle;
+    private double _cogSpinBpm = 140; // Default BPM
+
+    private const double beatsPerRotation = 4;
+
+    private double CalculateCogSpinInterval(double bpm, double updatesPerBeat = 60, double minMs = 4, double maxMs = 50)
+    {
+        if (bpm <= 0) bpm = 140;
+        double msPerBeat = 60000.0 / bpm;
+        double intervalMs = msPerBeat / updatesPerBeat;
+        Console.WriteLine($"Calculated interval: {intervalMs}ms for BPM: {bpm}");
+        return Math.Clamp(intervalMs, minMs, maxMs);
+    }
+
+    private void StartCogSpin(Image cogImage)
+    {
+        var rotate = (RotateTransform)cogImage.RenderTransform!;
+        _cogSpinStartTime = DateTime.UtcNow;
+        _cogSpinStartAngle = _cogCurrentAngle;
+        _cogSpinBpm = _tosuApi.GetCurrentBpm() > 0 ? _tosuApi.GetCurrentBpm() : 140;
+
+        double intervalMs = CalculateCogSpinInterval(_cogSpinBpm);
+        Console.WriteLine($"Cog spin interval: {intervalMs}ms");
+
+        _cogSpinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(intervalMs) };
+        _cogSpinTimer.Tick += (s, ev) =>
+        {
+            var elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
+            var angle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / beatsPerRotation) % 360;
+            _cogCurrentAngle = angle;
+            rotate.Angle = angle;
+        };
+        _cogSpinTimer.Start();
+    }
+
+    private void UpdateCogSpinBpm()
+    {
+        if (_cogSpinTimer != null && _cogSpinTimer.IsEnabled)
+        {
+            var elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
+            _cogSpinStartAngle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / beatsPerRotation) % 360;
+            _cogSpinStartTime = DateTime.UtcNow;
+            _cogSpinBpm = _tosuApi.GetCurrentBpm() > 0 ? _tosuApi.GetCurrentBpm() : 140;
+
+            double intervalMs = CalculateCogSpinInterval(_cogSpinBpm);
+            _cogSpinTimer.Interval = TimeSpan.FromMilliseconds(intervalMs);
+        }
+    }
+    private async Task StopCogSpinAsync(Image cogImage)
+    {
+        _cogSpinTimer?.Stop();
+        if (cogImage.RenderTransform is RotateTransform rotate)
+        {
+            var start = _cogCurrentAngle;
+            double end = 0;
+            var duration = 250;
+            var steps = 20;
+            var step = (end - start) / steps;
+            await Task.Run(async () =>
+            {
+                for (var i = 1; i <= steps; i++)
+                {
+                    await Task.Delay(duration / steps);
+                    var angle = start + step * i;
+                    await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle).GetTask();
+                }
+                await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = 0).GetTask();
+                _cogCurrentAngle = 0;
+            });
+        }
+    }
+
+    private async Task SetupPanelTransitionsAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel)
+    {
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            settingsPanel.Margin = new Thickness(200, 42, -200, 0);
+            buttonContainer.Margin = new Thickness(0, 42, 0, 10);
+            settingsPanel.Transitions = new Transitions
+            {
+                new ThicknessTransition
+                {
+                    Property = MarginProperty,
+                    Duration = TimeSpan.FromMilliseconds(250),
+                    Easing = new QuarticEaseInOut()
+                }
+            };
+            buttonContainer.Transitions = new Transitions
+            {
+                new ThicknessTransition
+                {
+                    Property = MarginProperty,
+                    Duration = TimeSpan.FromMilliseconds(250),
+                    Easing = new QuarticEaseInOut()
+                }
+            };
+            osuautodeafenLogoPanel.Transitions = new Transitions
+            {
+                new ThicknessTransition
+                {
+                    Property = MarginProperty,
+                    Duration = TimeSpan.FromMilliseconds(500),
+                    Easing = new BackEaseOut()
+                }
+            };
+            versionPanel.Transitions = new Transitions
+            {
+                new ThicknessTransition
+                {
+                    Property = MarginProperty,
+                    Duration = TimeSpan.FromMilliseconds(600),
+                    Easing = new BackEaseOut()
+                }
+            };
+        });
+    }
+
+    private async Task AnimatePanelInAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel, Thickness showMargin, Thickness buttonLeftMargin)
+    {
+        await Task.WhenAll(
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                settingsPanel.Margin = showMargin;
+                buttonContainer.Margin = buttonLeftMargin;
+                osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
+                versionPanel.Margin = new Thickness(0, 0, 225, 0);
+            }).GetTask(),
+            AdjustBackgroundOpacity(0.5, TimeSpan.FromMilliseconds(250))
+        );
+    }
+
+    private async Task AnimatePanelOutAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel, Thickness hideMargin, Thickness buttonRightMargin)
+    {
+        await Task.WhenAll(
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                settingsPanel.Margin = hideMargin;
+                buttonContainer.Margin = buttonRightMargin;
+                osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
+                versionPanel.Margin = new Thickness(0, 0, 0, 0);
+            }).GetTask(),
+            AdjustBackgroundOpacity(1.0, TimeSpan.FromMilliseconds(250))
+        );
     }
     private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan duration,
         CancellationToken cancellationToken = default)
