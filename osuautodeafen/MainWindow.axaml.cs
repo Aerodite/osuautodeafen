@@ -473,8 +473,7 @@ public partial class MainWindow : Window
 
         ChartData.Series1Values = list0;
         ChartData.Series2Values = list1;
-
-        _deafen.MinCompletionPercentage = ViewModel.MinCompletionPercentage;
+        
         Dispatcher.UIThread.InvokeAsync(() => _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage));
     }
 
@@ -627,7 +626,7 @@ public partial class MainWindow : Window
         _tosuApi.CheckForBeatmapChange();
         _tosuApi.CheckForModChange();
         _tosuApi.CheckForBPMChange();
-        _breakPeriod.UpdateBreakPeriodState(_tosuApi.GetCompletionPercentage());
+        _breakPeriod.UpdateBreakPeriodState(_tosuApi);
     }
 
     public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)

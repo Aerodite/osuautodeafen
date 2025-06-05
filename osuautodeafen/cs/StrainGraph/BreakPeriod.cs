@@ -90,27 +90,16 @@ public class BreakPeriodCalculator
         return BreakPeriods;
     }
 
-    public bool IsBreakPeriod(double completionPercentage)
+    public bool IsBreakPeriod(TosuApi tosuApi)
     {
-        foreach (var period in BreakPeriods)
-        {
-            if (completionPercentage >= period.StartPercentage && completionPercentage <= period.EndPercentage)
-            {
-                //Console.WriteLine($"IsBreakPeriod: TRUE | completionPercentage={completionPercentage}, Start={period.StartPercentage}, End={period.EndPercentage}");
-                return true;
-            }
-        }
-
-        //Console.WriteLine(
-           // $"IsBreakPeriod: FALSE | completionPercentage={completionPercentage}, NearestStart={(BreakPeriods.Count > 0 ? BreakPeriods.OrderBy(p => Math.Abs(p.StartPercentage - completionPercentage)).First().StartPercentage.ToString() : "N/A")}");
+        if (tosuApi.IsBreakPeriod())
+            return true;
         return false;
     }
 
-    public void UpdateBreakPeriodState(double completionPercentage)
+    public void UpdateBreakPeriodState(TosuApi tosuApi)
     {
-        //Console.WriteLine($"UpdateBreakPeriodState called with {completionPercentage}, _isInBreakPeriod={_isInBreakPeriod}");
-
-        bool currentlyInBreak = IsBreakPeriod(completionPercentage);
+        bool currentlyInBreak = IsBreakPeriod(tosuApi);
 
         if (currentlyInBreak != _isInBreakPeriod)
         {

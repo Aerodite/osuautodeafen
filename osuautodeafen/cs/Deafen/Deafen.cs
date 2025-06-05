@@ -16,155 +16,36 @@ namespace osuautodeafen;
 
 public class Deafen : IDisposable
 {
-    private readonly BreakPeriodCalculator _breakPeriodCalculator;
     private readonly object _deafenLock = new();
     private readonly Timer _fileCheckTimer;
-    private readonly IGlobalHook _hook = new SimpleGlobalHook();
+    private readonly SimpleGlobalHook _hook;
     private readonly ScreenBlankerForm _screenBlanker;
     private readonly Timer _timer;
-
-    private readonly SemaphoreSlim _timerSemaphore = new(1, 1);
-    private readonly SemaphoreSlim _toggleDeafenLock = new(1, 1);
     private readonly TosuApi _tosuAPI;
-    private readonly SharedViewModel _viewModel;
-
     private string _customKeybind;
+    private BreakPeriodCalculator _breakPeriodCalculator;
     private bool _deafened;
     private bool _hasReachedMinPercent;
-    private bool _isFileCheckTimerRunning;
     private bool _isInBreakPeriod;
-
-    private bool _isInBreakPeriodUndeafened;
-    private bool _isPlaying;
-    private bool _wasFullCombo;
-    private bool breakUndeafenEnabled;
-    private bool isScreenBlanked;
-    public double MinCompletionPercentage; // User Set Minimum Completion Percentage
-    public double PerformancePoints; // User Set Minimum Performance Points
-    public bool screenBlankEnabled;
-    public double StarRating; // User Set Minimum Star Rating
 
     public Deafen(TosuApi tosuAPI, SettingsHandler settingsHandler, BreakPeriodCalculator breakPeriodCalculator,
         SharedViewModel viewModel)
     {
         _tosuAPI = tosuAPI;
-        _timer = new Timer(250);
-        //_timer.Elapsed += TimerElapsed;
-        _timer.Start();
         _tosuAPI.StateChanged += TosuAPI_StateChanged;
-
-        _fileCheckTimer = new Timer(1000);
-        _fileCheckTimer.Elapsed += FileCheckTimer_Elapsed;
-        _fileCheckTimer.Start();
-
         _breakPeriodCalculator = breakPeriodCalculator;
-        _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
-
-        LoadSettings();
     }
 
     public void Dispose()
     {
-        _timer.Dispose();
-        _fileCheckTimer.Dispose();
-        _screenBlanker?.Dispose();
         _hook.Dispose();
-    }
-
-    private async Task ToggleScreenBlankAsync()
-    {
-        await _screenBlanker.BlankScreensAsync();
-    }
-
-    private async Task ToggleScreenDeBlankAsync()
-    {
-        await _screenBlanker.UnblankScreensAsync();
-    }
-
-    private void FileCheckTimer_Elapsed(object sender, ElapsedEventArgs e)
-    {
-        if (_isFileCheckTimerRunning) return;
-        _isFileCheckTimerRunning = true;
-
-        try
-        {
-        }
-        finally
-        {
-            _isFileCheckTimerRunning = false;
-        }
-    }
-
-    private void LoadSettings()
-    {
-        var settingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.txt");
-        if (File.Exists(settingsFilePath))
-        {
-            var lines = File.ReadAllLines(settingsFilePath);
-            foreach (var line in lines)
-            {
-                var settings = line.Split('=');
-                if (settings.Length == 2)
-                    switch (settings[0].Trim())
-                    {
-                        case "MinCompletionPercentage" when double.TryParse(settings[1], out var parsedPercentage):
-                            MinCompletionPercentage = parsedPercentage;
-                            break;
-                        case "StarRating" when double.TryParse(settings[1], out var parsedStarRating):
-                            StarRating = parsedStarRating;
-                            break;
-                        case "PerformancePoints" when double.TryParse(settings[1], out var parsedPerformancePoints):
-                            PerformancePoints = parsedPerformancePoints;
-                            break;
-                        case "Hotkey":
-                            _customKeybind = settings[1].Trim();
-                            break;
-                        case "IsScreenBlankEnabled" when bool.TryParse(settings[1], out var parsedScreenBlankEnabled):
-                            screenBlankEnabled = parsedScreenBlankEnabled;
-                            break;
-                        case "BreakUndeafenEnabled" when bool.TryParse(settings[1], out var parsedBreakUndeafenEnabled):
-                            breakUndeafenEnabled = parsedBreakUndeafenEnabled;
-                            break;
-                    }
-            }
-        }
-        else
-        {
-            MinCompletionPercentage = 60;
-            StarRating = 0;
-            PerformancePoints = 0;
-            screenBlankEnabled = false;
-        }
     }
 
     private async void TosuAPI_StateChanged(int state)
     {
-        _isPlaying = state == 2;
+        //_isPlaying = state == 2;
     }
-
-    /*private async void TimerElapsed(object? sender, ElapsedEventArgs e)
-    {
-        if (!await _timerSemaphore.WaitAsync(250)) return;
-
-        try
-        {
-            LoadSettings();
-
-            var completionPercentage = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
-            var currentSR = _tosuAPI.GetFullSR();
-            var currentPP = _tosuAPI.GetMaxPP();
-            var minCompletionPercentage = MinCompletionPercentage;
-            var maxCombo = _tosuAPI.GetMaxCombo();
-            var rankedStatus = _tosuAPI.GetRankedStatus();
-            var isFullCombo = _tosuAPI.IsFullCombo();
-            var isStarRatingMet = currentSR >= StarRating;
-            var isPerformancePointsMet = currentPP >= PerformancePoints;
-            var hitOneCircle = maxCombo != 0;
-            var isPracticeDifficulty = rankedStatus == 1;
-            var isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
-            
-    }*/
+    
 
     private List<(IEnumerable<KeyCode> Modifiers, KeyCode Key)> ConvertToInputSimulatorSyntax(string keybind)
     {

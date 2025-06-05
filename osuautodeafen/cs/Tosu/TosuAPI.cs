@@ -20,6 +20,7 @@ public class TosuApi : IDisposable
     private readonly Timer _timer;
     private int _beatmapId;
     private int _beatmapSetId;
+    private bool _isBreakPeriod;
     private BreakPeriod _breakPeriod = null!;
     private double _combo;
     private double _completionPercentage;
@@ -244,6 +245,12 @@ public class TosuApi : IDisposable
                                 else
                                     realtimeBpm = 0;
                         }
+
+                        if (beatmap.TryGetProperty("isBreak", out var isBreak))
+                        {
+                            _isBreakPeriod = isBreak.GetBoolean();
+                        }
+                         
                     }
 
                     if (root.TryGetProperty("play", out var play))
@@ -481,6 +488,11 @@ public class TosuApi : IDisposable
     {
         return beatmapChecksum;
     }
+    
+    public bool IsBreakPeriod()
+    {
+        return _isBreakPeriod;
+    }
 
     /*
      This isn't really needed thanks to GetBeatmapId(),
@@ -563,7 +575,6 @@ public class TosuApi : IDisposable
     {
         try
         {
-            // Use the existing ParseGraphData logic, refactored to return GraphData
             return ParseGraphData(_graphData);
         }
         catch
