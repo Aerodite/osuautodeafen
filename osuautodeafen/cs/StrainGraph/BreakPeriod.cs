@@ -18,80 +18,114 @@ public class BreakPeriod
 
 public class BreakPeriodCalculator
 {
+    public event Action? BreakPeriodEntered;
+    public event Action? BreakPeriodExited;
+
     public List<BreakPeriod> BreakPeriods { get; } = new();
 
-   public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string osuFilePath, List<double> xAxis, List<double> yAxis)
-{
-    BreakPeriods.Clear();
+    private bool _isInBreakPeriod = false;
 
-    var lines = await File.ReadAllLinesAsync(osuFilePath);
-    var inBreakPeriodSection = false;
-
-    // Filter out x-values corresponding to y-values of -100
-    var validXAxis = xAxis.Where((x, index) => yAxis[index] != -100).ToList();
-    var totalPoints = validXAxis.Count;
-
-    foreach (var line in lines)
+    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string osuFilePath, List<double> xAxis, List<double> yAxis)
     {
-        if (line.StartsWith("//Break Periods"))
-        {
-            inBreakPeriodSection = true;
-            Console.WriteLine("Found break periods section.");
-            continue;
-        }
+        BreakPeriods.Clear();
 
-        if (inBreakPeriodSection)
-        {
-            if (line.StartsWith("//")) break;
+        var lines = await File.ReadAllLinesAsync(osuFilePath);
+        var inBreakPeriodSection = false;
 
-            var parts = line.Split(',');
-            if (parts.Length == 3 && parts[0] == "2")
+        // Filter out x-values corresponding to y-values of -100
+        var validXAxis = xAxis.Where((x, index) => yAxis[index] != -100).ToList();
+        var totalPoints = validXAxis.Count;
+
+        foreach (var line in lines)
+        {
+            if (line.StartsWith("//Break Periods"))
             {
-                if (double.TryParse(parts[1], out var start) && double.TryParse(parts[2], out var end))
+                inBreakPeriodSection = true;
+                Console.WriteLine("Found break periods section.");
+                continue;
+            }
+
+            if (inBreakPeriodSection)
+            {
+                if (line.StartsWith("//")) break;
+
+                var parts = line.Split(',');
+                if (parts.Length == 3 && parts[0] == "2")
                 {
-                    // Indices are relative to the filtered/validXAxis
-                    var startIndex = FindClosestIndex(validXAxis, start);
-                    var endIndex = FindClosestIndex(validXAxis, end);
-
-                    var startPercentage = startIndex / (double)totalPoints * 100;
-                    var endPercentage = endIndex / (double)totalPoints * 100;
-
-                    var breakPeriod = new BreakPeriod
+                    if (double.TryParse(parts[1], out var start) && double.TryParse(parts[2], out var end))
                     {
-                        Start = (int)start,
-                        End = (int)end,
-                        StartIndex = startIndex,
-                        EndIndex = endIndex,
-                        StartPercentage = startPercentage,
-                        EndPercentage = endPercentage
-                    };
+                        // Indices are relative to the filtered/validXAxis
+                        var startIndex = FindClosestIndex(validXAxis, start);
+                        var endIndex = FindClosestIndex(validXAxis, end);
 
-                    Console.WriteLine(
-                        $"Parsed break period: Start={start}, End={end}, StartPercentage={startPercentage}, EndPercentage={endPercentage}");
-                    BreakPeriods.Add(breakPeriod);
+                        var startPercentage = startIndex / (double)totalPoints * 100;
+                        var endPercentage = endIndex / (double)totalPoints * 100;
+
+                        var breakPeriod = new BreakPeriod
+                        {
+                            Start = (int)start,
+                            End = (int)end,
+                            StartIndex = startIndex,
+                            EndIndex = endIndex,
+                            StartPercentage = startPercentage,
+                            EndPercentage = endPercentage
+                        };
+
+                        Console.WriteLine(
+                            $"Parsed break period: Start={start}, End={end}, StartPercentage={startPercentage}, EndPercentage={endPercentage}");
+                        BreakPeriods.Add(breakPeriod);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Failed to parse start or end time from line: {line}");
+                    }
                 }
                 else
                 {
-                    Console.WriteLine($"Failed to parse start or end time from line: {line}");
+                    Console.WriteLine($"Invalid break period format in line: {line}");
                 }
             }
-            else
-            {
-                Console.WriteLine($"Invalid break period format in line: {line}");
-            }
         }
-    }
 
-    return BreakPeriods;
-}
+        return BreakPeriods;
+    }
 
     public bool IsBreakPeriod(double completionPercentage)
     {
-        foreach (var breakPeriod in BreakPeriods)
-            if (completionPercentage >= breakPeriod.StartPercentage &&
-                completionPercentage <= breakPeriod.EndPercentage)
+        foreach (var period in BreakPeriods)
+        {
+            if (completionPercentage >= period.StartPercentage && completionPercentage <= period.EndPercentage)
+            {
+                //Console.WriteLine($"IsBreakPeriod: TRUE | completionPercentage={completionPercentage}, Start={period.StartPercentage}, End={period.EndPercentage}");
                 return true;
+            }
+        }
+
+        //Console.WriteLine(
+           // $"IsBreakPeriod: FALSE | completionPercentage={completionPercentage}, NearestStart={(BreakPeriods.Count > 0 ? BreakPeriods.OrderBy(p => Math.Abs(p.StartPercentage - completionPercentage)).First().StartPercentage.ToString() : "N/A")}");
         return false;
+    }
+
+    public void UpdateBreakPeriodState(double completionPercentage)
+    {
+        //Console.WriteLine($"UpdateBreakPeriodState called with {completionPercentage}, _isInBreakPeriod={_isInBreakPeriod}");
+
+        bool currentlyInBreak = IsBreakPeriod(completionPercentage);
+
+        if (currentlyInBreak != _isInBreakPeriod)
+        {
+            _isInBreakPeriod = currentlyInBreak;
+            if (currentlyInBreak)
+            {
+                BreakPeriodEntered?.Invoke();
+                Console.WriteLine("Entered break period.");
+            }
+            else
+            {
+                BreakPeriodExited?.Invoke();
+                Console.WriteLine("Exited break period.");
+            }
+        }
     }
 
     private int FindClosestIndex(List<double> xAxis, double value)

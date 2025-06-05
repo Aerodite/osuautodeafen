@@ -28,12 +28,12 @@ public class ChartManager
     private double maxLimit;
     private double maxYValue;
 
-    public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel)
+    public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel, BreakPeriodCalculator breakPeriod)
     {
         PlotView = plotView ?? throw new ArgumentNullException(nameof(plotView));
         _tosuApi = tosuApi ?? throw new ArgumentNullException(nameof(tosuApi));
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
-        _breakPeriod = new BreakPeriodCalculator();
+        _breakPeriod = breakPeriod ?? throw new ArgumentNullException(nameof(breakPeriod));
 
         _progressIndicator = new LineSeries<ObservablePoint>
         {

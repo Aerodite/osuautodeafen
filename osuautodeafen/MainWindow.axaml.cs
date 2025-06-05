@@ -167,16 +167,7 @@ public partial class MainWindow : Window
         ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
         BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
         
-        // end of settings bs
-
-        _deafen = new Deafen(_tosuApi, settingsPanel, _breakPeriod, _viewModel);
-        
-        // ideally we could use no timers whatsoever but for now this works fine
-        // because it really only checks if events should be triggered
-        _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(0.5) };
-        _mainTimer.Tick += MainTimer_Tick;
-        _mainTimer.Start();
-        _viewModel.PropertyChanged += ViewModel_PropertyChanged;
+        // end of settings bs\
 
         var oldContent = Content;
         Content = null;
@@ -187,8 +178,17 @@ public partial class MainWindow : Window
 
         InitializeViewModel();
         
-        _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel);
+        _breakPeriod = new BreakPeriodCalculator();
+        _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel, _breakPeriod);
         _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel);
+        _deafen = new Deafen(_tosuApi, settingsPanel, _breakPeriod, _viewModel);
+        
+        // ideally we could use no timers whatsoever but for now this works fine
+        // because it really only checks if events should be triggered
+        _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        _mainTimer.Tick += MainTimer_Tick;
+        _mainTimer.Start();
+        _viewModel.PropertyChanged += ViewModel_PropertyChanged;
         
         ProgressOverlay.ChartXMin = _progressIndicatorHelper.ChartXMin;
         ProgressOverlay.ChartXMax = _progressIndicatorHelper.ChartXMax;
@@ -209,6 +209,14 @@ public partial class MainWindow : Window
         _tosuApi.HasBPMChanged += async () =>
         {
             await Dispatcher.UIThread.InvokeAsync(UpdateCogSpinBpm);
+        };
+        _breakPeriod.BreakPeriodEntered += async () =>
+        {
+          Console.WriteLine("Break period entered");
+        };
+        _breakPeriod.BreakPeriodExited += async () =>
+        {
+            Console.WriteLine("Break period exited");
         };
 
         PointerMoved += OnMouseMove;
@@ -619,6 +627,7 @@ public partial class MainWindow : Window
         _tosuApi.CheckForBeatmapChange();
         _tosuApi.CheckForModChange();
         _tosuApi.CheckForBPMChange();
+        _breakPeriod.UpdateBreakPeriodState(_tosuApi.GetCompletionPercentage());
     }
 
     public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)

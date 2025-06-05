@@ -49,7 +49,7 @@ public class Deafen : IDisposable
     {
         _tosuAPI = tosuAPI;
         _timer = new Timer(250);
-        _timer.Elapsed += TimerElapsed;
+        //_timer.Elapsed += TimerElapsed;
         _timer.Start();
         _tosuAPI.StateChanged += TosuAPI_StateChanged;
 
@@ -143,7 +143,7 @@ public class Deafen : IDisposable
         _isPlaying = state == 2;
     }
 
-    private async void TimerElapsed(object? sender, ElapsedEventArgs e)
+    /*private async void TimerElapsed(object? sender, ElapsedEventArgs e)
     {
         if (!await _timerSemaphore.WaitAsync(250)) return;
 
@@ -163,122 +163,8 @@ public class Deafen : IDisposable
             var hitOneCircle = maxCombo != 0;
             var isPracticeDifficulty = rankedStatus == 1;
             var isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
-
-            if (_viewModel.IsFCRequired)
-            {
-                // Deafen after a full combo
-                if (isPlaying && isFullCombo && completionPercentage >= minCompletionPercentage && !_deafened &&
-                    isStarRatingMet && isPerformancePointsMet && hitOneCircle && !isPracticeDifficulty)
-                {
-                    _deafened = true;
-                    ToggleDeafenState();
-                    _wasFullCombo = true;
-                    Console.WriteLine("1");
-                    if (screenBlankEnabled) await ToggleScreenBlankAsync();
-                }
-                // Undeafen after a combo break
-                else if (_viewModel.UndeafenAfterMiss && _wasFullCombo && !isFullCombo && _deafened &&
-                         !isPracticeDifficulty)
-                {
-                    _deafened = false;
-                    ToggleDeafenState();
-                    _wasFullCombo = false;
-                    Console.WriteLine("2");
-                    if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
-                }
-                // Undeafen if playing state was exited during a full combo run
-                else if (!isPlaying && _wasFullCombo && _deafened)
-                {
-                    _deafened = false;
-                    ToggleDeafenState();
-                    _wasFullCombo = false;
-                    Console.WriteLine("6");
-                    if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
-                }
-            }
-            else
-            {
-                // Deafen after a certain percentage
-                if (isPlaying && !_deafened && completionPercentage >= minCompletionPercentage && isStarRatingMet &&
-                    isPerformancePointsMet && hitOneCircle && !isPracticeDifficulty && !_isInBreakPeriod)
-                {
-                    _deafened = true;
-                    ToggleDeafenState();
-                    Console.WriteLine("3");
-                    if (screenBlankEnabled) await ToggleScreenBlankAsync();
-                }
-            }
-
-            // Undeafen if not playing
-            if (!isPlaying && _deafened)
-            {
-                if (!_viewModel.IsFCRequired)
-                {
-                    _deafened = false;
-                    ToggleDeafenState();
-                    Console.WriteLine("4");
-                    if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
-                }
-                else if (_viewModel.IsFCRequired && _wasFullCombo && !isFullCombo && _deafened)
-                {
-                    _deafened = false;
-                    Console.WriteLine("5");
-                    if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
-                }
-            }
-
-            // Undeafen if a retry occurred
-            if (completionPercentage <= 0 && _deafened)
-            {
-                _deafened = false;
-                ToggleDeafenState();
-                Console.WriteLine("7");
-                if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
-            }
-
-            // Undeafen during break periods if the toggle is enabled
-            if (breakUndeafenEnabled)
-            {
-                completionPercentage = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
-                var isInBreakPeriod = _breakPeriodCalculator.IsBreakPeriod(completionPercentage);
-
-                //Console.WriteLine($"BreakUndeafenEnabled: {breakUndeafenEnabled}, CompletionPercentage: {completionPercentage}, IsInBreakPeriod: {isInBreakPeriod}, IsInBreakPeriodFlag: {_isInBreakPeriod}, Deafened: {_deafened}");
-
-                if (isInBreakPeriod && !_isInBreakPeriod)
-                {
-                    _isInBreakPeriod = true;
-                    if (_deafened && isPlaying)
-                    {
-                        _deafened = false;
-                        _isInBreakPeriodUndeafened = true;
-                        ToggleDeafenState();
-                        if (screenBlankEnabled) await ToggleScreenDeBlankAsync();
-                        await Task.Delay(500); // Add a delay to prevent immediate re-evaluation
-                    }
-                }
-                else if (!isInBreakPeriod && _isInBreakPeriod)
-                {
-                    _isInBreakPeriod = false;
-                    if (_isInBreakPeriodUndeafened && isPlaying)
-                    {
-                        _deafened = true;
-                        _isInBreakPeriodUndeafened = false;
-                        ToggleDeafenState();
-                        if (screenBlankEnabled) await ToggleScreenBlankAsync();
-                        await Task.Delay(500); // Add a delay to prevent immediate re-evaluation
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            //Console.WriteLine($"An error occurred in the Deafen Timer: {ex.Message}");
-        }
-        finally
-        {
-            _timerSemaphore.Release();
-        }
-    }
+            
+    }*/
 
     private List<(IEnumerable<KeyCode> Modifiers, KeyCode Key)> ConvertToInputSimulatorSyntax(string keybind)
     {
