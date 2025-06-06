@@ -34,7 +34,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         data["Behavior"]["UndeafenAfterMiss"] = "false";
 
         data.Sections.AddSection("Hotkeys");
-        data["Hotkeys"]["DeafenKeybind"] = "Control|D";
+        data["Hotkeys"]["DeafenKeybind"] = "Control+D";
 
         data.Sections.AddSection("UI");
         data["UI"]["IsBackgroundEnabled"] = "true";
@@ -132,7 +132,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PerformancePoints)));
     }
 
-    public void SaveSetting(string section, string key, object value)
+    public void SaveSetting(string section, string key, object? value)
     {
         if (!_data.Sections.ContainsSection(section))
             _data.Sections.AddSection(section);

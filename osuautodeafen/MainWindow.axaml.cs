@@ -128,7 +128,6 @@ public partial class MainWindow : Window
         
         var settingsPanel = new SettingsHandler();
         _settingsHandler = settingsPanel;
-
         _settingsHandler.LoadSettings();
         
         _viewModel.MinCompletionPercentage = (int)Math.Round(_settingsHandler.MinCompletionPercentage);
@@ -163,7 +162,7 @@ public partial class MainWindow : Window
         ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
         BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
         
-        // end of settings bs\
+        // end of settings bs
 
         var oldContent = Content;
         Content = null;
@@ -177,7 +176,7 @@ public partial class MainWindow : Window
         _breakPeriod = new BreakPeriodCalculator();
         _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel, _breakPeriod);
         _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel);
-        _deafen = new Deafen(_tosuApi, settingsPanel, _breakPeriod, _viewModel);
+        _deafen = new Deafen(_tosuApi, _settingsHandler, _breakPeriod, _viewModel);
         
         // ideally we could use no timers whatsoever but for now this works fine
         // because it really only checks if events should be triggered
@@ -306,6 +305,8 @@ public partial class MainWindow : Window
             BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
             ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
             BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
+            
+            _viewModel.DeafenKeybind = ParseHotKey(_settingsHandler.DeafenKeybind);
         
             await _chartManager.UpdateChart(_tosuApi.GetGraphData(), _viewModel.MinCompletionPercentage, _breakPeriod);
         }
@@ -313,6 +314,36 @@ public partial class MainWindow : Window
         {
             Console.WriteLine($"[ERROR] Exception in ResetButton_Click: {ex}");
         }
+    }
+    
+    private HotKey ParseHotKey(string? keybindString)
+    {
+        if (string.IsNullOrEmpty(keybindString))
+            return new HotKey { Key = Key.None, ModifierKeys = KeyModifiers.None, FriendlyName = "None" };
+
+        var parts = keybindString.Split('+');
+        KeyModifiers modifiers = KeyModifiers.None;
+        Key key = Key.None;
+
+        foreach (var part in parts)
+        {
+            var trimmed = part.Trim();
+            if (trimmed.Equals("Control", StringComparison.OrdinalIgnoreCase) || trimmed.Equals("Ctrl", StringComparison.OrdinalIgnoreCase))
+                modifiers |= KeyModifiers.Control;
+            else if (trimmed.Equals("Alt", StringComparison.OrdinalIgnoreCase))
+                modifiers |= KeyModifiers.Alt;
+            else if (trimmed.Equals("Shift", StringComparison.OrdinalIgnoreCase))
+                modifiers |= KeyModifiers.Shift;
+            else if (Enum.TryParse<Key>(trimmed, out var parsedKey))
+                key = parsedKey;
+        }
+
+        return new HotKey
+        {
+            Key = key,
+            ModifierKeys = modifiers,
+            FriendlyName = key.ToString()
+        };
     }
     private void CompletionPercentageSlider_PointerPressed(object sender, PointerPressedEventArgs e)
     {
@@ -438,8 +469,8 @@ public partial class MainWindow : Window
         _settingsHandler?.SaveSetting("General", "PerformancePoints", roundedValue);
     }
 
-    private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
-{
+    private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e) 
+    {
     if (e.PropertyName == nameof(SharedViewModel.CompletionPercentage))
     {
         await Dispatcher.UIThread.InvokeAsync(() =>
@@ -544,7 +575,7 @@ public partial class MainWindow : Window
         ViewModel.DeafenKeybind = hotKey;
 
         // Save to settings
-        _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybind", $"{modifiers}|{e.Key}");
+        _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybind", $"{modifiers}+{e.Key}");
 
         ViewModel.IsKeybindCaptureFlyoutOpen = false;
         (Resources["KeybindCaptureFlyout"] as Flyout)?.Hide();
@@ -561,7 +592,7 @@ public partial class MainWindow : Window
         if (string.IsNullOrEmpty(keybindString))
             return "Set Keybind";
 
-        var parts = keybindString.Split('|');
+        var parts = keybindString.Split('+');
         if (parts.Length != 2)
             return "Set Keybind";
 
@@ -1510,7 +1541,7 @@ public partial class MainWindow : Window
         public KeyModifiers ModifierKeys { get; init; }
         public string FriendlyName { get; init; }
 
-        public override string ToString()
+        public override string? ToString()
         {
             List<string> parts = new();
 

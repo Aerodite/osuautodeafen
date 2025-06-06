@@ -213,7 +213,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    public MainWindow.HotKey DeafenKeybind
+    public MainWindow.HotKey? DeafenKeybind
     {
         get => _deafenKeybind;
         set

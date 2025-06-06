@@ -1,22 +1,19 @@
 {
   "version": 2,
-  "dgSpecHash": "J4hkjM1rH3w=",
+  "dgSpecHash": "E3x9lcYQPk0=",
   "success": true,
   "projectFilePath": "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Anthony\\.nuget\\packages\\avalonia\\11.3.0\\avalonia.11.3.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\avalonia.angle.windows.natives\\2.1.22045.20230930\\avalonia.angle.windows.natives.2.1.22045.20230930.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\avalonia.buildservices\\0.0.31\\avalonia.buildservices.0.0.31.nupkg.sha512",
-    "C:\\Users\\Anthony\\.nuget\\packages\\avalonia.controls.colorpicker\\11.3.0\\avalonia.controls.colorpicker.11.3.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\avalonia.desktop\\11.3.0\\avalonia.desktop.11.3.0.nupkg.sha512",
-    "C:\\Users\\Anthony\\.nuget\\packages\\avalonia.diagnostics\\11.3.0\\avalonia.diagnostics.11.3.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\avalonia.fonts.inter\\11.3.0\\avalonia.fonts.inter.11.3.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\avalonia.freedesktop\\11.3.0\\avalonia.freedesktop.11.3.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\avalonia.native\\11.3.0\\avalonia.native.11.3.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\avalonia.remote.protocol\\11.3.0\\avalonia.remote.protocol.11.3.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\avalonia.skia\\11.3.0\\avalonia.skia.11.3.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\avalonia.themes.fluent\\11.3.0\\avalonia.themes.fluent.11.3.0.nupkg.sha512",
-    "C:\\Users\\Anthony\\.nuget\\packages\\avalonia.themes.simple\\11.3.0\\avalonia.themes.simple.11.3.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\avalonia.win32\\11.3.0\\avalonia.win32.11.3.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\avalonia.x11\\11.3.0\\avalonia.x11.11.3.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\dynamicdata\\9.1.2\\dynamicdata.9.1.2.nupkg.sha512",
@@ -32,6 +29,7 @@
     "C:\\Users\\Anthony\\.nuget\\packages\\livechartscore.skiasharpview\\2.0.0-rc2\\livechartscore.skiasharpview.2.0.0-rc2.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\livechartscore.skiasharpview.avalonia\\2.0.0-rc2\\livechartscore.skiasharpview.avalonia.2.0.0-rc2.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\microcom.runtime\\0.11.0\\microcom.runtime.0.11.0.nupkg.sha512",
+    "C:\\Users\\Anthony\\.nuget\\packages\\microsoft.net.illink.tasks\\8.0.11\\microsoft.net.illink.tasks.8.0.11.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\microsoft.netcore.platforms\\2.0.0\\microsoft.netcore.platforms.2.0.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\microsoft.win32.systemevents\\4.5.0\\microsoft.win32.systemevents.4.5.0.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512",
@@ -64,8 +62,11 @@
     "C:\\Users\\Anthony\\.nuget\\packages\\tmds.dbus.protocol\\0.21.2\\tmds.dbus.protocol.0.21.2.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\websocketsharp\\1.0.3-rc11\\websocketsharp.1.0.3-rc11.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.11\\microsoft.netcore.app.ref.8.0.11.nupkg.sha512",
+    "C:\\Users\\Anthony\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.11\\microsoft.netcore.app.runtime.win-x64.8.0.11.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.11\\microsoft.windowsdesktop.app.ref.8.0.11.nupkg.sha512",
+    "C:\\Users\\Anthony\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.11\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.11.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.11\\microsoft.aspnetcore.app.ref.8.0.11.nupkg.sha512",
+    "C:\\Users\\Anthony\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.11\\microsoft.aspnetcore.app.runtime.win-x64.8.0.11.nupkg.sha512",
     "C:\\Users\\Anthony\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\8.0.11\\microsoft.netcore.app.host.win-x64.8.0.11.nupkg.sha512"
   ],
   "logs": [
@@ -76,7 +77,8 @@
       "message": "Package 'System.Drawing.Common' 4.5.1 has a known critical severity vulnerability, https://github.com/advisories/GHSA-rxg9-xrhp-64gj",
       "libraryId": "System.Drawing.Common",
       "targetGraphs": [
-        "net8.0"
+        "net8.0",
+        "net8.0/win-x64"
       ]
     },
     {
