@@ -40,7 +40,6 @@ namespace osuautodeafen;
 public partial class MainWindow : Window
 {
     private readonly AnimationManager _animationManager = new();
-    private readonly Queue<Bitmap> _bitmapQueue = new(1);
     private readonly BreakPeriodCalculator _breakPeriod;
 
     private readonly ChartManager _chartManager;
@@ -53,9 +52,6 @@ public partial class MainWindow : Window
     private readonly SettingsHandler? _settingsHandler;
 
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
-    private readonly object _updateLock = new();
-    
-    private readonly object _updateLogoLock = new();
 
     private readonly SharedViewModel _viewModel;
     
@@ -72,7 +68,6 @@ public partial class MainWindow : Window
     private double _cogCurrentAngle;
 
     private DispatcherTimer? _cogSpinTimer;
-    public Bitmap _colorChangingImage = null!;
 
     private string? _currentBackgroundDirectory;
 
@@ -89,7 +84,6 @@ public partial class MainWindow : Window
 
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
-    private DateTime _lastUpdateCheck = DateTime.MinValue;
 
     private Bitmap? _lastValidBitmap;
     private LogoControl? _logoControl;
@@ -108,6 +102,8 @@ public partial class MainWindow : Window
     private Line _progressIndicatorLine = null!;
 
     public TosuApi _tosuApi = new();
+    
+    private bool _isSettingsPanelOpen = false;
 
 
     //<summary>
@@ -204,7 +200,7 @@ public partial class MainWindow : Window
         };
         _tosuApi.HasModsChanged += async () =>
         {
-            await _chartManager.UpdateChart(_tosuApi.GetGraphData(), ViewModel.MinCompletionPercentage);
+            await _chartManager.UpdateChart(_tosuApi.GetGraphData(), ViewModel.MinCompletionPercentage, _breakPeriod);
         };
         _tosuApi.HasBPMChanged += async () =>
         {
@@ -217,6 +213,18 @@ public partial class MainWindow : Window
         _breakPeriod.BreakPeriodExited += async () =>
         {
             Console.WriteLine("Break period exited");
+        };
+        _tosuApi.HasKiaiChanged += async () =>
+        {
+            if (_tosuApi._isKiai)
+            {
+                await AdjustBackgroundOpacityKiai(1, TimeSpan.FromMilliseconds(500), _tosuApi.GetCurrentBpm());
+            }
+            else
+            {
+                _kiaiOpacityCts?.Cancel();
+                await AdjustBackgroundOpacity(1, TimeSpan.FromMilliseconds(500));
+            }
         };
 
         PointerMoved += OnMouseMove;
@@ -299,7 +307,7 @@ public partial class MainWindow : Window
             ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
             BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
         
-            await _chartManager.UpdateChart(_tosuApi.GetGraphData(), _viewModel.MinCompletionPercentage);
+            await _chartManager.UpdateChart(_tosuApi.GetGraphData(), _viewModel.MinCompletionPercentage, _breakPeriod);
         }
         catch (Exception ex)
         {
@@ -474,7 +482,7 @@ public partial class MainWindow : Window
         ChartData.Series1Values = list0;
         ChartData.Series2Values = list1;
         
-        Dispatcher.UIThread.InvokeAsync(() => _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage));
+        Dispatcher.UIThread.InvokeAsync(() => _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage, _breakPeriod));
     }
 
     // show the update notification bar if an update is available
@@ -626,6 +634,7 @@ public partial class MainWindow : Window
         _tosuApi.CheckForBeatmapChange();
         _tosuApi.CheckForModChange();
         _tosuApi.CheckForBPMChange();
+        _tosuApi.CheckForKiaiChange();
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
     }
 
@@ -1354,6 +1363,8 @@ public partial class MainWindow : Window
 
     private async Task AnimatePanelInAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel, Thickness showMargin, Thickness buttonLeftMargin)
     {
+        //kiai stuff super sucks
+        _isSettingsPanelOpen = true;
         await Task.WhenAll(
             Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -1368,6 +1379,8 @@ public partial class MainWindow : Window
 
     private async Task AnimatePanelOutAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel, Thickness hideMargin, Thickness buttonRightMargin)
     {
+        //kiai stuff sucks
+        _isSettingsPanelOpen = false;
         await Task.WhenAll(
             Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -1382,6 +1395,10 @@ public partial class MainWindow : Window
     private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan duration,
         CancellationToken cancellationToken = default)
     {
+        // Prevent interfering with kiai pulsing
+        if (_kiaiOpacityCts != null && !_kiaiOpacityCts.IsCancellationRequested)
+            return;
+
         if (Content is Grid mainGrid)
         {
             var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
@@ -1425,6 +1442,48 @@ public partial class MainWindow : Window
                     _currentBackgroundOpacity = currentOpacity;
                 }
             }
+        }
+    }
+
+    private CancellationTokenSource? _kiaiOpacityCts;
+
+    private async Task AdjustBackgroundOpacityKiai(double baseOpacity, TimeSpan duration, double bpm)
+    {
+        _kiaiOpacityCts?.Cancel();
+        _kiaiOpacityCts = new CancellationTokenSource();
+        var token = _kiaiOpacityCts.Token;
+
+        if (Content is not Grid mainGrid)
+            return;
+
+        var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
+        if (backgroundLayer == null)
+            return;
+
+        // Adjust base opacity if settings panel is open
+        double effectiveBaseOpacity = _isSettingsPanelOpen ? 0.5 : baseOpacity;
+        double pulseAmplitude = 0.1;
+        double msPerBeat = 60000.0 / Math.Max(bpm, 1);
+        var startTime = DateTime.UtcNow;
+
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                double pulse = (Math.Sin(2 * Math.PI * elapsed / msPerBeat) + 1) / 2;
+                double targetOpacity = effectiveBaseOpacity - pulseAmplitude / 2 + pulse * pulseAmplitude;
+
+                backgroundLayer.Opacity = targetOpacity;
+                _currentBackgroundOpacity = targetOpacity;
+
+                await Task.Delay(16, token);
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            backgroundLayer.Opacity = effectiveBaseOpacity;
+            _currentBackgroundOpacity = effectiveBaseOpacity;
         }
     }
 

@@ -1,9 +1,8 @@
-﻿using System;
+﻿﻿﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Avalonia.Threading;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
@@ -17,7 +16,6 @@ using SkiaSharp;
 
 public class ChartManager
 {
-    private readonly BreakPeriodCalculator _breakPeriod;
     private readonly LineSeries<ObservablePoint> _progressIndicator;
     private readonly ProgressIndicatorHelper _progressIndicatorHelper;
     private readonly TosuApi _tosuApi;
@@ -28,12 +26,12 @@ public class ChartManager
     private double maxLimit;
     private double maxYValue;
 
-    public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel, BreakPeriodCalculator breakPeriod)
+    public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel, BreakPeriodCalculator _breakPeriod)
     {
         PlotView = plotView ?? throw new ArgumentNullException(nameof(plotView));
         _tosuApi = tosuApi ?? throw new ArgumentNullException(nameof(tosuApi));
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
-        _breakPeriod = breakPeriod ?? throw new ArgumentNullException(nameof(breakPeriod));
+        _breakPeriod = new BreakPeriodCalculator();
 
         _progressIndicator = new LineSeries<ObservablePoint>
         {
@@ -44,8 +42,6 @@ public class ChartManager
             Values = Array.Empty<ObservablePoint>(),
             Name = "ProgressIndicator"
         };
-
-        _progressIndicatorHelper = new ProgressIndicatorHelper(this, tosuApi, viewModel);
 
         // Initial chart setup
         var series1 = new StackedAreaSeries<ObservablePoint>
@@ -67,15 +63,25 @@ public class ChartManager
         PlotView.DrawMargin = new Margin(0, 0, 0, 0);
     }
 
-    public ISeries[] Series { get; private set; }
-    public Axis[] XAxes { get; private set; } = [];
-    public Axis[] YAxes { get; private set; } = [];
+    public ISeries[] Series { get; private set; } = Array.Empty<ISeries>();
+    public Axis[] XAxes { get; private set; } = Array.Empty<Axis>();
+    public Axis[] YAxes { get; private set; } = Array.Empty<Axis>();
     public double MaxYValue { get; private set; }
     public double MaxLimit { get; private set; }
     public CartesianChart PlotView { get; }
 
+    public void EnsureProgressIndicator(LineSeries<ObservablePoint> indicator)
+    {
+        if (!Series.Contains(indicator))
+        {
+            Series = Series.Append(indicator).ToArray();
+            PlotView.Series = Series;
+        }
+    }
+
     public async Task UpdateDeafenOverlayAsync(double minCompletionPercentage, int durationMs = 60, int steps = 4)
     {
+        // Cancel any previous animation
         _deafenOverlayCts?.Cancel();
         _deafenOverlayCts = new CancellationTokenSource();
         var token = _deafenOverlayCts.Token;
@@ -90,20 +96,17 @@ public class ChartManager
 
         if (deafenRect == null)
         {
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            deafenRect = new RectangularSection
             {
-                var rect = new RectangularSection
-                {
-                    Xi = newXi,
-                    Xj = maxLimit,
-                    Yi = 0,
-                    Yj = maxYValue,
-                    Fill = new SolidColorPaint { Color = color }
-                };
-                sections.Add(rect);
-                PlotView.Sections = sections;
-                PlotView.InvalidateVisual();
-            });
+                Xi = newXi,
+                Xj = maxLimit,
+                Yi = 0,
+                Yj = maxYValue,
+                Fill = new SolidColorPaint { Color = color }
+            };
+            sections.Add(deafenRect);
+            PlotView.Sections = sections;
+            PlotView.InvalidateVisual();
             return;
         }
 
@@ -111,28 +114,21 @@ public class ChartManager
         for (var i = 1; i <= steps; i++)
         {
             token.ThrowIfCancellationRequested();
-            var xi = oldXi + (newXi - oldXi) * i / steps;
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                deafenRect.Xi = xi;
-                PlotView.InvalidateVisual();
-            });
+            deafenRect.Xi = oldXi + (newXi - oldXi) * i / steps;
+            PlotView.InvalidateVisual();
             await Task.Delay(durationMs / steps, token);
         }
 
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            deafenRect.Xi = newXi;
-            PlotView.InvalidateVisual();
-        });
+        deafenRect.Xi = newXi;
+        PlotView.InvalidateVisual();
     }
 
-    public async Task UpdateChart(GraphData? graphData, double minCompletionPercentage)
+    public async Task UpdateChart(GraphData? graphData, double minCompletionPercentage, BreakPeriodCalculator _breakPeriod)
     {
         if (graphData == null) return;
 
         var seriesArr = PlotView.Series?.ToArray() ?? Array.Empty<ISeries>();
-        var maxPoints = 5000;
+        var maxPoints = 1000;
 
         // Find max Y
         var maxY = 0.0;
@@ -142,21 +138,25 @@ public class ChartManager
                 maxY = v;
         maxYValue = maxY;
 
+        // Update or add series
         foreach (var series in graphData.Series)
         {
             var data = series.Data;
-            var updatedCount = data.Count;
+            int start = 0, end = data.Count - 1;
+            while (start <= end && data[start] == -100) start++;
+            while (end >= start && data[end] == -100) end--;
+            if (end < start) continue;
+
+            var updatedCount = end - start + 1;
             var updatedValues = new ObservablePoint[updatedCount];
-            for (var i = 0; i < updatedCount; i++)
-            {
-                var value = data[i] == -100 ? 0 : data[i];
-                updatedValues[i] = new ObservablePoint(i, value);
-            }
+            var idx = 0;
+            for (var i = start; i <= end; i++)
+                if (data[i] != -100)
+                    updatedValues[idx++] = new ObservablePoint(i - start, data[i]);
+            maxLimit = idx;
 
-            if (updatedCount > maxLimit) maxLimit = updatedCount;
-
-            var downsampled = Downsample(updatedValues, updatedCount, maxPoints);
-            var smoothed = SmoothData(downsampled, 1, 0);
+            var downsampled = Downsample(updatedValues, idx, maxPoints);
+            var smoothed = SmoothData(downsampled, 10, 0.2);
 
             var color = series.Name == "aim"
                 ? new SKColor(0x00, 0xFF, 0x00, 192)
@@ -217,24 +217,13 @@ public class ChartManager
 
         PlotView.TooltipPosition = TooltipPosition.Hidden;
 
-        // Use the first series for axis calculation
-        var refData = graphData.Series[0].Data;
-        int n = refData.Count;
-        int leadingZeros = 0, trailingZeros = 0;
-
-        while (leadingZeros < n && (refData[leadingZeros] == -100 || refData[leadingZeros] == 0))
-            leadingZeros++;
-
-        while (trailingZeros < n - leadingZeros && (refData[n - 1 - trailingZeros] == -100 || refData[n - 1 - trailingZeros] == 0))
-            trailingZeros++;
-
         XAxes = new[]
         {
             new Axis
             {
                 LabelsPaint = new SolidColorPaint(SKColors.Transparent),
-                MinLimit = leadingZeros,
-                MaxLimit = n - trailingZeros - 1,
+                MinLimit = 0,
+                MaxLimit = maxLimit,
                 Padding = new Padding(2),
                 TextSize = 12
             }

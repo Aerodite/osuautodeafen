@@ -24,6 +24,7 @@ public class TosuApi : IDisposable
     private BreakPeriod _breakPeriod = null!;
     private double _combo;
     private double _completionPercentage;
+    private bool _lastKiaiValue;
     private double _current;
     private double _DTRate;
     private double _firstObj;
@@ -51,6 +52,7 @@ public class TosuApi : IDisposable
     private string? _songFilePath;
     private ClientWebSocket _webSocket;
     private string beatmapChecksum;
+    public bool _isKiai;
 
     public TosuApi()
     {
@@ -92,6 +94,8 @@ public class TosuApi : IDisposable
     public event Action? BeatmapChanged;
 
     public event Action? HasModsChanged;
+    
+    public event Action? HasKiaiChanged;
     
     public event Action? HasBPMChanged;
 
@@ -249,6 +253,10 @@ public class TosuApi : IDisposable
                         if (beatmap.TryGetProperty("isBreak", out var isBreak))
                         {
                             _isBreakPeriod = isBreak.GetBoolean();
+                        }
+                        if (beatmap.TryGetProperty("isKiai", out var isKiai))
+                        {
+                            _isKiai = isKiai.GetBoolean();
                         }
                          
                     }
@@ -493,6 +501,11 @@ public class TosuApi : IDisposable
     {
         return _isBreakPeriod;
     }
+    
+    public bool IsKiai()
+    {
+        return _isKiai;
+    }
 
     /*
      This isn't really needed thanks to GetBeatmapId(),
@@ -540,6 +553,16 @@ public class TosuApi : IDisposable
         _lastBeatmapChecksum = checksum;
         var handler = BeatmapChanged;
         handler?.Invoke();
+    }
+    
+    public void CheckForKiaiChange()
+    {
+        if (_isKiai == _lastKiaiValue)
+            return;
+        _lastKiaiValue = _isKiai;
+        var handler = HasKiaiChanged;
+        handler?.Invoke();
+        Console.WriteLine($"Kiai changed to: {_isKiai}");
     }
     
     // This is exclusively used for the Background toggle, because it can't exactly check
