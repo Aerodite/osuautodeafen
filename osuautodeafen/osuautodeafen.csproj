@@ -7,6 +7,8 @@
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <DebugType>none</DebugType>
+        <ApplicationIcon>Resources\favicon.ico</ApplicationIcon>
+        <AssemblyName>osuautodeafen</AssemblyName>
     </PropertyGroup>
 
     <ItemGroup>
@@ -85,7 +87,7 @@
         <None Remove="Icons\bug-solid.png" />
         <AvaloniaResource Include="Icons\bug-solid.png" />
     </ItemGroup>
-
+    
     <ItemGroup>
         <None Remove="Resources\noise.png"/>
     </ItemGroup>
