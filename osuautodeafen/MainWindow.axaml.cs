@@ -202,6 +202,12 @@ public partial class MainWindow : Window
         };
         _tosuApi.HasKiaiChanged += async () =>
         {
+            // without this the background still shows in kiai time
+            // not good.
+            if (!_viewModel.IsBackgroundEnabled)
+            {
+                return;
+            }
             if (_tosuApi._isKiai)
             {
                 double bpm = _tosuApi.GetCurrentBpm();
@@ -1170,7 +1176,7 @@ private async Task StopCogSpinAsync(Image cogImage)
 
         var tasks = new List<Task>();
 
-        if (!_tosuApi._isKiai)
+        if (!_tosuApi._isKiai || !_viewModel.IsBackgroundEnabled)
             tasks.Add(_backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150) ?? Task.CompletedTask);
 
         tasks.Add(Dispatcher.UIThread.InvokeAsync(() =>
@@ -1194,7 +1200,7 @@ private async Task StopCogSpinAsync(Image cogImage)
 
         if (!shouldAnimate) return;
         
-        if (!_tosuApi._isKiai)
+        if (!_tosuApi._isKiai || !_viewModel.IsBackgroundEnabled)
             _backgroundManager?.RemoveBackgroundOpacityRequest("settings");
 
         await Task.WhenAll(
