@@ -339,7 +339,23 @@ public partial class MainWindow : Window
             ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
             BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
             
-            _viewModel.DeafenKeybind = ParseHotKey(_settingsHandler.DeafenKeybind);
+            var keyStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindKey"];
+            var modStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindModifiers"];
+            if (int.TryParse(keyStr, out var keyVal) && int.TryParse(modStr, out var modVal))
+            {
+                var key = (Key)keyVal;
+                var modifiers = (KeyModifiers)modVal;
+                _viewModel.DeafenKeybind = new HotKey
+                {
+                    Key = key,
+                    ModifierKeys = modifiers,
+                    FriendlyName = GetFriendlyKeyName(key)
+                };
+            }
+            else
+            {
+                _viewModel.DeafenKeybind = new HotKey { Key = Key.None, ModifierKeys = KeyModifiers.None, FriendlyName = "None" };
+            }
         
             await _chartManager.UpdateChart(_tosuApi.GetGraphData(), _viewModel.MinCompletionPercentage, _breakPeriod);
         }
@@ -608,7 +624,8 @@ public partial class MainWindow : Window
         ViewModel.DeafenKeybind = hotKey;
 
         // Save to settings
-        _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybind", $"{modifiers}+{e.Key}");
+        _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindKey", (int)e.Key);
+        _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindModifiers", (int)modifiers);
 
         ViewModel.IsKeybindCaptureFlyoutOpen = false;
         (Resources["KeybindCaptureFlyout"] as Flyout)?.Hide();
@@ -621,23 +638,22 @@ public partial class MainWindow : Window
 
     private string RetrieveKeybindFromSettings()
     {
-        var keybindString = _settingsHandler?.Data["Hotkeys"]["DeafenKeybind"];
-        if (string.IsNullOrEmpty(keybindString))
+        var keyStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindKey"];
+        var modStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindModifiers"];
+        if (string.IsNullOrEmpty(keyStr) || string.IsNullOrEmpty(modStr))
             return "Set Keybind";
 
-        var parts = keybindString.Split('+');
-        if (parts.Length != 2)
+        if (!int.TryParse(keyStr, out var keyVal) || !int.TryParse(modStr, out var modVal))
             return "Set Keybind";
 
-        var modifiers = parts[0];
-        var key = parts[1];
+        var key = (Key)keyVal;
+        var modifiers = (KeyModifiers)modVal;
 
-        // Build display string
         var display = "";
-        if (modifiers.Contains("Control")) display += "Ctrl+";
-        if (modifiers.Contains("Alt")) display += "Alt+";
-        if (modifiers.Contains("Shift")) display += "Shift+";
-        display += GetFriendlyKeyName(Enum.Parse<Key>(key));
+        if (modifiers.HasFlag(KeyModifiers.Control)) display += "Ctrl+";
+        if (modifiers.HasFlag(KeyModifiers.Alt)) display += "Alt+";
+        if (modifiers.HasFlag(KeyModifiers.Shift)) display += "Shift+";
+        display += GetFriendlyKeyName(key);
         return display;
     }
 
