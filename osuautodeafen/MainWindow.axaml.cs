@@ -25,6 +25,8 @@ using LiveChartsCore.Defaults;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
+using osuautodeafen.cs.Background;
+using osuautodeafen.cs.Deafen;
 using osuautodeafen.cs.Logo;
 using osuautodeafen.cs.Settings;
 using osuautodeafen.cs.StrainGraph;
@@ -43,67 +45,47 @@ public partial class MainWindow : Window
     private readonly BreakPeriodCalculator _breakPeriod;
 
     private readonly ChartManager _chartManager;
-    private readonly Deafen _deafen;
-    private readonly DispatcherTimer _disposeTimer;
     private readonly GetLowResBackground? _getLowResBackground;
     private readonly DispatcherTimer _mainTimer;
-    private readonly DispatcherTimer _parallaxCheckTimer = null!;
     private readonly ProgressIndicatorHelper _progressIndicatorHelper;
     private readonly SettingsHandler? _settingsHandler;
 
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
 
     private readonly SharedViewModel _viewModel;
-    
-    private ProgressIndicatorOverlay _progressIndicatorOverlay;
 
     private BlurEffect? _backgroundBlurEffect;
 
     private PropertyChangedEventHandler? _backgroundPropertyChangedHandler;
-    private Image? _blurredBackground;
-    private SKSvg? _cachedLogoSvg;
-
-    private double? _cachedMaxXLimit = null;
+    public Image? _blurredBackground;
+    
     private CancellationTokenSource _cancellationTokenSource = new();
     private double _cogCurrentAngle;
 
     private DispatcherTimer? _cogSpinTimer;
 
     private string? _currentBackgroundDirectory;
-
-    private double _currentBackgroundOpacity = 1.0;
+    
     private Bitmap? _currentBitmap;
-    private LineSeries<ObservablePoint> _deafenMarker = null!;
-    private Thread _graphDataThread = null!;
-    private bool _hasDisplayed = false;
-    private bool _isConstructorFinished;
-
-    private bool _isDraggingSlider = false;
-    private bool _isTransitioning = false;
-    private double _lastCompletionPercentage = -1;
 
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
 
     private Bitmap? _lastValidBitmap;
     private LogoControl? _logoControl;
-
-    private LogoUpdater _logoUpdater;
-
-    private Bitmap? _lowResBitmap;
+    
     private double _mouseX;
     private double _mouseY;
 
-    private Image? _normalBackground;
+    public Image? _normalBackground;
 
     private CancellationTokenSource? _opacityCts;
-
-    private Canvas _progressIndicatorCanvas = null!;
-    private Line _progressIndicatorLine = null!;
-
-    public TosuApi _tosuApi = new();
     
-    private bool _isSettingsPanelOpen = false;
+    public readonly TosuApi _tosuApi = new();
+
+    public bool _isSettingsPanelOpen = false;
+    
+    private BackgroundManager? _backgroundManager;
 
 
     //<summary>
@@ -119,10 +101,12 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
         
         InitializeLogo();
-
+        
         Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.favicon.ico"));
         
         _getLowResBackground = new GetLowResBackground(_tosuApi);
+        
+        _backgroundManager = new BackgroundManager( this, _viewModel, _tosuApi);
         
         // settings bs
         
@@ -176,7 +160,9 @@ public partial class MainWindow : Window
         _breakPeriod = new BreakPeriodCalculator();
         _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel, _breakPeriod);
         _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel);
-        _deafen = new Deafen(_tosuApi, _settingsHandler, _breakPeriod, _viewModel);
+        
+        // we just need to initialize it, no need for a global variable
+        var deafen = new Deafen(_tosuApi, _settingsHandler, _viewModel);
         
         // ideally we could use no timers whatsoever but for now this works fine
         // because it really only checks if events should be triggered
@@ -195,7 +181,8 @@ public partial class MainWindow : Window
         _tosuApi.BeatmapChanged += async () =>
         {
             await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
-            await Task.Run(() => UpdateBackground(null, null));
+            if (_backgroundManager != null)
+                await _backgroundManager.UpdateBackground(null, null);
         };
         _tosuApi.HasModsChanged += async () =>
         {
@@ -217,16 +204,11 @@ public partial class MainWindow : Window
         {
             if (_tosuApi._isKiai)
             {
-                await AdjustBackgroundOpacityKiai(1, TimeSpan.FromMilliseconds(500), _tosuApi.GetCurrentBpm());
             }
             else
             {
-                _kiaiOpacityCts?.Cancel();
-                await AdjustBackgroundOpacity(1, TimeSpan.FromMilliseconds(500));
             }
         };
-
-        PointerMoved += OnMouseMove;
 
         settingsPanel.Transitions = new Transitions
         {
@@ -255,14 +237,14 @@ public partial class MainWindow : Window
             if (point.Y <= titleBarHeight) BeginMoveDrag(e);
         };
 
+        PointerMoved += _backgroundManager.OnMouseMove;
+
         // Settings visuals and stuff
         InitializeKeybindButtonText();
         UpdateDeafenKeybindDisplay();
         CompletionPercentageSlider.Value = ViewModel.MinCompletionPercentage;
         StarRatingSlider.Value = ViewModel.StarRating;
         PPSlider.Value = ViewModel.PerformancePoints;
-
-        _isConstructorFinished = true;
     }
     private async void ResetButton_Click(object sender, RoutedEventArgs e)
     {
@@ -588,7 +570,7 @@ public partial class MainWindow : Window
 
     private string RetrieveKeybindFromSettings()
     {
-        var keybindString = _settingsHandler?._data["Hotkeys"]["DeafenKeybind"];
+        var keybindString = _settingsHandler?.Data["Hotkeys"]["DeafenKeybind"];
         if (string.IsNullOrEmpty(keybindString))
             return "Set Keybind";
 
@@ -738,240 +720,6 @@ public partial class MainWindow : Window
                key == Key.LeftShift || key == Key.RightShift;
     }
 
-    public async Task UpdateBackground(object? sender, EventArgs? e)
-    {
-        try
-        {
-            if (!ViewModel.IsBackgroundEnabled)
-            {
-                _blurredBackground?.SetValueSafe(x => x.IsVisible = false);
-                _normalBackground?.SetValueSafe(x => x.IsVisible = false);
-                return;
-            }
-
-            var backgroundPath = _tosuApi.GetBackgroundPath();
-            if (_currentBitmap == null || backgroundPath != _currentBackgroundDirectory)
-            {
-                _currentBackgroundDirectory = backgroundPath;
-                var newBitmap = await LoadBitmapAsync(backgroundPath);
-                if (newBitmap == null)
-                {
-                    Console.WriteLine($"Failed to load background: {backgroundPath}");
-                    return;
-                }
-
-                _currentBitmap?.Dispose();
-                _currentBitmap = newBitmap;
-
-                await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
-                await Dispatcher.UIThread.InvokeAsync(_logoUpdater.UpdateLogoAsync);
-                IsBlackBackgroundDisplayed = false;
-            }
-
-            if (_backgroundPropertyChangedHandler == null)
-            {
-                _backgroundPropertyChangedHandler = async void (s, args) =>
-                {
-                    try
-                    {
-                        switch (args.PropertyName)
-                        {
-                            case nameof(ViewModel.IsParallaxEnabled):
-                            case nameof(ViewModel.IsBlurEffectEnabled):
-                                await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
-                                break;
-                            case nameof(ViewModel.IsBackgroundEnabled) when !ViewModel.IsBackgroundEnabled:
-                            {
-                                if (!IsBlackBackgroundDisplayed)
-                                    await Dispatcher.UIThread.InvokeAsync(DisplayBlackBackground);
-                                break;
-                            }
-                            case nameof(ViewModel.IsBackgroundEnabled):
-                            {
-                                if (IsBlackBackgroundDisplayed)
-                                {
-                                    await Dispatcher.UIThread.InvokeAsync(() =>
-                                        UpdateUIWithNewBackgroundAsync(_currentBitmap));
-                                    IsBlackBackgroundDisplayed = false;
-                                }
-
-                                break;
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine("[ERROR] Exception in background property changed handler: " + ex);
-                    }
-                };
-                ViewModel.PropertyChanged += _backgroundPropertyChangedHandler;
-            }
-
-            UpdateBackgroundVisibility();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("[ERROR] Exception in UpdateBackground: " + ex);
-        }
-    }
-
-
-    private async Task<Bitmap?> LoadBitmapAsync(string path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            Console.WriteLine("LoadBitmapAsync: Provided path is null or empty.");
-            return null;
-        }
-
-        return await Task.Run(() =>
-        {
-            if (!File.Exists(path))
-            {
-                Console.WriteLine($"Background file not found: {path}");
-                return null;
-            }
-
-            try
-            {
-                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                return new Bitmap(stream);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to load bitmap from {path}: {ex.Message}");
-                return null;
-            }
-        });
-    }
-
-    private Task AnimateBlurAsync(BlurEffect blurEffect, double from, double to, int durationMs, CancellationToken token)
-    {
-        var tcs = new TaskCompletionSource();
-        const int steps = 10;
-        var step = (to - from) / steps;
-        var delay = durationMs / steps;
-        int i = 0;
-        double lastRadius = blurEffect.Radius;
-
-        IDisposable? timer = null;
-        timer = DispatcherTimer.Run(() =>
-        {
-            if (token.IsCancellationRequested)
-            {
-                timer?.Dispose();
-                tcs.TrySetCanceled(token);
-                return false;
-            }
-
-            double radius = from + step * i;
-            // Only update if the value changed significantly
-            if (Math.Abs(radius - lastRadius) > 0.01)
-            {
-                blurEffect.Radius = radius;
-                lastRadius = radius;
-            }
-
-            i++;
-            if (i > steps)
-            {
-                blurEffect.Radius = to;
-                timer?.Dispose();
-                tcs.TrySetResult();
-                return false;
-            }
-            return true;
-        }, TimeSpan.FromMilliseconds(delay));
-
-        return tcs.Task;
-    }
-
-    private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
-    {
-        if (bitmap == null)
-        {
-            bitmap = _lastValidBitmap;
-            if (bitmap == null) return;
-        }
-        else
-        {
-            _lastValidBitmap = bitmap;
-        }
-
-        var cts = Interlocked.Exchange(ref _cancellationTokenSource, new CancellationTokenSource());
-        await cts?.CancelAsync()!;
-        var token = _cancellationTokenSource.Token;
-
-        if (Dispatcher.UIThread.CheckAccess())
-            await UpdateUI();
-        else
-            await Dispatcher.UIThread.InvokeAsync(UpdateUI);
-        return;
-
-        async Task UpdateUI()
-        {
-            if (token.IsCancellationRequested) return;
-
-            if (Content is not Grid mainGrid)
-            {
-                mainGrid = new Grid();
-                Content = mainGrid;
-            }
-
-            var bounds = mainGrid.Bounds;
-            var width = Math.Max(1, bounds.Width);
-            var height = Math.Max(1, bounds.Height);
-
-            _backgroundBlurEffect ??= new BlurEffect();
-            var currentRadius = _backgroundBlurEffect.Radius;
-            var targetRadius = ViewModel?.IsBlurEffectEnabled == true ? 15 : 0;
-
-            var gpuBackground = new GpuBackgroundControl
-            {
-                Bitmap = bitmap,
-                Opacity = 0.5,
-                ZIndex = -1,
-                Stretch = Stretch.UniformToFill,
-                Effect = _backgroundBlurEffect,
-                Clip = new RectangleGeometry(new Rect(0, 0, width * 1.05, height * 1.05))
-            };
-
-            var backgroundLayer = mainGrid.Children.Count > 0 && mainGrid.Children[0] is Grid g &&
-                                  g.Name == "BackgroundLayer"
-                ? g
-                : new Grid { Name = "BackgroundLayer", ZIndex = -1 };
-            if (!mainGrid.Children.Contains(backgroundLayer))
-                mainGrid.Children.Insert(0, backgroundLayer);
-
-            backgroundLayer.Children.Clear();
-            backgroundLayer.RenderTransform = new ScaleTransform(1.05, 1.05);
-
-            backgroundLayer.Children.Add(gpuBackground);
-            backgroundLayer.Opacity = _currentBackgroundOpacity;
-
-            if (ViewModel?.IsParallaxEnabled == true)
-                try
-                {
-                    ApplyParallax(_mouseX, _mouseY);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("[ERROR] Exception in ApplyParallax: " + ex);
-                }
-
-            await AnimateBlurAsync(_backgroundBlurEffect, currentRadius, targetRadius, 150, token);
-        }
-    }
-
-    private void UpdateBackgroundVisibility()
-    {
-        if (_blurredBackground != null && _normalBackground != null)
-        {
-            _blurredBackground.IsVisible = ViewModel.IsBlurEffectEnabled;
-            _normalBackground.IsVisible = !ViewModel.IsBlurEffectEnabled;
-        }
-    }
-
     public Bitmap LoadEmbeddedResource(string resourceName)
     {
         const int maxRetries = 5;
@@ -1036,8 +784,8 @@ public partial class MainWindow : Window
             if (logoHost != null)
                 logoHost.Content = _logoControl;
 
-            _logoUpdater = new LogoUpdater(
-                _getLowResBackground,
+            _backgroundManager!._logoUpdater = new LogoUpdater(
+                _getLowResBackground!,
                 _logoControl,
                 _animationManager,
                 ViewModel,
@@ -1159,60 +907,6 @@ public partial class MainWindow : Window
 
             return new Bitmap(stream);
         }
-    }
-
-    private Task DisplayBlackBackground()
-    {
-        var blackBitmap = CreateBlackBitmap();
-        _ = UpdateUIWithNewBackgroundAsync(blackBitmap);
-        IsBlackBackgroundDisplayed = true;
-        return Task.CompletedTask;
-    }
-
-    private void ApplyParallax(double mouseX, double mouseY)
-    {
-        if (_currentBitmap == null || ParallaxToggle.IsChecked == false || BackgroundToggle.IsChecked == false) return;
-        if (mouseX < 0 || mouseY < 0 || mouseX > Width || mouseY > Height) return;
-
-        var windowWidth = Width;
-        var windowHeight = Height;
-        var centerX = windowWidth / 2;
-        var centerY = windowHeight / 2;
-
-        var relativeMouseX = mouseX - centerX;
-        var relativeMouseY = mouseY - centerY;
-
-        var scaleFactor = 0.015;
-        var movementX = -(relativeMouseX * scaleFactor);
-        var movementY = -(relativeMouseY * scaleFactor);
-
-        double maxMovement = 15;
-        movementX = Math.Max(-maxMovement, Math.Min(maxMovement, movementX));
-        movementY = Math.Max(-maxMovement, Math.Min(maxMovement, movementY));
-
-        if (Content is Grid mainGrid)
-        {
-            var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
-            if (backgroundLayer != null && backgroundLayer.Children.Count > 0)
-            {
-                var gpuBackground = backgroundLayer.Children.OfType<GpuBackgroundControl>().FirstOrDefault();
-                if (gpuBackground != null) gpuBackground.RenderTransform = new TranslateTransform(movementX, movementY);
-            }
-        }
-    }
-
-    private void OnMouseMove(object? sender, PointerEventArgs e)
-    {
-        if (ParallaxToggle.IsChecked == false || BackgroundToggle.IsChecked == false) return;
-
-        var position = e.GetPosition(this);
-        _mouseX = position.X;
-        _mouseY = position.Y;
-
-        // Check if the mouse is within the window bounds
-        if (_mouseX < 0 || _mouseY < 0 || _mouseX > Width || _mouseY > Height) return;
-
-        ApplyParallax(_mouseX, _mouseY);
     }
 
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
@@ -1394,8 +1088,8 @@ public partial class MainWindow : Window
 
     private async Task AnimatePanelInAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel, Thickness showMargin, Thickness buttonLeftMargin)
     {
-        //kiai stuff super sucks
         _isSettingsPanelOpen = true;
+
         await Task.WhenAll(
             Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -1404,14 +1098,15 @@ public partial class MainWindow : Window
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
                 versionPanel.Margin = new Thickness(0, 0, 225, 0);
             }).GetTask(),
-            AdjustBackgroundOpacity(0.5, TimeSpan.FromMilliseconds(250))
+            _backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150)
         );
     }
 
     private async Task AnimatePanelOutAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel, Thickness hideMargin, Thickness buttonRightMargin)
     {
-        //kiai stuff sucks
         _isSettingsPanelOpen = false;
+        _backgroundManager?.RemoveBackgroundOpacityRequest("settings");
+        
         await Task.WhenAll(
             Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -1419,103 +1114,7 @@ public partial class MainWindow : Window
                 buttonContainer.Margin = buttonRightMargin;
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
                 versionPanel.Margin = new Thickness(0, 0, 0, 0);
-            }).GetTask(),
-            AdjustBackgroundOpacity(1.0, TimeSpan.FromMilliseconds(250))
-        );
-    }
-    private async Task AdjustBackgroundOpacity(double targetOpacity, TimeSpan duration,
-        CancellationToken cancellationToken = default)
-    {
-        // Prevent interfering with kiai pulsing
-        if (_kiaiOpacityCts != null && !_kiaiOpacityCts.IsCancellationRequested)
-            return;
-
-        if (Content is Grid mainGrid)
-        {
-            var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
-            if (backgroundLayer != null)
-            {
-                var currentOpacity = backgroundLayer.Opacity;
-
-                _opacityCts?.Cancel();
-                _opacityCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-                var animation = new Animation
-                {
-                    Duration = duration,
-                    Easing = new QuarticEaseInOut()
-                };
-
-                animation.Children.Add(new KeyFrame
-                {
-                    Cue = new Cue(0),
-                    Setters = { new Setter(OpacityProperty, currentOpacity) }
-                });
-                animation.Children.Add(new KeyFrame
-                {
-                    Cue = new Cue(1),
-                    Setters = { new Setter(OpacityProperty, targetOpacity) }
-                });
-
-                try
-                {
-                    if (!_opacityCts.Token.IsCancellationRequested)
-                    {
-                        backgroundLayer.Opacity = targetOpacity;
-                        _currentBackgroundOpacity = targetOpacity;
-                    }
-
-                    await animation.RunAsync(backgroundLayer, _opacityCts.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    backgroundLayer.Opacity = currentOpacity;
-                    _currentBackgroundOpacity = currentOpacity;
-                }
-            }
-        }
-    }
-
-    private CancellationTokenSource? _kiaiOpacityCts;
-
-    private async Task AdjustBackgroundOpacityKiai(double baseOpacity, TimeSpan duration, double bpm)
-    {
-        _kiaiOpacityCts?.Cancel();
-        _kiaiOpacityCts = new CancellationTokenSource();
-        var token = _kiaiOpacityCts.Token;
-
-        if (Content is not Grid mainGrid)
-            return;
-
-        var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
-        if (backgroundLayer == null)
-            return;
-
-        // Adjust base opacity if settings panel is open
-        double effectiveBaseOpacity = _isSettingsPanelOpen ? 0.5 : baseOpacity;
-        double pulseAmplitude = 0.1;
-        double msPerBeat = 60000.0 / Math.Max(bpm, 1);
-        var startTime = DateTime.UtcNow;
-
-        try
-        {
-            while (!token.IsCancellationRequested)
-            {
-                var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
-                double pulse = (Math.Sin(2 * Math.PI * elapsed / msPerBeat) + 1) / 2;
-                double targetOpacity = effectiveBaseOpacity - pulseAmplitude / 2 + pulse * pulseAmplitude;
-
-                backgroundLayer.Opacity = targetOpacity;
-                _currentBackgroundOpacity = targetOpacity;
-
-                await Task.Delay(16, token);
-            }
-        }
-        catch (TaskCanceledException)
-        {
-            backgroundLayer.Opacity = effectiveBaseOpacity;
-            _currentBackgroundOpacity = effectiveBaseOpacity;
-        }
+            }).GetTask());
     }
 
     private void InitializeKeybindButtonText()
@@ -1531,7 +1130,7 @@ public partial class MainWindow : Window
         {
             var isChecked = checkBox.IsChecked == true;
             vm.IsBreakUndeafenToggleEnabled = isChecked;
-            _settingsHandler?.SaveSetting("General", "IsBreakUndeafenToggleEnabled", isChecked);
+            _settingsHandler?.SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled", isChecked);
         }
     }
 

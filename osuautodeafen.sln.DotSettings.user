@@ -9,4 +9,5 @@
 	<s:Boolean x:Key="/Default/Dpa/IsEnabledInDebug/@EntryValue">True</s:Boolean>
 	<s:String x:Key="/Default/Monitoring/StartMode/@EntryValue">Disabled</s:String>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=osuautodeafen_002Fcs_002FScreen_002FScreenBlankerForm/@EntryIndexedValue">True</s:Boolean>
-	<s:Boolean x:Key="/Default/ResxEditorPersonal/Initialized/@EntryValue">True</s:Boolean></wpf:ResourceDictionary>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/Initialized/@EntryValue">True</s:Boolean>
+	<s:Boolean x:Key="/Default/UserDictionary/Words/=tosu/@EntryIndexedValue">True</s:Boolean></wpf:ResourceDictionary>

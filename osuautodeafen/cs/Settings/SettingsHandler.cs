@@ -13,7 +13,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private readonly string _iniPath;
     private readonly string _appPath;
     private readonly FileIniDataParser _parser = new();
-    public IniData _data;
+    public IniData Data;
 
     private double _minCompletionPercentage;
     private double _performancePoints;
@@ -27,19 +27,19 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         data["General"]["MinCompletionPercentage"] = "60";
         data["General"]["StarRating"] = "0";
         data["General"]["PerformancePoints"] = "0";
-        data["General"]["IsBreakUndeafenToggleEnabled"] = "false";
 
         data.Sections.AddSection("Behavior");
-        data["Behavior"]["IsFCRequired"] = "false";
-        data["Behavior"]["UndeafenAfterMiss"] = "false";
+        data["Behavior"]["IsFCRequired"] = "False";
+        data["Behavior"]["UndeafenAfterMiss"] = "False";
+        data["Behavior"]["IsBreakUndeafenToggleEnabled"] = "False";
 
         data.Sections.AddSection("Hotkeys");
         data["Hotkeys"]["DeafenKeybind"] = "Control+D";
 
         data.Sections.AddSection("UI");
-        data["UI"]["IsBackgroundEnabled"] = "true";
-        data["UI"]["IsParallaxEnabled"] = "true";
-        data["UI"]["IsBlurEffectEnabled"] = "false";
+        data["UI"]["IsBackgroundEnabled"] = "True";
+        data["UI"]["IsParallaxEnabled"] = "True";
+        data["UI"]["IsBlurEffectEnabled"] = "False";
 
         return data;
     }
@@ -52,12 +52,12 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
         if (!File.Exists(_iniPath))
         {
-            _data = CreateDefaultIniData();
-            _parser.WriteFile(_iniPath, _data);
+            Data = CreateDefaultIniData();
+            _parser.WriteFile(_iniPath, Data);
         }
         else
         {
-            _data = _parser.ReadFile(_iniPath);
+            Data = _parser.ReadFile(_iniPath);
         }
 
         LoadSettings();
@@ -100,9 +100,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public string? DeafenKeybind { get; set; }
     public bool IsBreakUndeafenToggleEnabled { get; set; }
 
-    public event PropertyChangedEventHandler? PropertyChanged;
+    public new event PropertyChangedEventHandler? PropertyChanged;
 
-    protected bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    private bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (Equals(field, value)) return false;
         field = value;
@@ -112,20 +112,20 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     public void LoadSettings()
     {
-        _minCompletionPercentage = double.TryParse(_data["General"]["MinCompletionPercentage"], out var mcp) ? mcp : 0;
-        _starRating = double.TryParse(_data["General"]["StarRating"], out var sr) ? sr : 0;
-        _performancePoints = double.TryParse(_data["General"]["PerformancePoints"], out var pp) ? pp : 0;
+        _minCompletionPercentage = double.TryParse(Data["General"]["MinCompletionPercentage"], out var mcp) ? mcp : 0;
+        _starRating = double.TryParse(Data["General"]["StarRating"], out var sr) ? sr : 0;
+        _performancePoints = double.TryParse(Data["General"]["PerformancePoints"], out var pp) ? pp : 0;
         IsBreakUndeafenToggleEnabled =
-            bool.TryParse(_data["General"]["IsBreakUndeafenToggleEnabled"], out var bu) && bu;
+            bool.TryParse(Data["Behavior"]["IsBreakUndeafenToggleEnabled"], out var bu) && bu;
 
-        IsFCRequired = bool.TryParse(_data["Behavior"]["IsFCRequired"], out var fc) && fc;
-        UndeafenAfterMiss = bool.TryParse(_data["Behavior"]["UndeafenAfterMiss"], out var uam) && uam;
+        IsFCRequired = bool.TryParse(Data["Behavior"]["IsFCRequired"], out var fc) && fc;
+        UndeafenAfterMiss = bool.TryParse(Data["Behavior"]["UndeafenAfterMiss"], out var uam) && uam;
 
-        DeafenKeybind = _data["Hotkeys"]["DeafenKeybind"];
+        DeafenKeybind = Data["Hotkeys"]["DeafenKeybind"];
 
-        IsBackgroundEnabled = bool.TryParse(_data["UI"]["IsBackgroundEnabled"], out var bg) && bg;
-        IsParallaxEnabled = bool.TryParse(_data["UI"]["IsParallaxEnabled"], out var px) && px;
-        IsBlurEffectEnabled = bool.TryParse(_data["UI"]["IsBlurEffectEnabled"], out var blur) && blur;
+        IsBackgroundEnabled = bool.TryParse(Data["UI"]["IsBackgroundEnabled"], out var bg) && bg;
+        IsParallaxEnabled = bool.TryParse(Data["UI"]["IsParallaxEnabled"], out var px) && px;
+        IsBlurEffectEnabled = bool.TryParse(Data["UI"]["IsBlurEffectEnabled"], out var blur) && blur;
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MinCompletionPercentage)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StarRating)));
@@ -134,16 +134,16 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     public void SaveSetting(string section, string key, object? value)
     {
-        if (!_data.Sections.ContainsSection(section))
-            _data.Sections.AddSection(section);
-        _data[section][key] = value.ToString();
-        _parser.WriteFile(_iniPath, _data);
+        if (!Data.Sections.ContainsSection(section))
+            Data.Sections.AddSection(section);
+        Data[section][key] = value?.ToString();
+        _parser.WriteFile(_iniPath, Data);
     }
 
     public void ResetToDefaults()
     {
-        _data = CreateDefaultIniData();
-        _parser.WriteFile(_iniPath, _data);
+        Data = CreateDefaultIniData();
+        _parser.WriteFile(_iniPath, Data);
         LoadSettings();
     }
 }
