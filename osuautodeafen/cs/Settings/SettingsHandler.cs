@@ -115,9 +115,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         _minCompletionPercentage = double.TryParse(Data["General"]["MinCompletionPercentage"], out var mcp) ? mcp : 0;
         _starRating = double.TryParse(Data["General"]["StarRating"], out var sr) ? sr : 0;
         _performancePoints = double.TryParse(Data["General"]["PerformancePoints"], out var pp) ? pp : 0;
+        
         IsBreakUndeafenToggleEnabled =
             bool.TryParse(Data["Behavior"]["IsBreakUndeafenToggleEnabled"], out var bu) && bu;
-
         IsFCRequired = bool.TryParse(Data["Behavior"]["IsFCRequired"], out var fc) && fc;
         UndeafenAfterMiss = bool.TryParse(Data["Behavior"]["UndeafenAfterMiss"], out var uam) && uam;
 
@@ -130,6 +130,13 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MinCompletionPercentage)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StarRating)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PerformancePoints)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsFCRequired)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(UndeafenAfterMiss)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsBackgroundEnabled)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsParallaxEnabled)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsBlurEffectEnabled)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybind)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsBreakUndeafenToggleEnabled)));
     }
 
     public void SaveSetting(string section, string key, object? value)

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,18 +11,14 @@ using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
-using Avalonia.Styling;
 using Avalonia.Threading;
 using LiveChartsCore.Defaults;
-using LiveChartsCore.SkiaSharpView;
-using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Background;
 using osuautodeafen.cs.Deafen;
@@ -32,9 +27,6 @@ using osuautodeafen.cs.Settings;
 using osuautodeafen.cs.StrainGraph;
 using SkiaSharp;
 using Svg.Skia;
-using Animation = Avalonia.Animation.Animation;
-using KeyFrame = Avalonia.Animation.KeyFrame;
-using Path = System.IO.Path;
 using Vector = Avalonia.Vector;
 
 namespace osuautodeafen;
@@ -53,39 +45,34 @@ public partial class MainWindow : Window
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
 
     private readonly SharedViewModel _viewModel;
-
-    private BlurEffect? _backgroundBlurEffect;
-
-    private PropertyChangedEventHandler? _backgroundPropertyChangedHandler;
+    
+    private Bitmap? _currentBitmap;
+    
     public Image? _blurredBackground;
     
-    private CancellationTokenSource _cancellationTokenSource = new();
     private double _cogCurrentAngle;
 
     private DispatcherTimer? _cogSpinTimer;
 
-    private string? _currentBackgroundDirectory;
-    
-    private Bitmap? _currentBitmap;
-
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
-
-    private Bitmap? _lastValidBitmap;
-    private LogoControl? _logoControl;
     
-    private double _mouseX;
-    private double _mouseY;
+    private LogoControl? _logoControl;
 
     public Image? _normalBackground;
-
-    private CancellationTokenSource? _opacityCts;
     
     public readonly TosuApi _tosuApi = new();
 
     public bool _isSettingsPanelOpen = false;
     
-    private BackgroundManager? _backgroundManager;
+    private readonly BackgroundManager? _backgroundManager;
+    
+    private DispatcherTimer? _kiaiBrightnessTimer;
+    private bool _isKiaiPulseHigh = false;
+
+    private Action settingsButtonClicked;
+    
+    private double opacity = 1.00;
 
 
     //<summary>
@@ -106,7 +93,10 @@ public partial class MainWindow : Window
         
         _getLowResBackground = new GetLowResBackground(_tosuApi);
         
-        _backgroundManager = new BackgroundManager( this, _viewModel, _tosuApi);
+        _backgroundManager = new BackgroundManager( this, _viewModel, _tosuApi)
+        {
+            _logoUpdater = null
+        };
         
         // settings bs
         
@@ -120,8 +110,8 @@ public partial class MainWindow : Window
         
         _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
         _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
-        _viewModel.BreakUndeafenEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
-
+        _viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
+        
         _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
         _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
         _viewModel.IsBlurEffectEnabled = _settingsHandler.IsBlurEffectEnabled;
@@ -140,13 +130,15 @@ public partial class MainWindow : Window
 
         FCToggle.IsChecked = _viewModel.IsFCRequired;
         UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
-        BreakUndeafenToggle.IsChecked = _viewModel.BreakUndeafenEnabled;
+        BreakUndeafenToggle.IsChecked = _viewModel.IsBreakUndeafenToggleEnabled;
 
         BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
         ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
         BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
         
         // end of settings bs
+
+        BackgroundManager.PrewarmRenderTarget();
 
         var oldContent = Content;
         Content = null;
@@ -191,6 +183,14 @@ public partial class MainWindow : Window
         _tosuApi.HasBPMChanged += async () =>
         {
             await Dispatcher.UIThread.InvokeAsync(UpdateCogSpinBpm);
+
+            // Update kiai pulse interval if kiai is active
+            if (_tosuApi._isKiai && _kiaiBrightnessTimer != null)
+            {
+                double bpm = _tosuApi.GetCurrentBpm();
+                double intervalMs = 60000.0 / bpm;
+                _kiaiBrightnessTimer.Interval = TimeSpan.FromMilliseconds(intervalMs);
+            }
         };
         _breakPeriod.BreakPeriodEntered += async () =>
         {
@@ -204,9 +204,55 @@ public partial class MainWindow : Window
         {
             if (_tosuApi._isKiai)
             {
+                double bpm = _tosuApi.GetCurrentBpm();
+                double intervalMs = (60000.0 / bpm);
+                
+                //if settings panel is open, dim
+                opacity = _isSettingsPanelOpen ? 0.50 : 0;
+                
+
+                _kiaiBrightnessTimer?.Stop();
+                _kiaiBrightnessTimer = new DispatcherTimer
+                {
+                    Interval = TimeSpan.FromMilliseconds(intervalMs)
+                };
+                _kiaiBrightnessTimer.Tick += async (_, _) =>
+                {
+                    _isKiaiPulseHigh = !_isKiaiPulseHigh;
+                    if (_isKiaiPulseHigh)
+                    {
+                        await _backgroundManager.RequestBackgroundOpacity("kiai", 1.0 - opacity, 10000, (int)(intervalMs / 4));
+                    }
+                    else
+                    {
+                        await _backgroundManager.RequestBackgroundOpacity("kiai", 0.85 - opacity, 10000, (int)(intervalMs / 4));
+                    }
+                };
+                _kiaiBrightnessTimer.Start();
             }
             else
             {
+                _kiaiBrightnessTimer?.Stop();
+                _kiaiBrightnessTimer = null;
+
+                if (_isSettingsPanelOpen)
+                {
+                    
+                    await _backgroundManager.RequestBackgroundOpacity("settings", 0.5, 10, 150);
+                }
+
+                _backgroundManager.RemoveBackgroundOpacityRequest("kiai");
+            }
+        };
+        settingsButtonClicked = () =>
+        {
+            if (_isSettingsPanelOpen)
+            {
+                opacity = 0;
+            }
+            else
+            {
+                opacity = 0.5;
             }
         };
 
@@ -261,7 +307,7 @@ public partial class MainWindow : Window
 
             _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
             _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
-            _viewModel.BreakUndeafenEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
+            _viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
 
             _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
             _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
@@ -282,7 +328,7 @@ public partial class MainWindow : Window
 
             FCToggle.IsChecked = _viewModel.IsFCRequired;
             UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
-            BreakUndeafenToggle.IsChecked = _viewModel.BreakUndeafenEnabled;
+            BreakUndeafenToggle.IsChecked = _viewModel.IsBreakUndeafenToggleEnabled;
 
             BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
             ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
@@ -918,6 +964,7 @@ public partial class MainWindow : Window
     {
         try
         {
+            settingsButtonClicked?.Invoke();
             var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
             var buttonContainer = this.FindControl<Border>("SettingsButtonContainer");
             var cogImage = this.FindControl<Image>("SettingsCogImage");
@@ -983,15 +1030,29 @@ public partial class MainWindow : Window
         return Math.Clamp(intervalMs, minMs, maxMs);
     }
 
-    private void StartCogSpin(Image cogImage)
+private bool _isCogSpinning = false;
+private readonly object _cogSpinLock = new();
+
+private void StartCogSpin(Image cogImage)
+{
+    lock (_cogSpinLock)
     {
+        if (_isCogSpinning)
+            return;
+        _isCogSpinning = true;
+
+        if (_cogSpinTimer != null)
+        {
+            _cogSpinTimer.Stop();
+            _cogSpinTimer = null;
+        }
+
         var rotate = (RotateTransform)cogImage.RenderTransform!;
         _cogSpinStartTime = DateTime.UtcNow;
         _cogSpinStartAngle = _cogCurrentAngle;
         _cogSpinBpm = _tosuApi.GetCurrentBpm() > 0 ? _tosuApi.GetCurrentBpm() : 140;
 
         double intervalMs = CalculateCogSpinInterval(_cogSpinBpm);
-        Console.WriteLine($"Cog spin interval: {intervalMs}ms");
 
         _cogSpinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(intervalMs) };
         _cogSpinTimer.Tick += (s, ev) =>
@@ -1003,6 +1064,39 @@ public partial class MainWindow : Window
         };
         _cogSpinTimer.Start();
     }
+}
+
+private async Task StopCogSpinAsync(Image cogImage)
+{
+    lock (_cogSpinLock)
+    {
+        if (!_isCogSpinning)
+            return;
+        _isCogSpinning = false;
+        _cogSpinTimer?.Stop();
+        _cogSpinTimer = null;
+    }
+
+    if (cogImage.RenderTransform is RotateTransform rotate)
+    {
+        var start = _cogCurrentAngle;
+        double end = 0;
+        var duration = 250;
+        var steps = 20;
+        var step = (end - start) / steps;
+        await Task.Run(async () =>
+        {
+            for (var i = 1; i <= steps; i++)
+            {
+                await Task.Delay(duration / steps);
+                var angle = start + step * i;
+                await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle).GetTask();
+            }
+            await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = 0).GetTask();
+            _cogCurrentAngle = 0;
+        });
+    }
+}
 
     private void UpdateCogSpinBpm()
     {
@@ -1015,29 +1109,6 @@ public partial class MainWindow : Window
 
             double intervalMs = CalculateCogSpinInterval(_cogSpinBpm);
             _cogSpinTimer.Interval = TimeSpan.FromMilliseconds(intervalMs);
-        }
-    }
-    private async Task StopCogSpinAsync(Image cogImage)
-    {
-        _cogSpinTimer?.Stop();
-        if (cogImage.RenderTransform is RotateTransform rotate)
-        {
-            var start = _cogCurrentAngle;
-            double end = 0;
-            var duration = 250;
-            var steps = 20;
-            var step = (end - start) / steps;
-            await Task.Run(async () =>
-            {
-                for (var i = 1; i <= steps; i++)
-                {
-                    await Task.Delay(duration / steps);
-                    var angle = start + step * i;
-                    await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle).GetTask();
-                }
-                await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = 0).GetTask();
-                _cogCurrentAngle = 0;
-            });
         }
     }
 
@@ -1086,27 +1157,47 @@ public partial class MainWindow : Window
         });
     }
 
+    private readonly SemaphoreSlim _panelAnimationLock = new(1, 1);
+
     private async Task AnimatePanelInAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel, Thickness showMargin, Thickness buttonLeftMargin)
     {
-        _isSettingsPanelOpen = true;
+        await _panelAnimationLock.WaitAsync();
+        var shouldAnimate = !_isSettingsPanelOpen;
+        if (shouldAnimate)
+            _isSettingsPanelOpen = true;
+        _panelAnimationLock.Release();
 
-        await Task.WhenAll(
-            Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                settingsPanel.Margin = showMargin;
-                buttonContainer.Margin = buttonLeftMargin;
-                osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
-                versionPanel.Margin = new Thickness(0, 0, 225, 0);
-            }).GetTask(),
-            _backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150)
-        );
+        if (!shouldAnimate) return;
+
+        var tasks = new List<Task>();
+
+        if (!_tosuApi._isKiai)
+            tasks.Add(_backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150) ?? Task.CompletedTask);
+
+        tasks.Add(Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            settingsPanel.Margin = showMargin;
+            buttonContainer.Margin = buttonLeftMargin;
+            osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
+            versionPanel.Margin = new Thickness(0, 0, 225, 0);
+        }).GetTask());
+
+        await Task.WhenAll(tasks);
     }
 
     private async Task AnimatePanelOutAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel, Thickness hideMargin, Thickness buttonRightMargin)
     {
-        _isSettingsPanelOpen = false;
-        _backgroundManager?.RemoveBackgroundOpacityRequest("settings");
+        await _panelAnimationLock.WaitAsync();
+        var shouldAnimate = _isSettingsPanelOpen;
+        if (shouldAnimate)
+            _isSettingsPanelOpen = false;
+        _panelAnimationLock.Release();
+
+        if (!shouldAnimate) return;
         
+        if (!_tosuApi._isKiai)
+            _backgroundManager?.RemoveBackgroundOpacityRequest("settings");
+
         await Task.WhenAll(
             Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -1122,16 +1213,6 @@ public partial class MainWindow : Window
         var currentKeybind = RetrieveKeybindFromSettings();
         var deafenKeybindButton = this.FindControl<Button>("DeafenKeybindButton");
         if (deafenKeybindButton != null) deafenKeybindButton.Content = currentKeybind;
-    }
-
-    private void BreakUndeafenToggle_IsCheckChanged(object? sender, RoutedEventArgs e)
-    {
-        if (sender is CheckBox checkBox && DataContext is SharedViewModel vm)
-        {
-            var isChecked = checkBox.IsChecked == true;
-            vm.IsBreakUndeafenToggleEnabled = isChecked;
-            _settingsHandler?.SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled", isChecked);
-        }
     }
 
     public class HotKey

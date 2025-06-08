@@ -21,7 +21,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
 
     private SolidColorBrush _averageColorBrush = new(Colors.Gray);
-    private bool _breakUndeafenEnabled;
 
     private double _completionPercentage;
     private MainWindow.HotKey _deafenKeybind;
@@ -170,6 +169,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _IsBreakUndeafenToggleEnabled = value;
                 OnPropertyChanged();
+                _settingsHandler?.SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled", value);
             }
         }
     }
@@ -317,19 +317,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         {
             _modifiedLogoImage = value;
             OnPropertyChanged();
-        }
-    }
-
-    public bool BreakUndeafenEnabled
-    {
-        get => _breakUndeafenEnabled;
-        set
-        {
-            if (_breakUndeafenEnabled != value)
-            {
-                _breakUndeafenEnabled = value;
-                OnPropertyChanged();
-            }
         }
     }
 

@@ -196,8 +196,7 @@
                                Margin="0,0,5,0" />
                         <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
                                   IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
-                                  HorizontalAlignment="Left" Margin="0"
-                                  IsCheckedChanged="BreakUndeafenToggle_IsCheckChanged">
+                                  HorizontalAlignment="Left" Margin="0">
                             <ToolTip.Tip>
                                 <TextBlock>
                                     <Run Text="Toggle to decide whether or not breaks should be undeafened" />
