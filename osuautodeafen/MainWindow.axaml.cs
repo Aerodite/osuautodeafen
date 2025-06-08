@@ -276,9 +276,14 @@ public partial class MainWindow : Window
         ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
         Background = Brushes.Black;
         BorderBrush = Brushes.Black;
-        Width = 630;
-        Height = 630;
-        CanResize = false;
+        Width = _settingsHandler.WindowWidth;
+        Height = _settingsHandler.WindowHeight;
+        Title = "osu!autodeafen";
+        MaxHeight = 800;
+        MaxWidth = 800;
+        MinHeight = 400;
+        MinWidth = 550;
+        CanResize = true;
         Closing += MainWindow_Closing;
 
         PointerPressed += (sender, e) =>
@@ -978,6 +983,12 @@ public partial class MainWindow : Window
 
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
+        if (_settingsHandler != null)
+        {
+            _settingsHandler.WindowWidth = Width;
+            _settingsHandler.WindowHeight = Height;
+        }
+
         _tosuApi.Dispose();
     }
     

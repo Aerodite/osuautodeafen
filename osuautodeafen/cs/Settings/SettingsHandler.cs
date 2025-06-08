@@ -40,6 +40,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         data["UI"]["IsBackgroundEnabled"] = "True";
         data["UI"]["IsParallaxEnabled"] = "True";
         data["UI"]["IsBlurEffectEnabled"] = "False";
+        data["UI"]["WindowWidth"] = "630";
+        data["UI"]["WindowHeight"] = "630";
 
         return data;
     }
@@ -99,6 +101,18 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public bool IsBlurEffectEnabled { get; set; }
     public string? DeafenKeybind { get; set; }
     public bool IsBreakUndeafenToggleEnabled { get; set; }
+    
+    public double WindowWidth
+    {
+        get => double.TryParse(Data["UI"]["WindowWidth"], out var w) ? w : 630;
+        set => SaveSetting("UI", "WindowWidth", value);
+    }
+
+    public double WindowHeight
+    {
+        get => double.TryParse(Data["UI"]["WindowHeight"], out var h) ? h : 630;
+        set => SaveSetting("UI", "WindowHeight", value);
+    }
 
     public new event PropertyChangedEventHandler? PropertyChanged;
 

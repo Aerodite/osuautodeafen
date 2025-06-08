@@ -356,31 +356,15 @@
 
             <TextBlock Text="{Binding StatusMessage}" HorizontalAlignment="Center" VerticalAlignment="Top"
                        x:DataType="cs:SharedViewModel" Margin="0,0,0,0" Foreground="Red" FontSize="14" />
-            <Grid Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Bottom" Width="630" Height="120">
+            <Grid Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Bottom" Height="120">
                 <Grid>
                     <avalonia1:CartesianChart
                         x:Name="PlotView"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Bottom"
-                        Width="630"
-                        Height="120"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
                         Margin="{Binding IsVisible, ElementName=UpdateNotificationBar, Converter={StaticResource UpdateNotificationMarginConverter}}"
-                        Foreground="White">
-                        <avalonia1:CartesianChart.XAxes>
-                            <skiaSharpView:Axis>
-                                <skiaSharpView:Axis.LabelsPaint>
-                                    <painting:SolidColorPaint Color="#FFFFFF" />
-                                </skiaSharpView:Axis.LabelsPaint>
-                            </skiaSharpView:Axis>
-                        </avalonia1:CartesianChart.XAxes>
-                        <avalonia1:CartesianChart.YAxes>
-                            <skiaSharpView:Axis>
-                                <skiaSharpView:Axis.LabelsPaint>
-                                    <painting:SolidColorPaint Color="#000000" />
-                                </skiaSharpView:Axis.LabelsPaint>
-                            </skiaSharpView:Axis>
-                        </avalonia1:CartesianChart.YAxes>
-                    </avalonia1:CartesianChart>
+                        Foreground="White"
+                        Height="120"/>
                     <strainGraph:ProgressIndicatorOverlay
                         x:Name="ProgressOverlay"
                         IsHitTestVisible="False"/>
