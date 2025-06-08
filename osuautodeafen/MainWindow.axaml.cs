@@ -237,7 +237,6 @@ public partial class MainWindow : Window
 
                 if (_isSettingsPanelOpen)
                 {
-                    
                     await _backgroundManager.RequestBackgroundOpacity("settings", 0.5, 10, 150);
                 }
 
@@ -1058,7 +1057,7 @@ private void StartCogSpin(Image cogImage)
         _cogSpinTimer.Tick += (s, ev) =>
         {
             var elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
-            var angle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / beatsPerRotation) % 360;
+            var angle = (_cogSpinStartAngle + (elapsed * _cogSpinBpm * 360 / beatsPerRotation)) % 360;
             _cogCurrentAngle = angle;
             rotate.Angle = angle;
         };
@@ -1089,7 +1088,7 @@ private async Task StopCogSpinAsync(Image cogImage)
             for (var i = 1; i <= steps; i++)
             {
                 await Task.Delay(duration / steps);
-                var angle = start + step * i;
+                var angle = start + (step * i);
                 await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle).GetTask();
             }
             await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = 0).GetTask();
@@ -1103,7 +1102,7 @@ private async Task StopCogSpinAsync(Image cogImage)
         if (_cogSpinTimer != null && _cogSpinTimer.IsEnabled)
         {
             var elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
-            _cogSpinStartAngle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / beatsPerRotation) % 360;
+            _cogSpinStartAngle = (_cogSpinStartAngle + (elapsed * _cogSpinBpm * 360 / beatsPerRotation)) % 360;
             _cogSpinStartTime = DateTime.UtcNow;
             _cogSpinBpm = _tosuApi.GetCurrentBpm() > 0 ? _tosuApi.GetCurrentBpm() : 140;
 
