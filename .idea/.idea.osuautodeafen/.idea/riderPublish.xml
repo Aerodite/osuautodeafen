@@ -6,6 +6,8 @@
         <option value="$USER_HOME$/Downloads/osuautodeafen" />
         <option value="$USER_HOME$/Downloads/jurmeedition" />
         <option value="$USER_HOME$/Downloads/106" />
+        <option value="$PROJECT_DIR$/../../bballs" />
+        <option value="$PROJECT_DIR$/../../osuautodeafen" />
       </list>
     </option>
   </component>
