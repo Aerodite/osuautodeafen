@@ -330,12 +330,13 @@ private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
             window.Content = mainGrid;
         }
 
+// Always clamp to 800x800, but use the current window size
         var bounds = mainGrid.Bounds;
-        var width = Math.Max(1, (int)Math.Ceiling(bounds.Width));
-        var height = Math.Max(1, (int)Math.Ceiling(bounds.Height));
+        var width = Math.Min(800, Math.Max(1, (int)Math.Ceiling(bounds.Width)));
+        var height = Math.Min(800, Math.Max(1, (int)Math.Ceiling(bounds.Height)));
 
-        // Resize and center-crop to cover the area
-        Bitmap displayBitmap = await ResizeBitmapCoverAsync(bitmap, 630, 630);
+// Always create a new bitmap for the current size
+        Bitmap displayBitmap = await ResizeBitmapCoverAsync(bitmap, width, height);
 
         _backgroundBlurEffect ??= new BlurEffect();
         var currentRadius = _backgroundBlurEffect.Radius;
@@ -354,7 +355,7 @@ private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
             ZIndex = -1,
             Stretch = Stretch.UniformToFill,
             Effect = _backgroundBlurEffect,
-            Clip = new RectangleGeometry(new Rect(0, 0, width * 1.05, height * 1.05))
+            Clip = new RectangleGeometry(new Rect(0, 0, 800 * 1.05, 800 * 1.05))
         };
 
         var backgroundLayer = mainGrid.Children.Count > 0 && mainGrid.Children[0] is Grid g &&
