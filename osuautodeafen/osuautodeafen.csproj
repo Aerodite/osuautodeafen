@@ -7,27 +7,36 @@
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <DebugType>none</DebugType>
+        <ApplicationIcon>Resources\favicon.ico</ApplicationIcon>
+        <AssemblyName>osuautodeafen</AssemblyName>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Avalonia" Version="11.0.10"/>
-        <PackageReference Include="Avalonia.Desktop" Version="11.0.10"/>
-        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.10"/>
-        <PackageReference Include="Avalonia.Fonts.Inter" Version="11.0.10"/>
-        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.10"/>
+        <PackageReference Include="Avalonia" Version="11.3.0"/>
+        <PackageReference Include="Avalonia.Desktop" Version="11.3.0"/>
+        <PackageReference Include="Avalonia.Skia" Version="11.3.0"/>
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.0"/>
+        <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.0"/>
+        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.3.0"/>
+        <PackageReference Include="ini-parser" Version="2.5.2"/>
         <PackageReference Include="LiveChartsCore.SkiaSharpView" Version="2.0.0-rc2"/>
         <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc2"/>
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
-        <PackageReference Include="ReactiveUI" Version="20.1.1"/>
-        <PackageReference Include="SharpHook" Version="5.3.8"/>
-        <PackageReference Include="Svg.Skia" Version="2.0.0"/>
+        <PackageReference Include="ReactiveUI" Version="20.2.45"/>
+        <PackageReference Include="SharpHook" Version="6.0.0"/>
+        <PackageReference Include="SkiaSharp" Version="2.88.9"/>
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.9"/>
+        <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="2.88.9"/>
+        <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="2.88.9"/>
+        <PackageReference Include="SkiaSharp.Views" Version="2.88.3"/>
+        <PackageReference Include="Svg.Skia" Version="2.0.0.4"/>
         <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11"/>
         <PackageReference Include="ILMerge" Version="3.0.41"/>
     </ItemGroup>
 
     <ItemGroup>
         <EmbeddedResource Include="Resources\autodeafen.svg"/>
-        <EmbeddedResource Include="Resources\oad.ico"/>
+        <EmbeddedResource Include="Resources\favicon.ico"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -64,8 +73,21 @@
         <AvaloniaResource Include="Resources\osu_whitestroke.png"/>
         <None Remove="Icons\map-location-dot-solid.png"/>
         <AvaloniaResource Include="Icons\map-location-dot-solid.png"/>
+        <AvaloniaResource Include="Icons\gear-solid-outline.png"/>
+        <None Remove="Icons\gear-solid-outline.png"/>
+        <AvaloniaResource Include="Icons\gear-solid-outline.png"/>
+        <None Remove="Icons\outline.png"/>
+        <AvaloniaResource Include="Icons\outline.png"/>
+        <None Remove="Icons\gear-solid-small.png"/>
+        <AvaloniaResource Include="Icons\gear-solid-small.png"/>
+        <None Remove="Icons\folder-open-solid.png" />
+        <AvaloniaResource Include="Icons\folder-open-solid.png" />
+        <None Remove="Icons\github.png" />
+        <AvaloniaResource Include="Icons\github.png" />
+        <None Remove="Icons\bug-solid.png" />
+        <AvaloniaResource Include="Icons\bug-solid.png" />
     </ItemGroup>
-
+    
     <ItemGroup>
         <None Remove="Resources\noise.png"/>
     </ItemGroup>

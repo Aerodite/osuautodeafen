@@ -3,11 +3,13 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:osuautodeafen"
-        xmlns:global="clr-namespace:"
         xmlns:cs="clr-namespace:osuautodeafen.cs"
         xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
         xmlns:skiaSharpView="clr-namespace:LiveChartsCore.SkiaSharpView;assembly=LiveChartsCore.SkiaSharpView"
         xmlns:painting="clr-namespace:LiveChartsCore.SkiaSharpView.Painting;assembly=LiveChartsCore.SkiaSharpView"
+        xmlns:settings="clr-namespace:osuautodeafen.cs.Settings"
+        xmlns:global="clr-namespace:"
+        xmlns:strainGraph="clr-namespace:osuautodeafen.cs.StrainGraph"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osu!autodeafen"
@@ -15,9 +17,18 @@
 
 
     <Window.Resources>
-        <global:NotConverter x:Key="NotConverter" />
         <local:UpdateNotificationMarginConverter x:Key="UpdateNotificationMarginConverter" />
+        <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
+        <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
+        <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
     </Window.Resources>
+    
+
 
     <Grid ZIndex="5">
         <Grid.ColumnDefinitions>
@@ -25,156 +36,189 @@
             <ColumnDefinition Width="0" />
         </Grid.ColumnDefinitions>
 
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" x:Name="TextBlockPanel">
-            <StackPanel Orientation="Horizontal" Margin="0,42,0,0">
-                <Image Name="osuLogo" Source="avares://osuautodeafen/Resources/osu_whitestroke.png" Height="60" Margin="0,0,0,0" />
-                <Image Name="LogoImage" Source="{Binding ModifiedLogoImage}" x:DataType="cs:SharedViewModel" Height="69" Margin="0,0,0,0" />
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" x:Name="TextBlockPanel" Margin="0,82,0,0">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,0" x:Name="osuautodeafenLogoPanel">
+                <Image Name="osuLogo" Source="avares://osuautodeafen/Resources/osu_whitestroke.png" Height="60"
+                       Margin="0,0,0,0" />
+                <ContentControl Name="LogoHost" Margin="0,0,0,0" />
             </StackPanel>
-            <TextBlock Text="{Binding CurrentAppVersion}" HorizontalAlignment="Center" VerticalAlignment="Top" x:DataType="cs:SharedViewModel" Margin="0,0,0,10" Foreground="White" FontSize="14" />
+            <TextBlock Text="{Binding CurrentAppVersion}" HorizontalAlignment="Center" VerticalAlignment="Top"
+                       x:DataType="cs:SharedViewModel" Margin="0,0,0,10" Foreground="White" FontSize="14"
+                       x:Name="VersionPanel" />
         </StackPanel>
 
         <!-- Main content -->
-        <StackPanel Grid.Column="0" ZIndex="2">
-            <Button Width="50" Height="50" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent"
-                    Margin="10,42,10,10" Click="SettingsButton_Click"
-                    IsVisible="{Binding ElementName=SettingsPanel, Path=IsVisible, Converter={StaticResource NotConverter}}">
-                <Image Source="avares://osuautodeafen/Icons/gear-solid.png" />
-            </Button>
+        <StackPanel Grid.Column="0" ZIndex="9">
+            <Border x:Name="SettingsButtonContainer" Margin="0,42,0,0">
+                <Grid HorizontalAlignment="Right" VerticalAlignment="Top">
+                    <Image Source="avares://osuautodeafen/Icons/outline.png"
+                           Width="50" Height="50">
+                        <Image.OpacityMask>
+                            <MultiBinding Converter="{StaticResource ColorBlendConverter}" x:DataType="cs:SharedViewModel">
+                                <Binding Path="Color" Source="{StaticResource BaseBackgroundBrush}" />
+                                <Binding Path="AverageColorBrush.Color" />
+                            </MultiBinding>
+                        </Image.OpacityMask>
+                    </Image>
+                    <Button x:Name="SettingsButton"
+                            Width="50" Height="50"
+                            Background="{x:Null}"
+                            BorderBrush="{x:Null}"
+                            BorderThickness="0"
+                            CornerRadius="0"
+                            Click="SettingsButton_Click"
+                            IsVisible="True"
+                            ZIndex="1">
+                        <Image x:Name="SettingsCogImage"
+                               Source="avares://osuautodeafen/Icons/gear-solid-small.png"
+                               Width="50" Height="50"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               RenderTransformOrigin="0.5,0.5" />
+                    </Button>
+                </Grid>
+            </Border>
         </StackPanel>
 
-        <!-- Settings panel -->
-        <DockPanel x:Name="SettingsPanel" Grid.Column="1" Background="#171717" Width="450" IsVisible="False"
+        <!--- settings panel -->
+        <DockPanel x:Name="SettingsPanel" Grid.Column="1" Width="200" IsVisible="False"
                    Margin="0,42,0,0" ZIndex="3"
-                   x:DataType="cs:SharedViewModel">
-            <DockPanel.DataContext>
-                <cs:SharedViewModel />
-            </DockPanel.DataContext>
-            <ScrollViewer VerticalScrollBarVisibility="Visible">
-                <StackPanel DockPanel.Dock="Top" x:DataType="cs:SharedViewModel">
-                    <StackPanel.DataContext>
-                        <cs:SharedViewModel />
-                    </StackPanel.DataContext>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Button Width="50" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top"
-                                Background="Transparent" Margin="0" Click="SettingsButton_Click">
-                            <Image Source="avares://osuautodeafen/Icons/angles-left-solid.png" />
-                        </Button>
-                        <Button Width="50" Height="50" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                Background="Transparent" Margin="0" Click="SecondPage_Click" Grid.Column="1">
-                            <Image Source="avares://osuautodeafen/Icons/angles-right-solid.png" />
-                        </Button>
-                    </Grid>
-                    <StackPanel Orientation="Horizontal" Margin="55, 0, 0, 0">
+                   x:DataType="cs:SharedViewModel" HorizontalAlignment="Right">
+            <DockPanel.Background>
+                <MultiBinding Converter="{StaticResource ColorBlendConverter}">
+                    <Binding Path="Color" Source="{StaticResource BaseBackgroundBrush}" />
+                    <Binding Path="AverageColorBrush.Color" />
+                </MultiBinding>
+            </DockPanel.Background>
+            <ScrollViewer VerticalScrollBarVisibility="Visible" Margin="0,20,0,0">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="Deafen Settings"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,8"
+                               Foreground="White"
+                               FontSize="16" />
+                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/clock-solid.png" Width="25" Height="25"
-                               Margin="0, 0, 5, 0" />
-                        <TextBox x:Name="CompletionPercentageTextBox" Width="80"
-                                 Text="{Binding MinCompletionPercentage, Mode=TwoWay}"
-                                 LostFocus="CompletionPercentageTextBox_LostFocus"
-                                 TextInput="CompletionPercentageTextBox_TextInput"
-                                 HorizontalAlignment="Left">
-                            <ToolTip.Tip>
-                                <TextBlock
-                                    Text="How much (in percentage) of the map you have to pass until you get deafened"
-                                    Foreground="White" />
-                            </ToolTip.Tip>
-                        </TextBox>
+                               Margin="0,0,5,0" />
+                        <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                            <Slider x:Name="CompletionPercentageSlider"
+                                    Minimum="0"
+                                    Maximum="100"
+                                    TickFrequency="1"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding MinCompletionPercentage, Mode=OneWayToSource}"
+                                    Width="100"
+                                    HorizontalAlignment="Center"
+                                    ValueChanged="CompletionPercentageSlider_ValueChanged"
+                                    PointerMoved="CompletionPercentageSlider_PointerMoved"
+                                    PointerPressed="CompletionPercentageSlider_PointerPressed"
+                                    PointerReleased="CompletionPercentageSlider_PointerReleased">
+                                <ToolTip.Tip>
+                                    <TextBlock Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F0}%'}"/>
+                                </ToolTip.Tip>
+                            </Slider>
+                        </StackPanel>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="55, 0, 0, 0">
+
+                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/star-solid.png" Width="25" Height="25"
-                               Margin="0, 5, 5, 0" />
-                        <TextBox x:Name="StarRatingTextBox" Width="80"
-                                 Text="{Binding StarRating, Mode=TwoWay}"
-                                 LostFocus="StarRatingTextBox_LostFocus"
-                                 TextInput="StarRatingTextBox_TextInput"
-                                 HorizontalAlignment="Left">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Minimum Star Rating for a deafen" Foreground="White" />
-                            </ToolTip.Tip>
-                        </TextBox>
+                               Margin="0,5,5,0" />
+                        <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                            <Slider x:Name="StarRatingSlider"
+                                    Minimum="0" 
+                                    Maximum="10" 
+                                    TickFrequency="0.1" 
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding StarRating, Mode=OneWayToSource}"
+                                    Width="100" HorizontalAlignment="Center"
+                                    ValueChanged="StarRatingSlider_ValueChanged"
+                                    PointerMoved="StarRatingSlider_PointerMoved"
+                                    PointerPressed="StarRatingSlider_PointerPressed"
+                                    PointerReleased="StarRatingSlider_PointerReleased">
+                                <ToolTip.Tip>
+                                    <TextBlock Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F1}*'}"/>
+                                </ToolTip.Tip>
+                            </Slider>
+                        </StackPanel>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="55, 0, 0, 0">
+
+                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/medal-solid.png" Width="25" Height="25"
-                               Margin="0, 7, 5, 0" />
-                        <TextBox x:Name="PPTextBox" Width="80"
-                                 Text="{Binding PerformancePoints, Mode=TwoWay}"
-                                 LostFocus="PPTextBox_LostFocus"
-                                 TextInput="PPTextBox_TextInput"
-                                 HorizontalAlignment="Left">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Minimum PP a map must give for a deafen" />
-                            </ToolTip.Tip>
-                        </TextBox>
+                               Margin="0,7,5,0" />
+                        <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                            <Slider x:Name="PPSlider"
+                                    Minimum="0" 
+                                    Maximum="1000" 
+                                    TickFrequency="10" 
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding PerformancePoints, Mode=OneWayToSource}"
+                                    Width="100" HorizontalAlignment="Center"
+                                    ValueChanged="PPSlider_ValueChanged"
+                                    PointerMoved="PPSlider_PointerMoved"
+                                    PointerPressed="PPSlider_PointerPressed"
+                                    PointerReleased="PPSlider_PointerReleased">
+                                <ToolTip.Tip>
+                                    <TextBlock Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F0}pp'}"/>
+                                </ToolTip.Tip>
+                            </Slider>
+                        </StackPanel>
                     </StackPanel>
-                    <Button Content="Reset to Default" Click="ResetButton_Click" Margin="65, 7, 0, 0" FontSize="12"
-                            Foreground="White" />
-                    <StackPanel Orientation="Horizontal" Margin="55, 25, 0, 0">
+                    <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/crown-solid.png" Width="25" Height="25"
-                               Margin="0, 0, 5, 0" />
+                               Margin="0,0,5,0" />
                         <CheckBox x:Name="FCToggle" Content="FC Required?" Foreground="White"
                                   IsChecked="{Binding IsFCRequired, Mode=TwoWay}"
-                                  HorizontalAlignment="Left" Margin="0,0,0,0">
+                                  HorizontalAlignment="Left" Margin="0" Width="120">
                             <ToolTip.Tip>
                                 <TextBlock Text="Toggle if an FC is required to deafen" />
                             </ToolTip.Tip>
                         </CheckBox>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="70, 0, 0, 0">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/shooting-star-solid.png" Width="25" Height="25"
-                               Margin="0, 0, 5, 0" />
-                        <CheckBox x:Name="UndeafenOnMissToggle" Content="Undeafen on..." Foreground="White"
+                               Margin="0,0,5,0" />
+                        <CheckBox x:Name="UndeafenOnMissToggle" Content="Undeafen on miss" Foreground="White"
                                   IsChecked="{Binding UndeafenAfterMiss, Mode=TwoWay}"
                                   IsEnabled="{Binding ElementName=FCToggle, Path=IsChecked}"
-                                  HorizontalAlignment="Left" Margin="0,0,0,0">
+                                  HorizontalAlignment="Left" Margin="0" Width="120">
                             <ToolTip.Tip>
                                 <TextBlock Text="Do you get undeafened after a miss?" />
                             </ToolTip.Tip>
                         </CheckBox>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="55, 7, 0, 0">
-                        <Image Source="avares://osuautodeafen/Icons/image-solid.png" Width="25" Height="25"
-                               Margin="0, 0, 5, 0" />
-                        <CheckBox x:Name="BackgroundToggle" Content="Background" Foreground="White"
-                                  IsChecked="{Binding IsBackgroundEnabled, Mode=TwoWay}"
-                                  HorizontalAlignment="Left" Margin="0,0,0,0">
+                    <!--
+                    5px shift right because it isn't lined up for some reason 🤔
+                    (which now that I think about it is probably due to image width)
+                    -->
+                    <StackPanel Orientation="Horizontal" Margin="5,0,0,0" HorizontalAlignment="Center">
+                        <Image Source="avares://osuautodeafen/Icons/map-location-dot-solid.png" Width="25"
+                               Height="25"
+                               Margin="0,0,5,0" />
+                        <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
+                                  IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
+                                  HorizontalAlignment="Left" Margin="0">
                             <ToolTip.Tip>
-                                <TextBlock Text="Enable or disable the background" />
+                                <TextBlock>
+                                    <Run Text="Toggle to decide whether or not breaks should be undeafened" />
+                                </TextBlock>
                             </ToolTip.Tip>
                         </CheckBox>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="70, 0, 0, 0">
-                        <Image Source="avares://osuautodeafen/Icons/arrows.png" Width="19" Height="19"
-                               Margin="0, 0, 5, 0" />
-                        <CheckBox x:Name="ParallaxToggle" Content="Parallax" Foreground="White"
-                                  IsChecked="{Binding IsParallaxEnabled, Mode=TwoWay}"
-                                  IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
-                                  HorizontalAlignment="Left" Margin="0,0,0,0">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Enable or disable the parallax effect" />
-                            </ToolTip.Tip>
-                        </CheckBox>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="70, 0, 0, 0">
-                        <Image Source="avares://osuautodeafen/Icons/images-solid.png" Width="19" Height="19"
-                               Margin="0, 0, 5, 0" />
-                        <CheckBox x:Name="BlurEffectToggle" Content="Blur" Foreground="White"
-                                  IsChecked="{Binding IsBlurEffectEnabled, Mode=TwoWay}"
-                                  IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
-                                  HorizontalAlignment="Left" Margin="0,0,0,0">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Enable or disable the blur effect" />
-                            </ToolTip.Tip>
-                        </CheckBox>
-                    </StackPanel>
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="55, 10, 0, 0">
+                    <Button Content="Reset to Default" Click="ResetButton_Click" Margin="0,7,0,0" FontSize="12"
+                            Foreground="White" HorizontalAlignment="Center" />
+                    <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
+                    <!--title-->
+                    <TextBlock Text="Discord Settings"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,8"
+                               Foreground="White"
+                               FontSize="16" />
+                    <StackPanel HorizontalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                             <Image Source="avares://osuautodeafen/Icons/keyboard-solid.png" Width="27"
-                                   Height="27" Margin="0, 0, 5, 0" />
+                                   Height="27" Margin="0,0,5,0" />
                             <Button x:Name="DeafenKeybindButton" Width="91" Height="40"
-                                    HorizontalAlignment="Left" FontSize="11" Margin="0,0,0,0"
+                                    HorizontalAlignment="Left" FontSize="11" Margin="0"
                                     Content="{Binding DeafenKeybindDisplay}"
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
@@ -190,64 +234,113 @@
                             </Button>
                         </StackPanel>
                     </StackPanel>
-                    <Button Content="Check for updates" Click="CheckForUpdatesButton_Click" Margin="55, 16.5, 0, 0"
-                            FontSize="12" Foreground="White" VerticalAlignment="Bottom" />
+                    <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
+                    <!--title-->
+                    <TextBlock Text="UI Settings"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,8"
+                               Foreground="White"
+                               FontSize="16" />
+                    <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center">
+                        <Image Source="avares://osuautodeafen/Icons/image-solid.png" Width="25" Height="25"
+                               Margin="0,0,5,0" />
+                        <CheckBox x:Name="BackgroundToggle" Content="Background" Foreground="White"
+                                  IsChecked="{Binding IsBackgroundEnabled, Mode=TwoWay}"
+                                  HorizontalAlignment="Left" Margin="0">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Enable or disable the background" />
+                            </ToolTip.Tip>
+                        </CheckBox>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                        <Image Source="avares://osuautodeafen/Icons/arrows.png" Width="19" Height="19"
+                               Margin="0,0,5,0" />
+                        <CheckBox x:Name="ParallaxToggle" Content="Parallax" Foreground="White"
+                                  IsChecked="{Binding IsParallaxEnabled, Mode=TwoWay}"
+                                  IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
+                                  HorizontalAlignment="Left" Margin="0">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Enable or disable the parallax effect" />
+                            </ToolTip.Tip>
+                        </CheckBox>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                        <Image Source="avares://osuautodeafen/Icons/images-solid.png" Width="19" Height="19"
+                               Margin="0,0,5,0" />
+                        <CheckBox x:Name="BlurEffectToggle" Content="Blur" Foreground="White"
+                                  IsChecked="{Binding IsBlurEffectEnabled, Mode=TwoWay}"
+                                  IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
+                                  HorizontalAlignment="Left" Margin="0">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Enable or disable the blur effect" />
+                            </ToolTip.Tip>
+                        </CheckBox>
+                    </StackPanel>
+                    <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
+                    <Button x:Name="CheckForUpdatesButton"
+                            Content="Check for updates"
+                            HorizontalContentAlignment="Center"
+                            Click="CheckForUpdatesButton_Click"
+                            Width="180"
+                            HorizontalAlignment="Center"
+                            Margin="0,16.5,0,10"
+                            FontSize="12"
+                            Foreground="White"
+                            VerticalAlignment="Bottom" />
+                    <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom"
+                               VerticalAlignment="Bottom" HorizontalAlignment="Center"
+                               Margin="0,0,0,8" Foreground="White" FontSize="14" />
+                    <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
+                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                        <Button x:Name="OpenFileLocationButton"
+                                Background="{x:Null}"
+                                BorderBrush="{x:Null}"
+                                BorderThickness="0"
+                                CornerRadius="0"
+                                HorizontalContentAlignment="Center"
+                                Click="OpenFileLocationButton_Click"
+                                HorizontalAlignment="Center"
+                                Margin="0,0,0,10"
+                                FontSize="12"
+                                Foreground="White"
+                                VerticalAlignment="Bottom" >
+                            <Image x:Name="OpenFileLocationImage"
+                                   Source="avares://osuautodeafen/Icons/folder-open-solid.png"
+                                   Width="20" Height="20"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   RenderTransformOrigin="0.5,0.5" />
+                            <ToolTip.Tip>
+                                <TextBlock Text="Open AppData Folder"/>
+                            </ToolTip.Tip>
+                        </Button>
+                        <Button x:Name="ReportIssueButton"
+                                Background="{x:Null}"
+                                BorderBrush="{x:Null}"
+                                BorderThickness="0"
+                                CornerRadius="0"
+                                HorizontalContentAlignment="Center"
+                                Click="ReportIssueButton_Click"
+                                HorizontalAlignment="Center"
+                                Margin="0,0,0,10"
+                                FontSize="12"
+                                Foreground="White"
+                                VerticalAlignment="Bottom" >
+                            <Image x:Name="ReportIssueImage"
+                                   Source="avares://osuautodeafen/Icons/bug-solid.png"
+                                   Width="20" Height="20"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   RenderTransformOrigin="0.5,0.5" />
+                            <ToolTip.Tip>
+                                <TextBlock Text="Report an Issue"/>
+                            </ToolTip.Tip>
+                        </Button>
+                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
-            <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom" VerticalAlignment="Bottom"
-                       Margin="40,0,0,8" Foreground="White" FontSize="14" />
         </DockPanel>
-        <!-- Settings panel 2 -->
-        <DockPanel x:Name="SettingsPanel2" Grid.Column="1" Background="#171717" Width="450" IsVisible="False"
-                   Margin="0,42,0,0" ZIndex="4"
-                   x:DataType="cs:SharedViewModel">
-            <DockPanel.DataContext>
-                <cs:SharedViewModel />
-            </DockPanel.DataContext>
-            <StackPanel DockPanel.Dock="Top" x:DataType="cs:SharedViewModel">
-                <StackPanel.DataContext>
-                    <cs:SharedViewModel />
-                </StackPanel.DataContext>
-                <Button Width="50" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top"
-                        Background="Transparent" Margin="0" Click="FirstPage_Click">
-                    <Image Source="avares://osuautodeafen/Icons/angles-left-solid.png" />
-                </Button>
-                <StackPanel Orientation="Horizontal" Margin="60, 10, 0, 0">
-                    <Image Source="avares://osuautodeafen/Icons/map-location-dot-solid.png" Width="25" Height="25"
-                           Margin="0, 0, 5, 0" />
-                    <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
-                              IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
-                              HorizontalAlignment="Left" Margin="0,0,0,0"
-                              IsCheckedChanged="BreakUndeafenToggle_IsCheckChanged">
-                        <ToolTip.Tip>
-                            <TextBlock>
-                                <Run Text="Toggle to decide whether or not breaks should be undeafened" />
-                            </TextBlock>
-                        </ToolTip.Tip>
-                    </CheckBox>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="60, 10, 0, 0">
-                    <Image Source="avares://osuautodeafen/Icons/eye-slash-solid.png" Width="25" Height="25"
-                           Margin="0, 0, 5, 0" />
-                    <CheckBox x:Name="BlankEffectToggle" Content="Blank" Foreground="White"
-                              IsChecked="{Binding IsBlankScreenEnabled, Mode=TwoWay}"
-                              HorizontalAlignment="Left" Margin="0,0,0,0"
-                              IsCheckedChanged="BlankEffectToggle_IsCheckedChanged"
-                              IsEnabled="False">
-                        <ToolTip.Tip>
-                            <TextBlock>
-                                <Run
-                                    Text="Blank out your monitors during an FC (**make sure your monitors are all set to the same scaling and that your osu! is at the primary monitor**)" />
-                                <LineBreak />
-                                <Run Text="(This option is only available on Windows)" />
-                            </TextBlock>
-                        </ToolTip.Tip>
-                    </CheckBox>
-                </StackPanel>
-            </StackPanel>
-            <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom" VerticalAlignment="Bottom"
-                       Margin="40,0,0,8" Foreground="White" FontSize="14" />
-        </DockPanel>
+
 
         <Grid x:Name="MainContainer">
             <!-- Existing content -->
@@ -256,37 +349,43 @@
 
         <Grid VerticalAlignment="Bottom">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <TextBlock Text="{Binding StatusMessage}" HorizontalAlignment="Center" VerticalAlignment="Top" x:DataType="cs:SharedViewModel" Margin="0,0,0,0" Foreground="Red" FontSize="14"/>
-            <avalonia1:CartesianChart
-                x:Name="PlotView"
-                Grid.Row="1"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Bottom"
-                Width="600"
-                Height="100"
-                Margin="{Binding IsVisible, ElementName=UpdateNotificationBar, Converter={StaticResource UpdateNotificationMarginConverter}}"
-                Foreground="White">
-                <avalonia1:CartesianChart.XAxes>
-                    <skiaSharpView:Axis>
-                        <skiaSharpView:Axis.LabelsPaint>
-                            <painting:SolidColorPaint Color="#FFFFFF" />
-                        </skiaSharpView:Axis.LabelsPaint>
-                    </skiaSharpView:Axis>
-                </avalonia1:CartesianChart.XAxes>
-                <avalonia1:CartesianChart.YAxes>
-                    <skiaSharpView:Axis>
-                        <skiaSharpView:Axis.LabelsPaint>
-                            <painting:SolidColorPaint Color="#000000" />
-                        </skiaSharpView:Axis.LabelsPaint>
-                    </skiaSharpView:Axis>
-                </avalonia1:CartesianChart.YAxes>
-            </avalonia1:CartesianChart>
-
+            <TextBlock Text="{Binding StatusMessage}" HorizontalAlignment="Center" VerticalAlignment="Top"
+                       x:DataType="cs:SharedViewModel" Margin="0,0,0,0" Foreground="Red" FontSize="14" />
+            <Grid Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Bottom" Width="630" Height="120">
+                <Grid>
+                    <avalonia1:CartesianChart
+                        x:Name="PlotView"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Bottom"
+                        Width="630"
+                        Height="120"
+                        Margin="{Binding IsVisible, ElementName=UpdateNotificationBar, Converter={StaticResource UpdateNotificationMarginConverter}}"
+                        Foreground="White">
+                        <avalonia1:CartesianChart.XAxes>
+                            <skiaSharpView:Axis>
+                                <skiaSharpView:Axis.LabelsPaint>
+                                    <painting:SolidColorPaint Color="#FFFFFF" />
+                                </skiaSharpView:Axis.LabelsPaint>
+                            </skiaSharpView:Axis>
+                        </avalonia1:CartesianChart.XAxes>
+                        <avalonia1:CartesianChart.YAxes>
+                            <skiaSharpView:Axis>
+                                <skiaSharpView:Axis.LabelsPaint>
+                                    <painting:SolidColorPaint Color="#000000" />
+                                </skiaSharpView:Axis.LabelsPaint>
+                            </skiaSharpView:Axis>
+                        </avalonia1:CartesianChart.YAxes>
+                    </avalonia1:CartesianChart>
+                    <strainGraph:ProgressIndicatorOverlay
+                        x:Name="ProgressOverlay"
+                        IsHitTestVisible="False"/>
+                </Grid>
+            </Grid>
             <Grid HorizontalAlignment="Stretch" x:Name="UpdateNotificationGrid" VerticalAlignment="Bottom"
                   Grid.Row="2" IsVisible="{Binding IsVisible, ElementName=UpdateNotificationBar}">
                 <Grid.ColumnDefinitions>
