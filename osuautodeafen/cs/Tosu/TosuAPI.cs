@@ -44,6 +44,7 @@ public class TosuApi : IDisposable
     private double _missCount;
     private string? _modNames;
     private int _modNumber;
+    private double _oldRateAdjustRate;
     private string? _osuFilePath = "";
     private double _rankedStatus;
     private int _rawBanchoStatus = -1;
@@ -54,7 +55,6 @@ public class TosuApi : IDisposable
     private ClientWebSocket _webSocket;
     private string beatmapChecksum;
     private double? realtimeBpm;
-    private double _oldRateAdjustRate;
 
     public TosuApi()
     {
@@ -100,7 +100,7 @@ public class TosuApi : IDisposable
     public event Action? HasModsChanged;
 
     public event Action? HasBPMChanged;
-    
+
     public event Action? HasRateChanged;
 
     public event Action<GraphData>? GraphDataUpdated;
@@ -380,7 +380,7 @@ public class TosuApi : IDisposable
         //Console.WriteLine($"Completion Percentage: {_completionPercentage}");
         return _completionPercentage;
     }
-    
+
     public int GetCurrentTime()
     {
         if (_current < _firstObj)
@@ -587,7 +587,7 @@ public class TosuApi : IDisposable
         var handler = HasModsChanged;
         handler?.Invoke();
     }
-    
+
     public void CheckForRateAdjustChange()
     {
         var rate = GetRateAdjustRate();

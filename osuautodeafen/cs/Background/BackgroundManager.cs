@@ -35,6 +35,8 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     private string? _currentBackgroundDirectory;
     private double _currentBackgroundOpacity = 1.0;
     private Bitmap? _currentBitmap;
+
+    private string? _currentOverlayKey;
     private bool _isBlackBackgroundDisplayed;
     private double _lastMovementX, _lastMovementY;
     private DateTime _lastUpdate = DateTime.MinValue;
@@ -565,9 +567,11 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         await SetBackgroundOpacity(highest.Opacity, durationMs);
     }
 
-    public async Task RequestBackgroundOverlay(string key, Color overlayColor, double opacity, int priority, int durationMs = 200)
+    public async Task RequestBackgroundOverlay(string key, Color overlayColor, double opacity, int priority,
+        int durationMs = 200)
     {
-        Console.WriteLine($"[Overlay] Request: key={key}, color={overlayColor}, opacity={opacity}, priority={priority}, durationMs={durationMs}");
+        Console.WriteLine(
+            $"[Overlay] Request: key={key}, color={overlayColor}, opacity={opacity}, priority={priority}, durationMs={durationMs}");
         _overlayRequests[key] = new BackgroundOverlayRequest(key, overlayColor, opacity, priority);
         await ApplyHighestPriorityOverlay(durationMs);
     }
@@ -590,16 +594,15 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         if (_overlayRequests.Count == 0)
         {
             Console.WriteLine("[Overlay] No requests, setting overlay to transparent");
-            await SetBackgroundOverlay(Colors.Transparent, 0.0, durationMs, null);
+            await SetBackgroundOverlay(Colors.Transparent, 0.0, durationMs);
             return;
         }
 
         var highest = _overlayRequests.Values.OrderByDescending(r => r.Priority).First();
-        Console.WriteLine($"[Overlay] Applying highest priority: color={highest.OverlayColor}, opacity={highest.Opacity}, priority={highest.Priority}, durationMs={durationMs}");
+        Console.WriteLine(
+            $"[Overlay] Applying highest priority: color={highest.OverlayColor}, opacity={highest.Opacity}, priority={highest.Priority}, durationMs={durationMs}");
         await SetBackgroundOverlay(highest.OverlayColor, highest.Opacity, durationMs, highest.Key);
     }
-    
-    private string? _currentOverlayKey;
 
     private async Task SetBackgroundOverlay(Color color, double opacity, int durationMs, string? key = null)
     {

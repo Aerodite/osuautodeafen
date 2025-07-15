@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
@@ -12,6 +15,7 @@ using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Avalonia;
 using LiveChartsCore.SkiaSharpView.Painting;
+using osuautodeafen;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Background;
 using osuautodeafen.cs.StrainGraph;
@@ -19,6 +23,9 @@ using SkiaSharp;
 
 public class ChartManager
 {
+    private const double TooltipOffset = 0;
+    private const double SpringFrequency = 10;
+    private const double SpringDamping = 1.5;
     private static readonly RectangularSectionComparer SectionComparer = new();
     private static readonly SKColor ProgressIndicatorColor = new(0xFF, 0xFF, 0xFF, 192);
     private static readonly SKColor AimColor = new(0x00, 0xFF, 0x00, 192);
@@ -26,27 +33,39 @@ public class ChartManager
     private static readonly SKColor BreakColor = new(0xFF, 0xFF, 0x00, 90);
     private static readonly SKColor KiaiColor = new(0xA0, 0x40, 0xFF, 98);
     private static readonly SKColor DeafenOverlayColor = new(0xFF, 0x00, 0x00, 64);
+    private readonly BackgroundManager _backgroundManager;
+    private readonly BreakPeriodCalculator _breakPeriod = new();
+    private readonly KiaiTimes _kiaiTimes;
 
     private readonly LineSeries<ObservablePoint> _progressIndicator;
     private readonly TosuApi _tosuApi;
     private readonly SharedViewModel _viewModel;
-    private readonly KiaiTimes _kiaiTimes;
     private readonly List<RectangularSection> cachedBreakPeriods = new();
     private readonly List<RectangularSection> cachedKiaiPeriods = new();
+
+    private Border? _customTooltip;
     private CancellationTokenSource? _deafenOverlayCts;
-    private double maxLimit;
-    private double maxYValue;
-    private readonly BreakPeriodCalculator _breakPeriod = new();
+    private RectangularSection? _draggedDeafenSection;
+    private bool _isDraggingDeafenEdge;
+    private List<BreakPeriod>? _lastBreaks;
     private List<RectangularSection> _lastCombinedSections = new();
     private double _lastDeafenOverlayValue = -1;
     private GraphData? _lastGraphData;
     private double _lastMinCompletionPercentage = -1;
     private string? _lastOsuFilePath;
-    private List<double>? _lastXAxis;
     private List<double>? _lastSeriesData;
-    private List<BreakPeriod>? _lastBreaks;
-    private readonly BackgroundManager _backgroundManager;
-    private Avalonia.Controls.Canvas? _tooltipCanvas;
+    private List<double>? _lastXAxis;
+    private Canvas? _tooltipCanvas;
+
+    private double _tooltipLeft;
+    private TextBlock? _tooltipText;
+    private double _tooltipTop;
+    private double _tooltipVelocityX;
+    private double _tooltipVelocityY;
+    
+    private bool _isHoveringDeafenEdge = false;
+
+
 
     public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel, KiaiTimes kiaiTimes)
     {
@@ -64,47 +83,156 @@ public class ChartManager
             Values = Array.Empty<ObservablePoint>(),
             Name = "ProgressIndicator"
         };
-        
-        _tooltipCanvas = new Avalonia.Controls.Canvas();
-        
-        PlotView.PointerMoved += (s, e) =>
+
+        _tooltipCanvas = new Canvas();
+
+PlotView.PointerMoved += (s, e) =>
+{
+    var pixelPoint = e.GetPosition(PlotView);
+    var lvcPoint = new LvcPointD(pixelPoint.X, pixelPoint.Y);
+    var dataPoint = PlotView.ScalePixelsToData(lvcPoint);
+
+    // Annotated section tooltip
+    foreach (var section in PlotView.Sections.OfType<AnnotatedSection>())
+        if (dataPoint.X >= section.Xi && dataPoint.X <= section.Xj)
+        {
+            var start = TimeSpan.FromMilliseconds(section.StartTime).ToString(@"mm\:ss\:ff");
+            var end = TimeSpan.FromMilliseconds(section.EndTime).ToString(@"mm\:ss\:ff");
+            var tooltipText = $"{section.SectionType}\n{start}-{end}";
+            ShowCustomTooltip(pixelPoint, tooltipText);
+            return;
+        }
+
+    bool hovered = false;
+    foreach (var section in PlotView.Sections)
+    {
+        if (section is RectangularSection rs && rs.Fill is SolidColorPaint paint && paint.Color == DeafenOverlayColor)
+        {
+            // only highlight if cursor is near the left edge (Xi)
+            if (Math.Abs((double)(dataPoint.X - rs.Xi)) < 5)
+            {
+                PlotView.Cursor = new Cursor(StandardCursorType.Hand);
+                if (!_isHoveringDeafenEdge)
+                {
+                    _isHoveringDeafenEdge = true;
+                    rs.Stroke = new SolidColorPaint
+                    {
+                        Color = SKColors.Red,
+                        StrokeThickness = 14
+                    };
+                    rs.Yi = -MaxYValue * 0.6;
+                    rs.Yj = MaxYValue * 1.5;
+                    rs.Xj = MaxLimit * 1.5;
+                    PlotView.InvalidateVisual();
+                }
+                hovered = true;
+                break;
+            }
+            else if (_isHoveringDeafenEdge)
+            {
+                // Reset to normal
+                rs.Yi = 0;
+                rs.Yj = MaxYValue;
+                rs.Stroke = new SolidColorPaint { Color = DeafenOverlayColor, StrokeThickness = 2 };
+                _isHoveringDeafenEdge = false;
+                PlotView.InvalidateVisual();
+            }
+        }
+    }
+
+    if (!hovered)
+        HideCustomTooltip();
+};
+        PlotView.PointerPressed += (s, e) =>
         {
             var pixelPoint = e.GetPosition(PlotView);
-            var lvcPoint = new LvcPointD(pixelPoint.X, pixelPoint.Y); 
+            var lvcPoint = new LvcPointD(pixelPoint.X, pixelPoint.Y);
             var dataPoint = PlotView.ScalePixelsToData(lvcPoint);
 
-            // Check for annotated sections (Break/Kiai)
-            foreach (var section in PlotView.Sections.OfType<AnnotatedSection>())
+            foreach (var section in PlotView.Sections)
+                if (section is RectangularSection rs && rs.Fill is SolidColorPaint paint &&
+                    paint.Color == DeafenOverlayColor)
+                    if (Math.Abs((double)(dataPoint.X - rs.Xi)) < 5)
+                    {
+                        _isDraggingDeafenEdge = true;
+                        _draggedDeafenSection = rs;
+                        e.Handled = true;
+                        break;
+                    }
+        };
+
+        PlotView.PointerReleased += (s, e) =>
+        {
+            if (_isDraggingDeafenEdge)
             {
-                if (dataPoint.X >= section.Xi && dataPoint.X <= section.Xj)
-                {
-                    string start = TimeSpan.FromMilliseconds(section.StartTime).ToString(@"mm\:ss\:ff");
-                    string end = TimeSpan.FromMilliseconds(section.EndTime).ToString(@"mm\:ss\:ff");
-                    string tooltipText = $"{section.SectionType}\n{start}-{end}";
-                    ShowCustomTooltip(pixelPoint, tooltipText);
-                    return;
-                }
+                _isDraggingDeafenEdge = false;
+                _draggedDeafenSection = null;
+                HideCustomTooltip();
+                e.Handled = true;
+            }
+        };
+
+        PlotView.PointerMoved += async (s, e) =>
+        {
+            var pixelPoint = e.GetPosition(PlotView);
+            var lvcPoint = new LvcPointD(pixelPoint.X, pixelPoint.Y);
+            var dataPoint = PlotView.ScalePixelsToData(lvcPoint);
+
+            if (_isDraggingDeafenEdge && _draggedDeafenSection != null)
+            {
+                var newXi = Math.Max(0, Math.Min(dataPoint.X, (_draggedDeafenSection.Xj ?? 0) - 1));
+                _draggedDeafenSection.Xi = newXi;
+
+                var newPercentage = 100.0 * newXi / MaxLimit;
+                _viewModel.MinCompletionPercentage = (int)newPercentage;
+                
+                //hacky asffffff please ignore
+                MainWindow _mainWindow = Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+                    ? desktop.MainWindow as MainWindow
+                    : null;
+                
+                if (_mainWindow?.CompletionPercentageSlider != null)
+                    _mainWindow.CompletionPercentageSlider.Value = newPercentage;
+
+                var oldValue = _viewModel.MinCompletionPercentage;
+                var args = new Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs(oldValue, newPercentage, null);
+                _mainWindow?.CompletionPercentageSlider_ValueChanged(null, args);
+                
+                await UpdateDeafenOverlayAsync(newPercentage);
+                ShowCustomTooltip(pixelPoint, $"Deafen %: \n{newPercentage:F1}%");
+                PlotView.InvalidateVisual();
+                e.Handled = true;
+                return;
             }
             
             foreach (var section in PlotView.Sections)
-            {
-                if (section is RectangularSection rs && rs.Fill is SolidColorPaint paint && paint.Color == DeafenOverlayColor)
-                {
-                    if (dataPoint.X >= rs.Xi && dataPoint.X <= rs.Xj)
+                if (section is RectangularSection rs && rs.Fill is SolidColorPaint paint &&
+                    paint.Color == DeafenOverlayColor)
+                    if (Math.Abs((double)(dataPoint.X - rs.Xj)) < 5)
                     {
-                        double? percentage = 100.0 * rs.Xi / maxLimit;
-                        string tooltipText = $"Deafen %: \n{percentage:F1}%";
-                        ShowCustomTooltip(pixelPoint, tooltipText);
+                        PlotView.Cursor = new Cursor(StandardCursorType.SizeWestEast);
                         return;
                     }
-                }
-            }
 
-            HideCustomTooltip();
+            PlotView.Cursor = new Cursor(StandardCursorType.Arrow);
         };
-        
-        PlotView.PointerExited += (s, e) => HideCustomTooltip();
-
+        PlotView.PointerExited += (s, e) =>
+        {
+            HideCustomTooltip();
+            if (_isHoveringDeafenEdge)
+            {
+                foreach (var section in PlotView.Sections)
+                    if (section is RectangularSection rs && rs.Fill is SolidColorPaint paint &&
+                        paint.Color == DeafenOverlayColor)
+                    {
+                        rs.Yi = 0;
+                        rs.Yj = MaxYValue;
+                        rs.Stroke = new SolidColorPaint { Color = DeafenOverlayColor, StrokeThickness = 2 };
+                    }
+                _isHoveringDeafenEdge = false;
+                PlotView.InvalidateVisual();
+            }
+        };
         Series = new ISeries[]
         {
             new StackedAreaSeries<ObservablePoint>
@@ -126,9 +254,15 @@ public class ChartManager
         PlotView.Series = Series;
         PlotView.DrawMargin = new Margin(0, 0, 0, 0);
     }
-    
-    private Border? _customTooltip;
-    private TextBlock? _tooltipText;
+
+    public ISeries[] Series { get; private set; } = Array.Empty<ISeries>();
+    public Axis[] XAxes { get; private set; } = Array.Empty<Axis>();
+    public Axis[] YAxes { get; private set; } = Array.Empty<Axis>();
+    public double MaxYValue { get; private set; }
+
+    public double MaxLimit { get; private set; }
+
+    public CartesianChart PlotView { get; }
 
     public void SetTooltipControls(Border customTooltip, TextBlock tooltipText)
     {
@@ -136,20 +270,40 @@ public class ChartManager
         _tooltipText = tooltipText;
     }
 
-    private void ShowCustomTooltip(Avalonia.Point position, string text)
+    private void ShowCustomTooltip(Point position, string text)
     {
         if (_customTooltip == null || _tooltipText == null) return;
         _customTooltip.IsVisible = true;
         _tooltipText.Text = text;
 
-        // Ensure layout is updated so ActualWidth/Height are correct
         _customTooltip.Measure(Size.Infinity);
 
-        double left = position.X - _customTooltip.Bounds.Width;
-        double top = position.Y - _customTooltip.Bounds.Height;
+        var chartBounds = PlotView.Bounds;
+        var tooltipWidth = _customTooltip.Bounds.Width;
 
-        Canvas.SetLeft(_customTooltip, left);
-        Canvas.SetTop(_customTooltip, top);
+        var leftCandidate = position.X - tooltipWidth - TooltipOffset;
+        var rightCandidate = position.X + TooltipOffset;
+        var maxLeft = chartBounds.Width - tooltipWidth;
+
+        leftCandidate = Math.Max(0, Math.Min(leftCandidate, maxLeft));
+        rightCandidate = Math.Max(0, Math.Min(rightCandidate, maxLeft));
+
+        var targetLeft = leftCandidate == 0 ? rightCandidate : leftCandidate;
+        var targetTop = position.Y - _customTooltip.Bounds.Height;
+
+        var dt = 1.0 / 60.0;
+        var dx = targetLeft - _tooltipLeft;
+        var ax = SpringFrequency * SpringFrequency * dx - 2.0 * SpringDamping * SpringFrequency * _tooltipVelocityX;
+        _tooltipVelocityX += ax * dt;
+        _tooltipLeft += _tooltipVelocityX * dt;
+
+        var dy = targetTop - _tooltipTop;
+        var ay = SpringFrequency * SpringFrequency * dy - 2.0 * SpringDamping * SpringFrequency * _tooltipVelocityY;
+        _tooltipVelocityY += ay * dt;
+        _tooltipTop += _tooltipVelocityY * dt;
+
+        Canvas.SetLeft(_customTooltip, _tooltipLeft);
+        Canvas.SetTop(_customTooltip, _tooltipTop);
     }
 
     private void HideCustomTooltip()
@@ -157,12 +311,6 @@ public class ChartManager
         if (_customTooltip != null)
             _customTooltip.IsVisible = false;
     }
-    public ISeries[] Series { get; private set; } = Array.Empty<ISeries>();
-    public Axis[] XAxes { get; private set; } = Array.Empty<Axis>();
-    public Axis[] YAxes { get; private set; } = Array.Empty<Axis>();
-    public double MaxYValue => maxYValue;
-    public double MaxLimit => maxLimit;
-    public CartesianChart PlotView { get; }
 
     public void EnsureProgressIndicator(LineSeries<ObservablePoint> indicator)
     {
@@ -175,12 +323,12 @@ public class ChartManager
         }
     }
 
-    public async Task UpdateDeafenOverlayAsync(double minCompletionPercentage, int durationMs = 60, int steps = 4)
+    public async Task UpdateDeafenOverlayAsync(double? minCompletionPercentage, int durationMs = 60, int steps = 4)
     {
-        if (Math.Abs(_lastDeafenOverlayValue - minCompletionPercentage) < 0.001)
+        if (Math.Abs((double)(_lastDeafenOverlayValue - minCompletionPercentage)) < 0.001)
             return;
 
-        _lastDeafenOverlayValue = minCompletionPercentage;
+        _lastDeafenOverlayValue = (double)minCompletionPercentage;
 
         try
         {
@@ -191,24 +339,22 @@ public class ChartManager
             var sections = PlotView.Sections.ToList();
             RectangularSection? deafenRect = null;
             foreach (var s in sections)
-            {
                 if (s is RectangularSection rs && rs.Fill is SolidColorPaint paint && paint.Color == DeafenOverlayColor)
                 {
                     deafenRect = rs;
                     break;
                 }
-            }
 
-            var newXi = minCompletionPercentage * maxLimit / 100.0;
+            var newXi = minCompletionPercentage * MaxLimit / 100.0;
 
             if (deafenRect == null)
             {
                 deafenRect = new RectangularSection
                 {
                     Xi = newXi,
-                    Xj = maxLimit,
+                    Xj = MaxLimit,
                     Yi = 0,
-                    Yj = maxYValue,
+                    Yj = MaxYValue,
                     Fill = new SolidColorPaint { Color = DeafenOverlayColor }
                 };
                 sections.Add(deafenRect);
@@ -232,31 +378,28 @@ public class ChartManager
             deafenRect.Xi = newXi;
             PlotView.InvalidateVisual();
         }
-        catch (TaskCanceledException) { }
-        catch (OperationCanceledException) { }
+        catch (TaskCanceledException)
+        {
+        }
+        catch (OperationCanceledException)
+        {
+        }
         catch (Exception ex)
         {
             Console.WriteLine($"Error updating deafen overlay: {ex.Message}");
         }
     }
-    
-    public class AnnotatedSection : RectangularSection
-    {
-        public string SectionType { get; set; } // "Break" or "Kiai"
-        public double StartTime { get; set; }
-        public double EndTime { get; set; }
-    }
 
     public async Task UpdateChart(GraphData? graphData, double minCompletionPercentage)
     {
-        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var sw = Stopwatch.StartNew();
         if (graphData == null)
             return;
 
-        bool graphChanged = !ReferenceEquals(graphData, _lastGraphData);
-        bool minCompletionChanged = Math.Abs(minCompletionPercentage - _lastMinCompletionPercentage) > 0.001;
+        var graphChanged = !ReferenceEquals(graphData, _lastGraphData);
+        var minCompletionChanged = Math.Abs(minCompletionPercentage - _lastMinCompletionPercentage) > 0.001;
         var osuFilePath = _tosuApi.GetFullFilePath();
-        bool fileChanged = osuFilePath != _lastOsuFilePath;
+        var fileChanged = osuFilePath != _lastOsuFilePath;
 
         if (!graphChanged && !minCompletionChanged && !fileChanged)
             return;
@@ -268,10 +411,10 @@ public class ChartManager
         var maxPoints = 1000;
         var maxY = 0.0;
         foreach (var s in graphData.Series)
-            foreach (var v in s.Data)
-                if (v != -100 && v > maxY)
-                    maxY = v;
-        maxYValue = maxY;
+        foreach (var v in s.Data)
+            if (v != -100 && v > maxY)
+                maxY = v;
+        MaxYValue = maxY;
 
         int start, end;
         var seriesArr = PlotView.Series?.ToList() ?? new List<ISeries>();
@@ -282,18 +425,19 @@ public class ChartManager
             foreach (var series in graphData.Series)
             {
                 var data = series.Data;
-                start = 0; end = data.Count - 1;
+                start = 0;
+                end = data.Count - 1;
                 while (start <= end && data[start] == -100) start++;
                 while (end >= start && data[end] == -100) end--;
                 if (end < start) continue;
 
-                int updatedCount = end - start + 1;
+                var updatedCount = end - start + 1;
                 var updatedValues = new ObservablePoint[updatedCount];
-                int idx = 0;
-                for (int i = start; i <= end; i++)
+                var idx = 0;
+                for (var i = start; i <= end; i++)
                     if (data[i] != -100)
                         updatedValues[idx++] = new ObservablePoint(i - start, data[i]);
-                maxLimit = idx;
+                MaxLimit = idx;
 
                 var downsampled = Downsample(updatedValues, idx, maxPoints);
                 var smoothed = SmoothData(downsampled, 10, 0.2);
@@ -303,13 +447,12 @@ public class ChartManager
 
                 LineSeries<ObservablePoint>? existing = null;
                 foreach (var s in seriesArr)
-                {
                     if (s is LineSeries<ObservablePoint> ls && ls.Name == name)
                     {
                         existing = ls;
                         break;
                     }
-                }
+
                 if (existing != null)
                 {
                     existing.Values = smoothed;
@@ -332,6 +475,7 @@ public class ChartManager
                     });
                 }
             }
+
             if (!newSeriesList.Contains(_progressIndicator))
                 newSeriesList.Add(_progressIndicator);
 
@@ -342,10 +486,10 @@ public class ChartManager
 
         if (osuFilePath != null && (fileChanged || graphChanged))
         {
-            double rate = _tosuApi.GetRateAdjustRate();
+            var rate = _tosuApi.GetRateAdjustRate();
             var xAxis = graphData.XAxis;
             var seriesData = graphData.Series[0].Data;
-            int firstValidIdx = seriesData.FindIndex(y => y != -100);
+            var firstValidIdx = seriesData.FindIndex(y => y != -100);
             if (firstValidIdx > 0)
             {
                 xAxis = xAxis.Skip(firstValidIdx).ToList();
@@ -356,16 +500,16 @@ public class ChartManager
             cachedBreakPeriods.Clear();
             foreach (var breakPeriod in breaks)
             {
-                double breakStart = breakPeriod.Start / rate;
-                double breakEnd = breakPeriod.End / rate;
-                int startIdx = FindClosestIndex(xAxis, breakStart);
-                int endIdx = FindClosestIndex(xAxis, breakEnd);
+                var breakStart = breakPeriod.Start / rate;
+                var breakEnd = breakPeriod.End / rate;
+                var startIdx = FindClosestIndex(xAxis, breakStart);
+                var endIdx = FindClosestIndex(xAxis, breakEnd);
                 cachedBreakPeriods.Add(new AnnotatedSection
                 {
                     Xi = startIdx,
                     Xj = endIdx,
                     Yi = 0,
-                    Yj = maxYValue,
+                    Yj = MaxYValue,
                     Fill = new SolidColorPaint { Color = BreakColor },
                     SectionType = "Break",
                     StartTime = breakPeriod.Start,
@@ -380,14 +524,14 @@ public class ChartManager
             cachedKiaiPeriods.Clear();
             foreach (var kiai in kiaiList)
             {
-                int startIdx = FindClosestIndex(xAxis, kiai.Start / rate);
-                int endIdx = FindClosestIndex(xAxis, kiai.End / rate);
+                var startIdx = FindClosestIndex(xAxis, kiai.Start / rate);
+                var endIdx = FindClosestIndex(xAxis, kiai.End / rate);
                 cachedKiaiPeriods.Add(new AnnotatedSection
                 {
                     Xi = startIdx,
                     Xj = endIdx,
                     Yi = 0,
-                    Yj = maxYValue,
+                    Yj = MaxYValue,
                     Fill = new SolidColorPaint { Color = KiaiColor },
                     SectionType = "Kiai",
                     StartTime = kiai.Start,
@@ -397,20 +541,20 @@ public class ChartManager
         }
 
         var combinedSections = cachedBreakPeriods.Concat(cachedKiaiPeriods).ToList();
-        
+
         // Always create/update the deafen overlay section
-        var newXi = minCompletionPercentage * maxLimit / 100.0;
+        var newXi = minCompletionPercentage * MaxLimit / 100.0;
         var deafenSection = new RectangularSection
         {
             Xi = newXi,
-            Xj = maxLimit,
+            Xj = MaxLimit,
             Yi = 0,
-            Yj = maxYValue,
+            Yj = MaxYValue,
             Fill = new SolidColorPaint { Color = DeafenOverlayColor }
         };
-        
+
         combinedSections.RemoveAll(s => s is { Fill: SolidColorPaint paint } && paint.Color == DeafenOverlayColor);
-        
+
         combinedSections.Add(deafenSection);
 
         if (!_lastCombinedSections.SequenceEqual(combinedSections, SectionComparer))
@@ -432,7 +576,7 @@ public class ChartManager
             {
                 LabelsPaint = new SolidColorPaint(SKColors.Transparent),
                 MinLimit = 0,
-                MaxLimit = maxLimit,
+                MaxLimit = MaxLimit,
                 Padding = new Padding(2),
                 TextSize = 12
             }
@@ -443,7 +587,7 @@ public class ChartManager
             {
                 LabelsPaint = new SolidColorPaint(SKColors.Transparent),
                 MinLimit = 0,
-                MaxLimit = maxYValue,
+                MaxLimit = MaxYValue,
                 Padding = new Padding(2),
                 SeparatorsPaint = new SolidColorPaint(SKColors.Transparent)
             }
@@ -474,6 +618,7 @@ public class ChartManager
                 closestIndex = i;
             }
         }
+
         return closestIndex;
     }
 
@@ -487,6 +632,7 @@ public class ChartManager
             var idx = (int)(i * step);
             result[i] = data[idx];
         }
+
         return result;
     }
 
@@ -521,8 +667,9 @@ public class ChartManager
     private bool AreListsEqual<T>(List<T>? a, List<T>? b)
     {
         if (a == null || b == null || a.Count != b.Count) return false;
-        for (int i = 0; i < a.Count; i++)
-            if (!EqualityComparer<T>.Default.Equals(a[i], b[i])) return false;
+        for (var i = 0; i < a.Count; i++)
+            if (!EqualityComparer<T>.Default.Equals(a[i], b[i]))
+                return false;
         return true;
     }
 
@@ -532,9 +679,7 @@ public class ChartManager
         if (osuFilePath == _lastOsuFilePath &&
             AreListsEqual(xAxis, _lastXAxis) &&
             AreListsEqual(seriesData, _lastSeriesData))
-        {
             return _lastBreaks ?? new List<BreakPeriod>();
-        }
 
         var breaks = await _breakPeriod.ParseBreakPeriodsAsync(osuFilePath, xAxis, seriesData);
         _lastOsuFilePath = osuFilePath;
@@ -542,6 +687,13 @@ public class ChartManager
         _lastSeriesData = new List<double>(seriesData);
         _lastBreaks = breaks;
         return breaks;
+    }
+
+    public class AnnotatedSection : RectangularSection
+    {
+        public string SectionType { get; set; } // "Break" or "Kiai"
+        public double StartTime { get; set; }
+        public double EndTime { get; set; }
     }
 }
 
@@ -552,6 +704,7 @@ public class RectangularSectionComparer : IEqualityComparer<RectangularSection>
         if (x == null || y == null) return false;
         return x.Xi == y.Xi && x.Xj == y.Xj && x.Yi == y.Yi && x.Yj == y.Yj;
     }
+
     public int GetHashCode(RectangularSection obj)
     {
         return HashCode.Combine(obj.Xi, obj.Xj, obj.Yi, obj.Yj);

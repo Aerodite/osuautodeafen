@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Avalonia.Threading;
-using osuautodeafen.cs.Background;
 
 namespace osuautodeafen.cs.StrainGraph;
 
@@ -14,7 +12,9 @@ public class TimePeriod
     public int End { get; set; }
 }
 
-public class KiaiTime : TimePeriod { }
+public class KiaiTime : TimePeriod
+{
+}
 
 public class BreakPeriod : TimePeriod
 {
@@ -26,8 +26,8 @@ public class BreakPeriod : TimePeriod
 
 public class KiaiTimes
 {
-    public List<KiaiTime> Times { get; } = new();
     private bool _isInKiaiPeriod;
+    public List<KiaiTime> Times { get; } = new();
     public event Action? KiaiPeriodEntered;
     public event Action? KiaiPeriodExited;
 
@@ -46,6 +46,7 @@ public class KiaiTimes
                 inTimingPoints = true;
                 continue;
             }
+
             if (inTimingPoints)
             {
                 if (line.StartsWith("[") && !line.StartsWith("[TimingPoints]"))
@@ -58,7 +59,7 @@ public class KiaiTimes
                 if (!int.TryParse(parts[0], out var time)) continue;
                 if (!int.TryParse(parts[7], out var effects)) continue;
 
-                bool kiai = (effects & 1) == 1;
+                var kiai = (effects & 1) == 1;
                 if (kiai && currentKiaiStart == null)
                 {
                     currentKiaiStart = time;
@@ -70,6 +71,7 @@ public class KiaiTimes
                 }
             }
         }
+
         if (currentKiaiStart != null)
             rawPeriods.Add(new KiaiTime { Start = currentKiaiStart.Value, End = int.MaxValue });
 
@@ -84,13 +86,13 @@ public class KiaiTimes
                 return true;
         return false;
     }
-    
+
     private static List<KiaiTime> MergePeriods(List<KiaiTime> periods)
     {
         if (periods.Count == 0) return new List<KiaiTime>();
         var sorted = periods.OrderBy(p => p.Start).ToList();
         var merged = new List<KiaiTime> { sorted[0] };
-        for (int i = 1; i < sorted.Count; i++)
+        for (var i = 1; i < sorted.Count; i++)
         {
             var last = merged[^1];
             var curr = sorted[i];
@@ -99,6 +101,7 @@ public class KiaiTimes
             else
                 merged.Add(curr);
         }
+
         return merged;
     }
 }
@@ -110,7 +113,8 @@ public class BreakPeriodCalculator
     public event Action? BreakPeriodEntered;
     public event Action? BreakPeriodExited;
 
-    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string osuFilePath, List<double> xAxis, List<double> yAxis)
+    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string osuFilePath, List<double> xAxis,
+        List<double> yAxis)
     {
         BreakPeriods.Clear();
         var lines = await File.ReadAllLinesAsync(osuFilePath);
@@ -125,12 +129,12 @@ public class BreakPeriodCalculator
                 inBreakPeriodSection = true;
                 continue;
             }
+
             if (inBreakPeriodSection)
             {
                 if (line.StartsWith("//")) break;
                 var parts = line.Split(',');
                 if (parts.Length == 3 && parts[0] == "2")
-                {
                     if (double.TryParse(parts[1], out var start) && double.TryParse(parts[2], out var end))
                     {
                         var startIndex = FindClosestIndex(xAxis, start);
@@ -147,14 +151,17 @@ public class BreakPeriodCalculator
                             EndPercentage = endPercentage
                         });
                     }
-                }
             }
         }
+
         BreakPeriods.AddRange(MergePeriods(rawPeriods));
         return BreakPeriods;
     }
 
-    public bool IsBreakPeriod(TosuApi tosuApi) => tosuApi.IsBreakPeriod();
+    public bool IsBreakPeriod(TosuApi tosuApi)
+    {
+        return tosuApi.IsBreakPeriod();
+    }
 
     public void UpdateBreakPeriodState(TosuApi tosuApi)
     {
@@ -182,6 +189,7 @@ public class BreakPeriodCalculator
                 closestIndex = i;
             }
         }
+
         return closestIndex;
     }
 
@@ -190,7 +198,7 @@ public class BreakPeriodCalculator
         if (periods.Count == 0) return new List<BreakPeriod>();
         var sorted = periods.OrderBy(p => p.Start).ToList();
         var merged = new List<BreakPeriod> { sorted[0] };
-        for (int i = 1; i < sorted.Count; i++)
+        for (var i = 1; i < sorted.Count; i++)
         {
             var last = merged[^1];
             var curr = sorted[i];
@@ -201,8 +209,11 @@ public class BreakPeriodCalculator
                 last.EndPercentage = Math.Max(last.EndPercentage, curr.EndPercentage);
             }
             else
+            {
                 merged.Add(curr);
+            }
         }
+
         return merged;
     }
 }
