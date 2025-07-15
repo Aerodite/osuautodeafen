@@ -303,6 +303,8 @@ public partial class MainWindow : Window
         MinWidth = 550;
         CanResize = true;
         Closing += MainWindow_Closing;
+        
+        _chartManager.SetTooltipControls(CustomTooltip, TooltipText);
 
         PointerPressed += (sender, e) =>
         {

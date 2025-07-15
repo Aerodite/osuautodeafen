@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
@@ -44,6 +46,7 @@ public class ChartManager
     private List<double>? _lastSeriesData;
     private List<BreakPeriod>? _lastBreaks;
     private readonly BackgroundManager _backgroundManager;
+    private Avalonia.Controls.Canvas? _tooltipCanvas;
 
     public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel, KiaiTimes kiaiTimes)
     {
@@ -61,6 +64,46 @@ public class ChartManager
             Values = Array.Empty<ObservablePoint>(),
             Name = "ProgressIndicator"
         };
+        
+        _tooltipCanvas = new Avalonia.Controls.Canvas();
+        
+        PlotView.PointerMoved += (s, e) =>
+        {
+            var pixelPoint = e.GetPosition(PlotView);
+            var lvcPoint = new LvcPointD(pixelPoint.X, pixelPoint.Y); 
+            var dataPoint = PlotView.ScalePixelsToData(lvcPoint);
+
+            // Check for annotated sections (Break/Kiai)
+            foreach (var section in PlotView.Sections.OfType<AnnotatedSection>())
+            {
+                if (dataPoint.X >= section.Xi && dataPoint.X <= section.Xj)
+                {
+                    string start = TimeSpan.FromMilliseconds(section.StartTime).ToString(@"mm\:ss\:ff");
+                    string end = TimeSpan.FromMilliseconds(section.EndTime).ToString(@"mm\:ss\:ff");
+                    string tooltipText = $"{section.SectionType}\n{start}-{end}";
+                    ShowCustomTooltip(pixelPoint, tooltipText);
+                    return;
+                }
+            }
+            
+            foreach (var section in PlotView.Sections)
+            {
+                if (section is RectangularSection rs && rs.Fill is SolidColorPaint paint && paint.Color == DeafenOverlayColor)
+                {
+                    if (dataPoint.X >= rs.Xi && dataPoint.X <= rs.Xj)
+                    {
+                        double? percentage = 100.0 * rs.Xi / maxLimit;
+                        string tooltipText = $"Deafen %: \n{percentage:F1}%";
+                        ShowCustomTooltip(pixelPoint, tooltipText);
+                        return;
+                    }
+                }
+            }
+
+            HideCustomTooltip();
+        };
+        
+        PlotView.PointerExited += (s, e) => HideCustomTooltip();
 
         Series = new ISeries[]
         {
@@ -83,7 +126,37 @@ public class ChartManager
         PlotView.Series = Series;
         PlotView.DrawMargin = new Margin(0, 0, 0, 0);
     }
+    
+    private Border? _customTooltip;
+    private TextBlock? _tooltipText;
 
+    public void SetTooltipControls(Border customTooltip, TextBlock tooltipText)
+    {
+        _customTooltip = customTooltip;
+        _tooltipText = tooltipText;
+    }
+
+    private void ShowCustomTooltip(Avalonia.Point position, string text)
+    {
+        if (_customTooltip == null || _tooltipText == null) return;
+        _customTooltip.IsVisible = true;
+        _tooltipText.Text = text;
+
+        // Ensure layout is updated so ActualWidth/Height are correct
+        _customTooltip.Measure(Size.Infinity);
+
+        double left = position.X - _customTooltip.Bounds.Width;
+        double top = position.Y - _customTooltip.Bounds.Height;
+
+        Canvas.SetLeft(_customTooltip, left);
+        Canvas.SetTop(_customTooltip, top);
+    }
+
+    private void HideCustomTooltip()
+    {
+        if (_customTooltip != null)
+            _customTooltip.IsVisible = false;
+    }
     public ISeries[] Series { get; private set; } = Array.Empty<ISeries>();
     public Axis[] XAxes { get; private set; } = Array.Empty<Axis>();
     public Axis[] YAxes { get; private set; } = Array.Empty<Axis>();
@@ -165,6 +238,13 @@ public class ChartManager
         {
             Console.WriteLine($"Error updating deafen overlay: {ex.Message}");
         }
+    }
+    
+    public class AnnotatedSection : RectangularSection
+    {
+        public string SectionType { get; set; } // "Break" or "Kiai"
+        public double StartTime { get; set; }
+        public double EndTime { get; set; }
     }
 
     public async Task UpdateChart(GraphData? graphData, double minCompletionPercentage)
@@ -280,13 +360,16 @@ public class ChartManager
                 double breakEnd = breakPeriod.End / rate;
                 int startIdx = FindClosestIndex(xAxis, breakStart);
                 int endIdx = FindClosestIndex(xAxis, breakEnd);
-                cachedBreakPeriods.Add(new RectangularSection
+                cachedBreakPeriods.Add(new AnnotatedSection
                 {
                     Xi = startIdx,
                     Xj = endIdx,
                     Yi = 0,
                     Yj = maxYValue,
-                    Fill = new SolidColorPaint { Color = BreakColor }
+                    Fill = new SolidColorPaint { Color = BreakColor },
+                    SectionType = "Break",
+                    StartTime = breakPeriod.Start,
+                    EndTime = breakPeriod.End
                 });
             }
 
@@ -299,13 +382,16 @@ public class ChartManager
             {
                 int startIdx = FindClosestIndex(xAxis, kiai.Start / rate);
                 int endIdx = FindClosestIndex(xAxis, kiai.End / rate);
-                cachedKiaiPeriods.Add(new RectangularSection
+                cachedKiaiPeriods.Add(new AnnotatedSection
                 {
                     Xi = startIdx,
                     Xj = endIdx,
                     Yi = 0,
                     Yj = maxYValue,
-                    Fill = new SolidColorPaint { Color = KiaiColor }
+                    Fill = new SolidColorPaint { Color = KiaiColor },
+                    SectionType = "Kiai",
+                    StartTime = kiai.Start,
+                    EndTime = kiai.End
                 });
             }
         }
