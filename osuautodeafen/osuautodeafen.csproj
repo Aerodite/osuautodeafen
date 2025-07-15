@@ -86,6 +86,8 @@
         <AvaloniaResource Include="Icons\github.png" />
         <None Remove="Icons\bug-solid.png" />
         <AvaloniaResource Include="Icons\bug-solid.png" />
+        <None Remove="Icons\star-half-stroke-solid.png" />
+        <AvaloniaResource Include="Icons\star-half-stroke-solid.png" />
     </ItemGroup>
     
     <ItemGroup>

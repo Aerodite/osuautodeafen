@@ -89,6 +89,8 @@ public partial class MainWindow : Window
         
         InitializeLogo();
         
+        //TODO
+        // maybe add a state for this depending on if its deafened or not
         Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.favicon.ico"));
         
         _getLowResBackground = new GetLowResBackground(_tosuApi);
@@ -115,6 +117,7 @@ public partial class MainWindow : Window
         _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
         _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
         _viewModel.IsBlurEffectEnabled = _settingsHandler.IsBlurEffectEnabled;
+        _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
         
         CompletionPercentageSlider.ValueChanged -= CompletionPercentageSlider_ValueChanged;
         StarRatingSlider.ValueChanged -= StarRatingSlider_ValueChanged;
@@ -135,9 +138,10 @@ public partial class MainWindow : Window
         BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
         ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
         BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
+        KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
         
         // end of settings bs
-
+        
         BackgroundManager.PrewarmRenderTarget();
 
         var oldContent = Content;
@@ -200,22 +204,18 @@ public partial class MainWindow : Window
         {
             Console.WriteLine("Break period exited");
         };
-        _tosuApi.HasKiaiChanged += async () =>
+        _tosuApi.HasKiaiChanged += async (sender, e) =>
         {
-            // without this the background still shows in kiai time
-            // not good.
             if (!_viewModel.IsBackgroundEnabled)
-            {
                 return;
-            }
-            if (_tosuApi._isKiai)
+
+            // Always update opacity based on the current state
+            opacity = _isSettingsPanelOpen ? 0.50 : 0;
+
+            if (_tosuApi._isKiai && _viewModel.IsKiaiEffectEnabled)
             {
                 double bpm = _tosuApi.GetCurrentBpm();
                 double intervalMs = (60000.0 / bpm);
-                
-                //if settings panel is open, dim
-                opacity = _isSettingsPanelOpen ? 0.50 : 0;
-                
 
                 _kiaiBrightnessTimer?.Stop();
                 _kiaiBrightnessTimer = new DispatcherTimer
@@ -249,15 +249,17 @@ public partial class MainWindow : Window
                 _backgroundManager.RemoveBackgroundOpacityRequest("kiai");
             }
         };
-        settingsButtonClicked = () =>
+        settingsButtonClicked = async () =>
         {
             if (_isSettingsPanelOpen)
             {
                 opacity = 0;
+                _backgroundManager?.RemoveBackgroundOpacityRequest("settings");
             }
             else
             {
                 opacity = 0.5;
+                await _backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150);
             }
         };
 
@@ -278,7 +280,7 @@ public partial class MainWindow : Window
         BorderBrush = Brushes.Black;
         Width = _settingsHandler.WindowWidth;
         Height = _settingsHandler.WindowHeight;
-        Title = "osu!autodeafen";
+        Title = "osuautodeafen";
         MaxHeight = 800;
         MaxWidth = 800;
         MinHeight = 400;
@@ -322,6 +324,7 @@ public partial class MainWindow : Window
             _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
             _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
             _viewModel.IsBlurEffectEnabled = _settingsHandler.IsBlurEffectEnabled;
+            _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
 
             // Update UI controls
             CompletionPercentageSlider.ValueChanged -= CompletionPercentageSlider_ValueChanged;
@@ -343,6 +346,7 @@ public partial class MainWindow : Window
             BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
             ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
             BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
+            KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
             
             var keyStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindKey"];
             var modStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindModifiers"];
@@ -480,7 +484,6 @@ public partial class MainWindow : Window
     }
 
     private SharedViewModel ViewModel { get; }
-    private bool IsBlackBackgroundDisplayed { get; set; }
 
     //Settings
     private async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)

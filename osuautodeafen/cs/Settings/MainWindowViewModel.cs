@@ -23,13 +23,11 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private SolidColorBrush _averageColorBrush = new(Colors.Gray);
 
     private double _completionPercentage;
-    private MainWindow.HotKey _deafenKeybind;
+    private MainWindow.HotKey? _deafenKeybind;
 
     private string _deafenKeybindDisplay;
 
     private bool _isBackgroundEnabled;
-
-    private bool _isBlankScreenEnabled;
 
     private bool _isBlurEffectEnabled;
 
@@ -38,6 +36,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private bool _isFCRequired;
 
     private bool _isKeybindCaptureFlyoutOpen;
+    
+    private bool _IsKiaiEffectEnabled;
 
     private bool _isParallaxEnabled;
 
@@ -173,6 +173,21 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             }
         }
     }
+    
+    public bool IsKiaiEffectEnabled
+    {
+        get => _IsKiaiEffectEnabled;
+        set
+        {
+            if (_IsKiaiEffectEnabled != value)
+            {
+                _IsKiaiEffectEnabled = value;
+                OnPropertyChanged();
+                _settingsHandler?.SaveSetting("UI", "IsKiaiEffectEnabled", value);
+                _tosuApi.RaiseKiaiChanged();
+            }
+        }
+    }
 
 
     public string StatusMessage
@@ -222,7 +237,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _deafenKeybind = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybind", value.ToString());
+                _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybind", value?.ToString());
             }
         }
     }
