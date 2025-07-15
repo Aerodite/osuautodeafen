@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using osuautodeafen.cs.StrainGraph;
 
 namespace osuautodeafen.cs;
 
@@ -37,7 +38,7 @@ public class TosuApi : IDisposable
     private int _lastBeatmapId = -1;
     private double? _lastBpm;
     private bool _lastKiaiValue;
-    private double _lastModNumber;
+    private double _lastModNumber = -1;
     private double _maxCombo;
     private double _maxPP;
     private double _missCount;
@@ -53,6 +54,7 @@ public class TosuApi : IDisposable
     private ClientWebSocket _webSocket;
     private string beatmapChecksum;
     private double? realtimeBpm;
+    private double _oldRateAdjustRate;
 
     public TosuApi()
     {
@@ -378,6 +380,15 @@ public class TosuApi : IDisposable
         //Console.WriteLine($"Completion Percentage: {_completionPercentage}");
         return _completionPercentage;
     }
+    
+    public int GetCurrentTime()
+    {
+        if (_current < _firstObj)
+            return 0;
+        if (_current > _full)
+            return (int)_full;
+        return (int)_current;
+    }
 
 
     public double GetFullSR()
@@ -549,16 +560,6 @@ public class TosuApi : IDisposable
         var handler = BeatmapChanged;
         handler?.Invoke();
     }
-    
-    public void CheckForRateAdjustChange()
-    {
-        var rateAdjustRate = GetRateAdjustRate();
-        if (rateAdjustRate == _lastModNumber)
-            return;
-        _lastModNumber = rateAdjustRate;
-        var handler = HasRateChanged;
-        handler?.Invoke();
-    }
 
     public void CheckForKiaiChange()
     {
@@ -584,8 +585,17 @@ public class TosuApi : IDisposable
             return;
         _lastModNumber = modNumber;
         var handler = HasModsChanged;
-        if (handler != null)
-            handler();
+        handler?.Invoke();
+    }
+    
+    public void CheckForRateAdjustChange()
+    {
+        var rate = GetRateAdjustRate();
+        if (rate == _oldRateAdjustRate)
+            return;
+        _oldRateAdjustRate = rate;
+        var handler = HasRateChanged;
+        handler?.Invoke();
     }
 
     public void CheckForBPMChange()

@@ -565,9 +565,9 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         await SetBackgroundOpacity(highest.Opacity, durationMs);
     }
 
-    public async Task RequestBackgroundOverlay(string key, Color overlayColor, double opacity, int priority,
-        int durationMs = 200)
+    public async Task RequestBackgroundOverlay(string key, Color overlayColor, double opacity, int priority, int durationMs = 200)
     {
+        Console.WriteLine($"[Overlay] Request: key={key}, color={overlayColor}, opacity={opacity}, priority={priority}, durationMs={durationMs}");
         _overlayRequests[key] = new BackgroundOverlayRequest(key, overlayColor, opacity, priority);
         await ApplyHighestPriorityOverlay(durationMs);
     }
@@ -575,26 +575,41 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     public void RemoveBackgroundOverlayRequest(string key)
     {
         if (_overlayRequests.Remove(key))
+        {
+            Console.WriteLine($"[Overlay] Remove request: key={key}");
             _ = ApplyHighestPriorityOverlay(200);
+        }
+        else
+        {
+            Console.WriteLine($"[Overlay] Remove request: key={key} (not found)");
+        }
     }
 
     private async Task ApplyHighestPriorityOverlay(int durationMs)
     {
         if (_overlayRequests.Count == 0)
         {
-            await SetBackgroundOverlay(Colors.Transparent, 0.0, durationMs);
+            Console.WriteLine("[Overlay] No requests, setting overlay to transparent");
+            await SetBackgroundOverlay(Colors.Transparent, 0.0, durationMs, null);
             return;
         }
 
         var highest = _overlayRequests.Values.OrderByDescending(r => r.Priority).First();
-        await SetBackgroundOverlay(highest.OverlayColor, highest.Opacity, durationMs);
+        Console.WriteLine($"[Overlay] Applying highest priority: color={highest.OverlayColor}, opacity={highest.Opacity}, priority={highest.Priority}, durationMs={durationMs}");
+        await SetBackgroundOverlay(highest.OverlayColor, highest.Opacity, durationMs, highest.Key);
     }
+    
+    private string? _currentOverlayKey;
 
-    private async Task SetBackgroundOverlay(Color color, double opacity, int durationMs)
+    private async Task SetBackgroundOverlay(Color color, double opacity, int durationMs, string? key = null)
     {
-        _overlayAnimationCts?.Cancel();
+        if (key != null && _currentOverlayKey == key)
+            _overlayAnimationCts?.Cancel();
+
         _overlayAnimationCts = new CancellationTokenSource();
+        _currentOverlayKey = key;
         var token = _overlayAnimationCts.Token;
+
 
         await Dispatcher.UIThread.InvokeAsync(async () =>
         {

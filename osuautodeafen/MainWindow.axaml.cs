@@ -49,6 +49,8 @@ public partial class MainWindow : Window
     private readonly SettingsHandler? _settingsHandler;
 
     public readonly TosuApi _tosuApi = new();
+    
+    private readonly KiaiTimes _kiaiTimes = new();
 
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
 
@@ -72,6 +74,8 @@ public partial class MainWindow : Window
     private bool _isKiaiPulseHigh;
 
     public bool _isSettingsPanelOpen;
+    
+    private double _kiaiMsPerBeat = 60000.0 / 140; // Default BPM
 
     private DispatcherTimer? _kiaiBrightnessTimer;
 
@@ -164,7 +168,7 @@ public partial class MainWindow : Window
         InitializeViewModel();
 
         _breakPeriod = new BreakPeriodCalculator();
-        _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel);
+        _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel, _kiaiTimes);
         _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel);
 
         // we just need to initialize it, no need for a global variable
@@ -172,7 +176,9 @@ public partial class MainWindow : Window
 
         // ideally we could use no timers whatsoever but for now this works fine
         // because it really only checks if events should be triggered
-        _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        
+        //updated to 16ms from 100ms since apparently it takes 1ms to run anyways, might as well have it be responsive
+        _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
@@ -186,63 +192,60 @@ public partial class MainWindow : Window
             _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage());
         _tosuApi.BeatmapChanged += async () =>
         {
-            await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
-            if (_backgroundManager != null)
-                await _backgroundManager.UpdateBackground(null, null);
-        };
-        _tosuApi.HasModsChanged += async () =>
-        {
-            await _chartManager.UpdateChart(_tosuApi.GetGraphData(), ViewModel.MinCompletionPercentage);
-            await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
+            var graphTask = Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData())).GetTask();
+            var bgTask = _backgroundManager != null
+                ? _backgroundManager.UpdateBackground(null, null)
+                : Task.CompletedTask;
+            await Task.WhenAll(graphTask, bgTask);
         };
         _tosuApi.HasRateChanged += async () =>
         {
             await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
-            if (_backgroundManager != null)
-                await _backgroundManager.UpdateBackground(null, null);
+        };
+        _tosuApi.HasModsChanged += async () =>
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
         };
         _tosuApi.HasBPMChanged += async () =>
         {
             await Dispatcher.UIThread.InvokeAsync(UpdateCogSpinBpm);
-            
+            _tosuApi.RaiseKiaiChanged();
+
             if (_tosuApi._isKiai && _kiaiBrightnessTimer != null)
             {
                 var bpm = _tosuApi.GetCurrentBpm();
-                var intervalMs = 60000.0 / bpm;
-                _kiaiBrightnessTimer.Interval = TimeSpan.FromMilliseconds(intervalMs);
+                _kiaiMsPerBeat = 60000.0 / bpm;
             }
         };
-        _breakPeriod.BreakPeriodEntered += async () => { Console.WriteLine("Break period entered"); };
-        _breakPeriod.BreakPeriodExited += async () => { Console.WriteLine("Break period exited"); };
         _tosuApi.HasKiaiChanged += async (sender, e) =>
         {
             if (!_viewModel.IsBackgroundEnabled)
                 return;
 
+            // Always update opacity based on the current state
+            opacity = _isSettingsPanelOpen ? 0.50 : 0;
+
             if (_tosuApi._isKiai && _viewModel.IsKiaiEffectEnabled)
             {
-                var bpm = _tosuApi.GetCurrentBpm();
-                var intervalMs = 60000.0 / Math.Max(bpm, 1);
+                double bpm = _tosuApi.GetCurrentBpm();
+                double intervalMs = (60000.0 / bpm);
 
                 _kiaiBrightnessTimer?.Stop();
                 _kiaiBrightnessTimer = new DispatcherTimer
                 {
                     Interval = TimeSpan.FromMilliseconds(intervalMs)
                 };
-                _isKiaiPulseHigh = false;
-
                 _kiaiBrightnessTimer.Tick += async (_, _) =>
                 {
                     _isKiaiPulseHigh = !_isKiaiPulseHigh;
-                    var targetBrightness = _isKiaiPulseHigh ? 0.025 : 0.05;
-                    targetBrightness = Math.Clamp(targetBrightness, 0.0, 0.25);
-                    await _backgroundManager.RequestBackgroundOverlay(
-                        "kiai",
-                        Colors.White,
-                        targetBrightness,
-                        10000,
-                        (int)(intervalMs / 2)
-                    );
+                    if (_isKiaiPulseHigh)
+                    {
+                        await _backgroundManager.RequestBackgroundOpacity("kiai", 1.0 - opacity, 10000, (int)(intervalMs / 4));
+                    }
+                    else
+                    {
+                        await _backgroundManager.RequestBackgroundOpacity("kiai", 0.85 - opacity, 10000, (int)(intervalMs / 4));
+                    }
                 };
                 _kiaiBrightnessTimer.Start();
             }
@@ -250,9 +253,16 @@ public partial class MainWindow : Window
             {
                 _kiaiBrightnessTimer?.Stop();
                 _kiaiBrightnessTimer = null;
-                await _backgroundManager.RequestBackgroundOverlay("kiai", Colors.White, 0.0, 10000);
+
+                if (_isSettingsPanelOpen)
+                {
+                    await _backgroundManager.RequestBackgroundOpacity("settings", 0.5, 10, 150);
+                }
+
+                _backgroundManager.RemoveBackgroundOpacityRequest("kiai");
             }
         };
+
         settingsButtonClicked = async () =>
         {
             if (_isSettingsPanelOpen)
@@ -263,7 +273,9 @@ public partial class MainWindow : Window
             else
             {
                 opacity = 0.5;
-                await _backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150);
+                // Only set settings opacity if not in kiai
+                if (!_tosuApi._isKiai || !_viewModel.IsKiaiEffectEnabled)
+                    await _backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150);
             }
         };
 
@@ -561,29 +573,37 @@ public partial class MainWindow : Window
             });
     }
 
+    private GraphData? _lastGraphData;
+
     private void OnGraphDataUpdated(GraphData? graphData)
     {
         if (graphData == null || graphData.Series.Count < 2)
             return;
+
+        if (ReferenceEquals(graphData, _lastGraphData))
+            return;
+        _lastGraphData = graphData;
 
         var series0 = graphData.Series[0];
         var series1 = graphData.Series[1];
         series0.Name = "aim";
         series1.Name = "speed";
 
-        var data0 = series0.Data;
-        var data1 = series1.Data;
+        if (!ReferenceEquals(ChartData.Series1Values, series0.Data))
+        {
+            var list0 = new List<ObservablePoint>(series0.Data.Count);
+            for (var i = 0; i < series0.Data.Count; i++)
+                list0.Add(new ObservablePoint(i, series0.Data[i]));
+            ChartData.Series1Values = list0;
+        }
 
-        var list0 = new List<ObservablePoint>(data0.Count);
-        var list1 = new List<ObservablePoint>(data1.Count);
-
-        for (var i = 0; i < data0.Count; i++)
-            list0.Add(new ObservablePoint(i, data0[i]));
-        for (var i = 0; i < data1.Count; i++)
-            list1.Add(new ObservablePoint(i, data1[i]));
-
-        ChartData.Series1Values = list0;
-        ChartData.Series2Values = list1;
+        if (!ReferenceEquals(ChartData.Series2Values, series1.Data))
+        {
+            var list1 = new List<ObservablePoint>(series1.Data.Count);
+            for (var i = 0; i < series1.Data.Count; i++)
+                list1.Add(new ObservablePoint(i, series1.Data[i]));
+            ChartData.Series2Values = list1;
+        }
 
         Dispatcher.UIThread.InvokeAsync(() =>
             _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage));
@@ -735,13 +755,18 @@ public partial class MainWindow : Window
 
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
+        //var sw = Stopwatch.StartNew();
+
         _tosuApi.CheckForBeatmapChange();
         _tosuApi.CheckForModChange();
         _tosuApi.CheckForBPMChange();
         _tosuApi.CheckForKiaiChange();
         _tosuApi.CheckForRateAdjustChange();
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
+        //sw.Stop();
+        //Console.WriteLine($"MainTimer tick took {sw.ElapsedMilliseconds} ms");
     }
+
 
     public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)
     {

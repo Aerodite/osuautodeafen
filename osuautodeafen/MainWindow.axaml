@@ -5,7 +5,10 @@
         xmlns:local="clr-namespace:osuautodeafen"
         xmlns:cs="clr-namespace:osuautodeafen.cs"
         xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
+        xmlns:skiaSharpView="clr-namespace:LiveChartsCore.SkiaSharpView;assembly=LiveChartsCore.SkiaSharpView"
+        xmlns:painting="clr-namespace:LiveChartsCore.SkiaSharpView.Painting;assembly=LiveChartsCore.SkiaSharpView"
         xmlns:settings="clr-namespace:osuautodeafen.cs.Settings"
+        xmlns:global="clr-namespace:"
         xmlns:strainGraph="clr-namespace:osuautodeafen.cs.StrainGraph"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
@@ -17,7 +20,14 @@
         <local:UpdateNotificationMarginConverter x:Key="UpdateNotificationMarginConverter" />
         <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
+        <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
     </Window.Resources>
+    
 
 
     <Grid ZIndex="5">
@@ -29,7 +39,7 @@
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" x:Name="TextBlockPanel" Margin="0,82,0,0">
             <StackPanel Orientation="Horizontal" Margin="0,0,0,0" x:Name="osuautodeafenLogoPanel">
                 <Image Name="osuLogo" Source="avares://osuautodeafen/Resources/osu_whitestroke.png" Height="60"
-                       Margin="0,0,1,0" />
+                       Margin="0,0,0,0" />
                 <ContentControl Name="LogoHost" Margin="0,0,0,0" />
             </StackPanel>
             <TextBlock Text="{Binding CurrentAppVersion}" HorizontalAlignment="Center" VerticalAlignment="Top"
@@ -44,8 +54,7 @@
                     <Image Source="avares://osuautodeafen/Icons/outline.png"
                            Width="50" Height="50">
                         <Image.OpacityMask>
-                            <MultiBinding Converter="{StaticResource ColorBlendConverter}"
-                                          x:DataType="cs:SharedViewModel">
+                            <MultiBinding Converter="{StaticResource ColorBlendConverter}" x:DataType="cs:SharedViewModel">
                                 <Binding Path="Color" Source="{StaticResource BaseBackgroundBrush}" />
                                 <Binding Path="AverageColorBrush.Color" />
                             </MultiBinding>
@@ -105,8 +114,7 @@
                                     PointerPressed="CompletionPercentageSlider_PointerPressed"
                                     PointerReleased="CompletionPercentageSlider_PointerReleased">
                                 <ToolTip.Tip>
-                                    <TextBlock
-                                        Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F0}%'}" />
+                                    <TextBlock Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F0}%'}"/>
                                 </ToolTip.Tip>
                             </Slider>
                         </StackPanel>
@@ -117,9 +125,9 @@
                                Margin="0,5,5,0" />
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="StarRatingSlider"
-                                    Minimum="0"
-                                    Maximum="10"
-                                    TickFrequency="0.1"
+                                    Minimum="0" 
+                                    Maximum="10" 
+                                    TickFrequency="0.1" 
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding StarRating, Mode=OneWayToSource}"
                                     Width="100" HorizontalAlignment="Center"
@@ -128,8 +136,7 @@
                                     PointerPressed="StarRatingSlider_PointerPressed"
                                     PointerReleased="StarRatingSlider_PointerReleased">
                                 <ToolTip.Tip>
-                                    <TextBlock
-                                        Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F1}*'}" />
+                                    <TextBlock Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F1}*'}"/>
                                 </ToolTip.Tip>
                             </Slider>
                         </StackPanel>
@@ -140,9 +147,9 @@
                                Margin="0,7,5,0" />
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="PPSlider"
-                                    Minimum="0"
-                                    Maximum="1000"
-                                    TickFrequency="10"
+                                    Minimum="0" 
+                                    Maximum="1000" 
+                                    TickFrequency="10" 
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding PerformancePoints, Mode=OneWayToSource}"
                                     Width="100" HorizontalAlignment="Center"
@@ -151,8 +158,7 @@
                                     PointerPressed="PPSlider_PointerPressed"
                                     PointerReleased="PPSlider_PointerReleased">
                                 <ToolTip.Tip>
-                                    <TextBlock
-                                        Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F0}pp'}" />
+                                    <TextBlock Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F0}pp'}"/>
                                 </ToolTip.Tip>
                             </Slider>
                         </StackPanel>
@@ -308,7 +314,7 @@
                                 Margin="0,0,0,10"
                                 FontSize="12"
                                 Foreground="White"
-                                VerticalAlignment="Bottom">
+                                VerticalAlignment="Bottom" >
                             <Image x:Name="OpenFileLocationImage"
                                    Source="avares://osuautodeafen/Icons/folder-open-solid.png"
                                    Width="20" Height="20"
@@ -316,7 +322,7 @@
                                    VerticalAlignment="Center"
                                    RenderTransformOrigin="0.5,0.5" />
                             <ToolTip.Tip>
-                                <TextBlock Text="Open AppData Folder" />
+                                <TextBlock Text="Open AppData Folder"/>
                             </ToolTip.Tip>
                         </Button>
                         <Button x:Name="ReportIssueButton"
@@ -330,7 +336,7 @@
                                 Margin="0,0,0,10"
                                 FontSize="12"
                                 Foreground="White"
-                                VerticalAlignment="Bottom">
+                                VerticalAlignment="Bottom" >
                             <Image x:Name="ReportIssueImage"
                                    Source="avares://osuautodeafen/Icons/bug-solid.png"
                                    Width="20" Height="20"
@@ -338,7 +344,7 @@
                                    VerticalAlignment="Center"
                                    RenderTransformOrigin="0.5,0.5" />
                             <ToolTip.Tip>
-                                <TextBlock Text="Report an Issue" />
+                                <TextBlock Text="Report an Issue"/>
                             </ToolTip.Tip>
                         </Button>
                     </StackPanel>
@@ -369,10 +375,10 @@
                         VerticalAlignment="Stretch"
                         Margin="{Binding IsVisible, ElementName=UpdateNotificationBar, Converter={StaticResource UpdateNotificationMarginConverter}}"
                         Foreground="White"
-                        Height="120" />
+                        Height="120"/>
                     <strainGraph:ProgressIndicatorOverlay
                         x:Name="ProgressOverlay"
-                        IsHitTestVisible="False" />
+                        IsHitTestVisible="False"/>
                 </Grid>
             </Grid>
             <Grid HorizontalAlignment="Stretch" x:Name="UpdateNotificationGrid" VerticalAlignment="Bottom"
