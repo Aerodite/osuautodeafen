@@ -397,6 +397,22 @@ public class ChartManager
         }
 
         var combinedSections = cachedBreakPeriods.Concat(cachedKiaiPeriods).ToList();
+        
+        // Always create/update the deafen overlay section
+        var newXi = minCompletionPercentage * maxLimit / 100.0;
+        var deafenSection = new RectangularSection
+        {
+            Xi = newXi,
+            Xj = maxLimit,
+            Yi = 0,
+            Yj = maxYValue,
+            Fill = new SolidColorPaint { Color = DeafenOverlayColor }
+        };
+        
+        combinedSections.RemoveAll(s => s is { Fill: SolidColorPaint paint } && paint.Color == DeafenOverlayColor);
+        
+        combinedSections.Add(deafenSection);
+
         if (!_lastCombinedSections.SequenceEqual(combinedSections, SectionComparer))
         {
             PlotView.Sections = combinedSections;
