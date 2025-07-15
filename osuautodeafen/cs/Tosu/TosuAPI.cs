@@ -53,6 +53,8 @@ public class TosuApi : IDisposable
     private ClientWebSocket _webSocket;
     private string beatmapChecksum;
     public bool _isKiai;
+    
+    public event EventHandler? HasKiaiChanged;
 
     public TosuApi()
     {
@@ -94,8 +96,6 @@ public class TosuApi : IDisposable
     public event Action? BeatmapChanged;
 
     public event Action? HasModsChanged;
-    
-    public event Action? HasKiaiChanged;
     
     public event Action? HasBPMChanged;
 
@@ -561,8 +561,7 @@ public class TosuApi : IDisposable
             return;
         _lastKiaiValue = _isKiai;
         var handler = HasKiaiChanged;
-        handler?.Invoke();
-        Console.WriteLine($"Kiai changed to: {_isKiai}");
+        handler?.Invoke(this, EventArgs.Empty);
     }
     
     // This is exclusively used for the Background toggle, because it can't exactly check
@@ -612,6 +611,11 @@ public class TosuApi : IDisposable
         if (GetMissCount() > 0 || GetSBCount() > 0) return false;
         // if there are no misses and no slider breaks, return true
         return true;
+    }
+    
+    public void RaiseKiaiChanged()
+    {
+        HasKiaiChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private GraphData? ParseGraphData(JsonElement graphElement)

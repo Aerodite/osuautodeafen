@@ -19,54 +19,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private double _performancePoints;
     private double _starRating;
     
-    public static IniData CreateDefaultIniData()
-    {
-        var data = new IniData();
-
-        data.Sections.AddSection("General");
-        data["General"]["MinCompletionPercentage"] = "60";
-        data["General"]["StarRating"] = "0";
-        data["General"]["PerformancePoints"] = "0";
-
-        data.Sections.AddSection("Behavior");
-        data["Behavior"]["IsFCRequired"] = "False";
-        data["Behavior"]["UndeafenAfterMiss"] = "False";
-        data["Behavior"]["IsBreakUndeafenToggleEnabled"] = "False";
-
-        data.Sections.AddSection("Hotkeys");
-        data["Hotkeys"]["DeafenKeybind"] = "Control+D";
-
-        data.Sections.AddSection("UI");
-        data["UI"]["IsBackgroundEnabled"] = "True";
-        data["UI"]["IsParallaxEnabled"] = "True";
-        data["UI"]["IsBlurEffectEnabled"] = "False";
-        data["UI"]["WindowWidth"] = "630";
-        data["UI"]["WindowHeight"] = "630";
-
-        return data;
-    }
-
-    public SettingsHandler()
-    {
-        _appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen");
-        _iniPath = Path.Combine(_appPath, "settings.ini");
-        Directory.CreateDirectory(_appPath);
-
-        if (!File.Exists(_iniPath))
-        {
-            Data = CreateDefaultIniData();
-            _parser.WriteFile(_iniPath, Data);
-        }
-        else
-        {
-            Data = _parser.ReadFile(_iniPath);
-        }
-
-        LoadSettings();
-    }
-
-    public string GetPath() => _appPath;
-
+    private double _windowWidth;
+    private double _windowHeight;
+    
     public double MinCompletionPercentage
     {
         get => _minCompletionPercentage;
@@ -94,6 +49,23 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         }
     }
 
+    public double WindowWidth
+    {
+        get => _windowWidth;
+        set
+        {
+            if (Set(ref _windowWidth, value)) SaveSetting("UI", "WindowWidth", value);
+        }
+    }
+    public double WindowHeight
+    {
+        get => _windowHeight;
+        set
+        {
+            if (Set(ref _windowHeight, value)) SaveSetting("UI", "WindowHeight", value);
+        }
+    }
+
     public bool IsFCRequired { get; set; }
     public bool UndeafenAfterMiss { get; set; }
     public bool IsBackgroundEnabled { get; set; }
@@ -101,18 +73,57 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public bool IsBlurEffectEnabled { get; set; }
     public string? DeafenKeybind { get; set; }
     public bool IsBreakUndeafenToggleEnabled { get; set; }
+    public bool IsKiaiEffectEnabled { get; set; }
     
-    public double WindowWidth
+    public static IniData CreateDefaultIniData()
     {
-        get => double.TryParse(Data["UI"]["WindowWidth"], out var w) ? w : 630;
-        set => SaveSetting("UI", "WindowWidth", value);
+        var data = new IniData();
+
+        data.Sections.AddSection("General");
+        data["General"]["MinCompletionPercentage"] = "60";
+        data["General"]["StarRating"] = "0";
+        data["General"]["PerformancePoints"] = "0";
+
+        data.Sections.AddSection("Behavior");
+        data["Behavior"]["IsFCRequired"] = "False";
+        data["Behavior"]["UndeafenAfterMiss"] = "False";
+        data["Behavior"]["IsBreakUndeafenToggleEnabled"] = "False";
+
+        data.Sections.AddSection("Hotkeys");
+        data["Hotkeys"]["DeafenKeybindKey"] = "47"; // D
+        data["Hotkeys"]["DeafenKeybindModifiers"] = "2"; // Ctrl
+        
+        data.Sections.AddSection("UI");
+        data["UI"]["IsBackgroundEnabled"] = "True";
+        data["UI"]["IsParallaxEnabled"] = "True";
+        data["UI"]["IsBlurEffectEnabled"] = "False";
+        data["UI"]["IsKiaiEffectEnabled"] = "True";
+        data["UI"]["WindowWidth"] = "630";
+        data["UI"]["WindowHeight"] = "630";
+
+        return data;
     }
 
-    public double WindowHeight
+    public SettingsHandler()
     {
-        get => double.TryParse(Data["UI"]["WindowHeight"], out var h) ? h : 630;
-        set => SaveSetting("UI", "WindowHeight", value);
+        _appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen");
+        _iniPath = Path.Combine(_appPath, "settings.ini");
+        Directory.CreateDirectory(_appPath);
+
+        if (!File.Exists(_iniPath))
+        {
+            Data = CreateDefaultIniData();
+            _parser.WriteFile(_iniPath, Data);
+        }
+        else
+        {
+            Data = _parser.ReadFile(_iniPath);
+        }
+
+        LoadSettings();
     }
+
+    public string GetPath() => _appPath;
 
     public new event PropertyChangedEventHandler? PropertyChanged;
 
@@ -135,12 +146,15 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         IsFCRequired = bool.TryParse(Data["Behavior"]["IsFCRequired"], out var fc) && fc;
         UndeafenAfterMiss = bool.TryParse(Data["Behavior"]["UndeafenAfterMiss"], out var uam) && uam;
 
-        DeafenKeybind = Data["Hotkeys"]["DeafenKeybind"];
+        DeafenKeybind = $"{Data["Hotkeys"]["DeafenKeybindKey"]},{Data["Hotkeys"]["DeafenKeybindModifiers"]}";
 
         IsBackgroundEnabled = bool.TryParse(Data["UI"]["IsBackgroundEnabled"], out var bg) && bg;
         IsParallaxEnabled = bool.TryParse(Data["UI"]["IsParallaxEnabled"], out var px) && px;
         IsBlurEffectEnabled = bool.TryParse(Data["UI"]["IsBlurEffectEnabled"], out var blur) && blur;
-
+        IsKiaiEffectEnabled = bool.TryParse(Data["UI"]["IsKiaiEffectEnabled"], out var kiai) && kiai;
+        _windowWidth = double.TryParse(Data["UI"]["WindowWidth"], out var width) ? width : 630;
+        _windowHeight = double.TryParse(Data["UI"]["WindowHeight"], out var height) ? height : 630;
+        
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MinCompletionPercentage)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StarRating)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PerformancePoints)));
@@ -151,6 +165,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsBlurEffectEnabled)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybind)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsBreakUndeafenToggleEnabled)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsKiaiEffectEnabled)));
     }
 
     public void SaveSetting(string section, string key, object? value)
