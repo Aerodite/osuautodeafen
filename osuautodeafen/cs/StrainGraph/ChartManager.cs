@@ -1,4 +1,4 @@
-﻿﻿﻿using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -26,7 +26,8 @@ public class ChartManager
     private double maxLimit;
     private double maxYValue;
 
-    public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel, BreakPeriodCalculator _breakPeriod)
+    public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel,
+        BreakPeriodCalculator _breakPeriod)
     {
         PlotView = plotView ?? throw new ArgumentNullException(nameof(plotView));
         _tosuApi = tosuApi ?? throw new ArgumentNullException(nameof(tosuApi));
@@ -123,7 +124,8 @@ public class ChartManager
         PlotView.InvalidateVisual();
     }
 
-    public async Task UpdateChart(GraphData? graphData, double minCompletionPercentage, BreakPeriodCalculator _breakPeriod)
+    public async Task UpdateChart(GraphData? graphData, double minCompletionPercentage,
+        BreakPeriodCalculator _breakPeriod)
     {
         if (graphData == null) return;
 

@@ -20,11 +20,9 @@ public class TosuApi : IDisposable
     private readonly Timer _timer;
     private int _beatmapId;
     private int _beatmapSetId;
-    private bool _isBreakPeriod;
     private BreakPeriod _breakPeriod = null!;
     private double _combo;
     private double _completionPercentage;
-    private bool _lastKiaiValue;
     private double _current;
     private double _DTRate;
     private double _firstObj;
@@ -33,15 +31,17 @@ public class TosuApi : IDisposable
     private double _fullSR;
     private string? _gameDirectory;
     private JsonElement _graphData;
+    private bool _isBreakPeriod;
+    public bool _isKiai;
     private string? _lastBeatmapChecksum = "abcdefghijklmnop";
     private int _lastBeatmapId = -1;
     private double? _lastBpm;
+    private bool _lastKiaiValue;
     private double _lastModNumber;
     private double _maxCombo;
     private double _maxPP;
     private double _missCount;
     private string? _modNames;
-    private double? realtimeBpm;
     private int _modNumber;
     private string? _osuFilePath = "";
     private double _rankedStatus;
@@ -52,9 +52,7 @@ public class TosuApi : IDisposable
     private string? _songFilePath;
     private ClientWebSocket _webSocket;
     private string beatmapChecksum;
-    public bool _isKiai;
-    
-    public event EventHandler? HasKiaiChanged;
+    private double? realtimeBpm;
 
     public TosuApi()
     {
@@ -93,10 +91,12 @@ public class TosuApi : IDisposable
         _webSocket.Dispose();
     }
 
+    public event EventHandler? HasKiaiChanged;
+
     public event Action? BeatmapChanged;
 
     public event Action? HasModsChanged;
-    
+
     public event Action? HasBPMChanged;
 
     public event Action<GraphData>? GraphDataUpdated;
@@ -237,9 +237,9 @@ public class TosuApi : IDisposable
                             _beatmapSetId = beatmapSetId.GetInt32();
                         if (beatmap.TryGetProperty("checksum", out var checksum))
                             beatmapChecksum = checksum.GetString() ?? throw new InvalidOperationException();
-                        if(beatmap.TryGetProperty("stats", out var beatmapStatistics) &&
-                           beatmapStatistics.TryGetProperty("bpm", out var bpm) &&
-                           bpm.TryGetProperty("realtime", out var realtime))
+                        if (beatmap.TryGetProperty("stats", out var beatmapStatistics) &&
+                            beatmapStatistics.TryGetProperty("bpm", out var bpm) &&
+                            bpm.TryGetProperty("realtime", out var realtime))
                         {
                             if (realtime.ValueKind == JsonValueKind.Number)
                                 realtimeBpm = realtime.GetDouble();
@@ -250,15 +250,8 @@ public class TosuApi : IDisposable
                                     realtimeBpm = 0;
                         }
 
-                        if (beatmap.TryGetProperty("isBreak", out var isBreak))
-                        {
-                            _isBreakPeriod = isBreak.GetBoolean();
-                        }
-                        if (beatmap.TryGetProperty("isKiai", out var isKiai))
-                        {
-                            _isKiai = isKiai.GetBoolean();
-                        }
-                         
+                        if (beatmap.TryGetProperty("isBreak", out var isBreak)) _isBreakPeriod = isBreak.GetBoolean();
+                        if (beatmap.TryGetProperty("isKiai", out var isKiai)) _isKiai = isKiai.GetBoolean();
                     }
 
                     if (root.TryGetProperty("play", out var play))
@@ -379,7 +372,7 @@ public class TosuApi : IDisposable
             _completionPercentage = 100;
         else
             _completionPercentage = (_current - _firstObj) / (_full - _firstObj) * 100;
-        
+
         //Console.WriteLine($"Completion Percentage: {_completionPercentage}");
         return _completionPercentage;
     }
@@ -389,7 +382,7 @@ public class TosuApi : IDisposable
     {
         return _fullSR;
     }
-    
+
     public double GetCurrentBpm()
     {
         if (realtimeBpm.HasValue)
@@ -496,12 +489,12 @@ public class TosuApi : IDisposable
     {
         return beatmapChecksum;
     }
-    
+
     public bool IsBreakPeriod()
     {
         return _isBreakPeriod;
     }
-    
+
     public bool IsKiai()
     {
         return _isKiai;
@@ -554,7 +547,7 @@ public class TosuApi : IDisposable
         var handler = BeatmapChanged;
         handler?.Invoke();
     }
-    
+
     public void CheckForKiaiChange()
     {
         if (_isKiai == _lastKiaiValue)
@@ -563,7 +556,7 @@ public class TosuApi : IDisposable
         var handler = HasKiaiChanged;
         handler?.Invoke(this, EventArgs.Empty);
     }
-    
+
     // This is exclusively used for the Background toggle, because it can't exactly check
     // for a different checksum if its not checking for beatmaps in the first place 🤯
     public void ForceBeatmapChange()
@@ -582,7 +575,7 @@ public class TosuApi : IDisposable
         if (handler != null)
             handler();
     }
-    
+
     public void CheckForBPMChange()
     {
         var bpm = GetCurrentBpm();
@@ -604,7 +597,7 @@ public class TosuApi : IDisposable
             return null;
         }
     }
-    
+
     public bool IsFullCombo()
     {
         // if there are any misses or slider breaks, return false
@@ -612,7 +605,7 @@ public class TosuApi : IDisposable
         // if there are no misses and no slider breaks, return true
         return true;
     }
-    
+
     public void RaiseKiaiChanged()
     {
         HasKiaiChanged?.Invoke(this, EventArgs.Empty);

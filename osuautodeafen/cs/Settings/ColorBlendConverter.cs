@@ -13,11 +13,11 @@ public class ColorBlendConverter : IMultiValueConverter
         if (values.Count < 2 || values[0] is not Color baseColor || values[1] is not Color blendColor)
             return new SolidColorBrush(Colors.Transparent);
 
-        double blendAmount = 0.1;
-        byte a = (byte)(baseColor.A * (1 - blendAmount) + blendColor.A * blendAmount);
-        byte r = (byte)(baseColor.R * (1 - blendAmount) + blendColor.R * blendAmount);
-        byte g = (byte)(baseColor.G * (1 - blendAmount) + blendColor.G * blendAmount);
-        byte b = (byte)(baseColor.B * (1 - blendAmount) + blendColor.B * blendAmount);
+        var blendAmount = 0.1;
+        var a = (byte)(baseColor.A * (1 - blendAmount) + blendColor.A * blendAmount);
+        var r = (byte)(baseColor.R * (1 - blendAmount) + blendColor.R * blendAmount);
+        var g = (byte)(baseColor.G * (1 - blendAmount) + blendColor.G * blendAmount);
+        var b = (byte)(baseColor.B * (1 - blendAmount) + blendColor.B * blendAmount);
 
         return new SolidColorBrush(Color.FromArgb(a, r, g, b));
     }
