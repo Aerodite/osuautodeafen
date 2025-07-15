@@ -33,45 +33,55 @@ namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
+    private const double beatsPerRotation = 4;
     private readonly AnimationManager _animationManager = new();
+
+    private readonly BackgroundManager? _backgroundManager;
     private readonly BreakPeriodCalculator _breakPeriod;
 
     private readonly ChartManager _chartManager;
+    private readonly object _cogSpinLock = new();
     private readonly GetLowResBackground? _getLowResBackground;
     private readonly DispatcherTimer _mainTimer;
+
+    private readonly SemaphoreSlim _panelAnimationLock = new(1, 1);
     private readonly ProgressIndicatorHelper _progressIndicatorHelper;
     private readonly SettingsHandler? _settingsHandler;
+
+    public readonly TosuApi _tosuApi = new();
 
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
 
     private readonly SharedViewModel _viewModel;
-    
-    private Bitmap? _currentBitmap;
-    
+
+    private readonly Action settingsButtonClicked;
+
     public Image? _blurredBackground;
-    
+
     private double _cogCurrentAngle;
+    private double _cogSpinBpm = 140;
+    private double _cogSpinStartAngle;
+
+    private DateTime _cogSpinStartTime;
 
     private DispatcherTimer? _cogSpinTimer;
 
+    private Bitmap? _currentBitmap;
+
+    private bool _isCogSpinning;
+    private bool _isKiaiPulseHigh;
+
+    public bool _isSettingsPanelOpen;
+
+    private DispatcherTimer? _kiaiBrightnessTimer;
+
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
-    
+
     private LogoControl? _logoControl;
 
     public Image? _normalBackground;
-    
-    public readonly TosuApi _tosuApi = new();
 
-    public bool _isSettingsPanelOpen = false;
-    
-    private readonly BackgroundManager? _backgroundManager;
-    
-    private DispatcherTimer? _kiaiBrightnessTimer;
-    private bool _isKiaiPulseHigh = false;
-
-    private Action settingsButtonClicked;
-    
     private double opacity = 1.00;
 
 
@@ -86,39 +96,39 @@ public partial class MainWindow : Window
         _viewModel = new SharedViewModel(_tosuApi);
         ViewModel = _viewModel;
         DataContext = _viewModel;
-        
+
         InitializeLogo();
-        
+
         //TODO
         // maybe add a state for this depending on if its deafened or not
         Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.favicon.ico"));
-        
+
         _getLowResBackground = new GetLowResBackground(_tosuApi);
-        
-        _backgroundManager = new BackgroundManager( this, _viewModel, _tosuApi)
+
+        _backgroundManager = new BackgroundManager(this, _viewModel, _tosuApi)
         {
             _logoUpdater = null
         };
-        
+
         // settings bs
-        
+
         var settingsPanel = new SettingsHandler();
         _settingsHandler = settingsPanel;
         _settingsHandler.LoadSettings();
-        
+
         _viewModel.MinCompletionPercentage = (int)Math.Round(_settingsHandler.MinCompletionPercentage);
         _viewModel.StarRating = _settingsHandler.StarRating;
         _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
-        
+
         _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
         _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
         _viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
-        
+
         _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
         _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
         _viewModel.IsBlurEffectEnabled = _settingsHandler.IsBlurEffectEnabled;
         _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
-        
+
         CompletionPercentageSlider.ValueChanged -= CompletionPercentageSlider_ValueChanged;
         StarRatingSlider.ValueChanged -= StarRatingSlider_ValueChanged;
         PPSlider.ValueChanged -= PPSlider_ValueChanged;
@@ -139,9 +149,9 @@ public partial class MainWindow : Window
         ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
         BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
         KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
-        
+
         // end of settings bs
-        
+
         BackgroundManager.PrewarmRenderTarget();
 
         var oldContent = Content;
@@ -152,21 +162,21 @@ public partial class MainWindow : Window
         };
 
         InitializeViewModel();
-        
+
         _breakPeriod = new BreakPeriodCalculator();
         _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel, _breakPeriod);
         _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel);
-        
+
         // we just need to initialize it, no need for a global variable
         var deafen = new Deafen(_tosuApi, _settingsHandler, _viewModel);
-        
+
         // ideally we could use no timers whatsoever but for now this works fine
         // because it really only checks if events should be triggered
         _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
-        
+
         ProgressOverlay.ChartXMin = _progressIndicatorHelper.ChartXMin;
         ProgressOverlay.ChartXMax = _progressIndicatorHelper.ChartXMax;
         ProgressOverlay.ChartYMin = _progressIndicatorHelper.ChartYMin;
@@ -182,57 +192,51 @@ public partial class MainWindow : Window
         };
         _tosuApi.HasModsChanged += async () =>
         {
-            await _chartManager.UpdateChart(_tosuApi.GetGraphData(), ViewModel.MinCompletionPercentage, _breakPeriod);
+            await _chartManager.UpdateChart(_tosuApi.GetGraphData(), ViewModel.MinCompletionPercentage,
+                _breakPeriod);
         };
         _tosuApi.HasBPMChanged += async () =>
         {
             await Dispatcher.UIThread.InvokeAsync(UpdateCogSpinBpm);
-
-            // Update kiai pulse interval if kiai is active
+            
             if (_tosuApi._isKiai && _kiaiBrightnessTimer != null)
             {
-                double bpm = _tosuApi.GetCurrentBpm();
-                double intervalMs = 60000.0 / bpm;
+                var bpm = _tosuApi.GetCurrentBpm();
+                var intervalMs = 60000.0 / bpm;
                 _kiaiBrightnessTimer.Interval = TimeSpan.FromMilliseconds(intervalMs);
             }
         };
-        _breakPeriod.BreakPeriodEntered += async () =>
-        {
-          Console.WriteLine("Break period entered");
-        };
-        _breakPeriod.BreakPeriodExited += async () =>
-        {
-            Console.WriteLine("Break period exited");
-        };
+        _breakPeriod.BreakPeriodEntered += async () => { Console.WriteLine("Break period entered"); };
+        _breakPeriod.BreakPeriodExited += async () => { Console.WriteLine("Break period exited"); };
         _tosuApi.HasKiaiChanged += async (sender, e) =>
         {
             if (!_viewModel.IsBackgroundEnabled)
                 return;
 
-            // Always update opacity based on the current state
-            opacity = _isSettingsPanelOpen ? 0.50 : 0;
-
             if (_tosuApi._isKiai && _viewModel.IsKiaiEffectEnabled)
             {
-                double bpm = _tosuApi.GetCurrentBpm();
-                double intervalMs = (60000.0 / bpm);
+                var bpm = _tosuApi.GetCurrentBpm();
+                var intervalMs = 60000.0 / Math.Max(bpm, 1);
 
                 _kiaiBrightnessTimer?.Stop();
                 _kiaiBrightnessTimer = new DispatcherTimer
                 {
                     Interval = TimeSpan.FromMilliseconds(intervalMs)
                 };
+                _isKiaiPulseHigh = false;
+
                 _kiaiBrightnessTimer.Tick += async (_, _) =>
                 {
                     _isKiaiPulseHigh = !_isKiaiPulseHigh;
-                    if (_isKiaiPulseHigh)
-                    {
-                        await _backgroundManager.RequestBackgroundOpacity("kiai", 1.0 - opacity, 10000, (int)(intervalMs / 4));
-                    }
-                    else
-                    {
-                        await _backgroundManager.RequestBackgroundOpacity("kiai", 0.85 - opacity, 10000, (int)(intervalMs / 4));
-                    }
+                    var targetBrightness = _isKiaiPulseHigh ? 0.025 : 0.05;
+                    targetBrightness = Math.Clamp(targetBrightness, 0.0, 0.25);
+                    await _backgroundManager.RequestBackgroundOverlay(
+                        "kiai",
+                        Colors.White,
+                        targetBrightness,
+                        10000,
+                        (int)(intervalMs / 2)
+                    );
                 };
                 _kiaiBrightnessTimer.Start();
             }
@@ -240,13 +244,7 @@ public partial class MainWindow : Window
             {
                 _kiaiBrightnessTimer?.Stop();
                 _kiaiBrightnessTimer = null;
-
-                if (_isSettingsPanelOpen)
-                {
-                    await _backgroundManager.RequestBackgroundOpacity("settings", 0.5, 10, 150);
-                }
-
-                _backgroundManager.RemoveBackgroundOpacityRequest("kiai");
+                await _backgroundManager.RequestBackgroundOverlay("kiai", Colors.White, 0.0, 10000);
             }
         };
         settingsButtonClicked = async () =>
@@ -272,7 +270,7 @@ public partial class MainWindow : Window
                 Easing = new QuarticEaseInOut()
             }
         };
-        
+
         ExtendClientAreaToDecorationsHint = true;
         ExtendClientAreaTitleBarHeightHint = 32;
         ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
@@ -304,6 +302,9 @@ public partial class MainWindow : Window
         StarRatingSlider.Value = ViewModel.StarRating;
         PPSlider.Value = ViewModel.PerformancePoints;
     }
+
+    private SharedViewModel ViewModel { get; }
+
     private async void ResetButton_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -347,7 +348,7 @@ public partial class MainWindow : Window
             ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
             BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
             KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
-            
+
             var keyStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindKey"];
             var modStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindModifiers"];
             if (int.TryParse(keyStr, out var keyVal) && int.TryParse(modStr, out var modVal))
@@ -363,9 +364,10 @@ public partial class MainWindow : Window
             }
             else
             {
-                _viewModel.DeafenKeybind = new HotKey { Key = Key.None, ModifierKeys = KeyModifiers.None, FriendlyName = "None" };
+                _viewModel.DeafenKeybind = new HotKey
+                    { Key = Key.None, ModifierKeys = KeyModifiers.None, FriendlyName = "None" };
             }
-        
+
             await _chartManager.UpdateChart(_tosuApi.GetGraphData(), _viewModel.MinCompletionPercentage, _breakPeriod);
         }
         catch (Exception ex)
@@ -373,20 +375,21 @@ public partial class MainWindow : Window
             Console.WriteLine($"[ERROR] Exception in ResetButton_Click: {ex}");
         }
     }
-    
+
     private HotKey ParseHotKey(string? keybindString)
     {
         if (string.IsNullOrEmpty(keybindString))
             return new HotKey { Key = Key.None, ModifierKeys = KeyModifiers.None, FriendlyName = "None" };
 
         var parts = keybindString.Split('+');
-        KeyModifiers modifiers = KeyModifiers.None;
-        Key key = Key.None;
+        var modifiers = KeyModifiers.None;
+        var key = Key.None;
 
         foreach (var part in parts)
         {
             var trimmed = part.Trim();
-            if (trimmed.Equals("Control", StringComparison.OrdinalIgnoreCase) || trimmed.Equals("Ctrl", StringComparison.OrdinalIgnoreCase))
+            if (trimmed.Equals("Control", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Ctrl", StringComparison.OrdinalIgnoreCase))
                 modifiers |= KeyModifiers.Control;
             else if (trimmed.Equals("Alt", StringComparison.OrdinalIgnoreCase))
                 modifiers |= KeyModifiers.Alt;
@@ -403,10 +406,12 @@ public partial class MainWindow : Window
             FriendlyName = key.ToString()
         };
     }
+
     private void CompletionPercentageSlider_PointerPressed(object sender, PointerPressedEventArgs e)
     {
         ToolTip.SetIsOpen(CompletionPercentageSlider, true);
     }
+
     private void CompletionPercentageSlider_PointerMoved(object? sender, PointerEventArgs e)
     {
         if (sender is Slider slider)
@@ -424,16 +429,18 @@ public partial class MainWindow : Window
             }
         }
     }
+
     private void CompletionPercentageSlider_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (sender is Slider slider)
             ToolTip.SetIsOpen(slider, false);
     }
-    
+
     private void PPSlider_PointerPressed(object sender, PointerPressedEventArgs e)
     {
         ToolTip.SetIsOpen(CompletionPercentageSlider, true);
     }
+
     private void PPSlider_PointerMoved(object? sender, PointerEventArgs e)
     {
         if (sender is Slider slider)
@@ -451,15 +458,18 @@ public partial class MainWindow : Window
             }
         }
     }
+
     private void PPSlider_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (sender is Slider slider)
             ToolTip.SetIsOpen(slider, false);
     }
+
     private void StarRatingSlider_PointerPressed(object sender, PointerPressedEventArgs e)
     {
         ToolTip.SetIsOpen(CompletionPercentageSlider, true);
     }
+
     private void StarRatingSlider_PointerMoved(object? sender, PointerEventArgs e)
     {
         if (sender is Slider slider)
@@ -477,13 +487,12 @@ public partial class MainWindow : Window
             }
         }
     }
+
     private void StarRatingSlider_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (sender is Slider slider)
             ToolTip.SetIsOpen(slider, false);
     }
-
-    private SharedViewModel ViewModel { get; }
 
     //Settings
     private async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
@@ -526,26 +535,26 @@ public partial class MainWindow : Window
         _settingsHandler?.SaveSetting("General", "PerformancePoints", roundedValue);
     }
 
-    private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e) 
+    private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-    if (e.PropertyName == nameof(SharedViewModel.CompletionPercentage))
-    {
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            if (_progressIndicatorHelper == null || _tosuApi == null || ProgressOverlay == null)
-                return;
+        if (e.PropertyName == nameof(SharedViewModel.CompletionPercentage))
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (_progressIndicatorHelper == null || _tosuApi == null || ProgressOverlay == null)
+                    return;
 
-            ProgressOverlay.ChartXMin = _progressIndicatorHelper.ChartXMin;
-            ProgressOverlay.ChartXMax = _progressIndicatorHelper.ChartXMax;
-            ProgressOverlay.ChartYMin = _progressIndicatorHelper.ChartYMin;
-            ProgressOverlay.ChartYMax = _progressIndicatorHelper.ChartYMax;
+                ProgressOverlay.ChartXMin = _progressIndicatorHelper.ChartXMin;
+                ProgressOverlay.ChartXMax = _progressIndicatorHelper.ChartXMax;
+                ProgressOverlay.ChartYMin = _progressIndicatorHelper.ChartYMin;
+                ProgressOverlay.ChartYMax = _progressIndicatorHelper.ChartYMax;
 
-            var points = _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage(), force:true);
-            ProgressOverlay.Points = points;
-        });
+                var points =
+                    _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage(),
+                        force: true);
+                ProgressOverlay.Points = points;
+            });
     }
-}
-    
+
     private void OnGraphDataUpdated(GraphData? graphData)
     {
         if (graphData == null || graphData.Series.Count < 2)
@@ -569,8 +578,9 @@ public partial class MainWindow : Window
 
         ChartData.Series1Values = list0;
         ChartData.Series2Values = list1;
-        
-        Dispatcher.UIThread.InvokeAsync(() => _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage, _breakPeriod));
+
+        Dispatcher.UIThread.InvokeAsync(() =>
+            _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage, _breakPeriod));
     }
 
     // show the update notification bar if an update is available
@@ -994,7 +1004,7 @@ public partial class MainWindow : Window
 
         _tosuApi.Dispose();
     }
-    
+
     private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
     {
         try
@@ -1050,104 +1060,97 @@ public partial class MainWindow : Window
         }).GetTask();
     }
 
-    private DateTime _cogSpinStartTime;
-    private double _cogSpinStartAngle;
-    private double _cogSpinBpm = 140; // Default BPM
-
-    private const double beatsPerRotation = 4;
-
     private double CalculateCogSpinInterval(double bpm, double updatesPerBeat = 60, double minMs = 4, double maxMs = 50)
     {
         if (bpm <= 0) bpm = 140;
-        double msPerBeat = 60000.0 / bpm;
-        double intervalMs = msPerBeat / updatesPerBeat;
+        var msPerBeat = 60000.0 / bpm;
+        var intervalMs = msPerBeat / updatesPerBeat;
         Console.WriteLine($"Calculated interval: {intervalMs}ms for BPM: {bpm}");
         return Math.Clamp(intervalMs, minMs, maxMs);
     }
 
-private bool _isCogSpinning = false;
-private readonly object _cogSpinLock = new();
-
-private void StartCogSpin(Image cogImage)
-{
-    lock (_cogSpinLock)
+    private void StartCogSpin(Image cogImage)
     {
-        if (_isCogSpinning)
-            return;
-        _isCogSpinning = true;
-
-        if (_cogSpinTimer != null)
+        lock (_cogSpinLock)
         {
-            _cogSpinTimer.Stop();
+            if (_isCogSpinning)
+                return;
+            _isCogSpinning = true;
+
+            if (_cogSpinTimer != null)
+            {
+                _cogSpinTimer.Stop();
+                _cogSpinTimer = null;
+            }
+
+            var rotate = (RotateTransform)cogImage.RenderTransform!;
+            _cogSpinStartTime = DateTime.UtcNow;
+            _cogSpinStartAngle = _cogCurrentAngle;
+            _cogSpinBpm = _tosuApi.GetCurrentBpm() > 0 ? _tosuApi.GetCurrentBpm() : 140;
+
+            var intervalMs = CalculateCogSpinInterval(_cogSpinBpm);
+
+            _cogSpinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(intervalMs) };
+            _cogSpinTimer.Tick += (s, ev) =>
+            {
+                var elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
+                var angle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / beatsPerRotation) % 360;
+                _cogCurrentAngle = angle;
+                rotate.Angle = angle;
+            };
+            _cogSpinTimer.Start();
+        }
+    }
+
+    private async Task StopCogSpinAsync(Image cogImage)
+    {
+        lock (_cogSpinLock)
+        {
+            if (!_isCogSpinning)
+                return;
+            _isCogSpinning = false;
+            _cogSpinTimer?.Stop();
             _cogSpinTimer = null;
         }
 
-        var rotate = (RotateTransform)cogImage.RenderTransform!;
-        _cogSpinStartTime = DateTime.UtcNow;
-        _cogSpinStartAngle = _cogCurrentAngle;
-        _cogSpinBpm = _tosuApi.GetCurrentBpm() > 0 ? _tosuApi.GetCurrentBpm() : 140;
-
-        double intervalMs = CalculateCogSpinInterval(_cogSpinBpm);
-
-        _cogSpinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(intervalMs) };
-        _cogSpinTimer.Tick += (s, ev) =>
+        if (cogImage.RenderTransform is RotateTransform rotate)
         {
-            var elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
-            var angle = (_cogSpinStartAngle + (elapsed * _cogSpinBpm * 360 / beatsPerRotation)) % 360;
-            _cogCurrentAngle = angle;
-            rotate.Angle = angle;
-        };
-        _cogSpinTimer.Start();
-    }
-}
-
-private async Task StopCogSpinAsync(Image cogImage)
-{
-    lock (_cogSpinLock)
-    {
-        if (!_isCogSpinning)
-            return;
-        _isCogSpinning = false;
-        _cogSpinTimer?.Stop();
-        _cogSpinTimer = null;
-    }
-
-    if (cogImage.RenderTransform is RotateTransform rotate)
-    {
-        var start = _cogCurrentAngle;
-        double end = 0;
-        var duration = 250;
-        var steps = 20;
-        var step = (end - start) / steps;
-        await Task.Run(async () =>
-        {
-            for (var i = 1; i <= steps; i++)
+            var start = _cogCurrentAngle;
+            double end = 0;
+            var duration = 250;
+            var steps = 20;
+            var step = (end - start) / steps;
+            await Task.Run(async () =>
             {
-                await Task.Delay(duration / steps);
-                var angle = start + (step * i);
-                await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle).GetTask();
-            }
-            await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = 0).GetTask();
-            _cogCurrentAngle = 0;
-        });
+                for (var i = 1; i <= steps; i++)
+                {
+                    await Task.Delay(duration / steps);
+                    var angle = start + step * i;
+                    await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle).GetTask();
+                }
+
+                await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = 0).GetTask();
+                _cogCurrentAngle = 0;
+            });
+        }
     }
-}
 
     private void UpdateCogSpinBpm()
     {
         if (_cogSpinTimer != null && _cogSpinTimer.IsEnabled)
         {
             var elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
-            _cogSpinStartAngle = (_cogSpinStartAngle + (elapsed * _cogSpinBpm * 360 / beatsPerRotation)) % 360;
+            _cogSpinStartAngle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / beatsPerRotation) % 360;
             _cogSpinStartTime = DateTime.UtcNow;
             _cogSpinBpm = _tosuApi.GetCurrentBpm() > 0 ? _tosuApi.GetCurrentBpm() : 140;
 
-            double intervalMs = CalculateCogSpinInterval(_cogSpinBpm);
+            var intervalMs = CalculateCogSpinInterval(_cogSpinBpm);
             _cogSpinTimer.Interval = TimeSpan.FromMilliseconds(intervalMs);
         }
     }
 
-    private async Task SetupPanelTransitionsAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel)
+    private async Task SetupPanelTransitionsAsync(DockPanel settingsPanel, Border buttonContainer,
+        TextBlock versionPanel)
     {
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -1192,9 +1195,8 @@ private async Task StopCogSpinAsync(Image cogImage)
         });
     }
 
-    private readonly SemaphoreSlim _panelAnimationLock = new(1, 1);
-
-    private async Task AnimatePanelInAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel, Thickness showMargin, Thickness buttonLeftMargin)
+    private async Task AnimatePanelInAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel,
+        Thickness showMargin, Thickness buttonLeftMargin)
     {
         await _panelAnimationLock.WaitAsync();
         var shouldAnimate = !_isSettingsPanelOpen;
@@ -1220,7 +1222,8 @@ private async Task StopCogSpinAsync(Image cogImage)
         await Task.WhenAll(tasks);
     }
 
-    private async Task AnimatePanelOutAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel, Thickness hideMargin, Thickness buttonRightMargin)
+    private async Task AnimatePanelOutAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel,
+        Thickness hideMargin, Thickness buttonRightMargin)
     {
         await _panelAnimationLock.WaitAsync();
         var shouldAnimate = _isSettingsPanelOpen;
@@ -1229,7 +1232,7 @@ private async Task StopCogSpinAsync(Image cogImage)
         _panelAnimationLock.Release();
 
         if (!shouldAnimate) return;
-        
+
         if (!_tosuApi._isKiai || !_viewModel.IsBackgroundEnabled)
             _backgroundManager?.RemoveBackgroundOpacityRequest("settings");
 
@@ -1248,6 +1251,37 @@ private async Task StopCogSpinAsync(Image cogImage)
         var currentKeybind = RetrieveKeybindFromSettings();
         var deafenKeybindButton = this.FindControl<Button>("DeafenKeybindButton");
         if (deafenKeybindButton != null) deafenKeybindButton.Content = currentKeybind;
+    }
+
+    private void OpenFileLocationButton_Click(object? sender, RoutedEventArgs e)
+    {
+        var appPath = _settingsHandler?.GetPath();
+        if (appPath != null)
+        {
+            if (Directory.Exists(appPath))
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = appPath,
+                    UseShellExecute = true
+                });
+            else
+                Console.WriteLine($"[ERROR] Directory does not exist: {appPath}");
+        }
+        else
+        {
+            Console.WriteLine("[ERROR] App path is null.");
+        }
+    }
+
+    private void ReportIssueButton_Click(object? sender, RoutedEventArgs e)
+    {
+        var issueUrl =
+            "https://github.com/aerodite/osuautodeafen/issues/new?template=help.md&title=[BUG]%20Something%20Broke&body=help&labels=bug";
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = issueUrl,
+            UseShellExecute = true
+        });
     }
 
     public class HotKey
@@ -1271,41 +1305,6 @@ private async Task StopCogSpinAsync(Image cogImage)
 
             return string.Join("+", parts).Replace("==", "="); // Fix for equal key
         }
-    }
-
-    private void OpenFileLocationButton_Click(object? sender, RoutedEventArgs e)
-    {
-        var appPath = _settingsHandler?.GetPath();
-        if (appPath != null)
-        {
-            if (Directory.Exists(appPath))
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = appPath,
-                    UseShellExecute = true
-                });
-            }
-            else
-            {
-                Console.WriteLine($"[ERROR] Directory does not exist: {appPath}");
-            }
-        }
-        else
-        {
-            Console.WriteLine("[ERROR] App path is null.");
-        }
-    }
-
-    private void ReportIssueButton_Click(object? sender, RoutedEventArgs e)
-    {
-        var issueUrl =
-            "https://github.com/aerodite/osuautodeafen/issues/new?template=help.md&title=[BUG]%20Something%20Broke&body=help&labels=bug";
-        Process.Start(new ProcessStartInfo 
-        {
-            FileName = issueUrl,
-            UseShellExecute = true
-        });
     }
 }
 

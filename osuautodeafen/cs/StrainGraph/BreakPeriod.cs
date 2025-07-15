@@ -18,14 +18,14 @@ public class BreakPeriod
 
 public class BreakPeriodCalculator
 {
+    private bool _isInBreakPeriod;
+
+    public List<BreakPeriod> BreakPeriods { get; } = new();
     public event Action? BreakPeriodEntered;
     public event Action? BreakPeriodExited;
 
-    public List<BreakPeriod> BreakPeriods { get; } = new();
-
-    private bool _isInBreakPeriod = false;
-
-    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string osuFilePath, List<double> xAxis, List<double> yAxis)
+    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string osuFilePath, List<double> xAxis,
+        List<double> yAxis)
     {
         BreakPeriods.Clear();
 
@@ -99,7 +99,7 @@ public class BreakPeriodCalculator
 
     public void UpdateBreakPeriodState(TosuApi tosuApi)
     {
-        bool currentlyInBreak = IsBreakPeriod(tosuApi);
+        var currentlyInBreak = IsBreakPeriod(tosuApi);
 
         if (currentlyInBreak != _isInBreakPeriod)
         {

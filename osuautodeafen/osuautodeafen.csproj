@@ -79,16 +79,16 @@
         <AvaloniaResource Include="Icons\outline.png"/>
         <None Remove="Icons\gear-solid-small.png"/>
         <AvaloniaResource Include="Icons\gear-solid-small.png"/>
-        <None Remove="Icons\folder-open-solid.png" />
-        <AvaloniaResource Include="Icons\folder-open-solid.png" />
-        <None Remove="Icons\github.png" />
-        <AvaloniaResource Include="Icons\github.png" />
-        <None Remove="Icons\bug-solid.png" />
-        <AvaloniaResource Include="Icons\bug-solid.png" />
-        <None Remove="Icons\star-half-stroke-solid.png" />
-        <AvaloniaResource Include="Icons\star-half-stroke-solid.png" />
+        <None Remove="Icons\folder-open-solid.png"/>
+        <AvaloniaResource Include="Icons\folder-open-solid.png"/>
+        <None Remove="Icons\github.png"/>
+        <AvaloniaResource Include="Icons\github.png"/>
+        <None Remove="Icons\bug-solid.png"/>
+        <AvaloniaResource Include="Icons\bug-solid.png"/>
+        <None Remove="Icons\star-half-stroke-solid.png"/>
+        <AvaloniaResource Include="Icons\star-half-stroke-solid.png"/>
     </ItemGroup>
-    
+
     <ItemGroup>
         <None Remove="Resources\noise.png"/>
     </ItemGroup>
@@ -100,6 +100,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <AvaloniaResource Include="Resources\osu_whitestroke.png" />
+        <AvaloniaResource Include="Resources\osu_whitestroke.png"/>
     </ItemGroup>
 </Project>

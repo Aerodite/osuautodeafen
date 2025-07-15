@@ -10,18 +10,37 @@ namespace osuautodeafen.cs.Settings;
 
 public class SettingsHandler : Control, INotifyPropertyChanged
 {
-    private readonly string _iniPath;
     private readonly string _appPath;
+    private readonly string _iniPath;
     private readonly FileIniDataParser _parser = new();
-    public IniData Data;
 
     private double _minCompletionPercentage;
     private double _performancePoints;
     private double _starRating;
-    
-    private double _windowWidth;
     private double _windowHeight;
-    
+
+    private double _windowWidth;
+    public IniData Data;
+
+    public SettingsHandler()
+    {
+        _appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen");
+        _iniPath = Path.Combine(_appPath, "settings.ini");
+        Directory.CreateDirectory(_appPath);
+
+        if (!File.Exists(_iniPath))
+        {
+            Data = CreateDefaultIniData();
+            _parser.WriteFile(_iniPath, Data);
+        }
+        else
+        {
+            Data = _parser.ReadFile(_iniPath);
+        }
+
+        LoadSettings();
+    }
+
     public double MinCompletionPercentage
     {
         get => _minCompletionPercentage;
@@ -57,6 +76,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
             if (Set(ref _windowWidth, value)) SaveSetting("UI", "WindowWidth", value);
         }
     }
+
     public double WindowHeight
     {
         get => _windowHeight;
@@ -74,7 +94,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public string? DeafenKeybind { get; set; }
     public bool IsBreakUndeafenToggleEnabled { get; set; }
     public bool IsKiaiEffectEnabled { get; set; }
-    
+
+    public new event PropertyChangedEventHandler? PropertyChanged;
+
     public static IniData CreateDefaultIniData()
     {
         var data = new IniData();
@@ -92,7 +114,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         data.Sections.AddSection("Hotkeys");
         data["Hotkeys"]["DeafenKeybindKey"] = "47"; // D
         data["Hotkeys"]["DeafenKeybindModifiers"] = "2"; // Ctrl
-        
+
         data.Sections.AddSection("UI");
         data["UI"]["IsBackgroundEnabled"] = "True";
         data["UI"]["IsParallaxEnabled"] = "True";
@@ -104,28 +126,10 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         return data;
     }
 
-    public SettingsHandler()
+    public string GetPath()
     {
-        _appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen");
-        _iniPath = Path.Combine(_appPath, "settings.ini");
-        Directory.CreateDirectory(_appPath);
-
-        if (!File.Exists(_iniPath))
-        {
-            Data = CreateDefaultIniData();
-            _parser.WriteFile(_iniPath, Data);
-        }
-        else
-        {
-            Data = _parser.ReadFile(_iniPath);
-        }
-
-        LoadSettings();
+        return _appPath;
     }
-
-    public string GetPath() => _appPath;
-
-    public new event PropertyChangedEventHandler? PropertyChanged;
 
     private bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
@@ -140,7 +144,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         _minCompletionPercentage = double.TryParse(Data["General"]["MinCompletionPercentage"], out var mcp) ? mcp : 0;
         _starRating = double.TryParse(Data["General"]["StarRating"], out var sr) ? sr : 0;
         _performancePoints = double.TryParse(Data["General"]["PerformancePoints"], out var pp) ? pp : 0;
-        
+
         IsBreakUndeafenToggleEnabled =
             bool.TryParse(Data["Behavior"]["IsBreakUndeafenToggleEnabled"], out var bu) && bu;
         IsFCRequired = bool.TryParse(Data["Behavior"]["IsFCRequired"], out var fc) && fc;
@@ -154,7 +158,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         IsKiaiEffectEnabled = bool.TryParse(Data["UI"]["IsKiaiEffectEnabled"], out var kiai) && kiai;
         _windowWidth = double.TryParse(Data["UI"]["WindowWidth"], out var width) ? width : 630;
         _windowHeight = double.TryParse(Data["UI"]["WindowHeight"], out var height) ? height : 630;
-        
+
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MinCompletionPercentage)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StarRating)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PerformancePoints)));
