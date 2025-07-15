@@ -164,7 +164,7 @@ public partial class MainWindow : Window
         InitializeViewModel();
 
         _breakPeriod = new BreakPeriodCalculator();
-        _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel, _breakPeriod);
+        _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel);
         _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel);
 
         // we just need to initialize it, no need for a global variable
@@ -192,8 +192,14 @@ public partial class MainWindow : Window
         };
         _tosuApi.HasModsChanged += async () =>
         {
-            await _chartManager.UpdateChart(_tosuApi.GetGraphData(), ViewModel.MinCompletionPercentage,
-                _breakPeriod);
+            await _chartManager.UpdateChart(_tosuApi.GetGraphData(), ViewModel.MinCompletionPercentage);
+            await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
+        };
+        _tosuApi.HasRateChanged += async () =>
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
+            if (_backgroundManager != null)
+                await _backgroundManager.UpdateBackground(null, null);
         };
         _tosuApi.HasBPMChanged += async () =>
         {
@@ -368,7 +374,7 @@ public partial class MainWindow : Window
                     { Key = Key.None, ModifierKeys = KeyModifiers.None, FriendlyName = "None" };
             }
 
-            await _chartManager.UpdateChart(_tosuApi.GetGraphData(), _viewModel.MinCompletionPercentage, _breakPeriod);
+            await _chartManager.UpdateChart(_tosuApi.GetGraphData(), _viewModel.MinCompletionPercentage);
         }
         catch (Exception ex)
         {
@@ -580,7 +586,7 @@ public partial class MainWindow : Window
         ChartData.Series2Values = list1;
 
         Dispatcher.UIThread.InvokeAsync(() =>
-            _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage, _breakPeriod));
+            _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage));
     }
 
     // show the update notification bar if an update is available
@@ -733,6 +739,7 @@ public partial class MainWindow : Window
         _tosuApi.CheckForModChange();
         _tosuApi.CheckForBPMChange();
         _tosuApi.CheckForKiaiChange();
+        _tosuApi.CheckForRateAdjustChange();
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
     }
 

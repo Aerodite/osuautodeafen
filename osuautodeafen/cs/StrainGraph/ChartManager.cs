@@ -21,18 +21,22 @@ public class ChartManager
     private readonly TosuApi _tosuApi;
     private readonly SharedViewModel _viewModel;
     private readonly List<RectangularSection> cachedBreakPeriods = new();
+    private readonly List<RectangularSection> cachedKiaiPeriods = new();
     private CancellationTokenSource? _deafenOverlayCts;
-    private string? cachedOsuFilePath;
     private double maxLimit;
     private double maxYValue;
+    private readonly BreakPeriodCalculator _breakPeriod = new();
+    private List<RectangularSection> _lastCombinedSections = new();
+    private double _lastDeafenOverlayValue = -1;
+    private GraphData? _lastGraphData;
+    private double _lastMinCompletionPercentage = -1;
 
-    public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel,
-        BreakPeriodCalculator _breakPeriod)
+
+    public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel)
     {
         PlotView = plotView ?? throw new ArgumentNullException(nameof(plotView));
         _tosuApi = tosuApi ?? throw new ArgumentNullException(nameof(tosuApi));
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
-        _breakPeriod = new BreakPeriodCalculator();
 
         _progressIndicator = new LineSeries<ObservablePoint>
         {
@@ -82,52 +86,74 @@ public class ChartManager
 
     public async Task UpdateDeafenOverlayAsync(double minCompletionPercentage, int durationMs = 60, int steps = 4)
     {
-        // Cancel any previous animation
-        _deafenOverlayCts?.Cancel();
-        _deafenOverlayCts = new CancellationTokenSource();
-        var token = _deafenOverlayCts.Token;
+        if (Math.Abs(_lastDeafenOverlayValue - minCompletionPercentage) < 0.001)
+            return; // No change, skip
 
-        var color = new SKColor(0xFF, 0x00, 0x00, 64);
-        var sections = PlotView.Sections.ToList();
-        var deafenRect = sections
-            .OfType<RectangularSection>()
-            .FirstOrDefault(rs => rs.Fill is SolidColorPaint paint && paint.Color == color);
+        _lastDeafenOverlayValue = minCompletionPercentage;
 
-        var newXi = minCompletionPercentage * maxLimit / 100.0;
-
-        if (deafenRect == null)
+        try
         {
-            deafenRect = new RectangularSection
+            _deafenOverlayCts?.Cancel();
+            _deafenOverlayCts = new CancellationTokenSource();
+            var token = _deafenOverlayCts.Token;
+
+            var color = new SKColor(0xFF, 0x00, 0x00, 64);
+            var sections = PlotView.Sections.ToList();
+            var deafenRect = sections
+                .OfType<RectangularSection>()
+                .FirstOrDefault(rs => rs.Fill is SolidColorPaint paint && paint.Color == color);
+
+            var newXi = minCompletionPercentage * maxLimit / 100.0;
+
+            if (deafenRect == null)
             {
-                Xi = newXi,
-                Xj = maxLimit,
-                Yi = 0,
-                Yj = maxYValue,
-                Fill = new SolidColorPaint { Color = color }
-            };
-            sections.Add(deafenRect);
-            PlotView.Sections = sections;
-            PlotView.InvalidateVisual();
-            return;
-        }
+                deafenRect = new RectangularSection
+                {
+                    Xi = newXi,
+                    Xj = maxLimit,
+                    Yi = 0,
+                    Yj = maxYValue,
+                    Fill = new SolidColorPaint { Color = color }
+                };
+                sections.Add(deafenRect);
+                PlotView.Sections = sections;
+                PlotView.InvalidateVisual();
+                return;
+            }
 
-        var oldXi = deafenRect.Xi;
-        for (var i = 1; i <= steps; i++)
+            var oldXi = deafenRect.Xi;
+            if (Math.Abs((double)(oldXi - newXi)) < 0.001)
+                return; // No visible change
+
+            for (var i = 1; i <= steps; i++)
+            {
+                token.ThrowIfCancellationRequested();
+                deafenRect.Xi = oldXi + (newXi - oldXi) * i / steps;
+                PlotView.InvalidateVisual();
+                await Task.Delay(durationMs / steps, token);
+            }
+
+            deafenRect.Xi = newXi;
+            PlotView.InvalidateVisual();
+        }
+        catch (TaskCanceledException) { }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
         {
-            token.ThrowIfCancellationRequested();
-            deafenRect.Xi = oldXi + (newXi - oldXi) * i / steps;
-            PlotView.InvalidateVisual();
-            await Task.Delay(durationMs / steps, token);
+            Console.WriteLine($"Error updating deafen overlay: {ex.Message}");
         }
-
-        deafenRect.Xi = newXi;
-        PlotView.InvalidateVisual();
     }
 
-    public async Task UpdateChart(GraphData? graphData, double minCompletionPercentage,
-        BreakPeriodCalculator _breakPeriod)
+    public async Task UpdateChart(GraphData? graphData, double minCompletionPercentage)
     {
-        if (graphData == null) return;
+        
+        // Early exit if nothing changed
+        if (graphData == null ||
+            (ReferenceEquals(graphData, _lastGraphData) && Math.Abs(minCompletionPercentage - _lastMinCompletionPercentage) < 0.001))
+            return;
+
+        _lastGraphData = graphData;
+        _lastMinCompletionPercentage = minCompletionPercentage;
 
         var seriesArr = PlotView.Series?.ToArray() ?? Array.Empty<ISeries>();
         var maxPoints = 1000;
@@ -140,11 +166,13 @@ public class ChartManager
                 maxY = v;
         maxYValue = maxY;
 
+        int start = 0, end = 0;
+
         // Update or add series
         foreach (var series in graphData.Series)
         {
             var data = series.Data;
-            int start = 0, end = data.Count - 1;
+            start = 0; end = data.Count - 1;
             while (start <= end && data[start] == -100) start++;
             while (end >= start && data[end] == -100) end--;
             if (end < start) continue;
@@ -189,26 +217,68 @@ public class ChartManager
             }
         }
 
-        // Break periods only
         var osuFilePath = _tosuApi.GetFullFilePath();
-        if (osuFilePath != null && osuFilePath != cachedOsuFilePath)
+        if (osuFilePath != null)
         {
-            var breaks =
-                await _breakPeriod.ParseBreakPeriodsAsync(osuFilePath, graphData.XAxis, graphData.Series[0].Data);
+            double rate = _tosuApi.GetRateAdjustRate();
+            // Make local copies to avoid mutating the original graphData
+            var xAxis = graphData.XAxis;
+            var seriesData = graphData.Series[0].Data;
+            int firstValidIdx = seriesData.FindIndex(y => y != -100);
+            if (firstValidIdx > 0)
+            {
+                xAxis = xAxis.Skip(firstValidIdx).ToList();
+                seriesData = seriesData.Skip(firstValidIdx).ToList();
+            }
+
+            var breaks = await GetBreakPeriodsAsync(osuFilePath, xAxis, seriesData);
             cachedBreakPeriods.Clear();
+
             foreach (var breakPeriod in breaks)
+            {
+                double breakStart = breakPeriod.Start / rate;
+                double breakEnd = breakPeriod.End / rate;
+
+                int startIdx = FindClosestIndex(xAxis, breakStart);
+                int endIdx = FindClosestIndex(xAxis, breakEnd);
+
                 cachedBreakPeriods.Add(new RectangularSection
                 {
-                    Xi = breakPeriod.StartIndex / _tosuApi.GetRateAdjustRate(),
-                    Xj = breakPeriod.EndIndex / _tosuApi.GetRateAdjustRate(),
+                    Xi = startIdx,
+                    Xj = endIdx,
                     Yi = 0,
                     Yj = maxYValue,
-                    Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0xFF, 0x00, 98) }
+                    Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0xFF, 0x00, 90) }
                 });
-            cachedOsuFilePath = osuFilePath;
+            }
+
+            // Kiai periods (purple)
+            var kiaiTimes = new KiaiTimes();
+            var kiaiList = await kiaiTimes.ParseKiaiTimesAsync(osuFilePath);
+            cachedKiaiPeriods.Clear();
+            foreach (var kiai in kiaiList)
+            {
+                int startIdx = FindClosestIndex(xAxis, kiai.Start / rate);
+                int endIdx = FindClosestIndex(xAxis, kiai.End / rate);
+                cachedKiaiPeriods.Add(new RectangularSection
+                {
+                    Xi = startIdx,
+                    Xj = endIdx,
+                    Yi = 0,
+                    Yj = maxYValue,
+                    Fill = new SolidColorPaint { Color = new SKColor(0xA0, 0x40, 0xFF, 98) }
+                });
+            }
         }
 
-        PlotView.Sections = cachedBreakPeriods.ToList();
+        // Combine break and Kiai sections
+        var combinedSections = cachedBreakPeriods.Concat(cachedKiaiPeriods).ToList();
+        
+        if (!_lastCombinedSections.SequenceEqual(combinedSections, new RectangularSectionComparer()))
+        {
+            PlotView.Sections = combinedSections;
+            _lastCombinedSections = new List<RectangularSection>(combinedSections);
+        }
 
         // Ensure progress indicator is present
         if (!seriesArr.Contains(_progressIndicator))
@@ -248,6 +318,22 @@ public class ChartManager
         await UpdateDeafenOverlayAsync(minCompletionPercentage);
 
         PlotView.InvalidateVisual();
+    }
+    
+    private int FindClosestIndex(List<double> xAxis, double value)
+    {
+        var closestIndex = 0;
+        var smallestDifference = double.MaxValue;
+        for (var i = 0; i < xAxis.Count; i++)
+        {
+            var difference = Math.Abs(xAxis[i] - value);
+            if (difference < smallestDifference)
+            {
+                smallestDifference = difference;
+                closestIndex = i;
+            }
+        }
+        return closestIndex;
     }
 
     private static ObservablePoint[] Downsample(ObservablePoint[] data, int dataCount, int maxPoints)
@@ -290,5 +376,47 @@ public class ChartManager
         }
 
         return smoothedData;
+    }
+    private string? _lastOsuFilePath;
+    private List<double>? _lastXAxis;
+    private List<double>? _lastSeriesData;
+    private List<BreakPeriod>? _lastBreaks;
+
+    private bool AreListsEqual<T>(List<T> a, List<T> b)
+    {
+        if (a == null || b == null || a.Count != b.Count) return false;
+        for (int i = 0; i < a.Count; i++)
+            if (!EqualityComparer<T>.Default.Equals(a[i], b[i])) return false;
+        return true;
+    }
+
+    public async Task<List<BreakPeriod>> GetBreakPeriodsAsync(
+        string osuFilePath, List<double> xAxis, List<double> seriesData)
+    {
+        if (osuFilePath == _lastOsuFilePath &&
+            AreListsEqual(xAxis, _lastXAxis) &&
+            AreListsEqual(seriesData, _lastSeriesData))
+        {
+            return _lastBreaks ?? new List<BreakPeriod>();
+        }
+
+        var breaks = await _breakPeriod.ParseBreakPeriodsAsync(osuFilePath, xAxis, seriesData);
+        _lastOsuFilePath = osuFilePath;
+        _lastXAxis = new List<double>(xAxis);
+        _lastSeriesData = new List<double>(seriesData);
+        _lastBreaks = breaks;
+        return breaks;
+    }
+}
+class RectangularSectionComparer : IEqualityComparer<RectangularSection>
+{
+    public bool Equals(RectangularSection? x, RectangularSection? y)
+    {
+        if (x == null || y == null) return false;
+        return x.Xi == y.Xi && x.Xj == y.Xj && x.Yi == y.Yi && x.Yj == y.Yj;
+    }
+    public int GetHashCode(RectangularSection obj)
+    {
+        return HashCode.Combine(obj.Xi, obj.Xj, obj.Yi, obj.Yj);
     }
 }

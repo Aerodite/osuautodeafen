@@ -24,17 +24,13 @@ public class BreakPeriodCalculator
     public event Action? BreakPeriodEntered;
     public event Action? BreakPeriodExited;
 
-    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string osuFilePath, List<double> xAxis,
-        List<double> yAxis)
+    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string osuFilePath, List<double> xAxis, List<double> yAxis)
     {
         BreakPeriods.Clear();
 
         var lines = await File.ReadAllLinesAsync(osuFilePath);
         var inBreakPeriodSection = false;
-
-        // Filter out x-values corresponding to y-values of -100
-        var validXAxis = xAxis.Where((x, index) => yAxis[index] != -100).ToList();
-        var totalPoints = validXAxis.Count;
+        var totalPoints = xAxis.Count;
 
         foreach (var line in lines)
         {
@@ -54,9 +50,8 @@ public class BreakPeriodCalculator
                 {
                     if (double.TryParse(parts[1], out var start) && double.TryParse(parts[2], out var end))
                     {
-                        // Indices are relative to the filtered/validXAxis
-                        var startIndex = FindClosestIndex(validXAxis, start);
-                        var endIndex = FindClosestIndex(validXAxis, end);
+                        var startIndex = FindClosestIndex(xAxis, start);
+                        var endIndex = FindClosestIndex(xAxis, end);
 
                         var startPercentage = startIndex / (double)totalPoints * 100;
                         var endPercentage = endIndex / (double)totalPoints * 100;
@@ -92,9 +87,7 @@ public class BreakPeriodCalculator
 
     public bool IsBreakPeriod(TosuApi tosuApi)
     {
-        if (tosuApi.IsBreakPeriod())
-            return true;
-        return false;
+        return tosuApi.IsBreakPeriod();
     }
 
     public void UpdateBreakPeriodState(TosuApi tosuApi)

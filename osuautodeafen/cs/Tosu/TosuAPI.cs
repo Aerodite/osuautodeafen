@@ -98,6 +98,8 @@ public class TosuApi : IDisposable
     public event Action? HasModsChanged;
 
     public event Action? HasBPMChanged;
+    
+    public event Action? HasRateChanged;
 
     public event Action<GraphData>? GraphDataUpdated;
 
@@ -545,6 +547,16 @@ public class TosuApi : IDisposable
             return;
         _lastBeatmapChecksum = checksum;
         var handler = BeatmapChanged;
+        handler?.Invoke();
+    }
+    
+    public void CheckForRateAdjustChange()
+    {
+        var rateAdjustRate = GetRateAdjustRate();
+        if (rateAdjustRate == _lastModNumber)
+            return;
+        _lastModNumber = rateAdjustRate;
+        var handler = HasRateChanged;
         handler?.Invoke();
     }
 
