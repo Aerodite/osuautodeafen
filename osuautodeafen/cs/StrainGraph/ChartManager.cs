@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
@@ -20,9 +21,12 @@ using osuautodeafen.cs;
 using osuautodeafen.cs.Background;
 using osuautodeafen.cs.StrainGraph;
 using SkiaSharp;
+using SkiaSharp.Views.Desktop;
 
 public class ChartManager
 {
+    public bool AudibleBreaksEnabled { get; set; }
+    
     private const double TooltipOffset = 0;
     private const double SpringFrequency = 10;
     private const double SpringDamping = 1.5;
@@ -64,16 +68,20 @@ public class ChartManager
     private double _tooltipVelocityY;
     
     private bool _isHoveringDeafenEdge = false;
+    public Canvas IconOverlay { get; set; }
+    
+    private readonly Canvas _iconOverlay;
+    
 
 
-
-    public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel, KiaiTimes kiaiTimes)
+    public ChartManager(CartesianChart plotView, Canvas iconOverlay, TosuApi tosuApi, SharedViewModel viewModel, KiaiTimes kiaiTimes)
     {
         PlotView = plotView ?? throw new ArgumentNullException(nameof(plotView));
         _tosuApi = tosuApi ?? throw new ArgumentNullException(nameof(tosuApi));
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         _kiaiTimes = kiaiTimes ?? throw new ArgumentNullException(nameof(kiaiTimes));
-
+        _iconOverlay = iconOverlay;
+        
         _progressIndicator = new LineSeries<ObservablePoint>
         {
             Stroke = new SolidColorPaint { Color = ProgressIndicatorColor, StrokeThickness = 5 },
@@ -199,6 +207,19 @@ PlotView.PointerMoved += (s, e) =>
                 _mainWindow?.CompletionPercentageSlider_ValueChanged(null, args);
                 
                 await UpdateDeafenOverlayAsync(newPercentage);
+                
+                AudibleBreaksEnabled = _viewModel.IsBreakUndeafenToggleEnabled;
+                _viewModel.PropertyChanged += (sender, e) =>
+                {
+                    if (e.PropertyName == nameof(_viewModel.IsBreakUndeafenToggleEnabled))
+                    {
+                        AudibleBreaksEnabled = _viewModel.IsBreakUndeafenToggleEnabled;
+                        //this is for... a thing :tf:
+                        _mainWindow.ForceGraphDataUpdate(_tosuApi.GetGraphData());
+                    }
+                };
+                
+                
                 ShowCustomTooltip(pixelPoint, $"Deafen %: \n{newPercentage:F1}%");
                 PlotView.InvalidateVisual();
                 e.Handled = true;
@@ -254,6 +275,67 @@ PlotView.PointerMoved += (s, e) =>
         PlotView.Series = Series;
         PlotView.DrawMargin = new Margin(0, 0, 0, 0);
     }
+    
+    public void UpdateIconsOverlay()
+    {
+        if (IconOverlay == null || PlotView == null) return;
+        IconOverlay.Children.Clear();
+
+        foreach (var section in PlotView.Sections.OfType<AnnotatedSection>())
+        {
+            var centerX = ((section.Xi ?? 0.0) + (section.Xj ?? 0.0)) / 2.0;
+            var centerY = ((section.Yi ?? 0.0) + (section.Yj ?? 0.0)) / 2.0;
+            var pixel = PlotView.ScaleDataToPixels(new LvcPointD(centerX, centerY));
+
+            var icon = new Ellipse
+            {
+                Width = 24,
+                Height = 24,
+                Fill = section.SectionType == "Break" ? Avalonia.Media.Brushes.Yellow : Avalonia.Media.Brushes.Purple
+            };
+            Canvas.SetLeft(icon, pixel.X - 12);
+            Canvas.SetTop(icon, pixel.Y - 12);
+            IconOverlay.Children.Add(icon);
+
+            var text = new TextBlock
+            {
+                Text = section.SectionType == "Break" ? "B" : "K",
+                Foreground = Avalonia.Media.Brushes.Black,
+                FontSize = 16
+            };
+            Canvas.SetLeft(text, pixel.X - 6);
+            Canvas.SetTop(text, pixel.Y - 8);
+            IconOverlay.Children.Add(text);
+        }
+    }
+
+// Example icon drawing methods
+private void DrawBreakIcon(SKCanvas canvas, float x, float y)
+{
+    using var paint = new SKPaint { Color = SKColors.Yellow, IsAntialias = true };
+    canvas.DrawCircle(x, y, 12, paint);
+    paint.Color = SKColors.Black;
+    paint.TextSize = 16;
+    canvas.DrawText("B", x - 6, y + 6, paint);
+}
+
+private void DrawKiaiIcon(SKCanvas canvas, float x, float y)
+{
+    using var paint = new SKPaint { Color = SKColors.Purple, IsAntialias = true };
+    canvas.DrawCircle(x, y, 12, paint);
+    paint.Color = SKColors.White;
+    paint.TextSize = 16;
+    canvas.DrawText("K", x - 6, y + 6, paint);
+}
+
+private void DrawDeafenIcon(SKCanvas canvas, float x, float y)
+{
+    using var paint = new SKPaint { Color = SKColors.Red, IsAntialias = true };
+    canvas.DrawCircle(x, y, 12, paint);
+    paint.Color = SKColors.White;
+    paint.TextSize = 16;
+    canvas.DrawText("D", x - 6, y + 6, paint);
+}
 
     public ISeries[] Series { get; private set; } = Array.Empty<ISeries>();
     public Axis[] XAxes { get; private set; } = Array.Empty<Axis>();
@@ -510,7 +592,18 @@ PlotView.PointerMoved += (s, e) =>
                     Xj = endIdx,
                     Yi = 0,
                     Yj = MaxYValue,
-                    Fill = new SolidColorPaint { Color = BreakColor },
+                    Fill = AudibleBreaksEnabled
+                        ? new LinearGradientPaint(
+                            new[]
+                            {
+                                //orange and green
+                                new SKColor(0xFF, 0xA5, 0x00, 90),
+                                new SKColor(0x00, 0xFF, 0x00, 90)
+                            },
+                            new SKPoint(0, 0),
+                            new SKPoint(1, 1)
+                        )
+                        : new SolidColorPaint { Color = BreakColor },
                     SectionType = "Break",
                     StartTime = breakPeriod.Start,
                     EndTime = breakPeriod.End
@@ -600,6 +693,7 @@ PlotView.PointerMoved += (s, e) =>
             await UpdateDeafenOverlayAsync(minCompletionPercentage);
 
         PlotView.TooltipPosition = TooltipPosition.Hidden;
+        UpdateIconsOverlay();
         PlotView.InvalidateVisual();
         sw.Stop();
         Console.WriteLine($"Chart updated in {sw.ElapsedMilliseconds} ms");
