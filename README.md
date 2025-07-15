@@ -10,16 +10,16 @@
 
 
 ##
-osu!autodeafen is a tool that uses osu! memory data from [Tosu](https://github.com/KotRikD/tosu) to automatically Toggle Deafen on Discord when certain criteria are reached
+osuautodeafen is a tool that uses osu! memory data from [Tosu](https://github.com/KotRikD/tosu) to automatically Toggle Deafen on Discord when certain criteria are reached
 
 # Installation Steps
 > [!IMPORTANT]
-> Both osu! and Tosu are __REQUIRED__ to be open while osu!autodeafen is running
+> Both osu! and Tosu are __REQUIRED__ to be open while osuautodeafen is running
 > <details>
 >  <summary>Side Note</summary>
 >
 > 
-> * If Tosu is installed, osu!autodeafen will automatically open it if it isn't detected on startup
+> * If Tosu is installed, osuautodeafen will automatically open it if it isn't detected on startup
 ></details>
 
 1. Download the [latest release](https://github.com/Aerodite/osuautodeafen/releases/latest) for your platform and unzip it.
