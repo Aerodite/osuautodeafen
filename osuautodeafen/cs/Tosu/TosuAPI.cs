@@ -55,6 +55,8 @@ public class TosuApi : IDisposable
     private ClientWebSocket _webSocket;
     private string beatmapChecksum;
     private double? realtimeBpm;
+    private double? _lastCompletionPercentage;
+    private string? beatmapTitle;
 
     public TosuApi()
     {
@@ -102,6 +104,8 @@ public class TosuApi : IDisposable
     public event Action? HasBPMChanged;
 
     public event Action? HasRateChanged;
+    
+    public event Action? HasPercentageChanged;
 
     public event Action<GraphData>? GraphDataUpdated;
 
@@ -212,7 +216,11 @@ public class TosuApi : IDisposable
                     if (root.TryGetProperty("stats", out var stats))
                         if (stats.TryGetProperty("pp", out var pp))
                             if (pp.TryGetProperty("fc", out var fc))
-                                _maxPP = fc.GetDouble();
+                                //_maxPP = fc.GetDouble();
+                                //broken for some reason
+                                if (stats.TryGetProperty("objects", out var objects))
+                                    if (objects.TryGetProperty("maxCombo", out var maxCombo))
+                                        _maxCombo = maxCombo.GetDouble();
 
                     if (root.TryGetProperty("beatmap", out var beatmap))
                     {
@@ -232,7 +240,7 @@ public class TosuApi : IDisposable
                                     _fullSR = totalSR.GetDouble();
 
                         if (beatmap.TryGetProperty("status", out var status))
-                            if (beatmap.TryGetProperty("number", out var statusNumber))
+                            if (status.TryGetProperty("number", out var statusNumber))
                                 _rankedStatus = statusNumber.GetDouble();
 
                         if (beatmap.TryGetProperty("id", out var beatmapId))
@@ -256,6 +264,8 @@ public class TosuApi : IDisposable
 
                         if (beatmap.TryGetProperty("isBreak", out var isBreak)) _isBreakPeriod = isBreak.GetBoolean();
                         if (beatmap.TryGetProperty("isKiai", out var isKiai)) _isKiai = isKiai.GetBoolean();
+                        if (beatmap.TryGetProperty("title", out var title))
+                            beatmapTitle = title.GetString();
                     }
 
                     if (root.TryGetProperty("play", out var play))
@@ -265,7 +275,7 @@ public class TosuApi : IDisposable
                             if (combo.TryGetProperty("current", out var currentCombo))
                                 _combo = currentCombo.GetDouble();
 
-                            if (combo.TryGetProperty("max", out var maxCombo)) _maxCombo = maxCombo.GetDouble();
+                            //if (combo.TryGetProperty("max", out var maxCombo)) _maxCombo = maxCombo.GetDouble();
                         }
 
                         if (play.TryGetProperty("hits", out var hits))
@@ -299,47 +309,53 @@ public class TosuApi : IDisposable
                             if (mods.TryGetProperty("rate", out var rate)) _DTRate = rate.GetDouble();
                             if (mods.TryGetProperty("number", out var modNumber)) _modNumber = modNumber.GetInt32();
                         }
-                    }
 
-                    if (root.TryGetProperty("performance", out var performance))
-                        if (performance.TryGetProperty("graph", out var graphs))
+                        if (play.TryGetProperty("pp", out var ppElement))
                         {
-                            ParseGraphData(graphs);
-                            _graphData = graphs;
+                            if (ppElement.TryGetProperty("fc", out var ppFc))
+                                _maxPP = ppFc.GetDouble();
                         }
 
-                    if (root.TryGetProperty("profile", out var profile))
-                        if (profile.TryGetProperty("banchoStatus", out var banchoStatus))
-                            if (banchoStatus.TryGetProperty("number", out var banchoStatusNumber))
-                                //using tosu beta b0bf580 for lazer this does not return the correct status
-                                //hoping is fixed later by tosu devs
-                                //if not we might just want to return local status as well?
-                                //which would be possible by grabbing profile > userStatus > number
-                                //instead of profile > banchoStatus > number)
-                                //var rawBanchoStatus = banchoStatusNumber.GetInt32();
-                                //StateChanged?.Invoke(rawBanchoStatus);
-                                //_rawBanchoStatus = rawBanchoStatus;
-                                //if (rawBanchoStatus == 2)
+                        if (root.TryGetProperty("performance", out var performance))
+                            if (performance.TryGetProperty("graph", out var graphs))
                             {
+                                ParseGraphData(graphs);
+                                _graphData = graphs;
                             }
 
+                        if (root.TryGetProperty("profile", out var profile))
+                            if (profile.TryGetProperty("banchoStatus", out var banchoStatus))
+                                if (banchoStatus.TryGetProperty("number", out var banchoStatusNumber))
+                                    //using tosu beta b0bf580 for lazer this does not return the correct status
+                                    //hoping is fixed later by tosu devs
+                                    //if not we might just want to return local status as well?
+                                    //which would be possible by grabbing profile > userStatus > number
+                                    //instead of profile > banchoStatus > number)
+                                    //var rawBanchoStatus = banchoStatusNumber.GetInt32();
+                                    //StateChanged?.Invoke(rawBanchoStatus);
+                                    //_rawBanchoStatus = rawBanchoStatus;
+                                    //if (rawBanchoStatus == 2)
+                                {
+                                }
 
-                    if (root.TryGetProperty("folders", out var folders) &&
-                        folders.TryGetProperty("songs", out var songs))
-                        _settingsSongsDirectory = songs.GetString();
-                    folders.TryGetProperty("game", out var game);
-                    _gameDirectory = game.GetString();
 
-                    if (root.TryGetProperty("directPath", out var directPath) &&
-                        directPath.TryGetProperty("beatmapBackground", out var beatmapBackground))
-                        _fullPath = beatmapBackground.GetString();
-                    var combinedPath = _settingsSongsDirectory + "\\" + _fullPath;
+                        if (root.TryGetProperty("folders", out var folders) &&
+                            folders.TryGetProperty("songs", out var songs))
+                            _settingsSongsDirectory = songs.GetString();
+                        folders.TryGetProperty("game", out var game);
+                        _gameDirectory = game.GetString();
 
-                    if (directPath.TryGetProperty("beatmapFile", out var beatmapFile))
-                        _osuFilePath = beatmapFile.GetString();
+                        if (root.TryGetProperty("directPath", out var directPath) &&
+                            directPath.TryGetProperty("beatmapBackground", out var beatmapBackground))
+                            _fullPath = beatmapBackground.GetString();
+                        var combinedPath = _settingsSongsDirectory + "\\" + _fullPath;
 
-                    var jsonDocument = JsonDocument.Parse(jsonString);
-                    var rootElement = jsonDocument.RootElement;
+                        if (directPath.TryGetProperty("beatmapFile", out var beatmapFile))
+                            _osuFilePath = beatmapFile.GetString();
+
+                        var jsonDocument = JsonDocument.Parse(jsonString);
+                        var rootElement = jsonDocument.RootElement;
+                    }
                 }
                 catch (JsonReaderException ex)
                 {
@@ -401,6 +417,11 @@ public class TosuApi : IDisposable
         if (realtimeBpm.HasValue)
             return realtimeBpm.Value;
         return 0;
+    }
+    
+    public string? GetBeatmapTitle()
+    {
+        return beatmapTitle;
     }
 
     public string? GetOsuFilePath()
@@ -560,6 +581,8 @@ public class TosuApi : IDisposable
         var handler = BeatmapChanged;
         handler?.Invoke();
     }
+    
+    
 
     public void CheckForKiaiChange()
     {
@@ -568,6 +591,15 @@ public class TosuApi : IDisposable
         _lastKiaiValue = _isKiai;
         var handler = HasKiaiChanged;
         handler?.Invoke(this, EventArgs.Empty);
+    }
+    
+    public void CheckForPercentageChange()
+    {
+        var percentage = GetCompletionPercentage();
+        if (_lastCompletionPercentage.HasValue && percentage == _lastCompletionPercentage.Value)
+            return;
+        _lastCompletionPercentage = percentage;
+        HasPercentageChanged?.Invoke();
     }
 
     // This is exclusively used for the Background toggle, because it can't exactly check

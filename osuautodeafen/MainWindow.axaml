@@ -340,7 +340,40 @@
                                 <TextBlock Text="Report an Issue" />
                             </ToolTip.Tip>
                         </Button>
+                        <Button x:Name="DebugConsoleButton"
+                                Background="{x:Null}"
+                                BorderBrush="{x:Null}"
+                                BorderThickness="0"
+                                CornerRadius="0"
+                                HorizontalContentAlignment="Center"
+                                Click="DebugConsoleButton_Click"
+                                HorizontalAlignment="Center"
+                                Margin="0,0,0,10"
+                                FontSize="12"
+                                Foreground="White"
+                                VerticalAlignment="Bottom">
+                            <Image x:Name="DebugConsoleImage"
+                                   Source="avares://osuautodeafen/Icons/code-solid.png"
+                                   Width="20" Height="20"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   RenderTransformOrigin="0.5,0.5" />
+                            <ToolTip.Tip>
+                                <TextBlock Text="See all app info" />
+                            </ToolTip.Tip>
+                        </Button>
                     </StackPanel>
+                    <TextBox x:Name="DebugConsoleTextBox"
+                             HorizontalAlignment="Stretch"
+                             VerticalAlignment="Stretch"
+                             Margin="8"
+                             Padding="8"
+                             FontFamily="Consolas"
+                             FontSize="14"
+                             Background="#222"
+                             Foreground="White"
+                             IsReadOnly="True"
+                             IsVisible="False"/>
                 </StackPanel>
             </ScrollViewer>
         </DockPanel>

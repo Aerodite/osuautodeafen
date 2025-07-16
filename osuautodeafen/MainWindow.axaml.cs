@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -96,7 +97,7 @@ public partial class MainWindow : Window
     
     private ProgressBar? _updateProgressBar;
     private Button? _updateNotificationBarButton;
-
+    private readonly StreamWriter _importantLogWriter;
 
     //<summary>
     // constructor for the ui and subsequent panels
@@ -112,7 +113,7 @@ public partial class MainWindow : Window
         var writer = new StreamWriter(fileStream) { AutoFlush = true };
         Console.SetOut(new TimestampTextWriter(writer));
         Console.WriteLine($"[INFO] osuautodeafen started at {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
-
+        
         _tosuApi = new TosuApi();
 
         // ViewModel and DataContext
@@ -224,6 +225,13 @@ public partial class MainWindow : Window
                 ? _backgroundManager.UpdateBackground(null, null)
                 : Task.CompletedTask;
             await Task.WhenAll(graphTask, bgTask);
+            LogImportant("Map: " + _tosuApi.GetBeatmapTitle(), false, "Beatmap changed");
+            LogImportant("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
+            LogImportant("Max Combo: " + _tosuApi.GetMaxCombo(), false, "Max Combo");
+            LogImportant("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
+            LogImportant("Ranked Status: " + _tosuApi.GetRankedStatus(), false, "Ranked Status");
+            LogImportant("Beatmap ID: " + _tosuApi.GetBeatmapId(), false, "Beatmap ID");
+            
         };
         _tosuApi.HasRateChanged += async () =>
         {
@@ -232,6 +240,10 @@ public partial class MainWindow : Window
         _tosuApi.HasModsChanged += async () =>
         {
             await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
+        };
+        _tosuApi.HasPercentageChanged += async () =>
+        {
+            LogImportant($"Progress: {_tosuApi.GetCompletionPercentage():F2}%", false, "Map Progress");
         };
         _tosuApi.HasBPMChanged += async () =>
         {
@@ -243,6 +255,7 @@ public partial class MainWindow : Window
                 var bpm = _tosuApi.GetCurrentBpm();
                 _kiaiMsPerBeat = 60000.0 / bpm;
             }
+            LogImportant("BPM: " + _tosuApi.GetCurrentBpm(), false, "BPM Changed");
         };
         _tosuApi.HasKiaiChanged += async (sender, e) =>
         {
@@ -283,6 +296,22 @@ public partial class MainWindow : Window
 
                 _backgroundManager.RemoveBackgroundOpacityRequest("kiai");
             }
+        };
+        _breakPeriod.BreakPeriodEntered += async () =>
+        {
+            LogImportant("Break: True", false, "Break");
+        };
+        _breakPeriod.BreakPeriodExited += async () =>
+        {
+            LogImportant("Break: False", false, "Break");
+        };
+        _kiaiTimes.KiaiPeriodEntered += async () =>
+        {
+            LogImportant("Kiai: True", false, "Kiai"); 
+        };
+        _kiaiTimes.KiaiPeriodExited += async () =>
+        {
+            LogImportant("Kiai: False", false, "Kiai");
         };
 
         settingsButtonClicked = async () =>
@@ -343,6 +372,27 @@ public partial class MainWindow : Window
         CompletionPercentageSlider.Value = ViewModel.MinCompletionPercentage;
         StarRatingSlider.Value = ViewModel.StarRating;
         PPSlider.Value = ViewModel.PerformancePoints;
+    }
+    
+    
+    private readonly Dictionary<string, string> _importantLogs = new();
+
+    public void LogImportant(string message, bool includeTimestamp = true, string? keyword = null)
+    {
+        var newLine = includeTimestamp
+            ? $"[{DateTime.Now:MM-dd HH:mm:ss.fff}]{message}"
+            : message;
+
+        Console.WriteLine(newLine);
+
+        if (!string.IsNullOrEmpty(keyword))
+        {
+            _importantLogs[keyword] = newLine;
+        }
+        else
+        {
+            _importantLogs[Guid.NewGuid().ToString()] = newLine;
+        }
     }
 
     private SharedViewModel ViewModel { get; }
@@ -847,6 +897,7 @@ public partial class MainWindow : Window
         _tosuApi.CheckForKiaiChange();
         _tosuApi.CheckForRateAdjustChange();
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
+        _tosuApi.CheckForPercentageChange();
         //sw.Stop();
         //Console.WriteLine($"MainTimer tick took {sw.ElapsedMilliseconds} ms");
     }
@@ -1362,7 +1413,37 @@ public partial class MainWindow : Window
             UseShellExecute = true
         });
     }
+    
+    private DispatcherTimer? _logUpdateTimer;
 
+    private void DebugConsoleButton_Click(object? sender, RoutedEventArgs e)
+    {
+        var debugConsole = this.FindControl<TextBox>("DebugConsoleTextBox");
+
+        if (debugConsole != null && !debugConsole.IsVisible)
+        {
+            debugConsole.IsVisible = true;
+            debugConsole.HorizontalAlignment = HorizontalAlignment.Stretch;
+            debugConsole.Width = double.NaN;
+            _logUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+            _logUpdateTimer.Tick += (_, __) =>
+            {
+                debugConsole.Text = string.Join(Environment.NewLine, _importantLogs.Values);
+                debugConsole.CaretIndex = debugConsole.Text?.Length ?? 0; // Scroll to bottom
+            };
+            _logUpdateTimer.Start();
+        }
+        else if (debugConsole != null && debugConsole.IsVisible)
+        {
+            debugConsole.IsVisible = false;
+            _logUpdateTimer?.Stop();
+            _logUpdateTimer = null;
+        }
+        else
+        {
+            Console.WriteLine("[ERROR] Debug console not found.");
+        }
+    }
     public class HotKey
     {
         public Key Key { get; init; }
