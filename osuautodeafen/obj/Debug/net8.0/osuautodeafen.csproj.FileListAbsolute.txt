@@ -105,3 +105,5 @@ C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\o
 C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\refint\osuautodeafen.dll
 C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\osuautodeafen.genruntimeconfig.cache
 C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\obj\Debug\net8.0\ref\osuautodeafen.dll
+C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\bin\Debug\net8.0\NuGet.Versioning.dll
+C:\Users\Anthony\Documents\GitHub\osuautodeafen\osuautodeafen\bin\Debug\net8.0\Velopack.dll

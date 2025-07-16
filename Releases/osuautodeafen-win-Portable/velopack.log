@@ -1,0 +1,93 @@
+[stub:16396] [14:17:52] [INFO] --
+[stub:16396] [14:17:52] [INFO] Starting Velopack Stub (at "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\Releases\\osuautodeafen-win-Portable\\osuautodeafen.exe")
+[stub:16396] [14:17:52] [INFO] Stub about to start Update.exe (C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\Update.exe) with args: ["start", "--"]
+[stub:16396] [14:17:52] [INFO] Successfully started Update.exe
+[update:35272] [14:17:52] [INFO] --
+[update:35272] [14:17:52] [INFO] Starting Velopack Updater (0.0.1298)
+[update:35272] [14:17:52] [INFO]     Location: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\Update.exe
+[update:35272] [14:17:52] [INFO]     CWD: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable
+[update:35272] [14:17:52] [INFO]     Verbose: false
+[update:35272] [14:17:52] [INFO]     Silent: false
+[update:35272] [14:17:52] [INFO]     Log File: None
+[update:35272] [14:17:52] [INFO] Command: Start
+[update:35272] [14:17:52] [INFO]     Wait: NoWait
+[update:35272] [14:17:52] [INFO]     Exe Name: None
+[update:35272] [14:17:52] [INFO]     Exe Args: None
+[update:35272] [14:17:52] [INFO] Auto-locating app manifest...
+[update:35272] [14:17:52] [INFO] About to launch: '"C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\Releases\\osuautodeafen-win-Portable\\current\\osuautodeafen.exe"' in dir '"C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\Releases\\osuautodeafen-win-Portable\\current"'
+[lib-csharp:20588] [14:17:59] [Information] Initialising WindowsVelopackLocator
+[lib-csharp:20588] [14:17:59] [Information] WindowsVelopackLocator: Update.exe in parent dir, Located valid manifest file at: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\current\sq.version
+[lib-csharp:20588] [14:17:59] [Information] Initialised WindowsVelopackLocator for osuautodeafen v1.0.8
+[lib-csharp:20588] [14:17:59] [Information] Starting VelopackApp.Run (library version 0.0.1298).
+[lib-csharp:20588] [14:17:59] [Information] Setting current process explicit AppUserModelID to 'velopack.osuautodeafen'
+[lib-csharp:20588] [14:18:01] [Warning] No staging userId in file 'C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\packages\.betaId', creating a new one.
+[lib-csharp:20588] [14:18:01] [Information] Generated new staging userId: f3106a1b-8685-4173-8017-37776feaece0
+[lib-csharp:20588] [14:18:01] [Debug] Retrieving latest release feed.
+[lib-csharp:20588] [14:18:03] [Information] Found newer remote release available (1.0.8 -> 1.1.1).
+[lib-csharp:20588] [14:18:03] [Information] There is no local/base package available for this update, so delta updates will be disabled.
+[lib-csharp:20588] [14:18:03] [Information] Downloading full release (osuautodeafen-1.1.1-full.nupkg)
+[lib-csharp:20588] [14:18:05] [Information] Verifying package checksum...
+[lib-csharp:20588] [14:18:05] [Information] Full release download complete. Package moved to: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\packages\osuautodeafen-1.1.1-full.nupkg
+[lib-csharp:20588] [14:18:05] [Information] Extracting new Update.exe to C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\Update.exe
+[lib-csharp:20588] [14:18:05] [Information] Cleaning up incomplete and delta packages from packages directory.
+[lib-csharp:20588] [14:18:07] [Information] Package already exists on disk: 'C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\packages\osuautodeafen-1.1.1-full.nupkg', nothing to do.
+[lib-csharp:20588] [14:18:07] [Debug] Running: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\Update.exe apply --package C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\packages\osuautodeafen-1.1.1-full.nupkg --waitPid 20588
+[lib-csharp:20588] [14:18:07] [Information] Update.exe executed successfully.
+[update:36980] [14:18:07] [INFO] --
+[update:36980] [14:18:07] [INFO] Starting Velopack Updater (0.0.1298)
+[update:36980] [14:18:07] [INFO]     Location: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\Update.exe
+[update:36980] [14:18:07] [INFO]     CWD: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable
+[update:36980] [14:18:07] [INFO]     Verbose: false
+[update:36980] [14:18:07] [INFO]     Silent: false
+[update:36980] [14:18:07] [INFO]     Log File: None
+[update:36980] [14:18:07] [INFO] Command: Apply
+[update:36980] [14:18:07] [INFO]     Restart: true
+[update:36980] [14:18:07] [INFO]     Wait: WaitPid(20588)
+[update:36980] [14:18:07] [INFO]     Package: Some("C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\Releases\\osuautodeafen-win-Portable\\packages\\osuautodeafen-1.1.1-full.nupkg")
+[update:36980] [14:18:07] [INFO]     Exe Args: None
+[update:36980] [14:18:07] [INFO] Auto-locating app manifest...
+[update:36980] [14:18:07] [INFO] Attempting to acquire exclusive lock on packages directory (non-blocking)...
+[update:36980] [14:18:07] [INFO] Waiting 60000ms for process (20588) to exit.
+[update:36980] [14:18:08] [INFO] Getting ready to apply package to osuautodeafen ver 1.0.8: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\packages\osuautodeafen-1.1.1-full.nupkg
+[update:36980] [14:18:08] [INFO] Applying package 1.1.1 to current: 1.0.8
+[update:36980] [14:18:08] [INFO] Checking application pre-requisites...
+[update:36980] [14:18:08] [INFO] Extracting 11 app files to 'C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\packages\VelopackTemp\tmp_0JdAYnEZYVv8wKqv'...
+[update:36980] [14:18:08] [INFO] Running --veloapp-obsolete hook...
+[lib-csharp:24960] [14:18:08] [Information] Initialising WindowsVelopackLocator
+[lib-csharp:24960] [14:18:08] [Information] WindowsVelopackLocator: Update.exe in parent dir, Located valid manifest file at: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\current\sq.version
+[lib-csharp:24960] [14:18:08] [Information] Initialised WindowsVelopackLocator for osuautodeafen v1.0.8
+[lib-csharp:24960] [14:18:08] [Information] Starting VelopackApp.Run (library version 0.0.1298).
+[lib-csharp:24960] [14:18:08] [Information] Setting current process explicit AppUserModelID to 'velopack.osuautodeafen'
+[lib-csharp:24960] [14:18:08] [Information] Found fast exit hook: --veloapp-obsolete
+[lib-csharp:24960] [14:18:08] [Information] Completed hook, exiting...
+[update:36980] [14:18:08] [INFO] Hook executed successfully (took 276.6835ms)
+[update:36980] [14:18:08] [INFO] Checking for running processes in: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable
+[update:36980] [14:18:08] [WARN] Skipping killing self: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\Update.exe (36980)
+[update:36980] [14:18:08] [INFO] Checking for running processes in: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable
+[update:36980] [14:18:08] [WARN] Skipping killing self: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\Update.exe (36980)
+[update:36980] [14:18:08] [INFO] Backing up current dir to C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\packages\VelopackTemp\tmp_MKVroFzTPW3JAg0f
+[update:36980] [14:18:08] [INFO] Replacing current dir with C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\packages\VelopackTemp\tmp_0JdAYnEZYVv8wKqv
+[update:36980] [14:18:08] [INFO] Skipping uninstall entry for portable app.
+[update:36980] [14:18:08] [INFO] Running --veloapp-updated hook...
+[lib-csharp:28768] [14:18:14] [Information] Initialising WindowsVelopackLocator
+[lib-csharp:28768] [14:18:14] [Information] WindowsVelopackLocator: Update.exe in parent dir, Located valid manifest file at: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\current\sq.version
+[lib-csharp:28768] [14:18:14] [Information] Initialised WindowsVelopackLocator for osuautodeafen v1.1.1
+[lib-csharp:28768] [14:18:14] [Information] Starting VelopackApp.Run (library version 0.0.1298).
+[lib-csharp:28768] [14:18:14] [Information] Setting current process explicit AppUserModelID to 'velopack.osuautodeafen'
+[lib-csharp:28768] [14:18:14] [Information] Found fast exit hook: --veloapp-updated
+[lib-csharp:28768] [14:18:14] [Information] Completed hook, exiting...
+[update:36980] [14:18:14] [INFO] Hook executed successfully (took 5707.5674ms)
+[update:36980] [14:18:14] [INFO] Checking for running processes in: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable
+[update:36980] [14:18:14] [WARN] Skipping killing self: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\Update.exe (36980)
+[update:36980] [14:18:14] [INFO] Package applied successfully.
+[update:36980] [14:18:14] [INFO] Package version 1.1.1 applied successfully.
+[update:36980] [14:18:14] [INFO] About to launch: '"C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\Releases\\osuautodeafen-win-Portable\\current\\osuautodeafen.exe"' in dir '"C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\Releases\\osuautodeafen-win-Portable\\current"'
+[update:36980] [14:18:14] [INFO] Args: CommandArgs { inner: [] }
+[lib-csharp:30076] [14:18:14] [Information] Initialising WindowsVelopackLocator
+[lib-csharp:30076] [14:18:14] [Information] WindowsVelopackLocator: Update.exe in parent dir, Located valid manifest file at: C:\Users\Anthony\Documents\GitHub\osuautodeafen\Releases\osuautodeafen-win-Portable\current\sq.version
+[lib-csharp:30076] [14:18:14] [Information] Initialised WindowsVelopackLocator for osuautodeafen v1.1.1
+[lib-csharp:30076] [14:18:14] [Information] Starting VelopackApp.Run (library version 0.0.1298).
+[lib-csharp:30076] [14:18:14] [Information] Setting current process explicit AppUserModelID to 'velopack.osuautodeafen'
+[lib-csharp:30076] [14:18:16] [Information] Loaded existing staging userId: f3106a1b-8685-4173-8017-37776feaece0
+[lib-csharp:30076] [14:18:16] [Debug] Retrieving latest release feed.
+[lib-csharp:30076] [14:18:17] [Information] No updates, remote version (1.1.1) is not newer than current version (1.1.1) and / or downgrade is not enabled.

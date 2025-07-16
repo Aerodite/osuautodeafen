@@ -28,6 +28,7 @@ using osuautodeafen.cs.StrainGraph;
 using osuautodeafen.cs.StrainGraph.Tooltips;
 using SkiaSharp;
 using Svg.Skia;
+using Velopack;
 using Vector = Avalonia.Vector;
 
 namespace osuautodeafen;
@@ -53,9 +54,9 @@ public partial class MainWindow : Window
 
     private readonly TooltipManager _tooltipManager = new();
 
-    public readonly TosuApi _tosuApi = new();
+    public readonly TosuApi _tosuApi;
 
-    private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
+    private readonly UpdateChecker _updateChecker = new();
 
     private readonly SharedViewModel _viewModel;
 
@@ -92,6 +93,10 @@ public partial class MainWindow : Window
     public Image? _normalBackground;
 
     private double opacity = 1.00;
+    
+    private ProgressBar? _updateProgressBar;
+    private Button? _updateNotificationBarButton;
+
 
     //<summary>
     // constructor for the ui and subsequent panels
@@ -99,6 +104,16 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        var appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen");
+        var logFile = Path.Combine(appPath, "osuautodeafen.log");
+        File.WriteAllText(logFile, string.Empty); // clear log at startup
+
+        var fileStream = new FileStream(logFile, FileMode.Append, FileAccess.Write, FileShare.Read);
+        var writer = new StreamWriter(fileStream) { AutoFlush = true };
+        Console.SetOut(new TimestampTextWriter(writer));
+        Console.WriteLine($"[INFO] osuautodeafen started at {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+
+        _tosuApi = new TosuApi();
 
         // ViewModel and DataContext
         _viewModel = new SharedViewModel(_tosuApi);
@@ -107,6 +122,15 @@ public partial class MainWindow : Window
 
         InitializeLogo();
 
+        Opened += async (_, __) =>
+        {
+            await _updateChecker.CheckForUpdatesAsync();
+            if (_updateChecker.UpdateInfo != null)
+            {
+                ShowUpdateNotification();
+            }
+        };
+        
         //TODO
         // maybe add a state for this depending on if its deafened or not
         Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.favicon.ico"));
@@ -610,7 +634,7 @@ public partial class MainWindow : Window
     // show the update notification bar if an update is available
     private async void InitializeViewModel()
     {
-        await CheckForUpdates();
+        //await CheckForUpdates();
         DataContext = ViewModel;
     }
 
@@ -730,25 +754,87 @@ public partial class MainWindow : Window
             _ => key.ToString()
         };
     }
-
-    public void ShowUpdateNotification()
+    
+    public async void ShowUpdateNotification()
     {
         Console.WriteLine("Showing Update Notification");
-        var notificationBar = this.FindControl<Button>("UpdateNotificationBar");
-        if (notificationBar != null)
-            notificationBar.IsVisible = true;
-        else
-            Console.WriteLine("Notification bar control not found.");
-    }
+        _updateNotificationBarButton = this.FindControl<Button>("UpdateNotificationBar");
+        _updateProgressBar = this.FindControl<ProgressBar>("UpdateProgressBar");
 
-    private void UpdateNotificationBar_Click(object sender, RoutedEventArgs e)
+        if (_updateNotificationBarButton != null)
+        {
+            _updateNotificationBarButton.IsVisible = true;
+        }
+        else
+        {
+            Console.WriteLine("Notification bar control not found.");
+        }
+
+        if (_updateProgressBar != null)
+        {
+            _updateProgressBar.Value = 0;
+            _updateProgressBar.Foreground = Brushes.Green;
+        }
+    }
+    
+    private async Task DownloadUpdateWithProgressAsync()
     {
-        if (!string.IsNullOrEmpty(ViewModel.UpdateUrl))
-            Process.Start(new ProcessStartInfo
+        var minDisplayMs = 1500;
+        var sw = Stopwatch.StartNew();
+        Console.WriteLine("Starting update download...");
+        if (_updateChecker.UpdateInfo == null)
+            return;
+
+        if (_updateProgressBar != null)
+            _updateProgressBar.Value = 0;
+
+        var progress = new Action<int>(p =>
+        {
+            if (_updateProgressBar != null)
+                _updateProgressBar.Value = p;
+        });
+
+        var displaySw = Stopwatch.StartNew();
+        await _updateChecker.mgr.DownloadUpdatesAsync(_updateChecker.UpdateInfo, progress);
+        displaySw.Stop();
+
+        // sorry guys sunk cost fallacy this took too long to implement
+        // have fun with your "slow" wifi :tf:
+        if (_updateProgressBar != null && _updateProgressBar.Value < 100)
+        {
+            int steps = 30;
+            double start = _updateProgressBar.Value;
+            double end = 100;
+            int remainingMs = minDisplayMs - (int)displaySw.ElapsedMilliseconds;
+            if (remainingMs < 0) remainingMs = 0;
+            remainingMs /= 5;
+            int delayPerStep = steps > 0 ? remainingMs / steps : 0;
+
+            for (int i = 1; i <= steps; i++)
             {
-                FileName = ViewModel.UpdateUrl,
-                UseShellExecute = true
-            });
+                _updateProgressBar.Value = start + (end - start) * i / steps;
+                await Task.Delay(delayPerStep);
+            }
+        }
+        else
+        {
+            if (_updateProgressBar != null)
+                _updateProgressBar.Value = 100;
+        }
+
+        if (_updateNotificationBarButton != null)
+        {
+            _updateNotificationBarButton.IsEnabled = true;
+            _updateNotificationBarButton.Background = Brushes.Green;
+        }
+        sw.Stop();
+        Console.WriteLine($"Update download completed in {sw.ElapsedMilliseconds} ms");
+    }
+    
+    private async void UpdateNotificationBar_Click(object sender, RoutedEventArgs e)
+    {
+        await DownloadUpdateWithProgressAsync();
+        _updateChecker.mgr.ApplyUpdatesAndRestart(_updateChecker.UpdateInfo);
     }
 
     private void MainTimer_Tick(object? sender, EventArgs? e)
@@ -774,60 +860,17 @@ public partial class MainWindow : Window
         button.Content = "Checking for updates...";
         await Task.Delay(1000);
 
-        await _updateChecker.FetchLatestVersionAsync();
-
-        if (string.IsNullOrEmpty(_updateChecker.latestVersion))
+        await _updateChecker.CheckForUpdatesAsync();
+        if (_updateChecker?.UpdateInfo == null)
         {
             button.Content = "No updates found";
             await Task.Delay(1000);
-            button.Content = "Check for updates";
+            button.Content = "Check for Updates";
             return;
         }
-
-        var currentVersion = new Version(UpdateChecker.currentVersion);
-        var latestVersion = new Version(_updateChecker.latestVersion);
-
-        if (latestVersion > currentVersion)
-        {
-            Console.WriteLine($"Update available: {latestVersion}");
-            ShowUpdateNotification();
-            button.Content = "Update available!";
-            await Task.Delay(2000);
-            button.Content = "Check for updates";
-        }
-        else
-        {
-            Console.WriteLine("You are on the latest version.");
-            button.Content = "You are on the latest version";
-            await Task.Delay(2000);
-            button.Content = "Check for updates";
-        }
+        button.Content = "Update available!";
+        ShowUpdateNotification();
     }
-
-    private async Task CheckForUpdates()
-    {
-        await _updateChecker.FetchLatestVersionAsync();
-
-        if (string.IsNullOrEmpty(_updateChecker.latestVersion))
-        {
-            Console.WriteLine("No updates found");
-            return;
-        }
-
-        var currentVersion = new Version(UpdateChecker.currentVersion);
-        var latestVersion = new Version(_updateChecker.latestVersion);
-
-        if (latestVersion > currentVersion)
-        {
-            Console.WriteLine($"Update available: {latestVersion}");
-            ShowUpdateNotification();
-        }
-        else
-        {
-            Console.WriteLine("You are on the latest version.");
-        }
-    }
-
     private bool IsModifierKey(Key key)
     {
         return key == Key.LeftCtrl || key == Key.RightCtrl ||
@@ -1030,8 +1073,14 @@ public partial class MainWindow : Window
         {
             _settingsHandler.WindowWidth = Width;
             _settingsHandler.WindowHeight = Height;
+            _settingsHandler.SaveSetting("UI", "WindowWidth", Width);
+            _settingsHandler.SaveSetting("UI", "WindowHeight", Height);
         }
-
+        
+        _mainTimer?.Stop();
+        _cogSpinTimer?.Stop();
+        _kiaiBrightnessTimer?.Stop();
+        
         _tosuApi.Dispose();
     }
 

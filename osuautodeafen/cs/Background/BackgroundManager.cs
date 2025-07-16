@@ -320,6 +320,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         _cachedSourceBitmap = bitmap;
         _cachedDownscale = scale;
     }
+    
 
     private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
     {
