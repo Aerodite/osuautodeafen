@@ -123,7 +123,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 var wasDisabled = !_isBackgroundEnabled;
                 _isBackgroundEnabled = value;
-                _tosuApi.RaiseKiaiChanged();
                 OnPropertyChanged();
                 _settingsHandler?.SaveSetting("UI", "IsBackgroundEnabled", value);
                 if (wasDisabled && value) _tosuApi.ForceBeatmapChange();
