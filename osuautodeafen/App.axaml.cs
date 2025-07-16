@@ -18,6 +18,5 @@ public class App : Application
             desktop.MainWindow = new MainWindow();
 
         base.OnFrameworkInitializationCompleted();
-        VelopackApp.Build();
     }
 }

@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Avalonia.Threading;
 using osuautodeafen.cs.Settings;
 
 namespace osuautodeafen.cs;
@@ -54,6 +53,11 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private bool _undeafenAfterMiss;
 
     private string _updateStatusMessage;
+    
+    private int _updateProgress;
+    private bool _isUpdateReady;
+    private IBrush _updateBarBackground = Brushes.Gray;
+
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
 
@@ -64,6 +68,47 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         Task.Run(InitializeAsync);
         _tosuApi = tosuApi;
         Task.Run(UpdateCompletionPercentageAsync);
+    }
+    
+    public int UpdateProgress
+    {
+        get => _updateProgress;
+        set
+        {
+            if (_updateProgress != value)
+            {
+                _updateProgress = value;
+                OnPropertyChanged(nameof(UpdateProgress));
+                IsUpdateReady = _updateProgress >= 100;
+                UpdateBarBackground = IsUpdateReady ? Brushes.Green : Brushes.Gray;
+            }
+        }
+    }
+
+    public bool IsUpdateReady
+    {
+        get => _isUpdateReady;
+        set
+        {
+            if (_isUpdateReady != value)
+            {
+                _isUpdateReady = value;
+                OnPropertyChanged(nameof(IsUpdateReady));
+            }
+        }
+    }
+
+    public IBrush UpdateBarBackground
+    {
+        get => _updateBarBackground;
+        set
+        {
+            if (_updateBarBackground != value)
+            {
+                _updateBarBackground = value;
+                OnPropertyChanged(nameof(UpdateBarBackground));
+            }
+        }
     }
 
 
@@ -386,8 +431,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
         string message;
         string url;
-        
-
     }
 
     private void OpenUpdateUrl()
