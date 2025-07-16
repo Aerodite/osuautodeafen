@@ -18,8 +18,6 @@ public class TooltipManager
     private double _tooltipLeft;
     private TextBlock? _tooltipText;
     private double _tooltipTop;
-    private double _tooltipVelocityX;
-    private double _tooltipVelocityY;
 
     public void SetTooltipControls(Border customTooltip, TextBlock tooltipText)
     {
@@ -76,13 +74,13 @@ public class TooltipManager
         }
     }
 
-    private async void FadeIn(Border border, double durationMs = 150)
+    private void FadeIn(Border border, double durationMs = 150)
     {
         border.Opacity = 0;
         border.IsVisible = true;
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(10) };
         double elapsed = 0;
-        timer.Tick += (_, __) =>
+        timer.Tick += (_, _) =>
         {
             elapsed += 10;
             border.Opacity = Math.Min(1, elapsed / durationMs);
@@ -91,14 +89,14 @@ public class TooltipManager
         };
         timer.Start();
     }
-
-    private async void FadeOut(Border border, double durationMs = 150)
+    
+    // this is finnicky but leaving here for now i guess
+    private void FadeOut(Border border, double durationMs = 150)
     {
-        // this is finnicky but leaving here for now i guess
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(10) };
         double elapsed = 0;
         var startOpacity = border.Opacity;
-        timer.Tick += (_, __) =>
+        timer.Tick += (_, _) =>
         {
             elapsed += 10;
             border.Opacity = Math.Max(0, startOpacity * (1 - elapsed / durationMs));

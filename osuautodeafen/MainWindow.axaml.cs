@@ -172,7 +172,7 @@ public partial class MainWindow : Window
         InitializeViewModel();
 
         _breakPeriod = new BreakPeriodCalculator();
-        _chartManager = new ChartManager(PlotView, IconOverlay, _tosuApi, _viewModel, _kiaiTimes, _tooltipManager);
+        _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel, _kiaiTimes, _tooltipManager);
         _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel);
 
         // we just need to initialize it, no need for a global variable

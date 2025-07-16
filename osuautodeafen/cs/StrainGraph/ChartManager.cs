@@ -15,8 +15,9 @@ using LiveChartsCore.Drawing;
 using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Avalonia;
+using LiveChartsCore.SkiaSharpView.Drawing;
 using LiveChartsCore.SkiaSharpView.Painting;
-using osuautodeafen.cs.Background;
+using osuautodeafen.cs.StrainGraph.Sections;
 using osuautodeafen.cs.StrainGraph.Tooltips;
 using SkiaSharp;
 
@@ -31,20 +32,17 @@ public class ChartManager
     private static readonly SKColor BreakColor = new(0xFF, 0xFF, 0x00, 90);
     private static readonly SKColor KiaiColor = new(0xA0, 0x40, 0xFF, 98);
     private static readonly SKColor DeafenOverlayColor = new(0xFF, 0x00, 0x00, 64);
-    private readonly BackgroundManager _backgroundManager;
     private readonly BreakPeriodCalculator _breakPeriod = new();
 
-    private readonly Canvas _iconOverlay;
     private readonly KiaiTimes _kiaiTimes;
 
     private readonly LineSeries<ObservablePoint> _progressIndicator;
     private readonly SectionManager _sectionManager = new();
     private readonly TosuApi _tosuApi;
     private readonly SharedViewModel _viewModel;
-    private readonly List<RectangularSection> cachedBreakPeriods = new();
-    private readonly List<RectangularSection> cachedKiaiPeriods = new();
+    private readonly List<RectangularSection> _cachedBreakPeriods = new();
+    private readonly List<RectangularSection> _cachedKiaiPeriods = new();
 
-    private Border? _customTooltip;
     private CancellationTokenSource? _deafenOverlayCts;
     private RectangularSection? _draggedDeafenSection;
     private bool _isDraggingDeafenEdge;
@@ -58,23 +56,15 @@ public class ChartManager
     private string? _lastOsuFilePath;
     private List<double>? _lastSeriesData;
     private List<double>? _lastXAxis;
-    private Canvas? _tooltipCanvas;
-
-    private double _tooltipLeft;
-    private TextBlock? _tooltipText;
-    private double _tooltipTop;
-    private double _tooltipVelocityX;
-    private double _tooltipVelocityY;
 
 
-    public ChartManager(CartesianChart plotView, Canvas iconOverlay, TosuApi tosuApi, SharedViewModel viewModel,
+    public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel,
         KiaiTimes kiaiTimes, TooltipManager tooltipManager)
     {
         PlotView = plotView ?? throw new ArgumentNullException(nameof(plotView));
         _tosuApi = tosuApi ?? throw new ArgumentNullException(nameof(tosuApi));
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         _kiaiTimes = kiaiTimes ?? throw new ArgumentNullException(nameof(kiaiTimes));
-        _iconOverlay = iconOverlay;
 
         _progressIndicator = new LineSeries<ObservablePoint>
         {
@@ -85,8 +75,6 @@ public class ChartManager
             Values = Array.Empty<ObservablePoint>(),
             Name = "ProgressIndicator"
         };
-
-        _tooltipCanvas = new Canvas();
 
         PlotView.PointerMoved += (s, e) =>
         {
@@ -199,18 +187,18 @@ public class ChartManager
 
 
                 //hacky asffffff please ignore
-                var _mainWindow =
+                var mainWindow =
                     Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
                         ? desktop.MainWindow as MainWindow
                         : null;
 
-                if (_mainWindow?.CompletionPercentageSlider != null)
-                    _mainWindow.CompletionPercentageSlider.Value = newPercentage;
+                if (mainWindow?.CompletionPercentageSlider != null)
+                    mainWindow.CompletionPercentageSlider.Value = newPercentage;
 
                 var oldValue = _viewModel.MinCompletionPercentage;
                 var args = new RangeBaseValueChangedEventArgs(oldValue, newPercentage,
                     null);
-                _mainWindow?.CompletionPercentageSlider_ValueChanged(null, args);
+                mainWindow?.CompletionPercentageSlider_ValueChanged(null, args);
 
                 await UpdateDeafenOverlayAsync(newPercentage);
 
@@ -255,15 +243,13 @@ public class ChartManager
             if (e.PropertyName == nameof(_viewModel.IsBreakUndeafenToggleEnabled))
             {
                 AudibleBreaksEnabled = _viewModel.IsBreakUndeafenToggleEnabled;
-                foreach (var section in PlotView.Sections.OfType<AnnotatedSection>())
-                    if (section.SectionType == "Break")
-                        _sectionManager.AnimateSectionFill(
-                            section,
-                            AudibleBreaksEnabled ? BreakColor : SKColors.LightSkyBlue,
-                            AudibleBreaksEnabled ? SKColors.LightSkyBlue : BreakColor,
-                            AudibleBreaksEnabled, 0, 0,
-                            (s, fill) => section.Fill = fill,
-                            PlotView.InvalidateVisual);
+                foreach (Section<SkiaSharpDrawingContext> viewSection in PlotView.Sections)
+                {
+                    AnnotatedSection? section = viewSection as AnnotatedSection;
+                    if (section != null)
+                        if (section.SectionType == "Break")
+                            _sectionManager.AnimateSectionFill(section, AudibleBreaksEnabled ? BreakColor : SKColors.LightSkyBlue, AudibleBreaksEnabled ? SKColors.LightSkyBlue : BreakColor, AudibleBreaksEnabled, 0, 0, (s, fill) => section.Fill = fill, PlotView.InvalidateVisual);
+                }
             }
         };
         Series = new ISeries[]
@@ -291,7 +277,7 @@ public class ChartManager
     public bool AudibleBreaksEnabled { get; set; }
     public Canvas IconOverlay { get; set; }
 
-    public ISeries[] Series { get; private set; } = Array.Empty<ISeries>();
+    public ISeries[] Series { get; private set; }
     public Axis[] XAxes { get; private set; } = Array.Empty<Axis>();
     public Axis[] YAxes { get; private set; } = Array.Empty<Axis>();
     public double MaxYValue { get; private set; }
@@ -300,21 +286,12 @@ public class ChartManager
 
     public CartesianChart PlotView { get; }
 
-    public void SetSectionColor(string sectionType, Paint? newFill)
-    {
-        foreach (var section in PlotView.Sections.OfType<AnnotatedSection>())
-            if (section.SectionType == sectionType)
-                section.Fill = newFill;
-
-        PlotView.InvalidateVisual();
-    }
-
     public async Task UpdateDeafenOverlayAsync(double? minCompletionPercentage, int durationMs = 60, int steps = 4)
     {
-        if (Math.Abs((double)(_lastDeafenOverlayValue - minCompletionPercentage)) < 0.001)
+        if (Math.Abs((double)(_lastDeafenOverlayValue - minCompletionPercentage)!) < 0.001)
             return;
 
-        _lastDeafenOverlayValue = (double)minCompletionPercentage;
+        _lastDeafenOverlayValue = (double)minCompletionPercentage!;
 
         try
         {
@@ -394,7 +371,7 @@ public class ChartManager
 
         MaxYValue = GetMaxYValue(graphData);
 
-        var seriesArr = PlotView.Series?.ToList() ?? new List<ISeries>();
+        var seriesArr = PlotView.Series.ToList();
         if (graphChanged)
             seriesArr = UpdateSeries(graphData, seriesArr);
 
@@ -503,14 +480,14 @@ public class ChartManager
         }
 
         var breaks = await GetBreakPeriodsAsync(osuFilePath, xAxis, seriesData);
-        cachedBreakPeriods.Clear();
+        _cachedBreakPeriods.Clear();
         foreach (var breakPeriod in breaks)
         {
             var breakStart = breakPeriod.Start / rate;
             var breakEnd = breakPeriod.End / rate;
             var startIdx = FindClosestIndex(xAxis, breakStart);
             var endIdx = FindClosestIndex(xAxis, breakEnd);
-            cachedBreakPeriods.Add(new AnnotatedSection
+            _cachedBreakPeriods.Add(new AnnotatedSection
             {
                 Xi = startIdx,
                 Xj = endIdx,
@@ -533,12 +510,12 @@ public class ChartManager
         }
 
         var kiaiList = await _kiaiTimes.ParseKiaiTimesAsync(osuFilePath);
-        cachedKiaiPeriods.Clear();
+        _cachedKiaiPeriods.Clear();
         foreach (var kiai in kiaiList)
         {
             var startIdx = FindClosestIndex(xAxis, kiai.Start / rate);
             var endIdx = FindClosestIndex(xAxis, kiai.End / rate);
-            cachedKiaiPeriods.Add(new AnnotatedSection
+            _cachedKiaiPeriods.Add(new AnnotatedSection
             {
                 Xi = startIdx,
                 Xj = endIdx,
@@ -551,7 +528,7 @@ public class ChartManager
             });
         }
 
-        var combinedSections = cachedBreakPeriods.Concat(cachedKiaiPeriods).ToList();
+        var combinedSections = _cachedBreakPeriods.Concat(_cachedKiaiPeriods).ToList();
         PlotView.Sections = combinedSections;
     }
 

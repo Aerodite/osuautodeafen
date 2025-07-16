@@ -5,12 +5,14 @@ using LiveChartsCore;
 using LiveChartsCore.SkiaSharpView.Painting;
 using SkiaSharp;
 
+namespace osuautodeafen.cs.StrainGraph.Sections;
+
 public class SectionManager
 {
-    private readonly Dictionary<object, DispatcherTimer> _sectionFillTimers = new();
+    private readonly Dictionary<object?, DispatcherTimer> _sectionFillTimers = new();
 
     public void AnimateSectionFill(
-        object section,
+        object? section,
         SKColor startColor,
         SKColor endColor,
         bool useGradient,
@@ -29,7 +31,7 @@ public class SectionManager
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         var startTime = DateTime.UtcNow;
 
-        timer.Tick += (_, __) =>
+        timer.Tick += (_, _) =>
         {
             var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
             var t = Math.Min(1, elapsed / durationMs);
