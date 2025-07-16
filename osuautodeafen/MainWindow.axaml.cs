@@ -25,6 +25,7 @@ using osuautodeafen.cs.Deafen;
 using osuautodeafen.cs.Logo;
 using osuautodeafen.cs.Settings;
 using osuautodeafen.cs.StrainGraph;
+using osuautodeafen.cs.StrainGraph.Tooltips;
 using SkiaSharp;
 using Svg.Skia;
 using Vector = Avalonia.Vector;

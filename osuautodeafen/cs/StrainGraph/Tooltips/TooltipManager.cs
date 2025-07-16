@@ -1,23 +1,27 @@
 ﻿using System;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using LiveChartsCore.Measure;
+using Avalonia.Threading;
 
-namespace osuautodeafen.cs.StrainGraph;
+namespace osuautodeafen.cs.StrainGraph.Tooltips;
 
 public class TooltipManager
 {
-    private Border? _customTooltip;
-    private TextBlock? _tooltipText;
-    private double _tooltipLeft;
-    private double _tooltipTop;
-    private double _tooltipVelocityX;
-    private double _tooltipVelocityY;
-
     private const double TooltipOffset = 0;
     private const double SpringFrequency = 10;
     private const double SpringDamping = 1.5;
+    private Border? _customTooltip;
+
+
+    private bool _isTooltipShowing;
+    private Point _lastTooltipPosition;
+
+    private string? _lastTooltipText;
+    private double _tooltipLeft;
+    private TextBlock? _tooltipText;
+    private double _tooltipTop;
+    private double _tooltipVelocityX;
+    private double _tooltipVelocityY;
 
     public void SetTooltipControls(Border customTooltip, TextBlock tooltipText)
     {
@@ -28,32 +32,37 @@ public class TooltipManager
     public void ShowCustomTooltip(Point position, string text, Rect chartBounds)
     {
         if (_customTooltip == null || _tooltipText == null) return;
-        _customTooltip.IsVisible = true;
-        _tooltipText.Text = text;
+
+        var isSameTooltip = _isTooltipShowing &&
+                            _lastTooltipText == text &&
+                            _lastTooltipPosition == position;
+
+        if (!isSameTooltip)
+        {
+            if (!_isTooltipShowing)
+            {
+                _customTooltip.Opacity = 0;
+                _customTooltip.IsVisible = true;
+                FadeIn(_customTooltip);
+            }
+
+            _isTooltipShowing = true;
+            _tooltipText.Text = text;
+            _lastTooltipText = text;
+            _lastTooltipPosition = position;
+        }
 
         _customTooltip.Measure(Size.Infinity);
-
         var tooltipWidth = _customTooltip.Bounds.Width;
+        var maxLeft = chartBounds.Width - tooltipWidth;
         var leftCandidate = position.X - tooltipWidth - TooltipOffset;
         var rightCandidate = position.X + TooltipOffset;
-        var maxLeft = chartBounds.Width - tooltipWidth;
-        
-        leftCandidate = Math.Max(0, Math.Min(leftCandidate, maxLeft));
-        rightCandidate = Math.Max(0, Math.Min(rightCandidate, maxLeft));
-
-        var targetLeft = leftCandidate == 0 ? rightCandidate : leftCandidate;
+        var unclampedTargetLeft = leftCandidate >= 0 ? leftCandidate : rightCandidate;
+        var targetLeft = Math.Max(0, Math.Min(unclampedTargetLeft, maxLeft));
         var targetTop = position.Y - _customTooltip.Bounds.Height;
 
-        var dt = 1.0 / 60.0;
-        var dx = targetLeft - _tooltipLeft;
-        var ax = SpringFrequency * SpringFrequency * dx - 2.0 * SpringDamping * SpringFrequency * _tooltipVelocityX;
-        _tooltipVelocityX += ax * dt;
-        _tooltipLeft += _tooltipVelocityX * dt;
-
-        var dy = targetTop - _tooltipTop;
-        var ay = SpringFrequency * SpringFrequency * dy - 2.0 * SpringDamping * SpringFrequency * _tooltipVelocityY;
-        _tooltipVelocityY += ay * dt;
-        _tooltipTop += _tooltipVelocityY * dt;
+        _tooltipLeft = targetLeft;
+        _tooltipTop = targetTop;
 
         Canvas.SetLeft(_customTooltip, _tooltipLeft);
         Canvas.SetTop(_customTooltip, _tooltipTop);
@@ -61,7 +70,46 @@ public class TooltipManager
 
     public void HideCustomTooltip()
     {
-        if (_customTooltip != null)
+        if (_customTooltip != null && _isTooltipShowing)
+        {
             _customTooltip.IsVisible = false;
+            _isTooltipShowing = false;
+            _lastTooltipText = null;
+        }
+    }
+
+    private async void FadeIn(Border border, double durationMs = 150)
+    {
+        border.Opacity = 0;
+        border.IsVisible = true;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(10) };
+        double elapsed = 0;
+        timer.Tick += (_, __) =>
+        {
+            elapsed += 10;
+            border.Opacity = Math.Min(1, elapsed / durationMs);
+            if (elapsed >= durationMs)
+                timer.Stop();
+        };
+        timer.Start();
+    }
+
+    private async void FadeOut(Border border, double durationMs = 150)
+    {
+        // this is finnicky but leaving here for now i guess
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(10) };
+        double elapsed = 0;
+        var startOpacity = border.Opacity;
+        timer.Tick += (_, __) =>
+        {
+            elapsed += 10;
+            border.Opacity = Math.Max(0, startOpacity * (1 - elapsed / durationMs));
+            if (elapsed >= durationMs)
+            {
+                border.IsVisible = false;
+                timer.Stop();
+            }
+        };
+        timer.Start();
     }
 }

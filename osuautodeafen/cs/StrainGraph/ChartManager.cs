@@ -17,6 +17,7 @@ using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Avalonia;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs.Background;
+using osuautodeafen.cs.StrainGraph.Tooltips;
 using SkiaSharp;
 
 namespace osuautodeafen.cs.StrainGraph;
@@ -97,9 +98,15 @@ public class ChartManager
                 {
                     var start = TimeSpan.FromMilliseconds(section.StartTime).ToString(@"mm\:ss\:ff");
                     var end = TimeSpan.FromMilliseconds(section.EndTime).ToString(@"mm\:ss\:ff");
-                    var tooltipText = $"{section.SectionType}\n{start}-{end}";
-                    var rect = PlotView.Bounds;
-                    var bounds = new LiveChartsCore.Measure.Bounds(rect.Width, rect.Height);
+                    string tooltipText;
+
+                    if (section.SectionType == "Break" && AudibleBreaksEnabled)
+                        tooltipText = $"Break (Undeafened)\n{start}-{end}";
+                    else if (section.SectionType == "Break")
+                        tooltipText = $"Break (Deafened)\n{start}-{end}";
+                    else
+                        tooltipText = $"{section.SectionType}\n{start}-{end}";
+
                     tooltipManager.ShowCustomTooltip(pixelPoint, tooltipText, PlotView.Bounds);
                     return;
                 }
@@ -173,7 +180,7 @@ public class ChartManager
                 e.Handled = true;
             }
         };
-
+        //makes the deafen section save to settings when dragged
         PlotView.PointerMoved += async (s, e) =>
         {
             var pixelPoint = e.GetPosition(PlotView);
@@ -182,11 +189,13 @@ public class ChartManager
 
             if (_isDraggingDeafenEdge && _draggedDeafenSection != null)
             {
-                var newXi = Math.Max(0, Math.Min(dataPoint.X, (_draggedDeafenSection.Xj ?? 0) - 1));
+                var maxXi = MaxLimit;
+                var newXi = Math.Max(0, Math.Min(dataPoint.X, Math.Min((_draggedDeafenSection.Xj ?? 0) - 1, maxXi)));
                 _draggedDeafenSection.Xi = newXi;
 
-                var newPercentage = 100.0 * newXi / MaxLimit;
+                var newPercentage = Math.Min(100.0, 100.0 * newXi / MaxLimit); // Clamp to 100%
                 _viewModel.MinCompletionPercentage = (int)newPercentage;
+
 
                 //hacky asffffff please ignore
                 var _mainWindow =
