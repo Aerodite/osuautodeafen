@@ -18,7 +18,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private readonly SettingsHandler _settingsHandler;
 
     private readonly TosuApi _tosuApi;
-    private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
 
     private SolidColorBrush _averageColorBrush = new(Colors.Gray);
 
@@ -371,26 +370,12 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    public void MainWindowViewModel()
-    {
-        UpdateChecker.OnUpdateAvailable += UpdateChecker_OnUpdateAvailable;
-        UpdateChecker.UpdateCheckCompleted += UpdateChecker_UpdateCheckCompleted;
-    }
-
     public async Task InitializeAsync()
     {
-        UpdateChecker.OnUpdateAvailable += UpdateChecker_OnUpdateAvailable;
-        UpdateChecker.UpdateCheckCompleted += UpdateChecker_UpdateCheckCompleted;
     }
 
     private void UpdateChecker_UpdateCheckCompleted(bool updateFound)
     {
-        CheckAndUpdateStatusMessage();
-    }
-
-    private void UpdateChecker_OnUpdateAvailable(string? latestVersion, string latestReleaseUrl)
-    {
-        _updateChecker.latestVersion = latestVersion;
         CheckAndUpdateStatusMessage();
     }
 
@@ -399,29 +384,10 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         var currentVersionObj = new Version(UpdateChecker.currentVersion);
         Version latestVersionObj;
 
-        if (string.IsNullOrEmpty(_updateChecker.latestVersion) ||
-            !Version.TryParse(_updateChecker.latestVersion, out latestVersionObj))
-        {
-            Console.WriteLine("Invalid or missing latest version. Unable to compare versions.");
-            return;
-        }
-
-        Console.WriteLine($"Current Version: {currentVersionObj}, Latest Version: {latestVersionObj}");
-
         string message;
         string url;
+        
 
-        if (currentVersionObj < latestVersionObj)
-        {
-            message = "A new update is available!" + $"\n(v{latestVersionObj})";
-        }
-        else
-        {
-            message = "No updates available";
-            url = null;
-        }
-
-        Dispatcher.UIThread.InvokeAsync(() => { UpdateStatusMessage = message; });
     }
 
     private void OpenUpdateUrl()

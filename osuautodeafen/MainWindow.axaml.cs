@@ -28,6 +28,7 @@ using osuautodeafen.cs.StrainGraph;
 using osuautodeafen.cs.StrainGraph.Tooltips;
 using SkiaSharp;
 using Svg.Skia;
+using Velopack;
 using Vector = Avalonia.Vector;
 
 namespace osuautodeafen;
@@ -55,7 +56,7 @@ public partial class MainWindow : Window
 
     public readonly TosuApi _tosuApi = new();
 
-    private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
+    private readonly UpdateChecker _updateChecker = new();
 
     private readonly SharedViewModel _viewModel;
 
@@ -106,6 +107,10 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
 
         InitializeLogo();
+        
+        VelopackApp.Build().Run();
+
+        _updateChecker.CheckForUpdatesAsync();
 
         //TODO
         // maybe add a state for this depending on if its deafened or not
@@ -610,7 +615,7 @@ public partial class MainWindow : Window
     // show the update notification bar if an update is available
     private async void InitializeViewModel()
     {
-        await CheckForUpdates();
+        //await CheckForUpdates();
         DataContext = ViewModel;
     }
 
@@ -774,20 +779,9 @@ public partial class MainWindow : Window
         button.Content = "Checking for updates...";
         await Task.Delay(1000);
 
-        await _updateChecker.FetchLatestVersionAsync();
-
-        if (string.IsNullOrEmpty(_updateChecker.latestVersion))
-        {
-            button.Content = "No updates found";
-            await Task.Delay(1000);
-            button.Content = "Check for updates";
-            return;
-        }
-
-        var currentVersion = new Version(UpdateChecker.currentVersion);
-        var latestVersion = new Version(_updateChecker.latestVersion);
-
-        if (latestVersion > currentVersion)
+        await _updateChecker.CheckForUpdatesAsync();
+        
+        /*if (latestVersion > currentVersion)
         {
             Console.WriteLine($"Update available: {latestVersion}");
             ShowUpdateNotification();
@@ -801,9 +795,10 @@ public partial class MainWindow : Window
             button.Content = "You are on the latest version";
             await Task.Delay(2000);
             button.Content = "Check for updates";
-        }
+        }*/
     }
 
+    /*
     private async Task CheckForUpdates()
     {
         await _updateChecker.FetchLatestVersionAsync();
@@ -826,7 +821,7 @@ public partial class MainWindow : Window
         {
             Console.WriteLine("You are on the latest version.");
         }
-    }
+    }*/
 
     private bool IsModifierKey(Key key)
     {
