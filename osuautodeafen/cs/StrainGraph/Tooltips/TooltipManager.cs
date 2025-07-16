@@ -89,7 +89,7 @@ public class TooltipManager
         };
         timer.Start();
     }
-    
+
     // this is finnicky but leaving here for now i guess
     private void FadeOut(Border border, double durationMs = 150)
     {
