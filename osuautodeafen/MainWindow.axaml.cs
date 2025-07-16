@@ -383,8 +383,6 @@ public partial class MainWindow : Window
             ? $"[{DateTime.Now:MM-dd HH:mm:ss.fff}]{message}"
             : message;
 
-        Console.WriteLine(newLine);
-
         if (!string.IsNullOrEmpty(keyword))
         {
             _importantLogs[keyword] = newLine;
