@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -112,6 +113,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                     return;
                 }
 
+                await PrewarmBlur(backgroundPath);
                 _currentBitmap?.Dispose();
                 _currentBitmap = newBitmap;
 
@@ -202,16 +204,21 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         CancellationToken token)
     {
         var tcs = new TaskCompletionSource<bool>();
+        var stopwatch = new Stopwatch();
         const int steps = 5;
         var step = (to - from) / steps;
         var delay = durationMs / steps;
         var i = 0;
+
+        stopwatch.Start();
 
         IDisposable? timer = null;
         timer = DispatcherTimer.Run(() =>
         {
             if (token.IsCancellationRequested)
             {
+                stopwatch.Stop();
+                Console.WriteLine($"Blur animation canceled after {stopwatch.ElapsedMilliseconds} ms");
                 timer?.Dispose();
                 tcs.TrySetCanceled(token);
                 return false;
@@ -224,6 +231,8 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             if (i > steps)
             {
                 blurEffect.Radius = to;
+                stopwatch.Stop();
+                Console.WriteLine($"Blur animation completed in {stopwatch.ElapsedMilliseconds} ms");
                 timer?.Dispose();
                 tcs.TrySetResult(true);
                 return false;
@@ -239,24 +248,40 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     // (thanks peppy :D)
     private double CalculateBlurDownscale(double sigma)
     {
-        if (sigma <= 1) return 1;
+        var sw = Stopwatch.StartNew();
+        if (sigma <= 1)
+        {
+            sw.Stop();
+            //Console.WriteLine($"CalculateBlurDownscale elapsed: {sw.ElapsedMilliseconds} ms");
+            return 1;
+        }
+
         var scale = -0.18 * Math.Log(0.004 * sigma);
-        return Math.Max(0.1, Math.Round(scale / 0.2, MidpointRounding.AwayFromZero) * 0.2);
+        var result = Math.Max(0.1, Math.Round(scale / 0.2, MidpointRounding.AwayFromZero) * 0.2);
+        sw.Stop();
+        //Console.WriteLine($"CalculateBlurDownscale elapsed: {sw.ElapsedMilliseconds} ms");
+        return result;
     }
 
-    // Downscale the bitmap for fast blur
     private async Task<Bitmap> CreateDownscaledBitmapAsync(Bitmap source, double scale)
     {
+        var sw = Stopwatch.StartNew();
         if (scale >= 1.0)
+        {
+            sw.Stop();
+            //Console.WriteLine($"CreateDownscaledBitmapAsync elapsed: {sw.ElapsedMilliseconds} ms");
             return source;
+        }
 
-        // Only recreate if source or scale changed
         if (_cachedDownscaledBitmap != null &&
             _cachedSourceBitmap == source &&
             Math.Abs(_cachedDownscale - scale) < 0.01)
+        {
+            sw.Stop();
+            //Console.WriteLine($"CreateDownscaledBitmapAsync elapsed: {sw.ElapsedMilliseconds} ms (cached)");
             return _cachedDownscaledBitmap;
+        }
 
-        // Dispose old cached bitmap
         _cachedDownscaledBitmap?.Dispose();
 
         var width = Math.Max(1, (int)(source.PixelSize.Width * scale));
@@ -277,15 +302,23 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         _cachedDownscaledBitmap = target;
         _cachedDownscale = scale;
         _cachedSourceBitmap = source;
+        sw.Stop();
+        //Console.WriteLine($"CreateDownscaledBitmapAsync elapsed: {sw.ElapsedMilliseconds} ms");
         return target;
     }
 
-    public static void PrewarmRenderTarget()
+    public async Task PrewarmBlur(string backgroundPath)
     {
-        var size = new PixelSize(630, 630);
-        var dummy = new RenderTargetBitmap(size);
-        using var ctx = dummy.CreateDrawingContext(false);
-        ctx.FillRectangle(Brushes.Gray, new Rect(0, 0, size.Width, size.Height));
+        var bitmap = await LoadBitmapAsync(backgroundPath);
+        if (bitmap == null) return;
+
+        var blurRadius = 100;
+        var scale = CalculateBlurDownscale(blurRadius);
+        var downscaled = await CreateDownscaledBitmapAsync(bitmap, scale);
+
+        _cachedDownscaledBitmap = downscaled;
+        _cachedSourceBitmap = bitmap;
+        _cachedDownscale = scale;
     }
 
     private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)

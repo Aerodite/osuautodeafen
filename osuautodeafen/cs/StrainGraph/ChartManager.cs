@@ -15,7 +15,6 @@ using LiveChartsCore.Drawing;
 using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Avalonia;
-using LiveChartsCore.SkiaSharpView.Drawing;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs.StrainGraph.Sections;
 using osuautodeafen.cs.StrainGraph.Tooltips;
@@ -33,6 +32,8 @@ public class ChartManager
     private static readonly SKColor KiaiColor = new(0xA0, 0x40, 0xFF, 98);
     private static readonly SKColor DeafenOverlayColor = new(0xFF, 0x00, 0x00, 64);
     private readonly BreakPeriodCalculator _breakPeriod = new();
+    private readonly List<RectangularSection> _cachedBreakPeriods = new();
+    private readonly List<RectangularSection> _cachedKiaiPeriods = new();
 
     private readonly KiaiTimes _kiaiTimes;
 
@@ -40,8 +41,6 @@ public class ChartManager
     private readonly SectionManager _sectionManager = new();
     private readonly TosuApi _tosuApi;
     private readonly SharedViewModel _viewModel;
-    private readonly List<RectangularSection> _cachedBreakPeriods = new();
-    private readonly List<RectangularSection> _cachedKiaiPeriods = new();
 
     private CancellationTokenSource? _deafenOverlayCts;
     private RectangularSection? _draggedDeafenSection;
@@ -105,37 +104,27 @@ public class ChartManager
                 if (section is RectangularSection rs && rs.Fill is SolidColorPaint paint &&
                     paint.Color == DeafenOverlayColor)
                 {
-                    // only highlight if cursor is near the left edge (Xi)
-                    if (Math.Abs((double)(dataPoint.X - rs.Xi)) < 5)
+                    rs.Yi = -MaxYValue * 0.6;
+                    rs.Yj = MaxYValue * 1.5;
+                    rs.Stroke = new SolidColorPaint
                     {
-                        PlotView.Cursor = new Cursor(StandardCursorType.Hand);
-                        if (!_isHoveringDeafenEdge)
-                        {
-                            _isHoveringDeafenEdge = true;
-                            rs.Stroke = new SolidColorPaint
-                            {
-                                Color = SKColors.Red,
-                                StrokeThickness = 14
-                            };
-                            rs.Yi = -MaxYValue * 0.6;
-                            rs.Yj = MaxYValue * 1.5;
-                            rs.Xj = MaxLimit * 1.5;
-                            PlotView.InvalidateVisual();
-                        }
+                        Color = _isHoveringDeafenEdge ? SKColors.DarkRed : DeafenOverlayColor,
+                        StrokeThickness = _isHoveringDeafenEdge ? 7 : 6
+                    };
+                    rs.Xj = MaxLimit * 1.5;
 
+                    if (Math.Abs((double)(dataPoint.X - rs.Xi)) < 15)
+                    {
+                        if ((PlotView.Cursor = Cursor.Default) != null)
+                            PlotView.Cursor = new Cursor(StandardCursorType.Hand);
+                        _isHoveringDeafenEdge = true;
                         hovered = true;
                         break;
                     }
 
-                    if (_isHoveringDeafenEdge)
-                    {
-                        // Reset to normal
-                        rs.Yi = 0;
-                        rs.Yj = MaxYValue;
-                        rs.Stroke = new SolidColorPaint { Color = DeafenOverlayColor, StrokeThickness = 2 };
-                        _isHoveringDeafenEdge = false;
-                        PlotView.InvalidateVisual();
-                    }
+                    if (PlotView.Cursor != null && PlotView.Cursor != new Cursor(StandardCursorType.Arrow))
+                        PlotView.Cursor = new Cursor(StandardCursorType.Arrow);
+                    _isHoveringDeafenEdge = false;
                 }
 
             if (!hovered)
@@ -243,12 +232,15 @@ public class ChartManager
             if (e.PropertyName == nameof(_viewModel.IsBreakUndeafenToggleEnabled))
             {
                 AudibleBreaksEnabled = _viewModel.IsBreakUndeafenToggleEnabled;
-                foreach (Section<SkiaSharpDrawingContext> viewSection in PlotView.Sections)
+                foreach (var viewSection in PlotView.Sections)
                 {
-                    AnnotatedSection? section = viewSection as AnnotatedSection;
+                    var section = viewSection as AnnotatedSection;
                     if (section != null)
                         if (section.SectionType == "Break")
-                            _sectionManager.AnimateSectionFill(section, AudibleBreaksEnabled ? BreakColor : SKColors.LightSkyBlue, AudibleBreaksEnabled ? SKColors.LightSkyBlue : BreakColor, AudibleBreaksEnabled, 0, 0, (s, fill) => section.Fill = fill, PlotView.InvalidateVisual);
+                            _sectionManager.AnimateSectionFill(section,
+                                AudibleBreaksEnabled ? BreakColor : SKColors.LightSkyBlue,
+                                AudibleBreaksEnabled ? SKColors.LightSkyBlue : BreakColor, AudibleBreaksEnabled, 0, 0,
+                                (s, fill) => section.Fill = fill, PlotView.InvalidateVisual);
                 }
             }
         };

@@ -160,8 +160,6 @@ public partial class MainWindow : Window
 
         // end of settings bs
 
-        BackgroundManager.PrewarmRenderTarget();
-
         var oldContent = Content;
         Content = null;
         Content = new Grid
