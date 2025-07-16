@@ -25,6 +25,7 @@ using osuautodeafen.cs.Deafen;
 using osuautodeafen.cs.Logo;
 using osuautodeafen.cs.Settings;
 using osuautodeafen.cs.StrainGraph;
+using osuautodeafen.cs.StrainGraph.Tooltips;
 using SkiaSharp;
 using Svg.Skia;
 using Vector = Avalonia.Vector;
@@ -42,15 +43,17 @@ public partial class MainWindow : Window
     private readonly ChartManager _chartManager;
     private readonly object _cogSpinLock = new();
     private readonly GetLowResBackground? _getLowResBackground;
+
+    private readonly KiaiTimes _kiaiTimes = new();
     private readonly DispatcherTimer _mainTimer;
 
     private readonly SemaphoreSlim _panelAnimationLock = new(1, 1);
     private readonly ProgressIndicatorHelper _progressIndicatorHelper;
     private readonly SettingsHandler? _settingsHandler;
 
+    private readonly TooltipManager _tooltipManager = new();
+
     public readonly TosuApi _tosuApi = new();
-    
-    private readonly KiaiTimes _kiaiTimes = new();
 
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
 
@@ -74,10 +77,12 @@ public partial class MainWindow : Window
     private bool _isKiaiPulseHigh;
 
     public bool _isSettingsPanelOpen;
-    
-    private double _kiaiMsPerBeat = 60000.0 / 140; // Default BPM
 
     private DispatcherTimer? _kiaiBrightnessTimer;
+
+    private double _kiaiMsPerBeat = 60000.0 / 140; // Default BPM
+
+    private GraphData? _lastGraphData;
 
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
@@ -87,7 +92,6 @@ public partial class MainWindow : Window
     public Image? _normalBackground;
 
     private double opacity = 1.00;
-
 
     //<summary>
     // constructor for the ui and subsequent panels
@@ -168,7 +172,7 @@ public partial class MainWindow : Window
         InitializeViewModel();
 
         _breakPeriod = new BreakPeriodCalculator();
-        _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel, _kiaiTimes);
+        _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel, _kiaiTimes, _tooltipManager);
         _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel);
 
         // we just need to initialize it, no need for a global variable
@@ -176,7 +180,7 @@ public partial class MainWindow : Window
 
         // ideally we could use no timers whatsoever but for now this works fine
         // because it really only checks if events should be triggered
-        
+
         //updated to 16ms from 100ms since apparently it takes 1ms to run anyways, might as well have it be responsive
         _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _mainTimer.Tick += MainTimer_Tick;
@@ -192,7 +196,8 @@ public partial class MainWindow : Window
             _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage());
         _tosuApi.BeatmapChanged += async () =>
         {
-            var graphTask = Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData())).GetTask();
+            var graphTask = Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()))
+                .GetTask();
             var bgTask = _backgroundManager != null
                 ? _backgroundManager.UpdateBackground(null, null)
                 : Task.CompletedTask;
@@ -227,8 +232,8 @@ public partial class MainWindow : Window
 
             if (_tosuApi._isKiai && _viewModel.IsKiaiEffectEnabled)
             {
-                double bpm = _tosuApi.GetCurrentBpm();
-                double intervalMs = (60000.0 / bpm);
+                var bpm = _tosuApi.GetCurrentBpm();
+                var intervalMs = 60000.0 / bpm;
 
                 _kiaiBrightnessTimer?.Stop();
                 _kiaiBrightnessTimer = new DispatcherTimer
@@ -239,13 +244,11 @@ public partial class MainWindow : Window
                 {
                     _isKiaiPulseHigh = !_isKiaiPulseHigh;
                     if (_isKiaiPulseHigh)
-                    {
-                        await _backgroundManager.RequestBackgroundOpacity("kiai", 1.0 - opacity, 10000, (int)(intervalMs / 4));
-                    }
+                        await _backgroundManager.RequestBackgroundOpacity("kiai", 1.0 - opacity, 10000,
+                            (int)(intervalMs / 4));
                     else
-                    {
-                        await _backgroundManager.RequestBackgroundOpacity("kiai", 0.85 - opacity, 10000, (int)(intervalMs / 4));
-                    }
+                        await _backgroundManager.RequestBackgroundOpacity("kiai", 0.85 - opacity, 10000,
+                            (int)(intervalMs / 4));
                 };
                 _kiaiBrightnessTimer.Start();
             }
@@ -254,10 +257,7 @@ public partial class MainWindow : Window
                 _kiaiBrightnessTimer?.Stop();
                 _kiaiBrightnessTimer = null;
 
-                if (_isSettingsPanelOpen)
-                {
-                    await _backgroundManager.RequestBackgroundOpacity("settings", 0.5, 10, 150);
-                }
+                if (_isSettingsPanelOpen) await _backgroundManager.RequestBackgroundOpacity("settings", 0.5, 10, 150);
 
                 _backgroundManager.RemoveBackgroundOpacityRequest("kiai");
             }
@@ -303,6 +303,8 @@ public partial class MainWindow : Window
         MinWidth = 550;
         CanResize = true;
         Closing += MainWindow_Closing;
+
+        _tooltipManager.SetTooltipControls(CustomTooltip, TooltipText);
 
         PointerPressed += (sender, e) =>
         {
@@ -513,10 +515,10 @@ public partial class MainWindow : Window
     }
 
     //Settings
-    private async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    public async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
-        if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
-        var roundedValue = (int)Math.Round(slider.Value);
+        if (DataContext is not SharedViewModel vm) return;
+        var roundedValue = (int)Math.Round(e.NewValue);
         Console.WriteLine($"Min Comp. % Value: {roundedValue}");
         vm.MinCompletionPercentage = roundedValue;
         _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", roundedValue);
@@ -572,8 +574,6 @@ public partial class MainWindow : Window
                 ProgressOverlay.Points = points;
             });
     }
-
-    private GraphData? _lastGraphData;
 
     private void OnGraphDataUpdated(GraphData? graphData)
     {
