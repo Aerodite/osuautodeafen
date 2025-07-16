@@ -112,7 +112,7 @@ public partial class MainWindow : Window
         var fileStream = new FileStream(logFile, FileMode.Append, FileAccess.Write, FileShare.Read);
         var writer = new StreamWriter(fileStream) { AutoFlush = true };
         Console.SetOut(new TimestampTextWriter(writer));
-        Console.WriteLine($"[INFO] osuautodeafen started at {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+        Console.WriteLine($"[INFO] osuautodeafen started at {DateTime.Now:MM-dd HH:mm:ss.fff}");
         
         _tosuApi = new TosuApi();
 
