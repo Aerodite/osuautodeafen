@@ -38,6 +38,7 @@ public class ChartManager
     private readonly KiaiTimes _kiaiTimes;
 
     private readonly LineSeries<ObservablePoint> _progressIndicator;
+    private readonly SectionManager _sectionManager = new();
     private readonly TosuApi _tosuApi;
     private readonly SharedViewModel _viewModel;
     private readonly List<RectangularSection> cachedBreakPeriods = new();
@@ -255,19 +256,14 @@ public class ChartManager
             {
                 AudibleBreaksEnabled = _viewModel.IsBreakUndeafenToggleEnabled;
                 foreach (var section in PlotView.Sections.OfType<AnnotatedSection>())
-                {
                     if (section.SectionType == "Break")
-                    {
-                        section.Fill = AudibleBreaksEnabled
-                            ? new LinearGradientPaint(
-                                new[] { new SKColor(0x00, 0x80, 0xFF, 255) },
-                                new SKPoint(0, 0),
-                                new SKPoint((float)(section.Xj - section.Xi), (float)MaxYValue)
-                            )
-                            : new SolidColorPaint { Color = BreakColor };
-                    }
-                }
-                PlotView.InvalidateVisual();
+                        _sectionManager.AnimateSectionFill(
+                            section,
+                            AudibleBreaksEnabled ? BreakColor : SKColors.LightSkyBlue,
+                            AudibleBreaksEnabled ? SKColors.LightSkyBlue : BreakColor,
+                            AudibleBreaksEnabled, 0, 0,
+                            (s, fill) => section.Fill = fill,
+                            PlotView.InvalidateVisual);
             }
         };
         Series = new ISeries[]
@@ -312,7 +308,7 @@ public class ChartManager
 
         PlotView.InvalidateVisual();
     }
-    
+
     public async Task UpdateDeafenOverlayAsync(double? minCompletionPercentage, int durationMs = 60, int steps = 4)
     {
         if (Math.Abs((double)(_lastDeafenOverlayValue - minCompletionPercentage)) < 0.001)

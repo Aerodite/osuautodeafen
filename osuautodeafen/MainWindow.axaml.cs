@@ -51,6 +51,8 @@ public partial class MainWindow : Window
     private readonly ProgressIndicatorHelper _progressIndicatorHelper;
     private readonly SettingsHandler? _settingsHandler;
 
+    private readonly TooltipManager _tooltipManager = new();
+
     public readonly TosuApi _tosuApi = new();
 
     private readonly UpdateChecker _updateChecker = UpdateChecker.GetInstance();
@@ -90,8 +92,6 @@ public partial class MainWindow : Window
     public Image? _normalBackground;
 
     private double opacity = 1.00;
-    
-    private readonly TooltipManager _tooltipManager = new TooltipManager();
 
     //<summary>
     // constructor for the ui and subsequent panels

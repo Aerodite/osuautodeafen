@@ -8,8 +8,6 @@ namespace osuautodeafen.cs.StrainGraph.Tooltips;
 public class TooltipManager
 {
     private const double TooltipOffset = 0;
-    private const double SpringFrequency = 10;
-    private const double SpringDamping = 1.5;
     private Border? _customTooltip;
 
 
