@@ -5,10 +5,7 @@
         xmlns:local="clr-namespace:osuautodeafen"
         xmlns:cs="clr-namespace:osuautodeafen.cs"
         xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
-        xmlns:skiaSharpView="clr-namespace:LiveChartsCore.SkiaSharpView;assembly=LiveChartsCore.SkiaSharpView"
-        xmlns:painting="clr-namespace:LiveChartsCore.SkiaSharpView.Painting;assembly=LiveChartsCore.SkiaSharpView"
         xmlns:settings="clr-namespace:osuautodeafen.cs.Settings"
-        xmlns:global="clr-namespace:"
         xmlns:strainGraph="clr-namespace:osuautodeafen.cs.StrainGraph"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
@@ -17,17 +14,9 @@
 
 
     <Window.Resources>
-        <local:UpdateNotificationMarginConverter x:Key="UpdateNotificationMarginConverter" />
         <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
-        <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
-        <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
-        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
     </Window.Resources>
-    
 
 
     <Grid ZIndex="5">
@@ -54,7 +43,8 @@
                     <Image Source="avares://osuautodeafen/Icons/outline.png"
                            Width="50" Height="50">
                         <Image.OpacityMask>
-                            <MultiBinding Converter="{StaticResource ColorBlendConverter}" x:DataType="cs:SharedViewModel">
+                            <MultiBinding Converter="{StaticResource ColorBlendConverter}"
+                                          x:DataType="cs:SharedViewModel">
                                 <Binding Path="Color" Source="{StaticResource BaseBackgroundBrush}" />
                                 <Binding Path="AverageColorBrush.Color" />
                             </MultiBinding>
@@ -80,7 +70,7 @@
             </Border>
         </StackPanel>
 
-          <!--- settings panel -->
+        <!--- settings panel -->
         <DockPanel x:Name="SettingsPanel" Grid.Column="1" Width="200" IsVisible="False"
                    Margin="0,42,0,0" ZIndex="3"
                    x:DataType="cs:SharedViewModel" HorizontalAlignment="Right">
@@ -379,7 +369,7 @@
                 <strainGraph:ProgressIndicatorOverlay
                     x:Name="ProgressOverlay"
                     IsHitTestVisible="False" />
-                <Canvas x:Name="IconOverlay" IsHitTestVisible="False" x:DataType="cs:SharedViewModel"/>
+                <Canvas x:Name="IconOverlay" IsHitTestVisible="False" x:DataType="cs:SharedViewModel" />
                 <Canvas>
                     <Border x:Name="CustomTooltip"
                             Background="#AA222222"

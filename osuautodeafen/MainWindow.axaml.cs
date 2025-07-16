@@ -89,7 +89,8 @@ public partial class MainWindow : Window
     public Image? _normalBackground;
 
     private double opacity = 1.00;
-
+    
+    private readonly TooltipManager _tooltipManager = new TooltipManager();
 
     //<summary>
     // constructor for the ui and subsequent panels
@@ -170,9 +171,9 @@ public partial class MainWindow : Window
         InitializeViewModel();
 
         _breakPeriod = new BreakPeriodCalculator();
-        _chartManager = new ChartManager(PlotView, IconOverlay, _tosuApi, _viewModel, _kiaiTimes);
+        _chartManager = new ChartManager(PlotView, IconOverlay, _tosuApi, _viewModel, _kiaiTimes, _tooltipManager);
         _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel);
-        
+
         // we just need to initialize it, no need for a global variable
         var deafen = new Deafen(_tosuApi, _settingsHandler, _viewModel);
 
@@ -302,7 +303,7 @@ public partial class MainWindow : Window
         CanResize = true;
         Closing += MainWindow_Closing;
 
-        _chartManager.SetTooltipControls(CustomTooltip, TooltipText);
+        _tooltipManager.SetTooltipControls(CustomTooltip, TooltipText);
 
         PointerPressed += (sender, e) =>
         {
@@ -602,30 +603,6 @@ public partial class MainWindow : Window
                 list1.Add(new ObservablePoint(i, series1.Data[i]));
             ChartData.Series2Values = list1;
         }
-
-        Dispatcher.UIThread.InvokeAsync(() =>
-            _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage));
-    }
-    
-    protected internal void ForceGraphDataUpdate(GraphData? graphData)
-    {
-        Console.WriteLine("Forcing graph data update...");
-        _lastGraphData = graphData;
-
-        var series0 = graphData.Series[0];
-        var series1 = graphData.Series[1];
-        series0.Name = "aim";
-        series1.Name = "speed";
-        
-            var list0 = new List<ObservablePoint>(series0.Data.Count);
-            for (var i = 0; i < series0.Data.Count; i++)
-                list0.Add(new ObservablePoint(i, series0.Data[i]));
-            ChartData.Series1Values = list0;
-            
-            var list1 = new List<ObservablePoint>(series1.Data.Count);
-            for (var i = 0; i < series1.Data.Count; i++)
-                list1.Add(new ObservablePoint(i, series1.Data[i]));
-            ChartData.Series2Values = list1;
 
         Dispatcher.UIThread.InvokeAsync(() =>
             _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage));
