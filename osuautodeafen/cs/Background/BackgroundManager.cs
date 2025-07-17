@@ -14,6 +14,8 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using osuautodeafen.cs.Logo;
+using SkiaSharp;
+using SKColor = ShimSkiaSharp.SKColor;
 
 namespace osuautodeafen.cs.Background;
 
@@ -46,8 +48,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     private double _mouseX;
     private double _mouseY;
     private CancellationTokenSource? _overlayAnimationCts;
-
-
+    
     public double GetBackgroundOpacity()
     {
         return _currentBackgroundOpacity;
@@ -320,7 +321,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         _cachedSourceBitmap = bitmap;
         _cachedDownscale = scale;
     }
-    
+
 
     private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
     {

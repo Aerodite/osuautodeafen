@@ -37,9 +37,35 @@
         </StackPanel>
 
         <!-- Main content -->
-        <StackPanel Grid.Column="0" ZIndex="9">
-            <Border x:Name="SettingsButtonContainer" Margin="0,42,0,0">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="DebugConsoleTextBox"
+                     Grid.Column="0"
+                     HorizontalAlignment="Stretch"
+                     VerticalAlignment="Stretch"
+                     x:DataType="cs:SharedViewModel"
+                     Margin="8,20,0,0"
+                     Padding="8"
+                     FontFamily="Consolas"
+                     FontSize="11"
+                     Foreground="White"
+                     IsReadOnly="True"
+                     IsVisible="False"
+                     Focusable="False"
+                     IsHitTestVisible="False">
+                <TextBox.Background>
+                    <MultiBinding Converter="{StaticResource ColorBlendConverter}">
+                        <Binding Path="Color" Source="{StaticResource BaseBackgroundBrush}" />
+                        <Binding Path="AverageColorBrush.Color" />
+                    </MultiBinding>
+                </TextBox.Background>
+            </TextBox>
+            <Border x:Name="SettingsButtonContainer" Grid.Column="1" Margin="0,42,0,0">
                 <Grid HorizontalAlignment="Right" VerticalAlignment="Top">
+
                     <Image Source="avares://osuautodeafen/Icons/outline.png"
                            Width="50" Height="50">
                         <Image.OpacityMask>
@@ -68,8 +94,7 @@
                     </Button>
                 </Grid>
             </Border>
-        </StackPanel>
-
+        </Grid>
         <!--- settings panel -->
         <DockPanel x:Name="SettingsPanel" Grid.Column="1" Width="200" IsVisible="False"
                    Margin="0,42,0,0" ZIndex="3"
@@ -341,7 +366,7 @@
                             </ToolTip.Tip>
                         </Button>
                         <Button x:Name="DebugConsoleButton"
-                                Background="{x:Null}"
+                                Background="Transparent"
                                 BorderBrush="{x:Null}"
                                 BorderThickness="0"
                                 CornerRadius="0"
@@ -359,21 +384,10 @@
                                    VerticalAlignment="Center"
                                    RenderTransformOrigin="0.5,0.5" />
                             <ToolTip.Tip>
-                                <TextBlock Text="See all app info" />
+                                <TextBlock Text="See debug info" />
                             </ToolTip.Tip>
                         </Button>
                     </StackPanel>
-                    <TextBox x:Name="DebugConsoleTextBox"
-                             HorizontalAlignment="Stretch"
-                             VerticalAlignment="Stretch"
-                             Margin="8"
-                             Padding="8"
-                             FontFamily="Consolas"
-                             FontSize="14"
-                             Background="#222"
-                             Foreground="White"
-                             IsReadOnly="True"
-                             IsVisible="False"/>
                 </StackPanel>
             </ScrollViewer>
         </DockPanel>
@@ -436,11 +450,11 @@
                                      Background="Transparent"
                                      IsHitTestVisible="False"
                                      VerticalAlignment="Stretch"
-                                     HorizontalAlignment="Stretch"/>
+                                     HorizontalAlignment="Stretch" />
                         <TextBlock Text="A new update is available!"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
-                                   Margin="0"/>
+                                   Margin="0" />
                     </Grid>
                 </Button>
             </Grid>

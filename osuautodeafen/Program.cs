@@ -13,7 +13,7 @@ internal class Program
     public static void Main(string[] args)
     {
         VelopackApp.Build()
-            .OnFirstRun((v) =>
+            .OnFirstRun(v =>
             {
                 // open a window to show the user that the app is being initialized
                 var initWindow = new MainWindow

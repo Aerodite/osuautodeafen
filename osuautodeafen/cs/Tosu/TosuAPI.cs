@@ -37,10 +37,12 @@ public class TosuApi : IDisposable
     private string? _lastBeatmapChecksum = "abcdefghijklmnop";
     private int _lastBeatmapId = -1;
     private double? _lastBpm;
+    private double? _lastCompletionPercentage;
     private bool _lastKiaiValue;
     private double _lastModNumber = -1;
     private double _maxCombo;
     private double _maxPP;
+    private double _currentPP;
     private double _missCount;
     private string? _modNames;
     private int _modNumber;
@@ -54,9 +56,12 @@ public class TosuApi : IDisposable
     private string? _songFilePath;
     private ClientWebSocket _webSocket;
     private string beatmapChecksum;
-    private double? realtimeBpm;
-    private double? _lastCompletionPercentage;
     private string? beatmapTitle;
+    private double? realtimeBpm;
+    private string _server;
+    private string _client;
+    private int _previousState = -10;
+    private string _lastModNames = "";
 
     public TosuApi()
     {
@@ -104,7 +109,9 @@ public class TosuApi : IDisposable
     public event Action? HasBPMChanged;
 
     public event Action? HasRateChanged;
-    
+
+    public event Action? HasStateChanged;
+
     public event Action? HasPercentageChanged;
 
     public event Action<GraphData>? GraphDataUpdated;
@@ -213,14 +220,6 @@ public class TosuApi : IDisposable
                     if (root.TryGetProperty("state", out var state))
                         if (state.TryGetProperty("number", out var number))
                             _rawBanchoStatus = number.GetInt32();
-                    if (root.TryGetProperty("stats", out var stats))
-                        if (stats.TryGetProperty("pp", out var pp))
-                            if (pp.TryGetProperty("fc", out var fc))
-                                //_maxPP = fc.GetDouble();
-                                //broken for some reason
-                                if (stats.TryGetProperty("objects", out var objects))
-                                    if (objects.TryGetProperty("maxCombo", out var maxCombo))
-                                        _maxCombo = maxCombo.GetDouble();
 
                     if (root.TryGetProperty("beatmap", out var beatmap))
                     {
@@ -266,18 +265,25 @@ public class TosuApi : IDisposable
                         if (beatmap.TryGetProperty("isKiai", out var isKiai)) _isKiai = isKiai.GetBoolean();
                         if (beatmap.TryGetProperty("title", out var title))
                             beatmapTitle = title.GetString();
+                        
+                        if (beatmap.TryGetProperty("stats", out var stats))
+                        {
+                            if (stats.TryGetProperty("maxCombo", out var maxCombo))
+                                _maxCombo = maxCombo.GetDouble();
+                        }
                     }
 
                     if (root.TryGetProperty("play", out var play))
                     {
                         if (play.TryGetProperty("combo", out var combo))
-                        {
                             if (combo.TryGetProperty("current", out var currentCombo))
                                 _combo = currentCombo.GetDouble();
-
-                            //if (combo.TryGetProperty("max", out var maxCombo)) _maxCombo = maxCombo.GetDouble();
+                        if (play.TryGetProperty("pp", out var pp))
+                        {
+                            if (pp.TryGetProperty("current", out var currentPP))
+                                _currentPP = currentPP.GetDouble();
                         }
-
+                        //if (combo.TryGetProperty("max", out var maxCombo)) _maxCombo = maxCombo.GetDouble();
                         if (play.TryGetProperty("hits", out var hits))
                         {
                             if (hits.ValueKind == JsonValueKind.Object &&
@@ -310,18 +316,28 @@ public class TosuApi : IDisposable
                             if (mods.TryGetProperty("number", out var modNumber)) _modNumber = modNumber.GetInt32();
                         }
 
-                        if (play.TryGetProperty("pp", out var ppElement))
-                        {
-                            if (ppElement.TryGetProperty("fc", out var ppFc))
-                                _maxPP = ppFc.GetDouble();
-                        }
 
                         if (root.TryGetProperty("performance", out var performance))
+                        {
                             if (performance.TryGetProperty("graph", out var graphs))
                             {
                                 ParseGraphData(graphs);
                                 _graphData = graphs;
                             }
+                        }
+
+                        if (root.TryGetProperty("server", out var server))
+                            _server = server.GetString();
+                        if (root.TryGetProperty("client", out var client))
+                            _client = client.GetString();
+                        if (performance.TryGetProperty("accuracy", out var accuracy))
+                        {
+                            if (accuracy.TryGetProperty("100", out var ssElement))
+                            {
+                                double ss = ssElement.GetDouble();
+                                _maxPP = ss;
+                            }
+                        }
 
                         if (root.TryGetProperty("profile", out var profile))
                             if (profile.TryGetProperty("banchoStatus", out var banchoStatus))
@@ -380,6 +396,13 @@ public class TosuApi : IDisposable
 
         return null;
     }
+    
+    public double GetCurrentPP()
+    {
+        if (_currentPP < 0)
+            return 0;
+        return _currentPP;
+    }
 
     public double GetCompletionPercentage()
     {
@@ -396,6 +419,15 @@ public class TosuApi : IDisposable
         //Console.WriteLine($"Completion Percentage: {_completionPercentage}");
         return _completionPercentage;
     }
+    
+    public string GetServer()
+    {
+        return _server ?? "Unknown Server";
+    }
+    public string GetClient()
+    {
+        return _client ?? "Unknown Client";
+    }
 
     public int GetCurrentTime()
     {
@@ -404,6 +436,13 @@ public class TosuApi : IDisposable
         if (_current > _full)
             return (int)_full;
         return (int)_current;
+    }
+    
+    public int GetFullTime()
+    {
+        if (_full < _firstObj)
+            return 0;
+        return (int)_full;
     }
 
 
@@ -418,7 +457,7 @@ public class TosuApi : IDisposable
             return realtimeBpm.Value;
         return 0;
     }
-    
+
     public string? GetBeatmapTitle()
     {
         return beatmapTitle;
@@ -476,6 +515,11 @@ public class TosuApi : IDisposable
 
     public string? GetSelectedMods()
     {
+        if (_modNames == null || _modNames.Length == 0)
+        {
+            _modNames = "NM";
+            return _modNames;
+        }
         return _modNames;
     }
 
@@ -582,7 +626,15 @@ public class TosuApi : IDisposable
         handler?.Invoke();
     }
     
-    
+    public void CheckForStateChange()
+    {
+        if (_rawBanchoStatus == _previousState)
+            return;
+        _previousState = _rawBanchoStatus;
+        var handler = HasStateChanged;
+        handler?.Invoke();
+        StateChanged?.Invoke(_rawBanchoStatus);
+    }
 
     public void CheckForKiaiChange()
     {
@@ -592,7 +644,7 @@ public class TosuApi : IDisposable
         var handler = HasKiaiChanged;
         handler?.Invoke(this, EventArgs.Empty);
     }
-    
+
     public void CheckForPercentageChange()
     {
         var percentage = GetCompletionPercentage();
@@ -612,12 +664,12 @@ public class TosuApi : IDisposable
 
     public void CheckForModChange()
     {
-        var modNumber = GetModNumber();
-        if (modNumber == _lastModNumber)
+        if (_modNames == _lastModNames)
             return;
-        _lastModNumber = modNumber;
+        _lastModNames = _modNames ?? string.Empty;
         var handler = HasModsChanged;
         handler?.Invoke();
+        Console.WriteLine($"Mods changed to: {_modNames}");
     }
 
     public void CheckForRateAdjustChange()

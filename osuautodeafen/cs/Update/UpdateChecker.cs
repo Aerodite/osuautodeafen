@@ -7,10 +7,12 @@ using Velopack.Sources;
 public class UpdateChecker
 {
     public static string currentVersion = "1.0.8";
-    private MainWindow _mainWindow;
-    private static GithubSource updateSource = new GithubSource("https://github.com/Aerodite/osuautodeafen",
+
+    private static readonly GithubSource updateSource = new("https://github.com/Aerodite/osuautodeafen",
         null, false);
-    public UpdateManager mgr = new UpdateManager(updateSource);
+
+    private MainWindow _mainWindow;
+    public UpdateManager mgr = new(updateSource);
     public UpdateInfo? UpdateInfo;
 
     public async Task CheckForUpdatesAsync()
@@ -21,7 +23,7 @@ public class UpdateChecker
             return;
         }
 
-        UpdateInfo? updateInfo = await mgr.CheckForUpdatesAsync();
+        var updateInfo = await mgr.CheckForUpdatesAsync();
         if (updateInfo == null)
         {
             Console.WriteLine("No updates available.");
