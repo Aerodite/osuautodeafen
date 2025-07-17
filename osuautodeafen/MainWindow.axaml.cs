@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,6 +11,7 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -78,12 +80,11 @@ public partial class MainWindow : Window
     private DispatcherTimer? _cogSpinTimer;
     
     private Bitmap? _currentBitmap;
-    private DispatcherTimer? _freezeTimer;
-    private bool _freezeTriggered = false;
-    private bool _isAppFrozen;
 
     private bool _isCogSpinning;
     private bool _isKiaiPulseHigh;
+    
+    private DateTime _lastFrameTime = DateTime.UtcNow;
 
     public bool _isSettingsPanelOpen;
 
@@ -106,6 +107,8 @@ public partial class MainWindow : Window
     private ProgressBar? _updateProgressBar;
 
     private double opacity = 1.00;
+    
+    private CancellationTokenSource _timerCts;
 
     //<summary>
     // constructor for the ui and subsequent panels
@@ -113,6 +116,14 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        StartBackgroundTimer(() =>
+        {
+            var now = DateTime.UtcNow;
+            var frameInterval = (now - _lastFrameTime).TotalMilliseconds;
+            _lastFrameTime = now;
+
+            _logImportant.logImportant($"Frame Times: {frameInterval:F2}ms/{1000/frameInterval:F2}fps", false, "FrameInterval");
+        }, 60);
         var appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen");
         var logFile = Path.Combine(appPath, "osuautodeafen.log");
@@ -227,7 +238,7 @@ public partial class MainWindow : Window
         {
             _logImportant.logImportant("Client: " + _tosuApi.GetClient(), false, "Client");
             _logImportant.logImportant("Server: " + _tosuApi.GetServer(), false, "Server");
-            _logImportant.logImportant("Map: " + _tosuApi.GetBeatmapTitle(), false, "Beatmap changed");
+            _logImportant.logImportant("Map: " + _tosuApi.GetBeatmapTitle(), false, "Beatmap changed", $"https://osu.ppy.sh/b/{_tosuApi.GetBeatmapId()}");
             _logImportant.logImportant("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
             _logImportant.logImportant("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
             _logImportant.logImportant("Max Combo: " + _tosuApi.GetMaxCombo(), false, "Max Combo");
@@ -269,6 +280,8 @@ public partial class MainWindow : Window
             _logImportant.logImportant("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
             _logImportant.logImportant("isDeafened: " + deafen._deafened, false, "isDeafened");
             _logImportant.logImportant("Min Deafen Percentage: " + _viewModel.MinCompletionPercentage, false, "Min Deafen Percentage");
+            _logImportant.logImportant("Velopack: " + _updateChecker.mgr.IsInstalled, false, "Velopack");
+            
         };
         _tosuApi.HasBPMChanged += async () =>
         {
@@ -883,8 +896,6 @@ public partial class MainWindow : Window
 
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
-        //var sw = Stopwatch.StartNew();
-
         _tosuApi.CheckForBeatmapChange();
         _tosuApi.CheckForModChange();
         _tosuApi.CheckForBPMChange();
@@ -894,8 +905,39 @@ public partial class MainWindow : Window
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
         _tosuApi.CheckForPercentageChange();
         _kiaiTimes.UpdateKiaiPeriodState(_tosuApi.GetCurrentTime());
-        //sw.Stop();
-        //Console.WriteLine($"MainTimer tick took {sw.ElapsedMilliseconds} ms");
+    }
+    
+    public void StartBackgroundTimer(Action tickAction, int targetFps = 60)
+    {
+        _timerCts = new CancellationTokenSource();
+        var intervalMs = 1000.0 / targetFps;
+        
+        if (double.IsNaN(intervalMs) || double.IsInfinity(intervalMs) || intervalMs <= 0)
+            intervalMs = 16.67;
+
+        Task.Run(async () =>
+        {
+            var sw = new Stopwatch();
+            sw.Start();
+            long lastTick = sw.ElapsedMilliseconds;
+
+            while (!_timerCts.IsCancellationRequested)
+            {
+                long now = sw.ElapsedMilliseconds;
+                if (now - lastTick >= intervalMs)
+                {
+                    lastTick = now;
+                    tickAction?.Invoke();
+                }
+                await Task.Delay(1);
+            }
+            sw.Stop();
+        }, _timerCts.Token);
+    }
+
+    public void StopBackgroundTimer()
+    {
+        _timerCts?.Cancel();
     }
 
 
@@ -1144,10 +1186,10 @@ public partial class MainWindow : Window
             var cogImage = this.FindControl<Image>("SettingsCogImage");
             var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
             var versionPanel = textBlockPanel?.FindControl<TextBlock>("VersionPanel");
-            var debugConsoleTextBox = this.FindControl<TextBox>("DebugConsoleTextBox");
+            var debugConsoleTextBlock = this.FindControl<TextBlock>("DebugConsoleTextBlock");
             if (settingsPanel == null || buttonContainer == null || cogImage == null ||
                 textBlockPanel == null || osuautodeafenLogoPanel == null || versionPanel == null ||
-                debugConsoleTextBox == null)
+                debugConsoleTextBlock == null)
                 return;
 
             var showMargin = new Thickness(0, 42, 0, 0);
@@ -1166,7 +1208,7 @@ public partial class MainWindow : Window
                 await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render).GetTask();
                 await AnimatePanelInAsync(settingsPanel, buttonContainer, versionPanel, showMargin, buttonLeftMargin);
 
-                debugConsoleTextBox.Margin = new Thickness(60, 32, 10, 250);
+                debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
             }
             else
             {
@@ -1176,7 +1218,7 @@ public partial class MainWindow : Window
                 );
                 settingsPanel.IsVisible = false;
 
-                debugConsoleTextBox.Margin = new Thickness(60, 32, 10, 250);
+                debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
             }
         }
         catch (Exception ex)
@@ -1251,8 +1293,8 @@ private async Task AnimatePanelInAsync(DockPanel settingsPanel, Border buttonCon
         settingsPanel.Margin = showMargin;
         buttonContainer.Margin = buttonLeftMargin;
 
-        var debugConsoleTextBox = this.FindControl<TextBox>("DebugConsoleTextBox");
-        if (debugConsoleTextBox != null && debugConsoleTextBox.IsVisible)
+        var debugConsoleTextBlock = this.FindControl<TextBlock>("DebugConsoleTextBlock");
+        if (debugConsoleTextBlock != null && debugConsoleTextBlock.IsVisible)
             osuautodeafenLogoPanel.Margin = new Thickness(0, 300, 225, 0);
         else
             osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0); 
@@ -1283,8 +1325,8 @@ private async Task AnimatePanelOutAsync(DockPanel settingsPanel, Border buttonCo
             settingsPanel.Margin = hideMargin;
             buttonContainer.Margin = buttonRightMargin;
 
-            var debugConsoleTextBox = this.FindControl<TextBox>("DebugConsoleTextBox");
-            if (debugConsoleTextBox != null && debugConsoleTextBox.IsVisible)
+            var debugConsoleTextBlock = this.FindControl<TextBlock>("DebugConsoleTextBlock");
+            if (debugConsoleTextBlock != null && debugConsoleTextBlock.IsVisible)
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 300, 0, 0);
             else
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0); 
@@ -1430,62 +1472,131 @@ private async Task AnimatePanelOutAsync(DockPanel settingsPanel, Border buttonCo
         });
     }
 
-    private void DebugConsoleButton_Click(object? sender, RoutedEventArgs e)
+private List<string> _lastDisplayedLogs = new();
+
+private void DebugConsoleButton_Click(object? sender, RoutedEventArgs e)
+{
+    var debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
+
+    if (debugConsolePanel != null && !debugConsolePanel.IsVisible)
     {
-        var debugConsole = this.FindControl<TextBox>("DebugConsoleTextBox");
-
-        if (_isAppFrozen)
+        debugConsolePanel.IsVisible = true;
+        _logUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        _logUpdateTimer.Tick += (_, __) =>
         {
-            _mainTimer?.Start();
-            if (_isCogSpinning) _cogSpinTimer?.Start();
-            if (_isKiaiPulseHigh) _kiaiBrightnessTimer?.Start();
-            _isAppFrozen = false;
-        }
+            var currentLogs = _logImportant._importantLogs.Values.ToList();
+            UpdateDebugConsolePanel(debugConsolePanel, currentLogs);
+        };
+        _logUpdateTimer.Start();
 
-        if (debugConsole != null && !debugConsole.IsVisible)
+        osuautodeafenLogoPanel.Transitions = new Transitions
         {
-            debugConsole.IsVisible = true;
-            _logUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-            _logUpdateTimer.Tick += (_, __) =>
+            new ThicknessTransition
             {
-                debugConsole.Text = string.Join(Environment.NewLine, _logImportant._importantLogs.Values);
-                debugConsole.CaretIndex = debugConsole.Text?.Length ?? 0;
-            };
-            _logUpdateTimer.Start();
+                Property = MarginProperty,
+                Duration = TimeSpan.FromMilliseconds(400),
+                Easing = new QuarticEaseInOut()
+            }
+        };
+        osuautodeafenLogoPanel.Margin = new Thickness(0, 300, 225, 0);
+    }
+    else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
+    {
+        debugConsolePanel.IsVisible = false;
+        _logUpdateTimer?.Stop();
+        _logUpdateTimer = null;
 
-            osuautodeafenLogoPanel.Transitions = new Transitions
-            {
-                new ThicknessTransition
-                {
-                    Property = MarginProperty,
-                    Duration = TimeSpan.FromMilliseconds(400),
-                    Easing = new QuarticEaseInOut()
-                }
-            };
-            osuautodeafenLogoPanel.Margin = new Thickness(0, 300, 225, 0);
-        }
-        else if (debugConsole != null && debugConsole.IsVisible)
+        osuautodeafenLogoPanel.Transitions = new Transitions
         {
-            debugConsole.IsVisible = false;
-            _logUpdateTimer?.Stop();
-            _logUpdateTimer = null;
+            new ThicknessTransition
+            {
+                Property = MarginProperty,
+                Duration = TimeSpan.FromMilliseconds(400),
+                Easing = new QuarticEaseInOut()
+            }
+        };
+        osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
+    }
+    else
+    {
+        Console.WriteLine("[ERROR] Debug console not found.");
+    }
+}
 
-            osuautodeafenLogoPanel.Transitions = new Transitions
-            {
-                new ThicknessTransition
-                {
-                    Property = MarginProperty,
-                    Duration = TimeSpan.FromMilliseconds(400),
-                    Easing = new QuarticEaseInOut()
-                }
-            };
-            osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0); // Reset position
-        }
-        else
+private void UpdateDebugConsolePanel(StackPanel debugConsolePanel, List<string> currentLogs)
+{
+    // If the count changed, rebuild everything
+    if (debugConsolePanel.Children.Count != currentLogs.Count)
+    {
+        debugConsolePanel.Children.Clear();
+        foreach (var logText in currentLogs)
+            debugConsolePanel.Children.Add(CreateLogElement(logText));
+    }
+    else
+    {
+        // Only update changed entries
+        for (int i = 0; i < currentLogs.Count; i++)
         {
-            Console.WriteLine("[ERROR] Debug console not found.");
+            if (_lastDisplayedLogs.Count <= i || _lastDisplayedLogs[i] != currentLogs[i])
+            {
+                debugConsolePanel.Children[i] = CreateLogElement(currentLogs[i]);
+            }
         }
     }
+
+    _lastDisplayedLogs = currentLogs;
+}
+
+private Control CreateLogElement(string logText)
+{
+    var hyperlink = ExtractHyperlink(logText);
+
+    if (!string.IsNullOrEmpty(hyperlink) && logText.StartsWith("Map:"))
+    {
+        var nameStart = "Map:".Length;
+        var nameEnd = logText.IndexOf(hyperlink, StringComparison.Ordinal);
+        var beatmapName = logText.Substring(nameStart, nameEnd - nameStart).Trim();
+
+        var linePanel = new WrapPanel { Orientation = Orientation.Horizontal };
+        linePanel.Children.Add(new TextBlock { Text = "Map: ", Foreground = Brushes.White });
+
+        var linkButton = new Button
+        {
+            Content = new TextBlock
+            {
+                Text = beatmapName,
+                Foreground = Brushes.LightBlue,
+                TextDecorations = TextDecorations.Underline,
+                Cursor = new Cursor(StandardCursorType.Hand)
+            },
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            Padding = new Thickness(0),
+            Margin = new Thickness(0, 0, 4, 0)
+        };
+        linkButton.Click += (_, __) =>
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = hyperlink,
+                UseShellExecute = true
+            });
+        };
+        linePanel.Children.Add(linkButton);
+
+        return linePanel;
+    }
+    else
+    {
+        return new TextBlock { Text = logText, Foreground = Brushes.White };
+    }
+}
+public static string? ExtractHyperlink(string logText)
+{
+    var urlRegex = new System.Text.RegularExpressions.Regex(@"https?://\S+");
+    var match = urlRegex.Match(logText);
+    return match.Success ? match.Value : null;
+}
 
     public class HotKey
     {

@@ -55,6 +55,8 @@ public class ChartManager
     private string? _lastOsuFilePath;
     private List<double>? _lastSeriesData;
     private List<double>? _lastXAxis;
+    double breakStart, breakEnd;
+
 
 
     public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel,
@@ -475,8 +477,23 @@ public class ChartManager
         _cachedBreakPeriods.Clear();
         foreach (var breakPeriod in breaks)
         {
-            var breakStart = breakPeriod.Start / rate;
-            var breakEnd = breakPeriod.End / rate;
+            // for whatever reason when going into gameplay
+            // the x-axis values go back to how they should be
+            // (i.e., rate is already applied)
+            // that triggers UpdateChart() and makes everything
+            // update with those x-values.
+            // so this is just to make sure the break periods are
+            // in the right place in that case 😑
+            if (_tosuApi.GetRawBanchoStatus() != 2)
+            {
+                breakStart = breakPeriod.Start / rate;
+                breakEnd = breakPeriod.End / rate;
+            }
+            else
+            {
+                breakStart = breakPeriod.Start;
+                breakEnd = breakPeriod.End;
+            }
             var startIdx = FindClosestIndex(xAxis, breakStart);
             var endIdx = FindClosestIndex(xAxis, breakEnd);
             _cachedBreakPeriods.Add(new AnnotatedSection

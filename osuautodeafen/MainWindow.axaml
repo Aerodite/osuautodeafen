@@ -42,27 +42,26 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBox x:Name="DebugConsoleTextBox"
-                     Grid.Column="0"
-                     HorizontalAlignment="Stretch"
-                     VerticalAlignment="Stretch"
-                     x:DataType="cs:SharedViewModel"
-                     Margin="8,20,0,0"
-                     Padding="8"
-                     FontFamily="Consolas"
-                     FontSize="11"
-                     Foreground="White"
-                     IsReadOnly="True"
-                     IsVisible="False"
-                     Focusable="False"
-                     IsHitTestVisible="False">
-                <TextBox.Background>
-                    <MultiBinding Converter="{StaticResource ColorBlendConverter}">
-                        <Binding Path="Color" Source="{StaticResource BaseBackgroundBrush}" />
-                        <Binding Path="AverageColorBrush.Color" />
-                    </MultiBinding>
-                </TextBox.Background>
-            </TextBox>
+            <StackPanel x:Name="DebugConsolePanel"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Margin="8,20,0,0"
+                        IsVisible="False" >
+            <TextBlock x:Name="DebugConsoleTextBlock"
+                       Grid.Column="0"
+                       x:DataType="cs:SharedViewModel"
+                       HorizontalAlignment="Stretch"
+                       VerticalAlignment="Stretch"
+                       Margin="8,20,0,0"
+                       Padding="8"
+                       FontFamily="Consolas"
+                       FontSize="11"
+                       Foreground="White"
+                       IsVisible="False"
+                       TextWrapping="Wrap"
+                       IsHitTestVisible="True">
+            </TextBlock>
+            </StackPanel>
             <Border x:Name="SettingsButtonContainer" Grid.Column="1" Margin="0,42,0,0">
                 <Grid HorizontalAlignment="Right" VerticalAlignment="Top">
 
