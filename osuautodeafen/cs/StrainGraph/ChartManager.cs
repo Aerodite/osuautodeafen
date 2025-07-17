@@ -55,8 +55,7 @@ public class ChartManager
     private string? _lastOsuFilePath;
     private List<double>? _lastSeriesData;
     private List<double>? _lastXAxis;
-    double breakStart, breakEnd;
-
+    private double breakStart, breakEnd;
 
 
     public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel,
@@ -494,6 +493,7 @@ public class ChartManager
                 breakStart = breakPeriod.Start;
                 breakEnd = breakPeriod.End;
             }
+
             var startIdx = FindClosestIndex(xAxis, breakStart);
             var endIdx = FindClosestIndex(xAxis, breakEnd);
             _cachedBreakPeriods.Add(new AnnotatedSection

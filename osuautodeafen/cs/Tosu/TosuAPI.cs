@@ -22,9 +22,11 @@ public class TosuApi : IDisposable
     private int _beatmapId;
     private int _beatmapSetId;
     private BreakPeriod _breakPeriod = null!;
+    private string _client;
     private double _combo;
     private double _completionPercentage;
     private double _current;
+    private double _currentPP;
     private double _DTRate;
     private double _firstObj;
     private double _full;
@@ -39,29 +41,27 @@ public class TosuApi : IDisposable
     private double? _lastBpm;
     private double? _lastCompletionPercentage;
     private bool _lastKiaiValue;
+    private string _lastModNames = "";
     private double _lastModNumber = -1;
     private double _maxCombo;
     private double _maxPP;
-    private double _currentPP;
     private double _missCount;
     private string? _modNames;
     private int _modNumber;
     private double _oldRateAdjustRate;
     private string? _osuFilePath = "";
+    private int _previousState = -10;
     private double _rankedStatus;
     private int _rawBanchoStatus = -1;
     private double _rawCompletionPercentage;
     private double _sbCount;
+    private string _server;
     private string? _settingsSongsDirectory;
     private string? _songFilePath;
     private ClientWebSocket _webSocket;
     private string beatmapChecksum;
     private string? beatmapTitle;
     private double? realtimeBpm;
-    private string _server;
-    private string _client;
-    private int _previousState = -10;
-    private string _lastModNames = "";
 
     public TosuApi()
     {
@@ -265,12 +265,10 @@ public class TosuApi : IDisposable
                         if (beatmap.TryGetProperty("isKiai", out var isKiai)) _isKiai = isKiai.GetBoolean();
                         if (beatmap.TryGetProperty("title", out var title))
                             beatmapTitle = title.GetString();
-                        
+
                         if (beatmap.TryGetProperty("stats", out var stats))
-                        {
                             if (stats.TryGetProperty("maxCombo", out var maxCombo))
                                 _maxCombo = maxCombo.GetDouble();
-                        }
                     }
 
                     if (root.TryGetProperty("play", out var play))
@@ -279,10 +277,8 @@ public class TosuApi : IDisposable
                             if (combo.TryGetProperty("current", out var currentCombo))
                                 _combo = currentCombo.GetDouble();
                         if (play.TryGetProperty("pp", out var pp))
-                        {
                             if (pp.TryGetProperty("current", out var currentPP))
                                 _currentPP = currentPP.GetDouble();
-                        }
                         //if (combo.TryGetProperty("max", out var maxCombo)) _maxCombo = maxCombo.GetDouble();
                         if (play.TryGetProperty("hits", out var hits))
                         {
@@ -318,26 +314,22 @@ public class TosuApi : IDisposable
 
 
                         if (root.TryGetProperty("performance", out var performance))
-                        {
                             if (performance.TryGetProperty("graph", out var graphs))
                             {
                                 ParseGraphData(graphs);
                                 _graphData = graphs;
                             }
-                        }
 
                         if (root.TryGetProperty("server", out var server))
                             _server = server.GetString();
                         if (root.TryGetProperty("client", out var client))
                             _client = client.GetString();
                         if (performance.TryGetProperty("accuracy", out var accuracy))
-                        {
                             if (accuracy.TryGetProperty("100", out var ssElement))
                             {
-                                double ss = ssElement.GetDouble();
+                                var ss = ssElement.GetDouble();
                                 _maxPP = ss;
                             }
-                        }
 
                         if (root.TryGetProperty("profile", out var profile))
                             if (profile.TryGetProperty("banchoStatus", out var banchoStatus))
@@ -396,7 +388,7 @@ public class TosuApi : IDisposable
 
         return null;
     }
-    
+
     public double GetCurrentPP()
     {
         if (_currentPP < 0)
@@ -419,11 +411,12 @@ public class TosuApi : IDisposable
         //Console.WriteLine($"Completion Percentage: {_completionPercentage}");
         return _completionPercentage;
     }
-    
+
     public string GetServer()
     {
         return _server ?? "Unknown Server";
     }
+
     public string GetClient()
     {
         return _client ?? "Unknown Client";
@@ -437,7 +430,7 @@ public class TosuApi : IDisposable
             return (int)_full;
         return (int)_current;
     }
-    
+
     public int GetFullTime()
     {
         if (_full < _firstObj)
@@ -520,6 +513,7 @@ public class TosuApi : IDisposable
             _modNames = "NM";
             return _modNames;
         }
+
         return _modNames;
     }
 
@@ -625,7 +619,7 @@ public class TosuApi : IDisposable
         var handler = BeatmapChanged;
         handler?.Invoke();
     }
-    
+
     public void CheckForStateChange()
     {
         if (_rawBanchoStatus == _previousState)

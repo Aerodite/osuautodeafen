@@ -86,7 +86,7 @@ public class KiaiTimes
                 return true;
         return false;
     }
-    
+
     public void UpdateKiaiPeriodState(int currentTime)
     {
         var currentlyInKiai = IsKiaiPeriod(currentTime);

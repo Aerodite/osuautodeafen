@@ -46,21 +46,19 @@
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Stretch"
                         Margin="8,20,0,0"
-                        IsVisible="False" >
-            <TextBlock x:Name="DebugConsoleTextBlock"
-                       Grid.Column="0"
-                       x:DataType="cs:SharedViewModel"
-                       HorizontalAlignment="Stretch"
-                       VerticalAlignment="Stretch"
-                       Margin="8,20,0,0"
-                       Padding="8"
-                       FontFamily="Consolas"
-                       FontSize="11"
-                       Foreground="White"
-                       IsVisible="False"
-                       TextWrapping="Wrap"
-                       IsHitTestVisible="True">
-            </TextBlock>
+                        IsVisible="False">
+                <TextBlock x:Name="DebugConsoleTextBlock"
+                           x:DataType="cs:SharedViewModel"
+                           HorizontalAlignment="Stretch"
+                           VerticalAlignment="Stretch"
+                           Margin="8,20,0,0"
+                           Padding="8"
+                           FontFamily="Consolas"
+                           FontSize="6"
+                           Foreground="White"
+                           IsVisible="False"
+                           TextWrapping="Wrap"
+                           IsHitTestVisible="True" />
             </StackPanel>
             <Border x:Name="SettingsButtonContainer" Grid.Column="1" Margin="0,42,0,0">
                 <Grid HorizontalAlignment="Right" VerticalAlignment="Top">
@@ -373,7 +371,7 @@
                                 Click="DebugConsoleButton_Click"
                                 HorizontalAlignment="Center"
                                 Margin="0,0,0,10"
-                                FontSize="12"
+                                FontSize="7"
                                 Foreground="White"
                                 VerticalAlignment="Bottom">
                             <Image x:Name="DebugConsoleImage"

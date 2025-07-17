@@ -18,18 +18,16 @@ public class LogoUpdater
     private readonly AnimationManager _animationManager;
     private readonly GetLowResBackground _getLowResBackground;
     private readonly Func<string, SKSvg> _loadHighResLogo;
+    private readonly LogImportant _logImportant;
     private readonly LogoControl _logoControl;
     private readonly SharedViewModel _viewModel;
     private SKSvg? _cachedLogoSvg;
     private CancellationTokenSource? _colorTransitionCts;
 
-    public SKColor AverageColor { get; private set; }
-
     private SKColor _currentColor;
 
     private Bitmap? _lowResBitmap;
     private SKColor _oldAverageColor;
-    private readonly LogImportant _logImportant;
 
     public LogoUpdater(
         GetLowResBackground getLowResBackground,
@@ -45,6 +43,8 @@ public class LogoUpdater
         _loadHighResLogo = loadHighResLogo;
         _logImportant = logImportant;
     }
+
+    public SKColor AverageColor { get; private set; }
 
     #region Public API
 
@@ -79,7 +79,7 @@ public class LogoUpdater
 
             var newAverageColor = await CalculateAverageColorAsync(skBitmap).ConfigureAwait(false);
             Console.WriteLine($"newAverageColor: {newAverageColor}");
-            
+
             if (_oldAverageColor == default)
                 _oldAverageColor = SKColors.White;
 
@@ -246,7 +246,7 @@ public class LogoUpdater
             var t = i / (float)steps;
             var interpolatedColor = InterpolateColor(fromColor, toColor, t);
             _currentColor = interpolatedColor;
-            _logImportant.logImportant("Average Color: " + interpolatedColor, false,"AverageColor");
+            _logImportant.logImportant("Average Color: " + interpolatedColor, false, "AverageColor");
             var avaloniaColor = Color.FromArgb(interpolatedColor.Alpha, interpolatedColor.Red, interpolatedColor.Green,
                 interpolatedColor.Blue);
 

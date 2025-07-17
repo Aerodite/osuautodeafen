@@ -6,8 +6,9 @@ namespace osuautodeafen.cs.Log;
 public class LogImportant
 {
     public readonly Dictionary<string, string> _importantLogs = new();
-    
-    public void logImportant(string message, bool includeTimestamp = true, string? keyword = null, string? hyperLink = null)
+
+    public void logImportant(string message, bool includeTimestamp = true, string? keyword = null,
+        string? hyperLink = null)
     {
         var newLine = includeTimestamp
             ? $"[{DateTime.Now:MM-dd HH:mm:ss.fff}]{message}"
