@@ -277,6 +277,8 @@ public partial class MainWindow : Window
                 false, 
                 "Current Time"
             );
+            _logImportant.logImportant("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
+            _logImportant.logImportant("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
             _logImportant.logImportant("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
             _logImportant.logImportant("isDeafened: " + deafen._deafened, false, "isDeafened");
             _logImportant.logImportant("Min Deafen Percentage: " + _viewModel.MinCompletionPercentage, false, "Min Deafen Percentage");
@@ -1177,55 +1179,71 @@ public partial class MainWindow : Window
     }
 
     private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
+{
+    try
     {
-        try
+        settingsButtonClicked?.Invoke();
+        var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
+        var buttonContainer = this.FindControl<Border>("SettingsButtonContainer");
+        var cogImage = this.FindControl<Image>("SettingsCogImage");
+        var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
+        var versionPanel = textBlockPanel?.FindControl<TextBlock>("VersionPanel");
+        var debugConsoleTextBlock = this.FindControl<TextBlock>("DebugConsoleTextBlock");
+        var debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
+        if (settingsPanel == null || buttonContainer == null || cogImage == null ||
+            textBlockPanel == null || osuautodeafenLogoPanel == null || versionPanel == null ||
+            debugConsoleTextBlock == null)
+            return;
+
+        var showMargin = new Thickness(0, 42, 0, 0);
+        var hideMargin = new Thickness(200, 42, -200, 0);
+        var buttonRightMargin = new Thickness(0, 42, 0, 10);
+        var buttonLeftMargin = new Thickness(0, 42, 200, 10);
+
+        bool isDebugConsoleOpen = debugConsolePanel != null && debugConsolePanel.IsVisible;
+
+        if (!settingsPanel.IsVisible)
         {
-            settingsButtonClicked?.Invoke();
-            var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
-            var buttonContainer = this.FindControl<Border>("SettingsButtonContainer");
-            var cogImage = this.FindControl<Image>("SettingsCogImage");
-            var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
-            var versionPanel = textBlockPanel?.FindControl<TextBlock>("VersionPanel");
-            var debugConsoleTextBlock = this.FindControl<TextBlock>("DebugConsoleTextBlock");
-            if (settingsPanel == null || buttonContainer == null || cogImage == null ||
-                textBlockPanel == null || osuautodeafenLogoPanel == null || versionPanel == null ||
-                debugConsoleTextBlock == null)
-                return;
+            await Task.WhenAll(
+                EnsureCogCenterAsync(cogImage),
+                SetupPanelTransitionsAsync(settingsPanel, buttonContainer, versionPanel)
+            );
+            StartCogSpin(cogImage);
+            settingsPanel.IsVisible = true;
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render).GetTask();
+            await AnimatePanelInAsync(settingsPanel, buttonContainer, versionPanel, showMargin, buttonLeftMargin);
 
-            var showMargin = new Thickness(0, 42, 0, 0);
-            var hideMargin = new Thickness(200, 42, -200, 0);
-            var buttonRightMargin = new Thickness(0, 42, 0, 10);
-            var buttonLeftMargin = new Thickness(0, 42, 200, 10);
-
-            if (!settingsPanel.IsVisible)
+            if (isDebugConsoleOpen)
             {
-                await Task.WhenAll(
-                    EnsureCogCenterAsync(cogImage),
-                    SetupPanelTransitionsAsync(settingsPanel, buttonContainer, versionPanel)
-                );
-                StartCogSpin(cogImage);
-                settingsPanel.IsVisible = true;
-                await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render).GetTask();
-                await AnimatePanelInAsync(settingsPanel, buttonContainer, versionPanel, showMargin, buttonLeftMargin);
-
-                debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
+                osuautodeafenLogoPanel.Margin = new Thickness(0, 300, 0, 0); // Move down first
+                await Task.Delay(120); // Short delay for smoothness
+                osuautodeafenLogoPanel.Margin = new Thickness(0, 300, 225, 0); // Then move left
             }
             else
             {
-                await Task.WhenAll(
-                    StopCogSpinAsync(cogImage),
-                    AnimatePanelOutAsync(settingsPanel, buttonContainer, versionPanel, hideMargin, buttonRightMargin)
-                );
-                settingsPanel.IsVisible = false;
-
-                debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
+                osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
             }
+
+            debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
         }
-        catch (Exception ex)
+        else
         {
-            Console.WriteLine($"[ERROR] Exception in SettingsButton_Click: {ex.Message}");
+            await Task.WhenAll(
+                StopCogSpinAsync(cogImage),
+                AnimatePanelOutAsync(settingsPanel, buttonContainer, versionPanel, hideMargin, buttonRightMargin)
+            );
+            settingsPanel.IsVisible = false;
+
+            osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
+
+            debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
         }
     }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[ERROR] Exception in SettingsButton_Click: {ex.Message}");
+    }
+}
 
    private async Task SetupPanelTransitionsAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel)
 {
@@ -1295,9 +1313,46 @@ private async Task AnimatePanelInAsync(DockPanel settingsPanel, Border buttonCon
 
         var debugConsoleTextBlock = this.FindControl<TextBlock>("DebugConsoleTextBlock");
         if (debugConsoleTextBlock != null && debugConsoleTextBlock.IsVisible)
+        {
+            osuautodeafenLogoPanel.Transitions = null;
+            osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
+
+            osuautodeafenLogoPanel.Transitions = new Transitions
+            {
+                new ThicknessTransition
+                {
+                    Property = MarginProperty,
+                    Duration = TimeSpan.FromMilliseconds(200),
+                    Easing = new QuarticEaseInOut()
+                }
+            };
             osuautodeafenLogoPanel.Margin = new Thickness(0, 300, 225, 0);
+            Task.Run(async () => await Task.Delay(220)).Wait();
+
+            osuautodeafenLogoPanel.Transitions = new Transitions
+            {
+                new ThicknessTransition
+                {
+                    Property = MarginProperty,
+                    Duration = TimeSpan.FromMilliseconds(200),
+                    Easing = new QuarticEaseInOut()
+                }
+            };
+            osuautodeafenLogoPanel.Margin = new Thickness(0, 300, 225, 0);
+        }
         else
-            osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0); 
+        {
+            osuautodeafenLogoPanel.Transitions = new Transitions
+            {
+                new ThicknessTransition
+                {
+                    Property = MarginProperty,
+                    Duration = TimeSpan.FromMilliseconds(400),
+                    Easing = new QuarticEaseInOut()
+                }
+            };
+            osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
+        }
 
         versionPanel.Margin = new Thickness(0, 0, 225, 0);
     }).GetTask());
@@ -1333,6 +1388,40 @@ private async Task AnimatePanelOutAsync(DockPanel settingsPanel, Border buttonCo
 
             versionPanel.Margin = new Thickness(0, 0, 0, 0);
         }).GetTask());
+}
+
+private async Task SetupDebugConsoleTransitionsAsync(StackPanel debugConsolePanel)
+{
+    await Dispatcher.UIThread.InvokeAsync(() =>
+    {
+        debugConsolePanel.Margin = new Thickness(-300, 0, 0, 0); // Start hidden to the left
+        debugConsolePanel.Transitions = new Transitions
+        {
+            new ThicknessTransition
+            {
+                Property = MarginProperty,
+                Duration = TimeSpan.FromMilliseconds(400),
+                Easing = new QuarticEaseInOut()
+            }
+        };
+    });
+}
+
+// Animate the console panel in (slide from left)
+private async Task AnimateDebugConsoleInAsync(StackPanel debugConsolePanel)
+{
+    await Dispatcher.UIThread.InvokeAsync(() =>
+    {
+        debugConsolePanel.Margin = new Thickness(0, 0, 0, 0); // Slide in to visible
+    });
+}
+
+private async Task AnimateDebugConsoleOutAsync(StackPanel debugConsolePanel)
+{
+    await Dispatcher.UIThread.InvokeAsync(() =>
+    {
+        debugConsolePanel.Margin = new Thickness(-300, 0, 0, 0); // Slide out to hidden
+    });
 }
 
     private Task EnsureCogCenterAsync(Image cogImage)
@@ -1474,18 +1563,20 @@ private async Task AnimatePanelOutAsync(DockPanel settingsPanel, Border buttonCo
 
 private List<string> _lastDisplayedLogs = new();
 
-private void DebugConsoleButton_Click(object? sender, RoutedEventArgs e)
+private async void DebugConsoleButton_Click(object? sender, RoutedEventArgs e)
 {
     var debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
-
     if (debugConsolePanel != null && !debugConsolePanel.IsVisible)
     {
+        await SetupDebugConsoleTransitionsAsync(debugConsolePanel);
         debugConsolePanel.IsVisible = true;
+        await AnimateDebugConsoleInAsync(debugConsolePanel);
+
         _logUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _logUpdateTimer.Tick += (_, __) =>
         {
             var currentLogs = _logImportant._importantLogs.Values.ToList();
-            UpdateDebugConsolePanel(debugConsolePanel, currentLogs);
+            UpdateDebugConsolePanel(debugConsolePanel, currentLogs); // <-- Add this line
         };
         _logUpdateTimer.Start();
 
@@ -1502,9 +1593,7 @@ private void DebugConsoleButton_Click(object? sender, RoutedEventArgs e)
     }
     else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
     {
-        debugConsolePanel.IsVisible = false;
-        _logUpdateTimer?.Stop();
-        _logUpdateTimer = null;
+        await AnimateDebugConsoleOutAsync(debugConsolePanel);
 
         osuautodeafenLogoPanel.Transitions = new Transitions
         {
@@ -1516,13 +1605,18 @@ private void DebugConsoleButton_Click(object? sender, RoutedEventArgs e)
             }
         };
         osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
+
+        await Task.Delay(400);
+
+        debugConsolePanel.IsVisible = false;
+        _logUpdateTimer?.Stop();
+        _logUpdateTimer = null;
     }
     else
     {
         Console.WriteLine("[ERROR] Debug console not found.");
     }
 }
-
 private void UpdateDebugConsolePanel(StackPanel debugConsolePanel, List<string> currentLogs)
 {
     // If the count changed, rebuild everything
