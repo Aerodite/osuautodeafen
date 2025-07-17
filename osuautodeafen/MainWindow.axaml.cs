@@ -239,6 +239,7 @@ public partial class MainWindow : Window
 
         ProgressOverlay.Points =
             _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage());
+        
         _tosuApi.BeatmapChanged += async () =>
         {
             _logImportant.logImportant("Client: " + _tosuApi.GetClient(), false, "Client");

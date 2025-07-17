@@ -345,6 +345,21 @@ public class ChartManager
             Console.WriteLine($"Error updating deafen overlay: {ex.Message}");
         }
     }
+    
+    private void AddDeafenOverlaySection(List<RectangularSection> sections, double minCompletionPercentage)
+    {
+        var newXi = minCompletionPercentage * MaxLimit / 100.0;
+        var deafenSection = new RectangularSection
+        {
+            Xi = newXi,
+            Xj = MaxLimit,
+            Yi = 0,
+            Yj = MaxYValue,
+            Fill = new SolidColorPaint { Color = DeafenOverlayColor }
+        };
+        sections.RemoveAll(s => s is { Fill: SolidColorPaint paint } && paint.Color == DeafenOverlayColor);
+        sections.Add(deafenSection);
+    }
 
     public async Task UpdateChart(GraphData? graphData, double minCompletionPercentage)
     {
@@ -522,8 +537,20 @@ public class ChartManager
         _cachedKiaiPeriods.Clear();
         foreach (var kiai in kiaiList)
         {
-            var startIdx = FindClosestIndex(xAxis, kiai.Start / rate);
-            var endIdx = FindClosestIndex(xAxis, kiai.End / rate);
+            double kiaiStart, kiaiEnd;
+            if (_tosuApi.GetRawBanchoStatus() != 2)
+            {
+                kiaiStart = kiai.Start / rate;
+                kiaiEnd = kiai.End / rate;
+            }
+            else
+            {
+                kiaiStart = kiai.Start;
+                kiaiEnd = kiai.End;
+            }
+
+            var startIdx = FindClosestIndex(xAxis, kiaiStart);
+            var endIdx = FindClosestIndex(xAxis, kiaiEnd);
             _cachedKiaiPeriods.Add(new AnnotatedSection
             {
                 Xi = startIdx,
@@ -538,6 +565,7 @@ public class ChartManager
         }
 
         var combinedSections = _cachedBreakPeriods.Concat(_cachedKiaiPeriods).ToList();
+        AddDeafenOverlaySection(combinedSections, _viewModel.MinCompletionPercentage);
         PlotView.Sections = combinedSections;
     }
 
