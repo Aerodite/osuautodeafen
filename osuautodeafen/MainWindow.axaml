@@ -373,6 +373,7 @@
                                 Margin="0,0,0,10"
                                 FontSize="7"
                                 Foreground="White"
+                                IsVisible="False"
                                 VerticalAlignment="Bottom">
                             <Image x:Name="DebugConsoleImage"
                                    Source="avares://osuautodeafen/Icons/code-solid.png"

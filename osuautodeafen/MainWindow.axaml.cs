@@ -1254,9 +1254,7 @@ public partial class MainWindow : Window
             var hideMargin = new Thickness(200, 42, -200, 0);
             var buttonRightMargin = new Thickness(0, 42, 0, 10);
             var buttonLeftMargin = new Thickness(0, 42, 200, 10);
-
-            var isDebugConsoleOpen = debugConsolePanel != null && debugConsolePanel.IsVisible;
-
+     
             if (!settingsPanel.IsVisible)
             {
                 await Task.WhenAll(
@@ -1267,17 +1265,8 @@ public partial class MainWindow : Window
                 settingsPanel.IsVisible = true;
                 await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render).GetTask();
                 await AnimatePanelInAsync(settingsPanel, buttonContainer, versionPanel, showMargin, buttonLeftMargin);
-
-                if (isDebugConsoleOpen)
-                {
-                    osuautodeafenLogoPanel.Margin = new Thickness(0, 300, 0, 0); // Move down first
-                    await Task.Delay(120);
-                    osuautodeafenLogoPanel.Margin = new Thickness(0, 300, 225, 0); // Then move left
-                }
-                else
-                {
-                    osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
-                }
+                
+                osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
 
                 debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
             }
@@ -1366,38 +1355,7 @@ public partial class MainWindow : Window
         {
             settingsPanel.Margin = showMargin;
             buttonContainer.Margin = buttonLeftMargin;
-
-            var debugConsoleTextBlock = this.FindControl<TextBlock>("DebugConsoleTextBlock");
-            if (debugConsoleTextBlock != null && debugConsoleTextBlock.IsVisible)
-            {
-                osuautodeafenLogoPanel.Transitions = null;
-                osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
-
-                osuautodeafenLogoPanel.Transitions = new Transitions
-                {
-                    new ThicknessTransition
-                    {
-                        Property = MarginProperty,
-                        Duration = TimeSpan.FromMilliseconds(200),
-                        Easing = new QuarticEaseInOut()
-                    }
-                };
-                osuautodeafenLogoPanel.Margin = new Thickness(0, 300, 225, 0);
-                Task.Run(async () => await Task.Delay(220)).Wait();
-
-                osuautodeafenLogoPanel.Transitions = new Transitions
-                {
-                    new ThicknessTransition
-                    {
-                        Property = MarginProperty,
-                        Duration = TimeSpan.FromMilliseconds(200),
-                        Easing = new QuarticEaseInOut()
-                    }
-                };
-                osuautodeafenLogoPanel.Margin = new Thickness(0, 300, 225, 0);
-            }
-            else
-            {
+            
                 osuautodeafenLogoPanel.Transitions = new Transitions
                 {
                     new ThicknessTransition
@@ -1408,7 +1366,6 @@ public partial class MainWindow : Window
                     }
                 };
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
-            }
 
             versionPanel.Margin = new Thickness(0, 0, 225, 0);
         }).GetTask());
@@ -1435,12 +1392,8 @@ public partial class MainWindow : Window
             {
                 settingsPanel.Margin = hideMargin;
                 buttonContainer.Margin = buttonRightMargin;
-
-                var debugConsoleTextBlock = this.FindControl<TextBlock>("DebugConsoleTextBlock");
-                if (debugConsoleTextBlock != null && debugConsoleTextBlock.IsVisible)
-                    osuautodeafenLogoPanel.Margin = new Thickness(0, 300, 0, 0);
-                else
-                    osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
+                
+                osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
 
                 versionPanel.Margin = new Thickness(0, 0, 0, 0);
             }).GetTask());
@@ -1632,35 +1585,12 @@ public partial class MainWindow : Window
                 UpdateDebugConsolePanel(debugConsolePanel, currentLogs);
             };
             _logUpdateTimer.Start();
-
-            osuautodeafenLogoPanel.Transitions = new Transitions
-            {
-                new ThicknessTransition
-                {
-                    Property = MarginProperty,
-                    Duration = TimeSpan.FromMilliseconds(400),
-                    Easing = new QuarticEaseInOut()
-                }
-            };
-            osuautodeafenLogoPanel.Margin = new Thickness(0, 300, 225, 0);
+            
         }
         else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
         {
             await AnimateDebugConsoleOutAsync(debugConsolePanel);
-
-            osuautodeafenLogoPanel.Transitions = new Transitions
-            {
-                new ThicknessTransition
-                {
-                    Property = MarginProperty,
-                    Duration = TimeSpan.FromMilliseconds(400),
-                    Easing = new QuarticEaseInOut()
-                }
-            };
-            osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
-
-            await Task.Delay(400);
-
+            
             debugConsolePanel.IsVisible = false;
             _logUpdateTimer?.Stop();
             _logUpdateTimer = null;
