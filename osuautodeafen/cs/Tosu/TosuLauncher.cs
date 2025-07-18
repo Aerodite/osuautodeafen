@@ -71,17 +71,21 @@ public class TosuLauncher
             try
             {
                 var path = proc.MainModule?.FileName;
-                if (!string.IsNullOrEmpty(path) && path.EndsWith("tosu.exe", StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrEmpty(path) &&
+                    path.EndsWith("tosu.exe", StringComparison.OrdinalIgnoreCase) &&
+                    System.IO.File.Exists(path) &&
+                    !proc.HasExited)
+                {
                     return true;
+                }
             }
-            catch { /* Access denied for some processes, ignore */ }
+            catch { }
         }
         return false;
     }
 
     public static string GetTosuPath()
     {
-        // Try a dedicated registry key first (replace with actual key if Tosu provides one)
         const string keyPath = @"SOFTWARE\tosu";
         using (var key = Registry.LocalMachine.OpenSubKey(keyPath))
         {
@@ -89,8 +93,7 @@ public class TosuLauncher
             if (!string.IsNullOrEmpty(path))
                 return path;
         }
-
-        // Fallback: check running process
+        
         var processes = Process.GetProcessesByName("tosu");
         foreach (var proc in processes)
         {

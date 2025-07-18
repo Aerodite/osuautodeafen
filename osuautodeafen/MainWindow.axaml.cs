@@ -242,8 +242,7 @@ public partial class MainWindow : Window
         
         _tosuApi.BeatmapChanged += async () =>
         {
-            _logImportant.logImportant("Client: " + _tosuApi.GetClient(), false, "Client");
-            _logImportant.logImportant("Server: " + _tosuApi.GetServer(), false, "Server");
+            _logImportant.logImportant("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false, "Client");
             _logImportant.logImportant("Map: " + _tosuApi.GetBeatmapTitle(), false, "Beatmap changed",
                 $"https://osu.ppy.sh/b/{_tosuApi.GetBeatmapId()}");
             _logImportant.logImportant("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
@@ -302,9 +301,6 @@ public partial class MainWindow : Window
             _logImportant.logImportant("isDeafened: " + deafen._deafened, false, "isDeafened");
             _logImportant.logImportant("Min Deafen Percentage: " + _viewModel.MinCompletionPercentage, false,
                 "Min Deafen Percentage");
-            _logImportant.logImportant("Velopack: " + _updateChecker.mgr.IsInstalled, false, "Velopack");
-            _logImportant.logImportant("Tosu Running: " + TosuLauncher.IsTosuRunning(), false, "Tosu Running");
-            _logImportant.logImportant("Tosu Path: " + TosuLauncher.GetTosuPath(), false, "Tosu Path");
         };
         _tosuApi.HasBPMChanged += async () =>
         {
@@ -502,53 +498,77 @@ public partial class MainWindow : Window
     }
 
     public void StartStableFrameTimer(int targetFps = 60)
+{
+    _frameCts = new CancellationTokenSource();
+    var intervalMs = 1000.0 / targetFps;
+    if (double.IsNaN(intervalMs) || double.IsInfinity(intervalMs) || intervalMs <= 0)
+        intervalMs = 16.67;
+
+    _frameStopwatch.Restart();
+    _lastFrameTimestamp = _frameStopwatch.Elapsed.TotalMilliseconds;
+    double drift = 0;
+
+    // Stats
+    double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
+    int frameCount = 0, statsWindow = 100;
+
+    Task.Run(async () =>
     {
-        _frameCts = new CancellationTokenSource();
-        var intervalMs = 1000.0 / targetFps;
-        if (double.IsNaN(intervalMs) || double.IsInfinity(intervalMs) || intervalMs <= 0)
-            intervalMs = 16.67; // Default to ~60 FPS
-
-        _frameStopwatch.Restart();
-        _lastFrameTimestamp = _frameStopwatch.Elapsed.TotalMilliseconds;
-        double drift = 0;
-
-        Task.Run(async () =>
+        while (!_frameCts.IsCancellationRequested)
         {
-            while (!_frameCts.IsCancellationRequested)
+            var frameStart = _frameStopwatch.Elapsed.TotalMilliseconds;
+            var frameInterval = frameStart - _lastFrameTimestamp;
+            _lastFrameTimestamp = frameStart;
+
+            // Update stats
+            minFrame = Math.Min(minFrame, frameInterval);
+            maxFrame = Math.Max(maxFrame, frameInterval);
+            sumFrame += frameInterval;
+            frameCount++;
+
+            // UI thread timing
+            var uiStart = _frameStopwatch.Elapsed.TotalMilliseconds;
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                var now = _frameStopwatch.Elapsed.TotalMilliseconds;
-                var frameInterval = now - _lastFrameTimestamp;
-                _lastFrameTimestamp = now;
+                var uiEnd = _frameStopwatch.Elapsed.TotalMilliseconds;
+                var uiLatency = uiEnd - uiStart;
 
-                // Validate frameInterval
-                if (double.IsNaN(frameInterval) || double.IsInfinity(frameInterval) || frameInterval <= 0)
-                    frameInterval = intervalMs;
+                var avgFrame = sumFrame / frameCount;
+                _logImportant.logImportant(
+                    $"Frame: {frameInterval:F2}ms/{(1000.0 / frameInterval):F2}fps",
+                    false, "FrameLatency");
+                    _logImportant.logImportant($"UI: {uiLatency:F2}ms", false, "UI");
+                _logImportant.logImportant($"Min/Max/Avg: {minFrame:F2}/{maxFrame:F2}/{avgFrame:F2}ms",
+                    false, "FrameStats");
+            });
 
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    _logImportant.logImportant(
-                        $"Frame Times: {frameInterval:F2}ms/{1000.0 / frameInterval:F2}fps (target: {intervalMs:F2}ms)",
-                        false, "FrameInterval");
-                });
+            var afterUi = _frameStopwatch.Elapsed.TotalMilliseconds;
+            drift += (afterUi - frameStart) - intervalMs;
+            var sleep = intervalMs - (_frameStopwatch.Elapsed.TotalMilliseconds - afterUi) - drift;
 
-                drift += frameInterval - intervalMs;
-                var sleep = intervalMs - (_frameStopwatch.Elapsed.TotalMilliseconds - now) - drift;
+            if (double.IsNaN(sleep) || double.IsInfinity(sleep) || sleep < 0)
+                sleep = 0;
 
-                // Validate sleep
-                if (double.IsNaN(sleep) || double.IsInfinity(sleep) || sleep < 0)
-                    sleep = 0;
+            var sleepStart = _frameStopwatch.Elapsed.TotalMilliseconds;
+            if (sleep > 2)
+                await Task.Delay((int)(sleep - 2));
+            while (_frameStopwatch.Elapsed.TotalMilliseconds - sleepStart < intervalMs - drift)
+                Thread.SpinWait(10);
 
-                if (sleep > 2)
-                    await Task.Delay((int)(sleep - 2));
-                while (_frameStopwatch.Elapsed.TotalMilliseconds - now < intervalMs - drift)
-                    Thread.SpinWait(10);
+            if (Math.Abs(drift) > intervalMs) drift = 0;
 
-                if (Math.Abs(drift) > intervalMs) drift = 0;
+            // Reset stats every statsWindow frames
+            if (frameCount >= statsWindow)
+            {
+                minFrame = double.MaxValue;
+                maxFrame = double.MinValue;
+                sumFrame = 0;
+                frameCount = 0;
             }
-
-            _frameStopwatch.Stop();
-        }, _frameCts.Token);
-    }
+        }
+        _frameStopwatch.Stop();
+    }, _frameCts.Token);
+}
 
     public void StopStableFrameTimer()
     {
@@ -1004,6 +1024,8 @@ public partial class MainWindow : Window
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
         _tosuApi.CheckForPercentageChange();
         _kiaiTimes.UpdateKiaiPeriodState(_tosuApi.GetCurrentTime());
+        _logImportant.logImportant("Velopack: " + _updateChecker.mgr.IsInstalled, false, "Velopack");
+        _logImportant.logImportant("Tosu Running: " + TosuLauncher.IsTosuRunning(), false, "Tosu Running");
     }
 
     public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)
@@ -1428,7 +1450,7 @@ public partial class MainWindow : Window
     {
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            debugConsolePanel.Margin = new Thickness(-727, 0, 0, 0);
+            debugConsolePanel.Margin = new Thickness(-300, 0, 0, 0);
         });
     }
 
@@ -1590,7 +1612,6 @@ public partial class MainWindow : Window
         else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
         {
             await AnimateDebugConsoleOutAsync(debugConsolePanel);
-            
             debugConsolePanel.IsVisible = false;
             _logUpdateTimer?.Stop();
             _logUpdateTimer = null;
@@ -1621,7 +1642,7 @@ public partial class MainWindow : Window
         else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
         {
             await AnimateDebugConsoleOutAsync(debugConsolePanel);
-
+            await Task.Delay(400);
             debugConsolePanel.IsVisible = false;
             _logUpdateTimer?.Stop();
             _logUpdateTimer = null;
