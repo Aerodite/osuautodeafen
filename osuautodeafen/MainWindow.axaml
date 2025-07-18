@@ -14,8 +14,15 @@
 
 
     <Window.Resources>
+        <local:UpdateNotificationMarginConverter x:Key="UpdateNotificationMarginConverter" />
         <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
+        <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
     </Window.Resources>
 
 
