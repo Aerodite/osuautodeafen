@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using Microsoft.Win32;
 
 namespace osuautodeafen.cs;
 
 public class TosuLauncher
 {
-
     //<summary>
     // ensures that tosu is running, if not, it will attempt to start it
     //</summary>
@@ -62,7 +62,7 @@ public class TosuLauncher
 
         return tosuPath;
     }
-    
+
     public static bool IsTosuRunning()
     {
         var processes = Process.GetProcessesByName("tosu");
@@ -70,16 +70,13 @@ public class TosuLauncher
         {
             try
             {
-                var path = proc.MainModule?.FileName;
-                if (!string.IsNullOrEmpty(path) &&
-                    path.EndsWith("tosu.exe", StringComparison.OrdinalIgnoreCase) &&
-                    System.IO.File.Exists(path) &&
-                    !proc.HasExited)
-                {
+                if (!proc.HasExited)
                     return true;
-                }
             }
-            catch { }
+            catch
+            {
+                // ignore processes that can't be accessed
+            }
         }
         return false;
     }
@@ -93,22 +90,22 @@ public class TosuLauncher
             if (!string.IsNullOrEmpty(path))
                 return path;
         }
-        
+
         var processes = Process.GetProcessesByName("tosu");
         foreach (var proc in processes)
-        {
             try
             {
                 var path = proc.MainModule?.FileName;
                 if (!string.IsNullOrEmpty(path))
                     return path;
             }
-            catch { }
-        }
-        
+            catch
+            {
+            }
+
         var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-        var possiblePath = System.IO.Path.Combine(programFiles, "Tosu", "tosu.exe");
-        if (System.IO.File.Exists(possiblePath))
+        var possiblePath = Path.Combine(programFiles, "Tosu", "tosu.exe");
+        if (File.Exists(possiblePath))
             return possiblePath;
 
         return string.Empty;

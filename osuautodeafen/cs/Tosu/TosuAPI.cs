@@ -62,6 +62,7 @@ public class TosuApi : IDisposable
     private string beatmapChecksum;
     private string? beatmapTitle;
     private double? realtimeBpm;
+    public bool? isWebsocketConnected => _webSocket.State == WebSocketState.Open;
 
     public TosuApi()
     {
@@ -161,8 +162,8 @@ public class TosuApi : IDisposable
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
         Console.WriteLine("Connecting to WebSocket...");
-        string counterPath = "osuautodeafen";
-        string uriWithParam = $"{WebSocketUri}?l={Uri.EscapeDataString(counterPath)}";
+        var counterPath = "osuautodeafen";
+        var uriWithParam = $"{WebSocketUri}?l={Uri.EscapeDataString(counterPath)}";
 
         while (!cancellationToken.IsCancellationRequested)
         {

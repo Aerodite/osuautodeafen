@@ -345,7 +345,7 @@ public class ChartManager
             Console.WriteLine($"Error updating deafen overlay: {ex.Message}");
         }
     }
-    
+
     private void AddDeafenOverlaySection(List<RectangularSection> sections, double minCompletionPercentage)
     {
         var newXi = minCompletionPercentage * MaxLimit / 100.0;

@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -90,8 +91,6 @@ public partial class MainWindow : Window
     public bool _isSettingsPanelOpen;
 
     private DispatcherTimer? _kiaiBrightnessTimer;
-    
-    private TosuLauncher _tosuLauncher = new();
 
     private double _kiaiMsPerBeat = 60000.0 / 140; // Default BPM
 
@@ -114,6 +113,8 @@ public partial class MainWindow : Window
     public Image? _normalBackground;
 
     private CancellationTokenSource _timerCts;
+
+    private TosuLauncher _tosuLauncher = new();
     private Button? _updateNotificationBarButton;
 
     private ProgressBar? _updateProgressBar;
@@ -205,8 +206,6 @@ public partial class MainWindow : Window
 
         // end of settings bs
 
-        StartStableFrameTimer();
-
         var oldContent = Content;
         Content = null;
         Content = new Grid
@@ -239,10 +238,11 @@ public partial class MainWindow : Window
 
         ProgressOverlay.Points =
             _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage());
-        
+
         _tosuApi.BeatmapChanged += async () =>
         {
-            _logImportant.logImportant("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false, "Client");
+            _logImportant.logImportant("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false,
+                "Client");
             _logImportant.logImportant("Map: " + _tosuApi.GetBeatmapTitle(), false, "Beatmap changed",
                 $"https://osu.ppy.sh/b/{_tosuApi.GetBeatmapId()}");
             _logImportant.logImportant("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
@@ -282,8 +282,8 @@ public partial class MainWindow : Window
             if (rate <= 0 || double.IsNaN(rate) || double.IsInfinity(rate))
                 rate = 1; // Default to 1 if invalid
 
-            double currentMs = _tosuApi.GetCurrentTime() / rate;
-            double fullMs = _tosuApi.GetFullTime() / rate;
+            var currentMs = _tosuApi.GetCurrentTime() / rate;
+            var fullMs = _tosuApi.GetFullTime() / rate;
 
             if (double.IsNaN(currentMs) || double.IsInfinity(currentMs) || currentMs < 0)
                 currentMs = 0;
@@ -498,122 +498,92 @@ public partial class MainWindow : Window
     }
 
     public void StartStableFrameTimer(int targetFps = 60)
-{
-    _frameCts = new CancellationTokenSource();
-    var intervalMs = 1000.0 / targetFps;
-    if (double.IsNaN(intervalMs) || double.IsInfinity(intervalMs) || intervalMs <= 0)
-        intervalMs = 16.67;
-
-    _frameStopwatch.Restart();
-    _lastFrameTimestamp = _frameStopwatch.Elapsed.TotalMilliseconds;
-    double drift = 0;
-
-    // Stats
-    double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
-    int frameCount = 0, statsWindow = 100;
-
-    Task.Run(async () =>
     {
-        while (!_frameCts.IsCancellationRequested)
+        _frameCts = new CancellationTokenSource();
+        targetFps = Math.Clamp(targetFps, 1, 1000);
+        var intervalMs = 1000.0 / targetFps;
+
+        // Set system timer resolution to 1ms
+        timeBeginPeriod(1);
+
+        _frameStopwatch.Restart();
+        var lastFrameTicks = _frameStopwatch.ElapsedTicks;
+        var tickMs = 1000.0 / Stopwatch.Frequency;
+        double drift = 0;
+
+        double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
+        int frameCount = 0, statsWindow = 100;
+
+        Task.Run(() =>
         {
-            var frameStart = _frameStopwatch.Elapsed.TotalMilliseconds;
-            var frameInterval = frameStart - _lastFrameTimestamp;
-            _lastFrameTimestamp = frameStart;
-
-            // Update stats
-            minFrame = Math.Min(minFrame, frameInterval);
-            maxFrame = Math.Max(maxFrame, frameInterval);
-            sumFrame += frameInterval;
-            frameCount++;
-
-            // UI thread timing
-            var uiStart = _frameStopwatch.Elapsed.TotalMilliseconds;
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            try
             {
-                var uiEnd = _frameStopwatch.Elapsed.TotalMilliseconds;
-                var uiLatency = uiEnd - uiStart;
+                while (!_frameCts.IsCancellationRequested)
+                {
+                    var frameStartTicks = _frameStopwatch.ElapsedTicks;
+                    var frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
+                    lastFrameTicks = frameStartTicks;
 
-                var avgFrame = sumFrame / frameCount;
-                _logImportant.logImportant(
-                    $"Frame: {frameInterval:F2}ms/{(1000.0 / frameInterval):F2}fps",
-                    false, "FrameLatency");
-                    _logImportant.logImportant($"UI: {uiLatency:F2}ms", false, "UI");
-                _logImportant.logImportant($"Min/Max/Avg: {minFrame:F2}/{maxFrame:F2}/{avgFrame:F2}ms",
-                    false, "FrameStats");
-            });
+                    frameInterval = Math.Max(frameInterval, 1.0);
 
-            var afterUi = _frameStopwatch.Elapsed.TotalMilliseconds;
-            drift += (afterUi - frameStart) - intervalMs;
-            var sleep = intervalMs - (_frameStopwatch.Elapsed.TotalMilliseconds - afterUi) - drift;
+                    minFrame = Math.Min(minFrame, frameInterval);
+                    maxFrame = Math.Max(maxFrame, frameInterval);
+                    sumFrame += frameInterval;
+                    frameCount++;
 
-            if (double.IsNaN(sleep) || double.IsInfinity(sleep) || sleep < 0)
-                sleep = 0;
+                    var uiStartTicks = _frameStopwatch.ElapsedTicks;
+                    Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        var uiEndTicks = _frameStopwatch.ElapsedTicks;
+                        var uiLatency = (uiEndTicks - uiStartTicks) * tickMs;
+                        var avgFrame = sumFrame / frameCount;
+                        _logImportant.logImportant(
+                            $"Frame: {frameInterval:F2}ms/{1000.0 / avgFrame:F0}fps",
+                            false, "FrameLatency");
+                        _logImportant.logImportant($"UI: {uiLatency:F2}ms", false, "UI");
+                        _logImportant.logImportant($"Min/Max/Avg: {minFrame:F2}/{maxFrame:F2}/{avgFrame:F2}ms",
+                            false, "FrameStats");
+                    }).Wait();
 
-            var sleepStart = _frameStopwatch.Elapsed.TotalMilliseconds;
-            if (sleep > 2)
-                await Task.Delay((int)(sleep - 2));
-            while (_frameStopwatch.Elapsed.TotalMilliseconds - sleepStart < intervalMs - drift)
-                Thread.SpinWait(10);
+                    var afterUiTicks = _frameStopwatch.ElapsedTicks;
+                    drift += (afterUiTicks - frameStartTicks) * tickMs - intervalMs;
+                    var sleep = intervalMs - (_frameStopwatch.ElapsedTicks - afterUiTicks) * tickMs - drift;
 
-            if (Math.Abs(drift) > intervalMs) drift = 0;
+                    if (sleep < 0) sleep = 0;
 
-            // Reset stats every statsWindow frames
-            if (frameCount >= statsWindow)
-            {
-                minFrame = double.MaxValue;
-                maxFrame = double.MinValue;
-                sumFrame = 0;
-                frameCount = 0;
+                    var spinStart = _frameStopwatch.ElapsedTicks;
+                    while ((_frameStopwatch.ElapsedTicks - spinStart) * tickMs < sleep)
+                        Thread.SpinWait(10);
+
+                    if (Math.Abs(drift) > intervalMs) drift = 0;
+
+                    if (frameCount >= statsWindow)
+                    {
+                        minFrame = double.MaxValue;
+                        maxFrame = double.MinValue;
+                        sumFrame = 0;
+                        frameCount = 0;
+                    }
+                }
             }
-        }
-        _frameStopwatch.Stop();
-    }, _frameCts.Token);
-}
+            finally
+            {
+                _frameStopwatch.Stop();
+                timeEndPeriod(1);
+            }
+        }, _frameCts.Token);
+    }
+
+    [DllImport("winmm.dll")]
+    private static extern int timeBeginPeriod(uint uMilliseconds);
+
+    [DllImport("winmm.dll")]
+    private static extern int timeEndPeriod(uint uMilliseconds);
+
 
     public void StopStableFrameTimer()
     {
         _frameCts?.Cancel();
-    }
-
-    private void FrameTimer_Tick(object? sender, EventArgs e)
-    {
-        var now = DateTime.UtcNow;
-        var frameInterval = (now - _lastRenderTime).TotalMilliseconds;
-        _lastRenderTime = now;
-
-        _logImportant.logImportant($"Frame Times: {frameInterval:F2}ms/{1000 / frameInterval:F2}fps", false,
-            "FrameInterval");
-    }
-
-    private HotKey ParseHotKey(string? keybindString)
-    {
-        if (string.IsNullOrEmpty(keybindString))
-            return new HotKey { Key = Key.None, ModifierKeys = KeyModifiers.None, FriendlyName = "None" };
-
-        var parts = keybindString.Split('+');
-        var modifiers = KeyModifiers.None;
-        var key = Key.None;
-
-        foreach (var part in parts)
-        {
-            var trimmed = part.Trim();
-            if (trimmed.Equals("Control", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.Equals("Ctrl", StringComparison.OrdinalIgnoreCase))
-                modifiers |= KeyModifiers.Control;
-            else if (trimmed.Equals("Alt", StringComparison.OrdinalIgnoreCase))
-                modifiers |= KeyModifiers.Alt;
-            else if (trimmed.Equals("Shift", StringComparison.OrdinalIgnoreCase))
-                modifiers |= KeyModifiers.Shift;
-            else if (Enum.TryParse<Key>(trimmed, out var parsedKey))
-                key = parsedKey;
-        }
-
-        return new HotKey
-        {
-            Key = key,
-            ModifierKeys = modifiers,
-            FriendlyName = key.ToString()
-        };
     }
 
     private void CompletionPercentageSlider_PointerPressed(object sender, PointerPressedEventArgs e)
@@ -829,12 +799,13 @@ public partial class MainWindow : Window
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        
+
         if (e.Key == Key.D && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             Dispatcher.UIThread.InvokeAsync(() => DebugConsoleButton_Click_NoAnim(null, null));
             e.Handled = true;
         }
+
         if (e.Key == Key.O && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             Dispatcher.UIThread.InvokeAsync(() => SettingsButton_Click(null, null));
@@ -849,7 +820,6 @@ public partial class MainWindow : Window
             ViewModel.IsKeybindCaptureFlyoutOpen = false;
             (Resources["KeybindCaptureFlyout"] as Flyout)?.Hide();
             return;
-
         }
 
         var currentTime = DateTime.Now;
@@ -1025,7 +995,7 @@ public partial class MainWindow : Window
         _tosuApi.CheckForPercentageChange();
         _kiaiTimes.UpdateKiaiPeriodState(_tosuApi.GetCurrentTime());
         _logImportant.logImportant("Velopack: " + _updateChecker.mgr.IsInstalled, false, "Velopack");
-        _logImportant.logImportant("Tosu Running: " + TosuLauncher.IsTosuRunning(), false, "Tosu Running");
+        _logImportant.logImportant("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");
     }
 
     public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)
@@ -1276,7 +1246,7 @@ public partial class MainWindow : Window
             var hideMargin = new Thickness(200, 42, -200, 0);
             var buttonRightMargin = new Thickness(0, 42, 0, 10);
             var buttonLeftMargin = new Thickness(0, 42, 200, 10);
-     
+
             if (!settingsPanel.IsVisible)
             {
                 await Task.WhenAll(
@@ -1287,7 +1257,7 @@ public partial class MainWindow : Window
                 settingsPanel.IsVisible = true;
                 await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render).GetTask();
                 await AnimatePanelInAsync(settingsPanel, buttonContainer, versionPanel, showMargin, buttonLeftMargin);
-                
+
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
 
                 debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
@@ -1377,17 +1347,17 @@ public partial class MainWindow : Window
         {
             settingsPanel.Margin = showMargin;
             buttonContainer.Margin = buttonLeftMargin;
-            
-                osuautodeafenLogoPanel.Transitions = new Transitions
+
+            osuautodeafenLogoPanel.Transitions = new Transitions
+            {
+                new ThicknessTransition
                 {
-                    new ThicknessTransition
-                    {
-                        Property = MarginProperty,
-                        Duration = TimeSpan.FromMilliseconds(400),
-                        Easing = new QuarticEaseInOut()
-                    }
-                };
-                osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
+                    Property = MarginProperty,
+                    Duration = TimeSpan.FromMilliseconds(400),
+                    Easing = new QuarticEaseInOut()
+                }
+            };
+            osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
 
             versionPanel.Margin = new Thickness(0, 0, 225, 0);
         }).GetTask());
@@ -1414,7 +1384,7 @@ public partial class MainWindow : Window
             {
                 settingsPanel.Margin = hideMargin;
                 buttonContainer.Margin = buttonRightMargin;
-                
+
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
 
                 versionPanel.Margin = new Thickness(0, 0, 0, 0);
@@ -1437,21 +1407,15 @@ public partial class MainWindow : Window
             };
         });
     }
-    
+
     private async Task AnimateDebugConsoleInAsync(StackPanel debugConsolePanel)
     {
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            debugConsolePanel.Margin = new Thickness(0, 0, 0, 0);
-        });
+        await Dispatcher.UIThread.InvokeAsync(() => { debugConsolePanel.Margin = new Thickness(0, 0, 0, 0); });
     }
 
     private async Task AnimateDebugConsoleOutAsync(StackPanel debugConsolePanel)
     {
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            debugConsolePanel.Margin = new Thickness(-300, 0, 0, 0);
-        });
+        await Dispatcher.UIThread.InvokeAsync(() => { debugConsolePanel.Margin = new Thickness(-300, 0, 0, 0); });
     }
 
     private Task EnsureCogCenterAsync(Image cogImage)
@@ -1596,6 +1560,7 @@ public partial class MainWindow : Window
         var debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
         if (debugConsolePanel != null && !debugConsolePanel.IsVisible)
         {
+            StartStableFrameTimer(1000);
             await SetupDebugConsoleTransitionsAsync(debugConsolePanel);
             debugConsolePanel.IsVisible = true;
             await AnimateDebugConsoleInAsync(debugConsolePanel);
@@ -1607,10 +1572,10 @@ public partial class MainWindow : Window
                 UpdateDebugConsolePanel(debugConsolePanel, currentLogs);
             };
             _logUpdateTimer.Start();
-            
         }
         else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
         {
+            StopStableFrameTimer();
             await AnimateDebugConsoleOutAsync(debugConsolePanel);
             debugConsolePanel.IsVisible = false;
             _logUpdateTimer?.Stop();
@@ -1621,12 +1586,13 @@ public partial class MainWindow : Window
             Console.WriteLine("[ERROR] Debug console not found.");
         }
     }
-    
+
     private async void DebugConsoleButton_Click_NoAnim(object? sender, RoutedEventArgs e)
     {
         var debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
         if (debugConsolePanel != null && !debugConsolePanel.IsVisible)
         {
+            StartStableFrameTimer(1000);
             await SetupDebugConsoleTransitionsAsync(debugConsolePanel);
             debugConsolePanel.IsVisible = true;
             await AnimateDebugConsoleInAsync(debugConsolePanel);
@@ -1641,6 +1607,7 @@ public partial class MainWindow : Window
         }
         else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
         {
+            StopStableFrameTimer();
             await AnimateDebugConsoleOutAsync(debugConsolePanel);
             await Task.Delay(400);
             debugConsolePanel.IsVisible = false;
