@@ -9,7 +9,7 @@
         xmlns:strainGraph="clr-namespace:osuautodeafen.cs.StrainGraph"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
-        Title="osu!autodeafen"
+        Title="osuautodeafen"
         x:DataType="local:MainWindow">
 
 
@@ -24,7 +24,6 @@
         <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
         <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
     </Window.Resources>
-
 
     <Grid ZIndex="5">
         <Grid.ColumnDefinitions>

@@ -1353,8 +1353,8 @@ public partial class MainWindow : Window
                 new ThicknessTransition
                 {
                     Property = MarginProperty,
-                    Duration = TimeSpan.FromMilliseconds(400),
-                    Easing = new QuarticEaseInOut()
+                    Duration = TimeSpan.FromMilliseconds(500),
+                    Easing = new BackEaseOut()
                 }
             };
             osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
@@ -1385,6 +1385,15 @@ public partial class MainWindow : Window
                 settingsPanel.Margin = hideMargin;
                 buttonContainer.Margin = buttonRightMargin;
 
+                osuautodeafenLogoPanel.Transitions = new Transitions
+                {
+                    new ThicknessTransition
+                    {
+                        Property = MarginProperty,
+                        Duration = TimeSpan.FromMilliseconds(500),
+                        Easing = new BackEaseOut()
+                    }
+                };
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
 
                 versionPanel.Margin = new Thickness(0, 0, 0, 0);
