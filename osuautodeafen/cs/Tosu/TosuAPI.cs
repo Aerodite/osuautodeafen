@@ -161,6 +161,9 @@ public class TosuApi : IDisposable
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
         Console.WriteLine("Connecting to WebSocket...");
+        string counterPath = "osuautodeafen";
+        string uriWithParam = $"{WebSocketUri}?l={Uri.EscapeDataString(counterPath)}";
+
         while (!cancellationToken.IsCancellationRequested)
         {
             if (_webSocket != null && _webSocket.State == WebSocketState.Open)
@@ -170,7 +173,7 @@ public class TosuApi : IDisposable
             {
                 _webSocket?.Dispose();
                 _webSocket = new ClientWebSocket();
-                await _webSocket.ConnectAsync(new Uri(WebSocketUri), cancellationToken);
+                await _webSocket.ConnectAsync(new Uri(uriWithParam), cancellationToken);
                 Console.WriteLine("Connected to WebSocket.");
                 _reconnectTimer.Change(300000, Timeout.Infinite);
                 await ReceiveAsync();
