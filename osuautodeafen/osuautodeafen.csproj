@@ -88,6 +88,8 @@
         <AvaloniaResource Include="Icons\bug-solid.png"/>
         <None Remove="Icons\star-half-stroke-solid.png"/>
         <AvaloniaResource Include="Icons\star-half-stroke-solid.png"/>
+        <None Remove="Icons\code-solid.png"/>
+        <AvaloniaResource Include="Icons\code-solid.png"/>
     </ItemGroup>
 
     <ItemGroup>

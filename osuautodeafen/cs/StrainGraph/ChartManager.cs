@@ -55,6 +55,7 @@ public class ChartManager
     private string? _lastOsuFilePath;
     private List<double>? _lastSeriesData;
     private List<double>? _lastXAxis;
+    private double breakStart, breakEnd;
 
 
     public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel,
@@ -345,6 +346,21 @@ public class ChartManager
         }
     }
 
+    private void AddDeafenOverlaySection(List<RectangularSection> sections, double minCompletionPercentage)
+    {
+        var newXi = minCompletionPercentage * MaxLimit / 100.0;
+        var deafenSection = new RectangularSection
+        {
+            Xi = newXi,
+            Xj = MaxLimit,
+            Yi = 0,
+            Yj = MaxYValue,
+            Fill = new SolidColorPaint { Color = DeafenOverlayColor }
+        };
+        sections.RemoveAll(s => s is { Fill: SolidColorPaint paint } && paint.Color == DeafenOverlayColor);
+        sections.Add(deafenSection);
+    }
+
     public async Task UpdateChart(GraphData? graphData, double minCompletionPercentage)
     {
         var sw = Stopwatch.StartNew();
@@ -475,8 +491,24 @@ public class ChartManager
         _cachedBreakPeriods.Clear();
         foreach (var breakPeriod in breaks)
         {
-            var breakStart = breakPeriod.Start / rate;
-            var breakEnd = breakPeriod.End / rate;
+            // for whatever reason when going into gameplay
+            // the x-axis values go back to how they should be
+            // (i.e., rate is already applied)
+            // that triggers UpdateChart() and makes everything
+            // update with those x-values.
+            // so this is just to make sure the break periods are
+            // in the right place in that case 😑
+            if (_tosuApi.GetRawBanchoStatus() != 2)
+            {
+                breakStart = breakPeriod.Start / rate;
+                breakEnd = breakPeriod.End / rate;
+            }
+            else
+            {
+                breakStart = breakPeriod.Start;
+                breakEnd = breakPeriod.End;
+            }
+
             var startIdx = FindClosestIndex(xAxis, breakStart);
             var endIdx = FindClosestIndex(xAxis, breakEnd);
             _cachedBreakPeriods.Add(new AnnotatedSection
@@ -505,8 +537,20 @@ public class ChartManager
         _cachedKiaiPeriods.Clear();
         foreach (var kiai in kiaiList)
         {
-            var startIdx = FindClosestIndex(xAxis, kiai.Start / rate);
-            var endIdx = FindClosestIndex(xAxis, kiai.End / rate);
+            double kiaiStart, kiaiEnd;
+            if (_tosuApi.GetRawBanchoStatus() != 2)
+            {
+                kiaiStart = kiai.Start / rate;
+                kiaiEnd = kiai.End / rate;
+            }
+            else
+            {
+                kiaiStart = kiai.Start;
+                kiaiEnd = kiai.End;
+            }
+
+            var startIdx = FindClosestIndex(xAxis, kiaiStart);
+            var endIdx = FindClosestIndex(xAxis, kiaiEnd);
             _cachedKiaiPeriods.Add(new AnnotatedSection
             {
                 Xi = startIdx,
@@ -521,6 +565,7 @@ public class ChartManager
         }
 
         var combinedSections = _cachedBreakPeriods.Concat(_cachedKiaiPeriods).ToList();
+        AddDeafenOverlaySection(combinedSections, _viewModel.MinCompletionPercentage);
         PlotView.Sections = combinedSections;
     }
 

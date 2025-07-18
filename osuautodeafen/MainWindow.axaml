@@ -37,9 +37,32 @@
         </StackPanel>
 
         <!-- Main content -->
-        <StackPanel Grid.Column="0" ZIndex="9">
-            <Border x:Name="SettingsButtonContainer" Margin="0,42,0,0">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel x:Name="DebugConsolePanel"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Margin="0,20,0,0"
+                        IsVisible="False">
+                <TextBlock x:Name="DebugConsoleTextBlock"
+                           x:DataType="cs:SharedViewModel"
+                           HorizontalAlignment="Stretch"
+                           VerticalAlignment="Stretch"
+                           Margin="0,20,0,0"
+                           Padding="0"
+                           FontFamily="Consolas"
+                           Foreground="White"
+                           IsVisible="False"
+                           TextWrapping="Wrap"
+                           IsHitTestVisible="True"
+                           FontSize="6" />
+            </StackPanel>
+            <Border x:Name="SettingsButtonContainer" Grid.Column="1" Margin="0,42,0,0">
                 <Grid HorizontalAlignment="Right" VerticalAlignment="Top">
+
                     <Image Source="avares://osuautodeafen/Icons/outline.png"
                            Width="50" Height="50">
                         <Image.OpacityMask>
@@ -68,8 +91,7 @@
                     </Button>
                 </Grid>
             </Border>
-        </StackPanel>
-
+        </Grid>
         <!--- settings panel -->
         <DockPanel x:Name="SettingsPanel" Grid.Column="1" Width="200" IsVisible="False"
                    Margin="0,42,0,0" ZIndex="3"
@@ -340,6 +362,29 @@
                                 <TextBlock Text="Report an Issue" />
                             </ToolTip.Tip>
                         </Button>
+                        <Button x:Name="DebugConsoleButton"
+                                Background="Transparent"
+                                BorderBrush="{x:Null}"
+                                BorderThickness="0"
+                                CornerRadius="0"
+                                HorizontalContentAlignment="Center"
+                                Click="DebugConsoleButton_Click"
+                                HorizontalAlignment="Center"
+                                Margin="0,0,0,10"
+                                FontSize="7"
+                                Foreground="White"
+                                IsVisible="False"
+                                VerticalAlignment="Bottom">
+                            <Image x:Name="DebugConsoleImage"
+                                   Source="avares://osuautodeafen/Icons/code-solid.png"
+                                   Width="20" Height="20"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   RenderTransformOrigin="0.5,0.5" />
+                            <ToolTip.Tip>
+                                <TextBlock Text="See debug info" />
+                            </ToolTip.Tip>
+                        </Button>
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>
@@ -403,11 +448,11 @@
                                      Background="Transparent"
                                      IsHitTestVisible="False"
                                      VerticalAlignment="Stretch"
-                                     HorizontalAlignment="Stretch"/>
+                                     HorizontalAlignment="Stretch" />
                         <TextBlock Text="A new update is available!"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
-                                   Margin="0"/>
+                                   Margin="0" />
                     </Grid>
                 </Button>
             </Grid>

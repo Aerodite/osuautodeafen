@@ -40,6 +40,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private bool _isParallaxEnabled;
 
     private bool _isSliderTooltipOpen;
+    private bool _isUpdateReady;
     private int _minCompletionPercentage;
 
     private Bitmap? _modifiedLogoImage;
@@ -51,12 +52,11 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private string _statusMessage;
 
     private bool _undeafenAfterMiss;
+    private IBrush _updateBarBackground = Brushes.Gray;
+
+    private int _updateProgress;
 
     private string _updateStatusMessage;
-    
-    private int _updateProgress;
-    private bool _isUpdateReady;
-    private IBrush _updateBarBackground = Brushes.Gray;
 
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
@@ -69,7 +69,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         _tosuApi = tosuApi;
         Task.Run(UpdateCompletionPercentageAsync);
     }
-    
+
     public int UpdateProgress
     {
         get => _updateProgress;
@@ -78,7 +78,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             if (_updateProgress != value)
             {
                 _updateProgress = value;
-                OnPropertyChanged(nameof(UpdateProgress));
+                OnPropertyChanged();
                 IsUpdateReady = _updateProgress >= 100;
                 UpdateBarBackground = IsUpdateReady ? Brushes.Green : Brushes.Gray;
             }
@@ -93,7 +93,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             if (_isUpdateReady != value)
             {
                 _isUpdateReady = value;
-                OnPropertyChanged(nameof(IsUpdateReady));
+                OnPropertyChanged();
             }
         }
     }
@@ -106,7 +106,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             if (_updateBarBackground != value)
             {
                 _updateBarBackground = value;
-                OnPropertyChanged(nameof(UpdateBarBackground));
+                OnPropertyChanged();
             }
         }
     }

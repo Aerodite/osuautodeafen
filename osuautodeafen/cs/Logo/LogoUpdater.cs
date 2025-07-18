@@ -7,6 +7,7 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using osuautodeafen.cs.Log;
 using SkiaSharp;
 using Svg.Skia;
 
@@ -17,6 +18,7 @@ public class LogoUpdater
     private readonly AnimationManager _animationManager;
     private readonly GetLowResBackground _getLowResBackground;
     private readonly Func<string, SKSvg> _loadHighResLogo;
+    private readonly LogImportant _logImportant;
     private readonly LogoControl _logoControl;
     private readonly SharedViewModel _viewModel;
     private SKSvg? _cachedLogoSvg;
@@ -32,14 +34,17 @@ public class LogoUpdater
         LogoControl logoControl,
         AnimationManager animationManager,
         SharedViewModel viewModel,
-        Func<string, SKSvg> loadHighResLogo)
+        Func<string, SKSvg> loadHighResLogo, LogImportant logImportant)
     {
         _getLowResBackground = getLowResBackground;
         _logoControl = logoControl;
         _animationManager = animationManager;
         _viewModel = viewModel;
         _loadHighResLogo = loadHighResLogo;
+        _logImportant = logImportant;
     }
+
+    public SKColor AverageColor { get; private set; }
 
     #region Public API
 
@@ -241,7 +246,7 @@ public class LogoUpdater
             var t = i / (float)steps;
             var interpolatedColor = InterpolateColor(fromColor, toColor, t);
             _currentColor = interpolatedColor;
-
+            _logImportant.logImportant("Average Color: " + interpolatedColor, false, "AverageColor");
             var avaloniaColor = Color.FromArgb(interpolatedColor.Alpha, interpolatedColor.Red, interpolatedColor.Green,
                 interpolatedColor.Blue);
 

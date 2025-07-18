@@ -17,7 +17,7 @@ public class Deafen : IDisposable
     private readonly SharedViewModel _sharedViewModel;
     private readonly Timer _timer;
     private readonly TosuApi _tosuAPI;
-    private bool _deafened;
+    public bool _deafened;
     private bool _isInBreakPeriod;
 
     public Deafen(TosuApi tosuAPI, SettingsHandler settingsHandler, SharedViewModel sharedViewModel)

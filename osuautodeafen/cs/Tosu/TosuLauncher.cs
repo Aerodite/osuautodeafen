@@ -1,38 +1,31 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using Microsoft.Win32;
 
 namespace osuautodeafen.cs;
 
-public abstract class TosuLauncher
+public class TosuLauncher
 {
-    public static bool IsTosuRunning { get; set; }
-
     //<summary>
     // ensures that tosu is running, if not, it will attempt to start it
     //</summary>
     public static void EnsureTosuRunning()
     {
-        var tosuPath = GetTosuPathFromRegistry();
-
+        var tosuPath = GetTosuPath();
         if (string.IsNullOrEmpty(tosuPath))
         {
-            Console.WriteLine("Tosu path could not be determined from the registry.");
+            Console.WriteLine("Tosu path could not be determined.");
             return;
         }
 
-        tosuPath = tosuPath.Replace(".FriendlyAppName", "");
-
-        var tosuProcesses = Process.GetProcessesByName("tosu");
-        if (tosuProcesses.Length == 0)
+        if (!IsTosuRunning())
         {
             Console.WriteLine("Tosu is not running. Attempting to start Tosu...");
-            IsTosuRunning = false;
             try
             {
                 Process.Start(tosuPath);
                 Console.WriteLine("Tosu started successfully.");
-                IsTosuRunning = true;
             }
             catch (Exception ex)
             {
@@ -42,7 +35,6 @@ public abstract class TosuLauncher
         else
         {
             Console.WriteLine("Tosu is already running.");
-            IsTosuRunning = true;
         }
     }
 
@@ -69,5 +61,53 @@ public abstract class TosuLauncher
         }
 
         return tosuPath;
+    }
+
+    public static bool IsTosuRunning()
+    {
+        var processes = Process.GetProcessesByName("tosu");
+        foreach (var proc in processes)
+        {
+            try
+            {
+                if (!proc.HasExited)
+                    return true;
+            }
+            catch
+            {
+                // ignore processes that can't be accessed
+            }
+        }
+        return false;
+    }
+
+    public static string GetTosuPath()
+    {
+        const string keyPath = @"SOFTWARE\tosu";
+        using (var key = Registry.LocalMachine.OpenSubKey(keyPath))
+        {
+            var path = key?.GetValue("InstallPath") as string;
+            if (!string.IsNullOrEmpty(path))
+                return path;
+        }
+
+        var processes = Process.GetProcessesByName("tosu");
+        foreach (var proc in processes)
+            try
+            {
+                var path = proc.MainModule?.FileName;
+                if (!string.IsNullOrEmpty(path))
+                    return path;
+            }
+            catch
+            {
+            }
+
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        var possiblePath = Path.Combine(programFiles, "Tosu", "tosu.exe");
+        if (File.Exists(possiblePath))
+            return possiblePath;
+
+        return string.Empty;
     }
 }

@@ -47,7 +47,6 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     private double _mouseY;
     private CancellationTokenSource? _overlayAnimationCts;
 
-
     public double GetBackgroundOpacity()
     {
         return _currentBackgroundOpacity;
@@ -320,7 +319,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         _cachedSourceBitmap = bitmap;
         _cachedDownscale = scale;
     }
-    
+
 
     private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
     {
