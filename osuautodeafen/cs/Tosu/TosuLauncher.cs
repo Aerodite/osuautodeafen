@@ -67,7 +67,6 @@ public class TosuLauncher
     {
         var processes = Process.GetProcessesByName("tosu");
         foreach (var proc in processes)
-        {
             try
             {
                 if (!proc.HasExited)
@@ -77,7 +76,7 @@ public class TosuLauncher
             {
                 // ignore processes that can't be accessed
             }
-        }
+
         return false;
     }
 

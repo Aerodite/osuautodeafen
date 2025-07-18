@@ -62,7 +62,6 @@ public class TosuApi : IDisposable
     private string beatmapChecksum;
     private string? beatmapTitle;
     private double? realtimeBpm;
-    public bool? isWebsocketConnected => _webSocket.State == WebSocketState.Open;
 
     public TosuApi()
     {
@@ -76,6 +75,8 @@ public class TosuApi : IDisposable
             _ = ConnectAsync();
         }
     }
+
+    public bool? isWebsocketConnected => _webSocket.State == WebSocketState.Open;
 
 
     private GraphData Graph { get; } = null!;

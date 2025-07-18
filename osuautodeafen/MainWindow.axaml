@@ -14,15 +14,8 @@
 
 
     <Window.Resources>
-        <local:UpdateNotificationMarginConverter x:Key="UpdateNotificationMarginConverter" />
         <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
-        <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
-        <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
-        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
     </Window.Resources>
 
     <Grid ZIndex="5">
@@ -117,7 +110,11 @@
                                FontSize="16" />
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/clock-solid.png" Width="25" Height="25"
-                               Margin="0,0,5,0" />
+                               Margin="0,0,5,0">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Minimum Percentage to start Deafen" />
+                            </ToolTip.Tip>
+                        </Image>
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="CompletionPercentageSlider"
                                     Minimum="0"
@@ -141,7 +138,11 @@
 
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/star-solid.png" Width="25" Height="25"
-                               Margin="0,5,5,0" />
+                               Margin="0,5,5,0">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Minimum Star Rating to Deafen" />
+                            </ToolTip.Tip>
+                        </Image>
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="StarRatingSlider"
                                     Minimum="0"
@@ -164,7 +165,11 @@
 
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/medal-solid.png" Width="25" Height="25"
-                               Margin="0,7,5,0" />
+                               Margin="0,7,5,0">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Minimum pp value to Deafen (pp if SS)" />
+                            </ToolTip.Tip>
+                        </Image>
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="PPSlider"
                                     Minimum="0"
