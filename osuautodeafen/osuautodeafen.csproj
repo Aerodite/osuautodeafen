@@ -9,6 +9,9 @@
         <DebugType>none</DebugType>
         <ApplicationIcon>Resources\favicon.ico</ApplicationIcon>
         <AssemblyName>osuautodeafen</AssemblyName>
+        <SignAssembly>true</SignAssembly>
+        <AssemblyOriginatorKeyFile>osuautodeafen.snk</AssemblyOriginatorKeyFile>
+        <PublicSign>true</PublicSign>
     </PropertyGroup>
 
     <ItemGroup>

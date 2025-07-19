@@ -403,6 +403,26 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
+    public object MinPPValue
+    {
+        get => _tosuApi.GetMaxPP();
+    }
+    
+    public void UpdateMinPPValue()
+    {
+        OnPropertyChanged(nameof(MinPPValue));
+    }
+    
+    public object MinSRValue
+    {
+        get => _tosuApi.GetFullSR();
+    }
+    
+    public void UpdateMinSRValue()
+    {
+        OnPropertyChanged(nameof(MinSRValue));
+    }
+
     public event PropertyChangedEventHandler PropertyChanged;
 
     private async Task UpdateCompletionPercentageAsync()

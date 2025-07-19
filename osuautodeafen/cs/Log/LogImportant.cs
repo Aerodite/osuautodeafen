@@ -22,4 +22,9 @@ public class LogImportant
         else
             _importantLogs[Guid.NewGuid().ToString()] = newLine;
     }
+    
+    public void ClearLogs()
+    {
+        _importantLogs.Clear();
+    }
 }

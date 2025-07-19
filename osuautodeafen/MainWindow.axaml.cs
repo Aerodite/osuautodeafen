@@ -273,6 +273,8 @@ public partial class MainWindow : Window
             _logImportant.logImportant("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
             _logImportant.logImportant("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
             _logImportant.logImportant("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
+            _viewModel.UpdateMinPPValue();
+            _viewModel.UpdateMinSRValue();
             await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
         };
         _tosuApi.HasPercentageChanged += async () =>
@@ -497,82 +499,63 @@ public partial class MainWindow : Window
         }
     }
 
-    public void StartStableFrameTimer(int targetFps = 60)
+    public async void StartStableFrameTimer(int targetFps = 60) {
+    _frameCts = new CancellationTokenSource();
+    targetFps = Math.Clamp(targetFps, 1, 1000);
+    var intervalMs = 1000.0 / targetFps;
+
+    timeBeginPeriod(1);
+    _frameStopwatch.Restart();
+    var lastFrameTicks = _frameStopwatch.ElapsedTicks;
+    var tickMs = 1000.0 / Stopwatch.Frequency;
+
+    double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
+    int frameCount = 0, statsWindow = 100;
+
+    try
     {
-        _frameCts = new CancellationTokenSource();
-        targetFps = Math.Clamp(targetFps, 1, 1000);
-        var intervalMs = 1000.0 / targetFps;
-
-        // Set system timer resolution to 1ms
-        timeBeginPeriod(1);
-
-        _frameStopwatch.Restart();
-        var lastFrameTicks = _frameStopwatch.ElapsedTicks;
-        var tickMs = 1000.0 / Stopwatch.Frequency;
-        double drift = 0;
-
-        double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
-        int frameCount = 0, statsWindow = 100;
-
-        Task.Run(() =>
+        while (!_frameCts.IsCancellationRequested)
         {
-            try
+            var frameStartTicks = _frameStopwatch.ElapsedTicks;
+            var frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
+            lastFrameTicks = frameStartTicks;
+
+            frameInterval = Math.Max(frameInterval, 1.0);
+
+            minFrame = Math.Min(minFrame, frameInterval);
+            maxFrame = Math.Max(maxFrame, frameInterval);
+            sumFrame += frameInterval;
+            frameCount++;
+            
+            if (frameCount % statsWindow == 0)
             {
-                while (!_frameCts.IsCancellationRequested)
+                var avgFrame = sumFrame / frameCount;
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    var frameStartTicks = _frameStopwatch.ElapsedTicks;
-                    var frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
-                    lastFrameTicks = frameStartTicks;
-
-                    frameInterval = Math.Max(frameInterval, 1.0);
-
-                    minFrame = Math.Min(minFrame, frameInterval);
-                    maxFrame = Math.Max(maxFrame, frameInterval);
-                    sumFrame += frameInterval;
-                    frameCount++;
-
-                    var uiStartTicks = _frameStopwatch.ElapsedTicks;
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        var uiEndTicks = _frameStopwatch.ElapsedTicks;
-                        var uiLatency = (uiEndTicks - uiStartTicks) * tickMs;
-                        var avgFrame = sumFrame / frameCount;
-                        _logImportant.logImportant(
-                            $"Frame: {frameInterval:F2}ms/{1000.0 / avgFrame:F0}fps",
-                            false, "FrameLatency");
-                        _logImportant.logImportant($"UI: {uiLatency:F2}ms", false, "UI");
-                        _logImportant.logImportant($"Min/Max/Avg: {minFrame:F2}/{maxFrame:F2}/{avgFrame:F2}ms",
-                            false, "FrameStats");
-                    }).Wait();
-
-                    var afterUiTicks = _frameStopwatch.ElapsedTicks;
-                    drift += (afterUiTicks - frameStartTicks) * tickMs - intervalMs;
-                    var sleep = intervalMs - (_frameStopwatch.ElapsedTicks - afterUiTicks) * tickMs - drift;
-
-                    if (sleep < 0) sleep = 0;
-
-                    var spinStart = _frameStopwatch.ElapsedTicks;
-                    while ((_frameStopwatch.ElapsedTicks - spinStart) * tickMs < sleep)
-                        Thread.SpinWait(10);
-
-                    if (Math.Abs(drift) > intervalMs) drift = 0;
-
-                    if (frameCount >= statsWindow)
-                    {
-                        minFrame = double.MaxValue;
-                        maxFrame = double.MinValue;
-                        sumFrame = 0;
-                        frameCount = 0;
-                    }
-                }
+                    _logImportant.logImportant(
+                        $"Frame: {frameInterval:F2}ms/{1000.0 / avgFrame:F0}fps",
+                        false, "FrameLatency");
+                    _logImportant.logImportant($"Min/Max/Avg: {minFrame:F2}/{maxFrame:F2}/{avgFrame:F2}ms",
+                        false, "FrameStats");
+                });
+                minFrame = double.MaxValue;
+                maxFrame = double.MinValue;
+                sumFrame = 0;
+                frameCount = 0;
             }
-            finally
-            {
-                _frameStopwatch.Stop();
-                timeEndPeriod(1);
-            }
-        }, _frameCts.Token);
+
+            var elapsedMs = (_frameStopwatch.ElapsedTicks - frameStartTicks) * tickMs;
+            var sleep = intervalMs - elapsedMs;
+            if (sleep > 0)
+                await Task.Delay((int)sleep);
+        }
     }
+    finally
+    {
+        _frameStopwatch.Stop();
+        timeEndPeriod(1);
+    }
+}
 
     [DllImport("winmm.dll")]
     private static extern int timeBeginPeriod(uint uMilliseconds);
@@ -1404,7 +1387,7 @@ public partial class MainWindow : Window
     {
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            debugConsolePanel.Margin = new Thickness(-300, 0, 0, 0);
+            debugConsolePanel.Margin = new Thickness(-727, 0, 0, 0);
             debugConsolePanel.Transitions = new Transitions
             {
                 new ThicknessTransition
@@ -1424,7 +1407,7 @@ public partial class MainWindow : Window
 
     private async Task AnimateDebugConsoleOutAsync(StackPanel debugConsolePanel)
     {
-        await Dispatcher.UIThread.InvokeAsync(() => { debugConsolePanel.Margin = new Thickness(-300, 0, 0, 0); });
+        await Dispatcher.UIThread.InvokeAsync(() => { debugConsolePanel.Margin = new Thickness(-727, 0, 0, 0); });
     }
 
     private Task EnsureCogCenterAsync(Image cogImage)

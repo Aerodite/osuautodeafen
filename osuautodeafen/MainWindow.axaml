@@ -112,7 +112,7 @@
                         <Image Source="avares://osuautodeafen/Icons/clock-solid.png" Width="25" Height="25"
                                Margin="0,0,5,0">
                             <ToolTip.Tip>
-                                <TextBlock Text="Minimum Percentage to start Deafen" />
+                                <TextBlock Text="Min Percentage to deafen" />
                             </ToolTip.Tip>
                         </Image>
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
@@ -140,7 +140,7 @@
                         <Image Source="avares://osuautodeafen/Icons/star-solid.png" Width="25" Height="25"
                                Margin="0,5,5,0">
                             <ToolTip.Tip>
-                                <TextBlock Text="Minimum Star Rating to Deafen" />
+                                <TextBlock Text="{Binding MinSRValue, StringFormat='Min Star Rating for deafen ({0}* for current map)'}" />
                             </ToolTip.Tip>
                         </Image>
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
@@ -167,7 +167,7 @@
                         <Image Source="avares://osuautodeafen/Icons/medal-solid.png" Width="25" Height="25"
                                Margin="0,7,5,0">
                             <ToolTip.Tip>
-                                <TextBlock Text="Minimum pp value to Deafen (pp if SS)" />
+                                <TextBlock Text="{Binding MinPPValue, StringFormat='Min SS pp for deafen ({0}pp for current map)'}" />
                             </ToolTip.Tip>
                         </Image>
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
