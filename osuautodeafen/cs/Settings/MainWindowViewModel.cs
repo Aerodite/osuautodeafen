@@ -27,8 +27,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     private bool _isBackgroundEnabled;
 
-    private bool _isBlurEffectEnabled;
-
     private bool _IsBreakUndeafenToggleEnabled;
 
     private bool _isFCRequired;
@@ -57,6 +55,10 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private int _updateProgress;
 
     private string _updateStatusMessage;
+
+    public int BlurPercent => (int)Math.Round(BlurRadius / 20.0 * 100);
+    
+    private double _blurRadius;
 
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
@@ -188,20 +190,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    public bool IsBlurEffectEnabled
-    {
-        get => _isBlurEffectEnabled;
-        set
-        {
-            if (_isBlurEffectEnabled != value)
-            {
-                _isBlurEffectEnabled = value;
-                OnPropertyChanged();
-                _settingsHandler?.SaveSetting("UI", "IsBlurEffectEnabled", value);
-            }
-        }
-    }
-
     public bool IsBreakUndeafenToggleEnabled
     {
         get => _IsBreakUndeafenToggleEnabled;
@@ -322,6 +310,20 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 _performancePoints = value;
                 OnPropertyChanged();
                 _settingsHandler?.SaveSetting("General", "PerformancePoints", value);
+            }
+        }
+    }
+    
+    public double BlurRadius
+    {
+        get => _blurRadius;
+        set
+        {
+            if (_blurRadius != value)
+            {
+                _blurRadius = value;
+                OnPropertyChanged();
+                _settingsHandler?.SaveSetting("UI", "BlurRadius", value);
             }
         }
     }

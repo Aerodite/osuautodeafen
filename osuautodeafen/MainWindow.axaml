@@ -291,16 +291,22 @@
                         </CheckBox>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
-                        <Image Source="avares://osuautodeafen/Icons/images-solid.png" Width="19" Height="19"
-                               Margin="0,0,5,0" />
-                        <CheckBox x:Name="BlurEffectToggle" Content="Blur" Foreground="White"
-                                  IsChecked="{Binding IsBlurEffectEnabled, Mode=TwoWay}"
-                                  IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
-                                  HorizontalAlignment="Left" Margin="0">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Enable or disable the blur effect" />
-                            </ToolTip.Tip>
-                        </CheckBox>
+                        <Image Source="avares://osuautodeafen/Icons/images-solid.png" Width="19" Height="19" Margin="0,0,5,0" />
+                        <Slider x:Name="BlurEffectSlider"
+                                Minimum="0"
+                                Maximum="20"
+                                TickFrequency="0.1"
+                                IsSnapToTickEnabled="True"
+                                Value="{Binding BlurRadius, Mode=OneWayToSource}"
+                                ValueChanged="BlurEffectSlider_ValueChanged"
+                                PointerMoved="BlurEffectSlider_PointerMoved"
+                                PointerPressed="BlurEffectSlider_PointerPressed"
+                                PointerReleased="BlurEffectSlider_PointerReleased"
+                                IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
+                                Width="100"
+                                HorizontalAlignment="Left"
+                                Margin="0">
+                        </Slider>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/star-half-stroke-solid.png" Width="25" Height="25"

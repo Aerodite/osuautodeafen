@@ -97,6 +97,7 @@ public partial class MainWindow : Window
     private List<string> _lastDisplayedLogs = new();
 
     private DateTime _lastFrameTime = DateTime.UtcNow;
+    
     private double _lastFrameTimestamp;
 
     private GraphData? _lastGraphData;
@@ -120,6 +121,9 @@ public partial class MainWindow : Window
     private ProgressBar? _updateProgressBar;
 
     private double opacity = 1.00;
+    
+    private CancellationTokenSource? _blurCts;
+
 
 
     //<summary>
@@ -154,7 +158,7 @@ public partial class MainWindow : Window
         };
 
         //TODO
-        // maybe add a state for this depending on if its deafened or not
+        //maybe add a state for this depending on if its deafened or not
         Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.favicon.ico"));
 
         _getLowResBackground = new GetLowResBackground(_tosuApi);
@@ -173,35 +177,37 @@ public partial class MainWindow : Window
         _viewModel.MinCompletionPercentage = (int)Math.Round(_settingsHandler.MinCompletionPercentage);
         _viewModel.StarRating = _settingsHandler.StarRating;
         _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
-
+        _viewModel.BlurRadius = _settingsHandler.BlurRadius;
+        
         _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
         _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
         _viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
 
         _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
         _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
-        _viewModel.IsBlurEffectEnabled = _settingsHandler.IsBlurEffectEnabled;
         _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
 
         CompletionPercentageSlider.ValueChanged -= CompletionPercentageSlider_ValueChanged;
         StarRatingSlider.ValueChanged -= StarRatingSlider_ValueChanged;
         PPSlider.ValueChanged -= PPSlider_ValueChanged;
-
+        BlurEffectSlider.ValueChanged -= BlurEffectSlider_ValueChanged;
+        
         CompletionPercentageSlider.Value = _viewModel.MinCompletionPercentage;
         StarRatingSlider.Value = _viewModel.StarRating;
         PPSlider.Value = _viewModel.PerformancePoints;
+        BlurEffectSlider.Value = _viewModel.BlurRadius;
 
         CompletionPercentageSlider.ValueChanged += CompletionPercentageSlider_ValueChanged;
         StarRatingSlider.ValueChanged += StarRatingSlider_ValueChanged;
         PPSlider.ValueChanged += PPSlider_ValueChanged;
-
+        BlurEffectSlider.ValueChanged += BlurEffectSlider_ValueChanged;
+        
         FCToggle.IsChecked = _viewModel.IsFCRequired;
         UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
         BreakUndeafenToggle.IsChecked = _viewModel.IsBreakUndeafenToggleEnabled;
 
         BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
         ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
-        BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
         KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
 
         // end of settings bs
@@ -224,12 +230,14 @@ public partial class MainWindow : Window
 
         // ideally we could use no timers whatsoever but for now this works fine
         // because it really only checks if events should be triggered
-
         //updated to 16ms from 100ms since apparently it takes 1ms to run anyways, might as well have it be responsive
         _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
+        
+        if (_backgroundManager._backgroundBlurEffect != null)
+            _backgroundManager._backgroundBlurEffect.Radius = _viewModel.BlurRadius;
 
         ProgressOverlay.ChartXMin = _progressIndicatorHelper.ChartXMin;
         ProgressOverlay.ChartXMax = _progressIndicatorHelper.ChartXMax;
@@ -282,7 +290,7 @@ public partial class MainWindow : Window
             _logImportant.logImportant($"Progress %: {_tosuApi.GetCompletionPercentage():F2}%", false, "Map Progress");
             var rate = _tosuApi.GetRateAdjustRate();
             if (rate <= 0 || double.IsNaN(rate) || double.IsInfinity(rate))
-                rate = 1; // Default to 1 if invalid
+                rate = 1;
 
             var currentMs = _tosuApi.GetCurrentTime() / rate;
             var fullMs = _tosuApi.GetFullTime() / rate;
@@ -397,6 +405,13 @@ public partial class MainWindow : Window
         ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
         Background = Brushes.Black;
         BorderBrush = Brushes.Black;
+        /*
+        to anyone looking through the code yes you can make the window width and height
+        anything you want between 400x550 and 800x800, i was going to make this resizable
+        but that ended up being a massive pita because of the debug menu and the background didn't 
+        really play nice with being resized (unless it started off at 800x800 (but thats stupid)
+        anyways have fun it should still technically work if you manually set this in the settings.ini
+        */
         Width = _settingsHandler.WindowWidth;
         Height = _settingsHandler.WindowHeight;
         Title = "osuautodeafen";
@@ -424,6 +439,7 @@ public partial class MainWindow : Window
         CompletionPercentageSlider.Value = ViewModel.MinCompletionPercentage;
         StarRatingSlider.Value = ViewModel.StarRating;
         PPSlider.Value = ViewModel.PerformancePoints;
+        BlurEffectSlider.Value = ViewModel.BlurRadius;
     }
 
     private SharedViewModel ViewModel { get; }
@@ -440,20 +456,21 @@ public partial class MainWindow : Window
             _viewModel.MinCompletionPercentage = (int)Math.Round(_settingsHandler.MinCompletionPercentage);
             _viewModel.StarRating = _settingsHandler.StarRating;
             _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
-
+            _viewModel.BlurRadius = _settingsHandler.BlurRadius;
+            
             _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
             _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
             _viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
 
             _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
             _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
-            _viewModel.IsBlurEffectEnabled = _settingsHandler.IsBlurEffectEnabled;
             _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
 
             // Update UI controls
             CompletionPercentageSlider.ValueChanged -= CompletionPercentageSlider_ValueChanged;
             StarRatingSlider.ValueChanged -= StarRatingSlider_ValueChanged;
             PPSlider.ValueChanged -= PPSlider_ValueChanged;
+            BlurEffectSlider.ValueChanged -= BlurEffectSlider_ValueChanged;
 
             CompletionPercentageSlider.Value = _viewModel.MinCompletionPercentage;
             StarRatingSlider.Value = _viewModel.StarRating;
@@ -462,6 +479,7 @@ public partial class MainWindow : Window
             CompletionPercentageSlider.ValueChanged += CompletionPercentageSlider_ValueChanged;
             StarRatingSlider.ValueChanged += StarRatingSlider_ValueChanged;
             PPSlider.ValueChanged += PPSlider_ValueChanged;
+            BlurEffectSlider.ValueChanged += BlurEffectSlider_ValueChanged;
 
             FCToggle.IsChecked = _viewModel.IsFCRequired;
             UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
@@ -469,7 +487,7 @@ public partial class MainWindow : Window
 
             BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
             ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
-            BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
+            BlurEffectSlider.Value = _viewModel.BlurRadius;
             KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
 
             var keyStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindKey"];
@@ -655,6 +673,35 @@ public partial class MainWindow : Window
         if (sender is Slider slider)
             ToolTip.SetIsOpen(slider, false);
     }
+    
+    private void BlurEffectSlider_PointerPressed(object sender, PointerPressedEventArgs e)
+    {
+        ToolTip.SetIsOpen(BlurEffectSlider, true);
+    }
+    
+    private void BlurEffectSlider_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (sender is Slider slider)
+        {
+            if (e.GetCurrentPoint(slider).Properties.IsLeftButtonPressed)
+            {
+                ToolTip.SetTip(slider, $"Blur: {slider.Value*5:0}%");
+                ToolTip.SetPlacement(slider, PlacementMode.Pointer);
+                ToolTip.SetVerticalOffset(slider, -30);
+                ToolTip.SetIsOpen(slider, true);
+            }
+            else
+            {
+                ToolTip.SetIsOpen(slider, false);
+            }
+        }
+    }
+    
+    private void BlurEffectSlider_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (sender is Slider slider)
+            ToolTip.SetIsOpen(slider, false);
+    }
 
     //Settings
     public async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
@@ -696,6 +743,15 @@ public partial class MainWindow : Window
         vm.PerformancePoints = roundedValue;
         _settingsHandler?.SaveSetting("General", "PerformancePoints", roundedValue);
     }
+    
+    private void BlurEffectSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
+        var roundedValue = Math.Round(slider.Value, 1);
+        Console.WriteLine($"Blur Radius: {roundedValue:F1}");
+        vm.BlurRadius = roundedValue;
+        _settingsHandler?.SaveSetting("UI", "BlurRadius", roundedValue);
+    }
 
     private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -715,6 +771,22 @@ public partial class MainWindow : Window
                         force: true);
                 ProgressOverlay.Points = points;
             });
+        if (e.PropertyName == nameof(_viewModel.BlurRadius))
+        {
+            var blurEffect = _backgroundManager._backgroundBlurEffect;
+            if (blurEffect != null)
+            {
+                // Cancel previous animation
+                _blurCts?.Cancel();
+                _blurCts = new CancellationTokenSource();
+
+                var from = blurEffect.Radius;
+                var to = _viewModel.BlurRadius;
+                var durationMs = 20;
+                var token = _blurCts.Token;
+                await _backgroundManager.AnimateBlurAsync(blurEffect, from, to, durationMs, token);
+            }
+        }
     }
 
     private void OnGraphDataUpdated(GraphData? graphData)
