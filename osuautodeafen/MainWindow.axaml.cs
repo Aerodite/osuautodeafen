@@ -819,8 +819,7 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(() =>
             _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage));
     }
-
-    // show the update notification bar if an update is available
+    
     private async void InitializeViewModel()
     {
         //await CheckForUpdates();
