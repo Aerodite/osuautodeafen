@@ -116,7 +116,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 _currentBitmap = newBitmap;
 
                 await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
-                await Dispatcher.UIThread.InvokeAsync(_logoUpdater.UpdateLogoAsync);
+                if (_logoUpdater != null) await Dispatcher.UIThread.InvokeAsync(_logoUpdater.UpdateLogoAsync);
                 _isBlackBackgroundDisplayed = false;
             }
 
@@ -204,27 +204,22 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     // (thanks peppy :D)
     private double CalculateBlurDownscale(double sigma)
     {
-        var sw = Stopwatch.StartNew();
         if (sigma <= 1)
         {
-            sw.Stop();
             //Console.WriteLine($"CalculateBlurDownscale elapsed: {sw.ElapsedMilliseconds} ms");
             return 1;
         }
 
         var scale = -0.18 * Math.Log(0.004 * sigma);
         var result = Math.Max(0.1, Math.Round(scale / 0.2, MidpointRounding.AwayFromZero) * 0.2);
-        sw.Stop();
         //Console.WriteLine($"CalculateBlurDownscale elapsed: {sw.ElapsedMilliseconds} ms");
         return result;
     }
 
     private async Task<Bitmap> CreateDownscaledBitmapAsync(Bitmap source, double scale)
     {
-        var sw = Stopwatch.StartNew();
         if (scale >= 1.0)
         {
-            sw.Stop();
             //Console.WriteLine($"CreateDownscaledBitmapAsync elapsed: {sw.ElapsedMilliseconds} ms");
             return source;
         }
@@ -233,7 +228,6 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             _cachedSourceBitmap == source &&
             Math.Abs(_cachedDownscale - scale) < 0.01)
         {
-            sw.Stop();
             //Console.WriteLine($"CreateDownscaledBitmapAsync elapsed: {sw.ElapsedMilliseconds} ms (cached)");
             return _cachedDownscaledBitmap;
         }
@@ -258,12 +252,10 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         _cachedDownscaledBitmap = target;
         _cachedDownscale = scale;
         _cachedSourceBitmap = source;
-        sw.Stop();
         //Console.WriteLine($"CreateDownscaledBitmapAsync elapsed: {sw.ElapsedMilliseconds} ms");
         return target;
     }
-
-
+    
     private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
     {
         if (bitmap == null)
@@ -324,14 +316,11 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 window.Content = mainGrid;
             }
             
-            var bounds = mainGrid.Bounds;
-            var width = Math.Min(800, Math.Max(1, (int)Math.Ceiling(bounds.Width)));
-            var height = Math.Min(800, Math.Max(1, (int)Math.Ceiling(bounds.Height)));
-            
-            var displayBitmap = await ResizeBitmapCoverAsync(bitmap, width, height);
-
+            var blurRadius = viewModel?.BlurRadius ?? 0;
+            var downscale = CalculateBlurDownscale(blurRadius);
+            var displayBitmap = await CreateDownscaledBitmapAsync(bitmap, downscale);
             _backgroundBlurEffect ??= new BlurEffect();
-            _backgroundBlurEffect.Radius = viewModel?.BlurRadius ?? 0;
+            _backgroundBlurEffect.Radius = blurRadius;
 
             var gpuBackground = new GpuBackgroundControl
             {

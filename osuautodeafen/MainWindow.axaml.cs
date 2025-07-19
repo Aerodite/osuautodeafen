@@ -167,7 +167,7 @@ public partial class MainWindow : Window
         {
             _logoUpdater = null
         };
-
+        
         // settings bs
 
         var settingsPanel = new SettingsHandler();
@@ -238,7 +238,7 @@ public partial class MainWindow : Window
         
         if (_backgroundManager._backgroundBlurEffect != null)
             _backgroundManager._backgroundBlurEffect.Radius = _viewModel.BlurRadius;
-
+        
         ProgressOverlay.ChartXMin = _progressIndicatorHelper.ChartXMin;
         ProgressOverlay.ChartXMax = _progressIndicatorHelper.ChartXMax;
         ProgressOverlay.ChartYMin = _progressIndicatorHelper.ChartYMin;
@@ -708,7 +708,6 @@ public partial class MainWindow : Window
     {
         if (DataContext is not SharedViewModel vm) return;
         var roundedValue = (int)Math.Round(e.NewValue);
-        Console.WriteLine($"Min Comp. % Value: {roundedValue}");
         vm.MinCompletionPercentage = roundedValue;
         _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", roundedValue);
         try
