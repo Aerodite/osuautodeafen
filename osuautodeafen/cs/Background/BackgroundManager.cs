@@ -191,29 +191,13 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         });
     }
     
-    public async Task AnimateBlurAsync(BlurEffect blurEffect, double from, double to, int durationMs, CancellationToken token)
+    public async Task BlurBackgroundAsync(BlurEffect blurEffect, double radius, CancellationToken token)
     {
-        int steps = Math.Max(1, durationMs / 16); // ~60fps
-        double step = (to - from) / steps;
-        int delay = durationMs / steps;
-
-        try
-        {
-            for (int i = 1; i <= steps; i++)
-            {
-                if (token.IsCancellationRequested)
-                    return;
-
-                blurEffect.Radius = from + step * i;
-                await Task.Delay(delay, token);
-            }
-        }
-        catch (TaskCanceledException)
-        {
+        if (token.IsCancellationRequested)
             return;
-        }
 
-        blurEffect.Radius = to;
+        blurEffect.Radius = radius;
+        await Task.CompletedTask;
     }
 
     // Implementation for everything below is largely based off of https://github.com/ppy/osu/blob/master/osu.Game/Graphics/Backgrounds/Background.cs

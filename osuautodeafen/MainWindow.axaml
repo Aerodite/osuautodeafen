@@ -191,7 +191,11 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/crown-solid.png" Width="25" Height="25"
-                               Margin="0,0,5,0" />
+                               Margin="0,0,5,0">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Toggle if an FC is required to deafen" />
+                            </ToolTip.Tip>
+                        </Image>
                         <CheckBox x:Name="FCToggle" Content="FC Required?" Foreground="White"
                                   IsChecked="{Binding IsFCRequired, Mode=TwoWay}"
                                   HorizontalAlignment="Left" Margin="0" Width="120">
@@ -202,7 +206,11 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/shooting-star-solid.png" Width="25" Height="25"
-                               Margin="0,0,5,0" />
+                               Margin="0,0,5,0">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Do you get undeafened after a miss?" />
+                            </ToolTip.Tip>
+                        </Image>
                         <CheckBox x:Name="UndeafenOnMissToggle" Content="Undeafen on miss" Foreground="White"
                                   IsChecked="{Binding UndeafenAfterMiss, Mode=TwoWay}"
                                   IsEnabled="{Binding ElementName=FCToggle, Path=IsChecked}"
@@ -219,13 +227,17 @@
                     <StackPanel Orientation="Horizontal" Margin="5,0,0,0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/map-location-dot-solid.png" Width="25"
                                Height="25"
-                               Margin="0,0,5,0" />
+                               Margin="0,0,5,0">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Toggle whether or not breaks should be undeafened" />
+                            </ToolTip.Tip>
+                        </Image>
                         <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
                                   IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
                                   HorizontalAlignment="Left" Margin="0">
                             <ToolTip.Tip>
                                 <TextBlock>
-                                    <Run Text="Toggle to decide whether or not breaks should be undeafened" />
+                                    <Run Text="Toggle whether or not breaks should be undeafened" />
                                 </TextBlock>
                             </ToolTip.Tip>
                         </CheckBox>
@@ -242,7 +254,11 @@
                     <StackPanel HorizontalAlignment="Center">
                         <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                             <Image Source="avares://osuautodeafen/Icons/keyboard-solid.png" Width="27"
-                                   Height="27" Margin="0,0,5,0" />
+                                   Height="27" Margin="0,0,5,0">
+                                <ToolTip.Tip>
+                                    <TextBlock Text="Click to set your Discord Toggle Deafen keybind" />
+                                </ToolTip.Tip>
+                            </Image>
                             <Button x:Name="DeafenKeybindButton" Width="91" Height="40"
                                     HorizontalAlignment="Left" FontSize="11" Margin="0"
                                     Content="{Binding DeafenKeybindDisplay}"
@@ -269,7 +285,11 @@
                                FontSize="16" />
                     <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/image-solid.png" Width="25" Height="25"
-                               Margin="0,0,5,0" />
+                               Margin="0,0,5,0">
+                            <ToolTip.Tip> 
+                                <TextBlock Text="Enable or disable the background" />
+                            </ToolTip.Tip>
+                        </Image>
                         <CheckBox x:Name="BackgroundToggle" Content="Background" Foreground="White"
                                   IsChecked="{Binding IsBackgroundEnabled, Mode=TwoWay}"
                                   HorizontalAlignment="Left" Margin="0">
@@ -279,9 +299,13 @@
                         </CheckBox>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
-                        <Image Source="avares://osuautodeafen/Icons/arrows.png" Width="19" Height="19"
-                               Margin="0,0,5,0" />
-                        <CheckBox x:Name="ParallaxToggle" Content="Parallax" Foreground="White"
+                        <Image Source="avares://osuautodeafen/Icons/arrows.png" Width="19" Height="19" VerticalAlignment="Center"
+                               Margin="0,0,5,0">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Enable or disable the parallax effect" />
+                            </ToolTip.Tip>
+                        </Image>
+                        <CheckBox x:Name="ParallaxToggle" Content="Parallax    " Foreground="White" VerticalAlignment="Center"
                                   IsChecked="{Binding IsParallaxEnabled, Mode=TwoWay}"
                                   IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
                                   HorizontalAlignment="Left" Margin="0">
@@ -290,8 +314,28 @@
                             </ToolTip.Tip>
                         </CheckBox>
                     </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,0" HorizontalAlignment="Center">
+                        <Image Source="avares://osuautodeafen/Icons/star-half-stroke-solid.png" Width="19" Height="19" VerticalAlignment="Center"
+                               Margin="0,0,5,0">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Enable or disable the Kiai Flashes" />
+                            </ToolTip.Tip>
+                        </Image>
+                        <CheckBox x:Name="KiaiEffectToggle" Content="Kiai Effect" Foreground="White" VerticalAlignment="Center"
+                                  IsChecked="{Binding IsKiaiEffectEnabled, Mode=TwoWay}"
+                                    IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
+                                  HorizontalAlignment="Left" Margin="0">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Enable or disable the Kiai Flashes" />
+                            </ToolTip.Tip>
+                        </CheckBox>
+                    </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
-                        <Image Source="avares://osuautodeafen/Icons/images-solid.png" Width="19" Height="19" Margin="0,0,5,0" />
+                        <Image Source="avares://osuautodeafen/Icons/images-solid.png" Width="25" Height="25" Margin="0,0,5,0">
+                            <ToolTip.Tip>
+                                <TextBlock Text="Change the background blur radius" />
+                            </ToolTip.Tip>
+                        </Image>
                         <Slider x:Name="BlurEffectSlider"
                                 Minimum="0"
                                 Maximum="20"
@@ -307,17 +351,6 @@
                                 HorizontalAlignment="Left"
                                 Margin="0">
                         </Slider>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center">
-                        <Image Source="avares://osuautodeafen/Icons/star-half-stroke-solid.png" Width="25" Height="25"
-                               Margin="0,0,5,0" />
-                        <CheckBox x:Name="KiaiEffectToggle" Content="Kiai Effect" Foreground="White"
-                                  IsChecked="{Binding IsKiaiEffectEnabled, Mode=TwoWay}"
-                                  HorizontalAlignment="Left" Margin="0">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Enable or disable the Kiai Flashes" />
-                            </ToolTip.Tip>
-                        </CheckBox>
                     </StackPanel>
                     <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
                     <Button x:Name="CheckForUpdatesButton"

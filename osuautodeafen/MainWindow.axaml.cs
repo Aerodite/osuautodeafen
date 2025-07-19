@@ -780,11 +780,9 @@ public partial class MainWindow : Window
                 _blurCts?.Cancel();
                 _blurCts = new CancellationTokenSource();
 
-                var from = blurEffect.Radius;
-                var to = _viewModel.BlurRadius;
-                var durationMs = 20;
+                var radius = _viewModel.BlurRadius;
                 var token = _blurCts.Token;
-                await _backgroundManager.AnimateBlurAsync(blurEffect, from, to, durationMs, token);
+                await _backgroundManager.BlurBackgroundAsync(blurEffect, radius, token);
             }
         }
     }

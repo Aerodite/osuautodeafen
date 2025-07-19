@@ -192,7 +192,7 @@ public class ChartManager
 
                 await UpdateDeafenOverlayAsync(newPercentage);
 
-                tooltipManager.ShowCustomTooltip(pixelPoint, $"Deafen %: \n{newPercentage:F1}%", PlotView.Bounds);
+                tooltipManager.ShowCustomTooltip(pixelPoint, $"Deafen Min %: \n{newPercentage:F1}%", PlotView.Bounds);
                 PlotView.InvalidateVisual();
                 e.Handled = true;
                 return;
