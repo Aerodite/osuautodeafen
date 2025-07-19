@@ -71,6 +71,8 @@ public partial class MainWindow : Window
 
     private readonly Action settingsButtonClicked;
 
+    private CancellationTokenSource? _blurCts;
+
     public Image? _blurredBackground;
 
     private double _cogCurrentAngle;
@@ -97,7 +99,7 @@ public partial class MainWindow : Window
     private List<string> _lastDisplayedLogs = new();
 
     private DateTime _lastFrameTime = DateTime.UtcNow;
-    
+
     private double _lastFrameTimestamp;
 
     private GraphData? _lastGraphData;
@@ -121,9 +123,6 @@ public partial class MainWindow : Window
     private ProgressBar? _updateProgressBar;
 
     private double opacity = 1.00;
-    
-    private CancellationTokenSource? _blurCts;
-
 
 
     //<summary>
@@ -167,7 +166,7 @@ public partial class MainWindow : Window
         {
             _logoUpdater = null
         };
-        
+
         // settings bs
 
         var settingsPanel = new SettingsHandler();
@@ -178,7 +177,7 @@ public partial class MainWindow : Window
         _viewModel.StarRating = _settingsHandler.StarRating;
         _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
         _viewModel.BlurRadius = _settingsHandler.BlurRadius;
-        
+
         _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
         _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
         _viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
@@ -191,7 +190,7 @@ public partial class MainWindow : Window
         StarRatingSlider.ValueChanged -= StarRatingSlider_ValueChanged;
         PPSlider.ValueChanged -= PPSlider_ValueChanged;
         BlurEffectSlider.ValueChanged -= BlurEffectSlider_ValueChanged;
-        
+
         CompletionPercentageSlider.Value = _viewModel.MinCompletionPercentage;
         StarRatingSlider.Value = _viewModel.StarRating;
         PPSlider.Value = _viewModel.PerformancePoints;
@@ -201,7 +200,7 @@ public partial class MainWindow : Window
         StarRatingSlider.ValueChanged += StarRatingSlider_ValueChanged;
         PPSlider.ValueChanged += PPSlider_ValueChanged;
         BlurEffectSlider.ValueChanged += BlurEffectSlider_ValueChanged;
-        
+
         FCToggle.IsChecked = _viewModel.IsFCRequired;
         UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
         BreakUndeafenToggle.IsChecked = _viewModel.IsBreakUndeafenToggleEnabled;
@@ -235,10 +234,10 @@ public partial class MainWindow : Window
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
-        
+
         if (_backgroundManager._backgroundBlurEffect != null)
             _backgroundManager._backgroundBlurEffect.Radius = _viewModel.BlurRadius;
-        
+
         ProgressOverlay.ChartXMin = _progressIndicatorHelper.ChartXMin;
         ProgressOverlay.ChartXMax = _progressIndicatorHelper.ChartXMax;
         ProgressOverlay.ChartYMin = _progressIndicatorHelper.ChartYMin;
@@ -408,7 +407,7 @@ public partial class MainWindow : Window
         /*
         to anyone looking through the code yes you can make the window width and height
         anything you want between 400x550 and 800x800, i was going to make this resizable
-        but that ended up being a massive pita because of the debug menu and the background didn't 
+        but that ended up being a massive pita because of the debug menu and the background didn't
         really play nice with being resized (unless it started off at 800x800 (but thats stupid)
         anyways have fun it should still technically work if you manually set this in the settings.ini
         */
@@ -457,7 +456,7 @@ public partial class MainWindow : Window
             _viewModel.StarRating = _settingsHandler.StarRating;
             _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
             _viewModel.BlurRadius = _settingsHandler.BlurRadius;
-            
+
             _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
             _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
             _viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
@@ -517,63 +516,64 @@ public partial class MainWindow : Window
         }
     }
 
-    public async void StartStableFrameTimer(int targetFps = 60) {
-    _frameCts = new CancellationTokenSource();
-    targetFps = Math.Clamp(targetFps, 1, 1000);
-    var intervalMs = 1000.0 / targetFps;
-
-    timeBeginPeriod(1);
-    _frameStopwatch.Restart();
-    var lastFrameTicks = _frameStopwatch.ElapsedTicks;
-    var tickMs = 1000.0 / Stopwatch.Frequency;
-
-    double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
-    int frameCount = 0, statsWindow = 100;
-
-    try
+    public async void StartStableFrameTimer(int targetFps = 60)
     {
-        while (!_frameCts.IsCancellationRequested)
+        _frameCts = new CancellationTokenSource();
+        targetFps = Math.Clamp(targetFps, 1, 1000);
+        var intervalMs = 1000.0 / targetFps;
+
+        timeBeginPeriod(1);
+        _frameStopwatch.Restart();
+        var lastFrameTicks = _frameStopwatch.ElapsedTicks;
+        var tickMs = 1000.0 / Stopwatch.Frequency;
+
+        double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
+        int frameCount = 0, statsWindow = 100;
+
+        try
         {
-            var frameStartTicks = _frameStopwatch.ElapsedTicks;
-            var frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
-            lastFrameTicks = frameStartTicks;
-
-            frameInterval = Math.Max(frameInterval, 1.0);
-
-            minFrame = Math.Min(minFrame, frameInterval);
-            maxFrame = Math.Max(maxFrame, frameInterval);
-            sumFrame += frameInterval;
-            frameCount++;
-            
-            if (frameCount % statsWindow == 0)
+            while (!_frameCts.IsCancellationRequested)
             {
-                var avgFrame = sumFrame / frameCount;
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    _logImportant.logImportant(
-                        $"Frame: {frameInterval:F2}ms/{1000.0 / avgFrame:F0}fps",
-                        false, "FrameLatency");
-                    _logImportant.logImportant($"Min/Max/Avg: {minFrame:F2}/{maxFrame:F2}/{avgFrame:F2}ms",
-                        false, "FrameStats");
-                });
-                minFrame = double.MaxValue;
-                maxFrame = double.MinValue;
-                sumFrame = 0;
-                frameCount = 0;
-            }
+                var frameStartTicks = _frameStopwatch.ElapsedTicks;
+                var frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
+                lastFrameTicks = frameStartTicks;
 
-            var elapsedMs = (_frameStopwatch.ElapsedTicks - frameStartTicks) * tickMs;
-            var sleep = intervalMs - elapsedMs;
-            if (sleep > 0)
-                await Task.Delay((int)sleep);
+                frameInterval = Math.Max(frameInterval, 1.0);
+
+                minFrame = Math.Min(minFrame, frameInterval);
+                maxFrame = Math.Max(maxFrame, frameInterval);
+                sumFrame += frameInterval;
+                frameCount++;
+
+                if (frameCount % statsWindow == 0)
+                {
+                    var avgFrame = sumFrame / frameCount;
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        _logImportant.logImportant(
+                            $"Frame: {frameInterval:F2}ms/{1000.0 / avgFrame:F0}fps",
+                            false, "FrameLatency");
+                        _logImportant.logImportant($"Min/Max/Avg: {minFrame:F2}/{maxFrame:F2}/{avgFrame:F2}ms",
+                            false, "FrameStats");
+                    });
+                    minFrame = double.MaxValue;
+                    maxFrame = double.MinValue;
+                    sumFrame = 0;
+                    frameCount = 0;
+                }
+
+                var elapsedMs = (_frameStopwatch.ElapsedTicks - frameStartTicks) * tickMs;
+                var sleep = intervalMs - elapsedMs;
+                if (sleep > 0)
+                    await Task.Delay((int)sleep);
+            }
+        }
+        finally
+        {
+            _frameStopwatch.Stop();
+            timeEndPeriod(1);
         }
     }
-    finally
-    {
-        _frameStopwatch.Stop();
-        timeEndPeriod(1);
-    }
-}
 
     [DllImport("winmm.dll")]
     private static extern int timeBeginPeriod(uint uMilliseconds);
@@ -673,19 +673,19 @@ public partial class MainWindow : Window
         if (sender is Slider slider)
             ToolTip.SetIsOpen(slider, false);
     }
-    
+
     private void BlurEffectSlider_PointerPressed(object sender, PointerPressedEventArgs e)
     {
         ToolTip.SetIsOpen(BlurEffectSlider, true);
     }
-    
+
     private void BlurEffectSlider_PointerMoved(object? sender, PointerEventArgs e)
     {
         if (sender is Slider slider)
         {
             if (e.GetCurrentPoint(slider).Properties.IsLeftButtonPressed)
             {
-                ToolTip.SetTip(slider, $"Blur: {slider.Value*5:0}%");
+                ToolTip.SetTip(slider, $"Blur: {slider.Value * 5:0}%");
                 ToolTip.SetPlacement(slider, PlacementMode.Pointer);
                 ToolTip.SetVerticalOffset(slider, -30);
                 ToolTip.SetIsOpen(slider, true);
@@ -696,7 +696,7 @@ public partial class MainWindow : Window
             }
         }
     }
-    
+
     private void BlurEffectSlider_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (sender is Slider slider)
@@ -742,7 +742,7 @@ public partial class MainWindow : Window
         vm.PerformancePoints = roundedValue;
         _settingsHandler?.SaveSetting("General", "PerformancePoints", roundedValue);
     }
-    
+
     private void BlurEffectSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
@@ -838,11 +838,11 @@ public partial class MainWindow : Window
     private void DeafenKeybindButton_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.IsKeybindCaptureFlyoutOpen = !ViewModel.IsKeybindCaptureFlyoutOpen;
-        var flyout = Resources["KeybindCaptureFlyout"] as Flyout;
+        var flyout = DeafenKeybindButton.Flyout as Flyout;
         if (flyout != null)
         {
             if (ViewModel.IsKeybindCaptureFlyoutOpen)
-                flyout.ShowAt(DeafenKeybindButton);
+                flyout.ShowAt(DeafenKeybindButton, true);
             else
                 flyout.Hide();
         }
@@ -852,10 +852,54 @@ public partial class MainWindow : Window
     {
         base.OnKeyDown(e);
 
+        if (ViewModel.IsKeybindCaptureFlyoutOpen)
+        {
+            var flyout = DeafenKeybindButton.Flyout as Flyout;
+            if (e.Key == Key.Escape)
+            {
+                ViewModel.IsKeybindCaptureFlyoutOpen = false;
+                flyout?.Hide();
+                return;
+            }
+
+            if (e.Key == Key.NumLock || IsModifierKey(e.Key))
+            {
+                // Ignore modifier/NumLock keys and do not set keybind
+                e.Handled = true;
+                return;
+            }
+
+            var currentTime = DateTime.Now;
+            if (e.Key == _lastKeyPressed && (currentTime - _lastKeyPressTime).TotalMilliseconds < 2500)
+                return;
+            _lastKeyPressed = e.Key;
+            _lastKeyPressTime = currentTime;
+
+            var modifiers = KeyModifiers.None;
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Control)) modifiers |= KeyModifiers.Control;
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Alt)) modifiers |= KeyModifiers.Alt;
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) modifiers |= KeyModifiers.Shift;
+
+            var friendlyKeyName = GetFriendlyKeyName(e.Key);
+            var hotKey = new HotKey { Key = e.Key, ModifierKeys = modifiers, FriendlyName = friendlyKeyName };
+            ViewModel.DeafenKeybind = hotKey;
+
+            _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindKey", (int)e.Key);
+            _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindModifiers", (int)modifiers);
+
+            ViewModel.IsKeybindCaptureFlyoutOpen = false;
+            UpdateDeafenKeybindDisplay();
+
+            e.Handled = true;
+            flyout?.Hide();
+            return;
+        }
+
         if (e.Key == Key.D && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             Dispatcher.UIThread.InvokeAsync(() => DebugConsoleButton_Click_NoAnim(null, null));
             e.Handled = true;
+            return;
         }
 
         if (e.Key == Key.O && e.KeyModifiers.HasFlag(KeyModifiers.Control))
@@ -863,44 +907,6 @@ public partial class MainWindow : Window
             Dispatcher.UIThread.InvokeAsync(() => SettingsButton_Click(null, null));
             e.Handled = true;
         }
-
-        if (!ViewModel.IsKeybindCaptureFlyoutOpen) return;
-        if (e.Key == Key.NumLock) return;
-
-        if (e.Key == Key.Escape)
-        {
-            ViewModel.IsKeybindCaptureFlyoutOpen = false;
-            (Resources["KeybindCaptureFlyout"] as Flyout)?.Hide();
-            return;
-        }
-
-        var currentTime = DateTime.Now;
-        if (e.Key == _lastKeyPressed && (currentTime - _lastKeyPressTime).TotalMilliseconds < 2500) return;
-        _lastKeyPressed = e.Key;
-        _lastKeyPressTime = currentTime;
-
-        if (IsModifierKey(e.Key)) return;
-
-        var modifiers = KeyModifiers.None;
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Control)) modifiers |= KeyModifiers.Control;
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Alt)) modifiers |= KeyModifiers.Alt;
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) modifiers |= KeyModifiers.Shift;
-
-        var friendlyKeyName = GetFriendlyKeyName(e.Key);
-        var hotKey = new HotKey { Key = e.Key, ModifierKeys = modifiers, FriendlyName = friendlyKeyName };
-        ViewModel.DeafenKeybind = hotKey;
-
-        // Save to settings
-        _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindKey", (int)e.Key);
-        _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindModifiers", (int)modifiers);
-
-        ViewModel.IsKeybindCaptureFlyoutOpen = false;
-        (Resources["KeybindCaptureFlyout"] as Flyout)?.Hide();
-
-        // Update display
-        UpdateDeafenKeybindDisplay();
-
-        e.Handled = true;
     }
 
     private string RetrieveKeybindFromSettings()

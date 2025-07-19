@@ -13,15 +13,15 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private readonly string _appPath;
     private readonly string _iniPath;
     private readonly FileIniDataParser _parser = new();
+    private double _blurRadius;
 
     private double _minCompletionPercentage;
     private double _performancePoints;
     private double _starRating;
-    private double _blurRadius;
-    
+
     private double _windowHeight;
     private double _windowWidth;
-    
+
     public IniData Data;
 
     public SettingsHandler()
@@ -69,7 +69,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
             if (Set(ref _performancePoints, value)) SaveSetting("General", "PerformancePoints", value);
         }
     }
-    
+
     public double BlurRadius
     {
         get => _blurRadius;
@@ -101,7 +101,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public bool UndeafenAfterMiss { get; set; }
     public bool IsBackgroundEnabled { get; set; }
     public bool IsParallaxEnabled { get; set; }
-    
+
     public string? DeafenKeybind { get; set; }
     public bool IsBreakUndeafenToggleEnabled { get; set; }
     public bool IsKiaiEffectEnabled { get; set; }
@@ -156,7 +156,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         _starRating = double.TryParse(Data["General"]["StarRating"], out var sr) ? sr : 0;
         _performancePoints = double.TryParse(Data["General"]["PerformancePoints"], out var pp) ? pp : 0;
         BlurRadius = double.TryParse(Data["UI"]["BlurRadius"], out var blur) ? blur : 0;
-        
+
         IsBreakUndeafenToggleEnabled =
             bool.TryParse(Data["Behavior"]["IsBreakUndeafenToggleEnabled"], out var bu) && bu;
         IsFCRequired = bool.TryParse(Data["Behavior"]["IsFCRequired"], out var fc) && fc;

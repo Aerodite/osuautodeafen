@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -111,7 +110,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                     Console.WriteLine($"Failed to load background: {backgroundPath}");
                     return;
                 }
-                
+
                 _currentBitmap?.Dispose();
                 _currentBitmap = newBitmap;
 
@@ -161,7 +160,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             Console.WriteLine("[ERROR] Exception in UpdateBackground: " + ex);
         }
     }
-    
+
     private async Task<Bitmap?> LoadBitmapAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -190,7 +189,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             }
         });
     }
-    
+
     public async Task BlurBackgroundAsync(BlurEffect blurEffect, double radius, CancellationToken token)
     {
         if (token.IsCancellationRequested)
@@ -205,10 +204,8 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     private double CalculateBlurDownscale(double sigma)
     {
         if (sigma <= 1)
-        {
             //Console.WriteLine($"CalculateBlurDownscale elapsed: {sw.ElapsedMilliseconds} ms");
             return 1;
-        }
 
         var scale = -0.18 * Math.Log(0.004 * sigma);
         var result = Math.Max(0.1, Math.Round(scale / 0.2, MidpointRounding.AwayFromZero) * 0.2);
@@ -219,18 +216,14 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     private async Task<Bitmap> CreateDownscaledBitmapAsync(Bitmap source, double scale)
     {
         if (scale >= 1.0)
-        {
             //Console.WriteLine($"CreateDownscaledBitmapAsync elapsed: {sw.ElapsedMilliseconds} ms");
             return source;
-        }
 
         if (_cachedDownscaledBitmap != null &&
             _cachedSourceBitmap == source &&
             Math.Abs(_cachedDownscale - scale) < 0.01)
-        {
             //Console.WriteLine($"CreateDownscaledBitmapAsync elapsed: {sw.ElapsedMilliseconds} ms (cached)");
             return _cachedDownscaledBitmap;
-        }
 
         _cachedDownscaledBitmap?.Dispose();
 
@@ -255,7 +248,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         //Console.WriteLine($"CreateDownscaledBitmapAsync elapsed: {sw.ElapsedMilliseconds} ms");
         return target;
     }
-    
+
     private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
     {
         if (bitmap == null)
@@ -315,7 +308,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 mainGrid = new Grid();
                 window.Content = mainGrid;
             }
-            
+
             var blurRadius = viewModel?.BlurRadius ?? 0;
             var downscale = CalculateBlurDownscale(blurRadius);
             var displayBitmap = await CreateDownscaledBitmapAsync(bitmap, downscale);
@@ -387,66 +380,66 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         _lastMovementY = 0;
     }
 
-    
-private void ApplyParallax(double mouseX, double mouseY)
-{
-    try
+
+    private void ApplyParallax(double mouseX, double mouseY)
     {
-        if (_currentBitmap == null)
-            return;
-
-        // Cache mainGrid and backgroundLayer for reuse
-        if (window.Content is not Grid mainGrid)
-            return;
-
-        var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
-        if (backgroundLayer == null)
-            return;
-
-        if (window.ParallaxToggle?.IsChecked == false || window.BackgroundToggle?.IsChecked == false)
+        try
         {
+            if (_currentBitmap == null)
+                return;
+
+            // Cache mainGrid and backgroundLayer for reuse
+            if (window.Content is not Grid mainGrid)
+                return;
+
+            var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
+            if (backgroundLayer == null)
+                return;
+
+            if (window.ParallaxToggle?.IsChecked == false || window.BackgroundToggle?.IsChecked == false)
+            {
+                if (_cachedGpuBackground == null || !backgroundLayer.Children.Contains(_cachedGpuBackground))
+                    _cachedGpuBackground = backgroundLayer.Children.OfType<GpuBackgroundControl>().FirstOrDefault();
+
+                if (_cachedGpuBackground != null && (Math.Abs(_lastMovementX) > 0.1 || Math.Abs(_lastMovementY) > 0.1))
+                    _ = AnimateBackgroundToCenterAsync();
+
+                return;
+            }
+
+            if (mouseX < 0 || mouseY < 0 || mouseX > window.Width || mouseY > window.Height)
+                return;
+
+            if (DateTime.UtcNow - _lastUpdate < _parallaxInterval)
+                return;
+            _lastUpdate = DateTime.UtcNow;
+
             if (_cachedGpuBackground == null || !backgroundLayer.Children.Contains(_cachedGpuBackground))
                 _cachedGpuBackground = backgroundLayer.Children.OfType<GpuBackgroundControl>().FirstOrDefault();
 
-            if (_cachedGpuBackground != null && (Math.Abs(_lastMovementX) > 0.1 || Math.Abs(_lastMovementY) > 0.1))
-                _ = AnimateBackgroundToCenterAsync();
+            if (_cachedGpuBackground == null)
+                return;
 
-            return;
+            var centerX = window.Width / 2;
+            var centerY = window.Height / 2;
+            var movementX = -(mouseX - centerX) * 0.015;
+            var movementY = -(mouseY - centerY) * 0.015;
+            movementX = Math.Clamp(movementX, -15, 15);
+            movementY = Math.Clamp(movementY, -15, 15);
+
+            // Only update if movement changed
+            if (Math.Abs(_lastMovementX - movementX) > 0.01 || Math.Abs(_lastMovementY - movementY) > 0.01)
+            {
+                _cachedGpuBackground.RenderTransform = new TranslateTransform(movementX, movementY);
+                _lastMovementX = movementX;
+                _lastMovementY = movementY;
+            }
         }
-
-        if (mouseX < 0 || mouseY < 0 || mouseX > window.Width || mouseY > window.Height)
-            return;
-
-        if (DateTime.UtcNow - _lastUpdate < _parallaxInterval)
-            return;
-        _lastUpdate = DateTime.UtcNow;
-
-        if (_cachedGpuBackground == null || !backgroundLayer.Children.Contains(_cachedGpuBackground))
-            _cachedGpuBackground = backgroundLayer.Children.OfType<GpuBackgroundControl>().FirstOrDefault();
-
-        if (_cachedGpuBackground == null)
-            return;
-
-        var centerX = window.Width / 2;
-        var centerY = window.Height / 2;
-        var movementX = -(mouseX - centerX) * 0.015;
-        var movementY = -(mouseY - centerY) * 0.015;
-        movementX = Math.Clamp(movementX, -15, 15);
-        movementY = Math.Clamp(movementY, -15, 15);
-
-        // Only update if movement changed
-        if (Math.Abs(_lastMovementX - movementX) > 0.01 || Math.Abs(_lastMovementY - movementY) > 0.01)
+        catch (Exception ex)
         {
-            _cachedGpuBackground.RenderTransform = new TranslateTransform(movementX, movementY);
-            _lastMovementX = movementX;
-            _lastMovementY = movementY;
+            Console.WriteLine("[ERROR] Exception in ApplyParallax: " + ex);
         }
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine("[ERROR] Exception in ApplyParallax: " + ex);
-    }
-}
 
     public void OnMouseMove(object? sender, PointerEventArgs e)
     {

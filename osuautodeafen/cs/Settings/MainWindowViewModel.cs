@@ -20,6 +20,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     private SolidColorBrush _averageColorBrush = new(Colors.Gray);
 
+    private double _blurRadius;
+
     private double _completionPercentage;
     private MainWindow.HotKey? _deafenKeybind;
 
@@ -56,10 +58,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     private string _updateStatusMessage;
 
-    public int BlurPercent => (int)Math.Round(BlurRadius / 20.0 * 100);
-    
-    private double _blurRadius;
-
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
 
@@ -71,6 +69,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         _tosuApi = tosuApi;
         Task.Run(UpdateCompletionPercentageAsync);
     }
+
+    public int BlurPercent => (int)Math.Round(BlurRadius / 20.0 * 100);
 
     public int UpdateProgress
     {
@@ -313,7 +313,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             }
         }
     }
-    
+
     public double BlurRadius
     {
         get => _blurRadius;
@@ -405,27 +405,21 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    public object MinPPValue
-    {
-        get => _tosuApi.GetMaxPP();
-    }
-    
+    public object MinPPValue => _tosuApi.GetMaxPP();
+
+    public object MinSRValue => _tosuApi.GetFullSR();
+
+    public event PropertyChangedEventHandler PropertyChanged;
+
     public void UpdateMinPPValue()
     {
         OnPropertyChanged(nameof(MinPPValue));
     }
-    
-    public object MinSRValue
-    {
-        get => _tosuApi.GetFullSR();
-    }
-    
+
     public void UpdateMinSRValue()
     {
         OnPropertyChanged(nameof(MinSRValue));
     }
-
-    public event PropertyChangedEventHandler PropertyChanged;
 
     private async Task UpdateCompletionPercentageAsync()
     {

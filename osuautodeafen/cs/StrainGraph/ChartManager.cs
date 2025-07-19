@@ -379,7 +379,7 @@ public class ChartManager
 
         MaxYValue = GetMaxYValue(graphData);
 
-        bool seriesUpdated = false;
+        var seriesUpdated = false;
         var seriesArr = PlotView.Series as List<ISeries> ?? PlotView.Series.ToList();
 
         if (graphChanged)
@@ -426,74 +426,72 @@ public class ChartManager
                 maxY = v;
         return maxY;
     }
-    
-private List<ISeries> UpdateSeries(GraphData graphData, List<ISeries> seriesArr)
-{
-    const int maxPoints = 1000;
-    var newSeriesList = new List<ISeries>();
-    int maxLimit = 0;
 
-    // Cache existing series by name for fast lookup
-    var existingSeriesDict = seriesArr
-        .OfType<LineSeries<ObservablePoint>>()
-        .ToDictionary(ls => ls.Name, ls => ls);
-
-    foreach (var series in graphData.Series)
+    private List<ISeries> UpdateSeries(GraphData graphData, List<ISeries> seriesArr)
     {
-        // Find valid data range
-        int start = series.Data.FindIndex(v => v != -100);
-        int end = series.Data.FindLastIndex(v => v != -100);
-        if (start == -1 || end == -1 || end < start) continue;
+        const int maxPoints = 1000;
+        var newSeriesList = new List<ISeries>();
+        var maxLimit = 0;
 
-        int updatedCount = end - start + 1;
-        var updatedValues = new ObservablePoint[updatedCount];
-        int idx = 0;
-        for (int i = start; i <= end; i++)
+        // Cache existing series by name for fast lookup
+        var existingSeriesDict = seriesArr
+            .OfType<LineSeries<ObservablePoint>>()
+            .ToDictionary(ls => ls.Name, ls => ls);
+
+        foreach (var series in graphData.Series)
         {
-            if (series.Data[i] != -100)
-                updatedValues[idx++] = new ObservablePoint(i - start, series.Data[i]);
-        }
-        maxLimit = Math.Max(maxLimit, idx);
+            // Find valid data range
+            var start = series.Data.FindIndex(v => v != -100);
+            var end = series.Data.FindLastIndex(v => v != -100);
+            if (start == -1 || end == -1 || end < start) continue;
 
-        var downsampled = Downsample(updatedValues, maxPoints);
-        var smoothed = SmoothData(downsampled, 10, 0.2);
+            var updatedCount = end - start + 1;
+            var updatedValues = new ObservablePoint[updatedCount];
+            var idx = 0;
+            for (var i = start; i <= end; i++)
+                if (series.Data[i] != -100)
+                    updatedValues[idx++] = new ObservablePoint(i - start, series.Data[i]);
+            maxLimit = Math.Max(maxLimit, idx);
 
-        var color = series.Name == "aim" ? AimColor : SpeedColor;
-        var name = series.Name == "aim" ? "Aim" : "Speed";
+            var downsampled = Downsample(updatedValues, maxPoints);
+            var smoothed = SmoothData(downsampled, 10, 0.2);
 
-        if (existingSeriesDict.TryGetValue(name, out var existing))
-        {
-            if (!ReferenceEquals(existing.Values, smoothed))
-                existing.Values = smoothed;
-            existing.TooltipLabelFormatter = _ => "";
-            newSeriesList.Add(existing);
-        }
-        else
-        {
-            newSeriesList.Add(new LineSeries<ObservablePoint>
+            var color = series.Name == "aim" ? AimColor : SpeedColor;
+            var name = series.Name == "aim" ? "Aim" : "Speed";
+
+            if (existingSeriesDict.TryGetValue(name, out var existing))
             {
-                Values = smoothed,
-                Fill = new SolidColorPaint { Color = color },
-                Stroke = new SolidColorPaint { Color = color },
-                Name = name,
-                GeometryFill = null,
-                GeometryStroke = null,
-                LineSmoothness = 1,
-                EasingFunction = EasingFunctions.ExponentialOut,
-                TooltipLabelFormatter = _ => ""
-            });
+                if (!ReferenceEquals(existing.Values, smoothed))
+                    existing.Values = smoothed;
+                existing.TooltipLabelFormatter = _ => "";
+                newSeriesList.Add(existing);
+            }
+            else
+            {
+                newSeriesList.Add(new LineSeries<ObservablePoint>
+                {
+                    Values = smoothed,
+                    Fill = new SolidColorPaint { Color = color },
+                    Stroke = new SolidColorPaint { Color = color },
+                    Name = name,
+                    GeometryFill = null,
+                    GeometryStroke = null,
+                    LineSmoothness = 1,
+                    EasingFunction = EasingFunctions.ExponentialOut,
+                    TooltipLabelFormatter = _ => ""
+                });
+            }
         }
+
+        MaxLimit = maxLimit;
+
+        if (!newSeriesList.Contains(_progressIndicator))
+            newSeriesList.Add(_progressIndicator);
+
+        Series = newSeriesList.ToArray();
+        PlotView.Series = Series;
+        return newSeriesList;
     }
-
-    MaxLimit = maxLimit;
-
-    if (!newSeriesList.Contains(_progressIndicator))
-        newSeriesList.Add(_progressIndicator);
-
-    Series = newSeriesList.ToArray();
-    PlotView.Series = Series;
-    return newSeriesList;
-}
 
     private async Task UpdateSectionsAsync(GraphData graphData, string osuFilePath)
     {
@@ -649,32 +647,32 @@ private List<ISeries> UpdateSeries(GraphData graphData, List<ISeries> seriesArr)
         int left = 0, right = xAxis.Count - 1;
         while (left < right)
         {
-            int mid = (left + right) / 2;
+            var mid = (left + right) / 2;
             if (xAxis[mid] < value)
                 left = mid + 1;
             else
                 right = mid;
         }
-        
+
         if (left == 0) return 0;
         if (left == xAxis.Count) return xAxis.Count - 1;
 
-        double diffLeft = Math.Abs(xAxis[left] - value);
-        double diffPrev = Math.Abs(xAxis[left - 1] - value);
+        var diffLeft = Math.Abs(xAxis[left] - value);
+        var diffPrev = Math.Abs(xAxis[left - 1] - value);
         return diffLeft < diffPrev ? left : left - 1;
     }
 
     private static ObservablePoint[] Downsample(ObservablePoint[] data, int maxPoints)
     {
-        int dataCount = data.Length;
+        var dataCount = data.Length;
         if (dataCount <= maxPoints) return data;
 
         var result = new ObservablePoint[maxPoints];
-        double step = (double)(dataCount - 1) / (maxPoints - 1);
+        var step = (double)(dataCount - 1) / (maxPoints - 1);
 
-        for (int i = 0; i < maxPoints; i++)
+        for (var i = 0; i < maxPoints; i++)
         {
-            int idx = (int)Math.Round(i * step);
+            var idx = (int)Math.Round(i * step);
             if (idx >= dataCount) idx = dataCount - 1;
             result[i] = data[idx];
         }
@@ -684,21 +682,21 @@ private List<ISeries> UpdateSeries(GraphData graphData, List<ISeries> seriesArr)
 
     private static ObservablePoint[] SmoothData(ObservablePoint[] data, int windowSize, double smoothingFactor)
     {
-        int n = data.Length;
+        var n = data.Length;
         var smoothedData = new ObservablePoint[n];
-        int halfWindow = Math.Max(1, (int)(windowSize * smoothingFactor));
-        double[] prefixSum = new double[n + 1];
+        var halfWindow = Math.Max(1, (int)(windowSize * smoothingFactor));
+        var prefixSum = new double[n + 1];
 
         // Build prefix sum for fast range sum queries
-        for (int i = 0; i < n; i++)
+        for (var i = 0; i < n; i++)
             prefixSum[i + 1] = prefixSum[i] + (data[i].Y ?? 0.0);
 
-        for (int i = 0; i < n; i++)
+        for (var i = 0; i < n; i++)
         {
-            int left = Math.Max(0, i - halfWindow);
-            int right = Math.Min(n - 1, i + halfWindow);
-            int count = right - left + 1;
-            double sum = prefixSum[right + 1] - prefixSum[left];
+            var left = Math.Max(0, i - halfWindow);
+            var right = Math.Min(n - 1, i + halfWindow);
+            var count = right - left + 1;
+            var sum = prefixSum[right + 1] - prefixSum[left];
             smoothedData[i] = new ObservablePoint(data[i].X, sum / count);
         }
 

@@ -21,14 +21,14 @@ public class LogoUpdater
     private readonly LogImportant _logImportant;
     private readonly LogoControl _logoControl;
     private readonly SharedViewModel _viewModel;
+    private string? _cachedBitmapPath;
     private SKSvg? _cachedLogoSvg;
+    private SKBitmap? _cachedSKBitmap;
     private CancellationTokenSource? _colorTransitionCts;
 
     private SKColor _currentColor;
     private Bitmap? _lowResBitmap;
     private SKColor _oldAverageColor;
-    private string? _cachedBitmapPath;
-    private SKBitmap? _cachedSKBitmap;
 
     public LogoUpdater(
         GetLowResBackground getLowResBackground,
@@ -56,7 +56,7 @@ public class LogoUpdater
 
             var lowResBitmapPath = await lowResBitmapPathTask.ConfigureAwait(false);
             if (lowResBitmapPath == null) return;
-            
+
             if (_cachedBitmapPath != lowResBitmapPath)
             {
                 _lowResBitmap = await LoadLowResBitmapAsync(lowResBitmapPath).ConfigureAwait(false);
@@ -102,7 +102,8 @@ public class LogoUpdater
     {
         try
         {
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 4096, FileOptions.Asynchronous);
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 4096,
+                FileOptions.Asynchronous);
             return await Task.Run(() => new Bitmap(stream)).ConfigureAwait(false);
         }
         catch
@@ -115,8 +116,14 @@ public class LogoUpdater
     {
         return await Task.Run(() =>
         {
-            try { return _loadHighResLogo("osuautodeafen.Resources.autodeafen.svg"); }
-            catch { return null; }
+            try
+            {
+                return _loadHighResLogo("osuautodeafen.Resources.autodeafen.svg");
+            }
+            catch
+            {
+                return null;
+            }
         }).ConfigureAwait(false);
     }
 
@@ -187,7 +194,8 @@ public class LogoUpdater
             var interpolatedColor = InterpolateColor(fromColor, toColor, t);
             _currentColor = interpolatedColor;
             _logImportant.logImportant("Average Color: " + interpolatedColor, false, "AverageColor");
-            var avaloniaColor = Color.FromArgb(interpolatedColor.Alpha, interpolatedColor.Red, interpolatedColor.Green, interpolatedColor.Blue);
+            var avaloniaColor = Color.FromArgb(interpolatedColor.Alpha, interpolatedColor.Red, interpolatedColor.Green,
+                interpolatedColor.Blue);
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -223,6 +231,7 @@ public class LogoUpdater
 
             await Task.Delay(delayMilliseconds).ConfigureAwait(false);
         }
+
         return null;
     }
 
@@ -243,7 +252,8 @@ public class LogoUpdater
             {
                 using (var drawingContext = renderTargetBitmap.CreateDrawingContext())
                 {
-                    drawingContext.DrawImage(avaloniaBitmap, new Rect(0, 0, width, height), new Rect(0, 0, width, height));
+                    drawingContext.DrawImage(avaloniaBitmap, new Rect(0, 0, width, height),
+                        new Rect(0, 0, width, height));
                 }
 
                 var pixelDataSize = width * height * 4;
@@ -258,6 +268,7 @@ public class LogoUpdater
                 var destPtr = skBitmap.GetPixels();
                 Marshal.Copy(pixelData, 0, destPtr, pixelDataSize);
             }
+
             return skBitmap;
         }
         catch
@@ -302,6 +313,7 @@ public class LogoUpdater
                     g += (pixel >> 8) & 0xFF;
                     r += (pixel >> 16) & 0xFF;
                 }
+
                 rSums[workerId] = r;
                 gSums[workerId] = g;
                 bSums[workerId] = b;
@@ -328,6 +340,7 @@ public class LogoUpdater
         {
             return (byte)(start + (end - start) * factor);
         }
+
         var r = InterpolateComponent(from.Red, to.Red, t);
         var g = InterpolateComponent(from.Green, to.Green, t);
         var b = InterpolateComponent(from.Blue, to.Blue, t);

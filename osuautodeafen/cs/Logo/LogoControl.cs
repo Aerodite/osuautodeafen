@@ -1,5 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Platform;
@@ -60,12 +59,12 @@ public sealed class LogoControl : Control
 
     private sealed class SkiaCustomDrawOperation : ICustomDrawOperation
     {
-        public readonly Rect Bounds;
-        public readonly SKPicture Picture;
-        public readonly SKColor Color;
         private static readonly SKPaint SharedPaint = new();
         private static SKColor _lastColor = SKColors.Transparent;
         private static SKColorFilter? _lastFilter;
+        public readonly Rect Bounds;
+        public readonly SKColor Color;
+        public readonly SKPicture Picture;
 
         public SkiaCustomDrawOperation(Rect bounds, SKPicture picture, SKColor color)
         {
@@ -74,13 +73,18 @@ public sealed class LogoControl : Control
             Color = color;
         }
 
-        public void Dispose() { }
+        public void Dispose()
+        {
+        }
 
-        public bool HitTest(Point p) => true;
+        public bool HitTest(Point p)
+        {
+            return true;
+        }
 
         public void Render(ImmediateDrawingContext context)
         {
-            if (context.TryGetFeature<ISkiaSharpApiLeaseFeature>(out var skiaFeature)) 
+            if (context.TryGetFeature<ISkiaSharpApiLeaseFeature>(out var skiaFeature))
                 using (var lease = skiaFeature.Lease())
                 {
                     var canvas = lease.SkCanvas;
@@ -106,7 +110,10 @@ public sealed class LogoControl : Control
 
         Rect ICustomDrawOperation.Bounds => Bounds;
 
-        public bool Equals(ICustomDrawOperation? other) => false;
+        public bool Equals(ICustomDrawOperation? other)
+        {
+            return false;
+        }
 
         public bool Equals(Rect bounds, SKPicture picture, SKColor color)
         {
