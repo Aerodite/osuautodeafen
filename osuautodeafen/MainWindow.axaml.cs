@@ -123,6 +123,8 @@ public partial class MainWindow : Window
     private ProgressBar? _updateProgressBar;
 
     private double opacity = 1.00;
+    
+    private bool _previousDeafenState = false;
 
 
     //<summary>
@@ -155,11 +157,9 @@ public partial class MainWindow : Window
             await _updateChecker.CheckForUpdatesAsync();
             if (_updateChecker.UpdateInfo != null) ShowUpdateNotification();
         };
-
-        //TODO
-        //maybe add a state for this depending on if its deafened or not
-        Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.favicon.ico"));
-
+        
+        AppIconSetter.SetIcon(this, "osuautodeafen.Resources.favicon.ico");
+        
         _getLowResBackground = new GetLowResBackground(_tosuApi);
 
         _backgroundManager = new BackgroundManager(this, _viewModel, _tosuApi)
@@ -245,7 +245,29 @@ public partial class MainWindow : Window
 
         ProgressOverlay.Points =
             _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage());
-
+        
+        _viewModel.DeafenKeybind = new HotKey
+        {
+            Key = _settingsHandler.Data["Hotkeys"]["DeafenKeybindKey"] is string keyStr && int.TryParse(keyStr, out var keyVal)
+                ? (Key)keyVal
+                : Key.None,
+            ModifierKeys = _settingsHandler.Data["Hotkeys"]["DeafenKeybindModifiers"] is string modStr && int.TryParse(modStr, out var modVal)
+                ? (KeyModifiers)modVal
+                : KeyModifiers.None,
+            FriendlyName = GetFriendlyKeyName(
+                _settingsHandler.Data["Hotkeys"]["DeafenKeybindKey"] is string keyStr2 && int.TryParse(keyStr2, out var keyVal2)
+                    ? (Key)keyVal2
+                    : Key.None)
+        };
+            
+        deafen.Deafened += async () =>
+        {
+            AppIconSetter.SetIcon(this, "osuautodeafen.Resources.favicon_d.ico");
+        };
+        deafen.Undeafened += async () =>
+        {
+            AppIconSetter.SetIcon(this, "osuautodeafen.Resources.favicon.ico");
+        };
         _tosuApi.BeatmapChanged += async () =>
         {
             _logImportant.logImportant("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false,

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using osuautodeafen.cs.Logo;
 using osuautodeafen.cs.Settings;
 using SharpHook;
 using SharpHook.Data;
@@ -36,6 +37,9 @@ public class Deafen : IDisposable
     private bool IsUndeafenAfterMissEnabled => _sharedViewModel.UndeafenAfterMiss;
     private bool IsBreakUndeafenToggleEnabled => _sharedViewModel.IsBreakUndeafenToggleEnabled;
 
+    public Action? Deafened;
+    public Action? Undeafened;
+
     public void Dispose()
     {
         Console.WriteLine("[Dispose] Disposing Deafen resources.");
@@ -46,38 +50,48 @@ public class Deafen : IDisposable
     {
         try
         {
-            var keybindObj = _sharedViewModel.DeafenKeybind;
-            string? keybindString;
+            KeyCode key;
+            List<KeyCode> modifiers = new();
 
+            var keybindObj = _sharedViewModel.DeafenKeybind;
             if (keybindObj == null)
             {
-                keybindString = _settingsHandler.DeafenKeybind;
+                var keybindParts = _settingsHandler.DeafenKeybind?.Split(',');
+                if (keybindParts == null || keybindParts.Length < 2)
+                    throw new ArgumentException("Invalid DeafenKeybind format in settings.");
+
+                key = (KeyCode)ushort.Parse(keybindParts[0]);
+                var modValue = ushort.Parse(keybindParts[1]);
+                if (modValue != 0)
+                {
+                    if ((modValue & 1) != 0) modifiers.Add(KeyCode.VcLeftAlt);
+                    if ((modValue & 2) != 0) modifiers.Add(KeyCode.VcLeftControl);
+                    if ((modValue & 4) != 0) modifiers.Add(KeyCode.VcLeftShift);
+                    if ((modValue & 8) != 0) modifiers.Add(KeyCode.VcLeftMeta);
+                }
                 Console.WriteLine("[SimulateDeafenKey] DeafenKeybind was null, using settings handler value.");
             }
             else
             {
-                keybindString = keybindObj.ToString();
+                // Fallback to string parsing if needed
+                var keybinds = ConvertToInputSimulatorSyntax(keybindObj.ToString());
+                modifiers = keybinds[0].Modifiers.ToList();
+                key = keybinds[0].Key;
             }
 
-            Console.WriteLine($"[SimulateDeafenKey] Simulating keybind: {keybindString}");
-            var keybinds = ConvertToInputSimulatorSyntax(keybindString);
-            foreach (var (modifiers, key) in keybinds)
-            {
-                var keyCodes = modifiers as KeyCode[] ?? modifiers.ToArray();
-                Console.WriteLine($"[SimulateDeafenKey] Pressing modifiers: {string.Join(", ", keyCodes)}");
-                foreach (var mod in keyCodes)
-                    _eventSimulator.SimulateKeyPress(mod);
+            Console.WriteLine($"[SimulateDeafenKey] Pressing modifiers: {string.Join(", ", modifiers)}");
+            foreach (var mod in modifiers)
+                _eventSimulator.SimulateKeyPress(mod);
 
-                Console.WriteLine($"[SimulateDeafenKey] Pressing main key: {key}");
-                _eventSimulator.SimulateKeyPress(key);
+            Console.WriteLine($"[SimulateDeafenKey] Pressing main key: {key}");
+            _eventSimulator.SimulateKeyPress(key);
 
-                _eventSimulator.SimulateKeyRelease(key);
-                Console.WriteLine($"[SimulateDeafenKey] Released main key: {key}");
+            _eventSimulator.SimulateKeyRelease(key);
+            Console.WriteLine($"[SimulateDeafenKey] Released main key: {key}");
 
-                foreach (var mod in keyCodes.Reverse())
-                    _eventSimulator.SimulateKeyRelease(mod);
-                Console.WriteLine($"[SimulateDeafenKey] Released modifiers: {string.Join(", ", keyCodes.Reverse())}");
-            }
+            foreach (var mod in modifiers.AsEnumerable().Reverse())
+                _eventSimulator.SimulateKeyRelease(mod);
+            Console.WriteLine($"[SimulateDeafenKey] Released modifiers: {string.Join(", ", modifiers.AsEnumerable().Reverse())}");
         }
         catch (Exception ex)
         {
@@ -175,13 +189,14 @@ public class Deafen : IDisposable
             SimulateDeafenKey();
             _deafened = !_deafened;
             Console.WriteLine($"[ToggleDeafenState] New deafen state: {_deafened}");
+            
         }
     }
 
     private List<(IEnumerable<KeyCode> Modifiers, KeyCode Key)> ConvertToInputSimulatorSyntax(string? keybind)
     {
         Console.WriteLine($"[ConvertToInputSimulatorSyntax] Converting keybind: {keybind}");
-        var parts = keybind?.Split(['+'], StringSplitOptions.RemoveEmptyEntries);
+        var parts = keybind?.Split(new[] { '+', ',' }, StringSplitOptions.RemoveEmptyEntries);
         var keybinds = new List<(IEnumerable<KeyCode> Modifiers, KeyCode Key)>();
         var modifiers = new List<KeyCode>();
         var key = KeyCode.Vc0;
@@ -261,11 +276,26 @@ public class Deafen : IDisposable
         foreach (var t in parts!)
         {
             var trimmedPart = t.Trim();
-            if (trimmedPart is "Shift" or "Ctrl" or "Alt" or "Win" or "LeftShift" or "RightShift" or "LeftControl"
-                or "RightControl" or "LeftAlt" or "RightAlt" or "LeftWin" or "RightWin" or "Control")
-                modifiers.Add(specialKeys[trimmedPart]);
+            if (specialKeys.TryGetValue(trimmedPart, out var foundKey))
+            {
+                if (trimmedPart is "Shift" or "Ctrl" or "Alt" or "Win" or "LeftShift" or "RightShift" or "LeftControl"
+                    or "RightControl" or "LeftAlt" or "RightAlt" or "LeftWin" or "RightWin" or "Control")
+                    modifiers.Add(foundKey);
+                else
+                    key = foundKey;
+            }
             else
-                key = specialKeys[trimmedPart];
+            {
+                if (ushort.TryParse(trimmedPart, out ushort keyCodeValue) && Enum.IsDefined(typeof(KeyCode), keyCodeValue))
+                {
+                    key = (KeyCode)keyCodeValue;
+                }
+                else
+                {
+                    Console.WriteLine($"[ConvertToInputSimulatorSyntax] Unknown key: {trimmedPart}");
+                    throw new ArgumentException($"Unknown key: {trimmedPart}");
+                }
+            }
         }
 
         if (key == KeyCode.Vc0)

@@ -21,6 +21,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     private double _windowHeight;
     private double _windowWidth;
+    
+    public string DeafenKeybindKey => Data["Hotkeys"]["DeafenKeybindKey"];
+    public string DeafenKeybindModifiers => Data["Hotkeys"]["DeafenKeybindModifiers"];
 
     public IniData Data;
 
