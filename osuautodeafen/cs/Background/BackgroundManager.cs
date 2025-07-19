@@ -424,7 +424,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             backgroundLayer.Children.Add(gpuBackground);
             backgroundLayer.Opacity = _currentBackgroundOpacity;
 
-            if (viewModel?.IsParallaxEnabled == true)
+            if (viewModel?.IsParallaxEnabled == true && viewModel?.IsBackgroundEnabled == true)
                 try
                 {
                     ApplyParallax(_mouseX, _mouseY);
@@ -466,79 +466,66 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         _lastMovementY = 0;
     }
 
-
-    private void ApplyParallax(double mouseX, double mouseY)
+    
+private void ApplyParallax(double mouseX, double mouseY)
+{
+    try
     {
-        try
+        if (_currentBitmap == null)
+            return;
+
+        // Cache mainGrid and backgroundLayer for reuse
+        if (window.Content is not Grid mainGrid)
+            return;
+
+        var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
+        if (backgroundLayer == null)
+            return;
+
+        if (window.ParallaxToggle?.IsChecked == false || window.BackgroundToggle?.IsChecked == false)
         {
-            if (_currentBitmap == null)
-                return;
+            if (_cachedGpuBackground == null || !backgroundLayer.Children.Contains(_cachedGpuBackground))
+                _cachedGpuBackground = backgroundLayer.Children.OfType<GpuBackgroundControl>().FirstOrDefault();
 
-            // If parallax is disabled, animate to center and return
-            if (window.ParallaxToggle?.IsChecked == false || window.BackgroundToggle?.IsChecked == false)
-            {
-                if (window.Content is Grid mainGrid)
-                {
-                    var backgroundLayer = mainGrid.Children.OfType<Grid>()
-                        .FirstOrDefault(g => g.Name == "BackgroundLayer");
-                    if (backgroundLayer != null)
-                    {
-                        if (_cachedGpuBackground == null || !backgroundLayer.Children.Contains(_cachedGpuBackground))
-                            _cachedGpuBackground =
-                                backgroundLayer.Children.OfType<GpuBackgroundControl>().FirstOrDefault();
-                        if (_cachedGpuBackground != null)
-                            if (Math.Abs(_lastMovementX) > 0.1 || Math.Abs(_lastMovementY) > 0.1)
-                                _ = AnimateBackgroundToCenterAsync();
-                    }
-                }
+            if (_cachedGpuBackground != null && (Math.Abs(_lastMovementX) > 0.1 || Math.Abs(_lastMovementY) > 0.1))
+                _ = AnimateBackgroundToCenterAsync();
 
-                return;
-            }
-
-            if (mouseX < 0 || mouseY < 0 || mouseX > window.Width || mouseY > window.Height)
-                return;
-
-            if (DateTime.UtcNow - _lastUpdate < _parallaxInterval)
-                return;
-            _lastUpdate = DateTime.UtcNow;
-
-            var windowWidth = window.Width;
-            var windowHeight = window.Height;
-            var centerX = windowWidth / 2;
-            var centerY = windowHeight / 2;
-
-            var relativeMouseX = mouseX - centerX;
-            var relativeMouseY = mouseY - centerY;
-
-            var scaleFactor = 0.015;
-            var movementX = -(relativeMouseX * scaleFactor);
-            var movementY = -(relativeMouseY * scaleFactor);
-
-            double maxMovement = 15;
-            movementX = Math.Max(-maxMovement, Math.Min(maxMovement, movementX));
-            movementY = Math.Max(-maxMovement, Math.Min(maxMovement, movementY));
-
-            if (window.Content is Grid mainGrid2)
-            {
-                var backgroundLayer =
-                    mainGrid2.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
-                if (backgroundLayer != null)
-                    if (_cachedGpuBackground == null || !backgroundLayer.Children.Contains(_cachedGpuBackground))
-                        _cachedGpuBackground = backgroundLayer.Children.OfType<GpuBackgroundControl>().FirstOrDefault();
-            }
-
-            if (_cachedGpuBackground != null)
-            {
-                _cachedGpuBackground.RenderTransform = new TranslateTransform(movementX, movementY);
-                _lastMovementX = movementX;
-                _lastMovementY = movementY;
-            }
+            return;
         }
-        catch (Exception ex)
+
+        if (mouseX < 0 || mouseY < 0 || mouseX > window.Width || mouseY > window.Height)
+            return;
+
+        if (DateTime.UtcNow - _lastUpdate < _parallaxInterval)
+            return;
+        _lastUpdate = DateTime.UtcNow;
+
+        if (_cachedGpuBackground == null || !backgroundLayer.Children.Contains(_cachedGpuBackground))
+            _cachedGpuBackground = backgroundLayer.Children.OfType<GpuBackgroundControl>().FirstOrDefault();
+
+        if (_cachedGpuBackground == null)
+            return;
+
+        var centerX = window.Width / 2;
+        var centerY = window.Height / 2;
+        var movementX = -(mouseX - centerX) * 0.015;
+        var movementY = -(mouseY - centerY) * 0.015;
+        movementX = Math.Clamp(movementX, -15, 15);
+        movementY = Math.Clamp(movementY, -15, 15);
+
+        // Only update if movement changed
+        if (Math.Abs(_lastMovementX - movementX) > 0.01 || Math.Abs(_lastMovementY - movementY) > 0.01)
         {
-            Console.WriteLine("[ERROR] Exception in ApplyParallax: " + ex);
+            _cachedGpuBackground.RenderTransform = new TranslateTransform(movementX, movementY);
+            _lastMovementX = movementX;
+            _lastMovementY = movementY;
         }
     }
+    catch (Exception ex)
+    {
+        Console.WriteLine("[ERROR] Exception in ApplyParallax: " + ex);
+    }
+}
 
     public void OnMouseMove(object? sender, PointerEventArgs e)
     {
@@ -546,11 +533,11 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             return;
 
         var position = e.GetPosition(window);
+        if (position.X < 0 || position.Y < 0 || position.X > window.Width || position.Y > window.Height)
+            return;
+
         _mouseX = position.X;
         _mouseY = position.Y;
-
-        if (_mouseX < 0 || _mouseY < 0 || _mouseX > window.Width || _mouseY > window.Height)
-            return;
 
         ApplyParallax(_mouseX, _mouseY);
     }
