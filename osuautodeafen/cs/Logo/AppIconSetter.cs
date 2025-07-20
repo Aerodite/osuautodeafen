@@ -1,10 +1,11 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Threading;
+using System.IO;
 
-namespace osuautodeafen.cs.Logo;
-
-public class AppIconSetter
+public static class AppIconSetter
 {
+    private static Stream? _previousIconStream;
+
     public static void SetIcon(Window window, string iconResourceName)
     {
         var iconStream = LoadEmbeddedResource(iconResourceName);
@@ -12,12 +13,15 @@ public class AppIconSetter
         {
             Dispatcher.UIThread.InvokeAsync(() =>
             {
+                // Dispose previous stream if exists
+                _previousIconStream?.Dispose();
                 window.Icon = new WindowIcon(iconStream);
+                _previousIconStream = iconStream;
             });
         }
     }
 
-    private static System.IO.Stream? LoadEmbeddedResource(string resourceName)
+    private static Stream? LoadEmbeddedResource(string resourceName)
     {
         var assembly = typeof(AppIconSetter).Assembly;
         return assembly.GetManifestResourceStream(resourceName);

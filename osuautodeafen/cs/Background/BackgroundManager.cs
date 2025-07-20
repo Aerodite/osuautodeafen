@@ -95,7 +95,6 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         {
             if (!viewModel.IsBackgroundEnabled)
             {
-                window._blurredBackground?.SetValueSafe(x => x.IsVisible = false);
                 window._normalBackground?.SetValueSafe(x => x.IsVisible = false);
                 return;
             }
