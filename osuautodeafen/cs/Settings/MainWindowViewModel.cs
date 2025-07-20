@@ -20,14 +20,14 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     private SolidColorBrush _averageColorBrush = new(Colors.Gray);
 
+    private double _blurRadius;
+
     private double _completionPercentage;
     private MainWindow.HotKey? _deafenKeybind;
 
     private string _deafenKeybindDisplay;
 
     private bool _isBackgroundEnabled;
-
-    private bool _isBlurEffectEnabled;
 
     private bool _IsBreakUndeafenToggleEnabled;
 
@@ -69,6 +69,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         _tosuApi = tosuApi;
         Task.Run(UpdateCompletionPercentageAsync);
     }
+
+    public int BlurPercent => (int)Math.Round(BlurRadius / 20.0 * 100);
 
     public int UpdateProgress
     {
@@ -184,20 +186,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 _isParallaxEnabled = value;
                 OnPropertyChanged();
                 _settingsHandler?.SaveSetting("UI", "IsParallaxEnabled", value);
-            }
-        }
-    }
-
-    public bool IsBlurEffectEnabled
-    {
-        get => _isBlurEffectEnabled;
-        set
-        {
-            if (_isBlurEffectEnabled != value)
-            {
-                _isBlurEffectEnabled = value;
-                OnPropertyChanged();
-                _settingsHandler?.SaveSetting("UI", "IsBlurEffectEnabled", value);
             }
         }
     }
@@ -326,6 +314,20 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
+    public double BlurRadius
+    {
+        get => _blurRadius;
+        set
+        {
+            if (_blurRadius != value)
+            {
+                _blurRadius = value;
+                OnPropertyChanged();
+                _settingsHandler?.SaveSetting("UI", "BlurRadius", value);
+            }
+        }
+    }
+
     public double CompletionPercentage
     {
         get => _completionPercentage;
@@ -403,27 +405,21 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    public object MinPPValue
-    {
-        get => _tosuApi.GetMaxPP();
-    }
-    
+    public object MinPPValue => _tosuApi.GetMaxPP();
+
+    public object MinSRValue => _tosuApi.GetFullSR();
+
+    public event PropertyChangedEventHandler PropertyChanged;
+
     public void UpdateMinPPValue()
     {
         OnPropertyChanged(nameof(MinPPValue));
     }
-    
-    public object MinSRValue
-    {
-        get => _tosuApi.GetFullSR();
-    }
-    
+
     public void UpdateMinSRValue()
     {
         OnPropertyChanged(nameof(MinSRValue));
     }
-
-    public event PropertyChangedEventHandler PropertyChanged;
 
     private async Task UpdateCompletionPercentageAsync()
     {

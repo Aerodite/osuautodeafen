@@ -1,5 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Platform;
@@ -12,45 +11,77 @@ namespace osuautodeafen.cs;
 
 public sealed class LogoControl : Control
 {
-    private SkiaCustomDrawOperation _drawOp;
-    public SKColor ModulateColor = SKColors.White;
-    public SKSvg? Svg;
+    private SkiaCustomDrawOperation? _drawOp;
+    private SKColor _modulateColor = SKColors.White;
+    private SKSvg? _svg;
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public SKColor ModulateColor
+    {
+        get => _modulateColor;
+        set
+        {
+            if (_modulateColor != value)
+            {
+                _modulateColor = value;
+                InvalidateVisual();
+            }
+        }
+    }
+
+    public SKSvg? Svg
+    {
+        get => _svg;
+        set
+        {
+            if (_svg != value)
+            {
+                _svg = value;
+                InvalidateVisual();
+            }
+        }
+    }
+
     public override void Render(DrawingContext context)
     {
-        var picture = Svg!.Picture!;
-        var bounds = Bounds;
-        var color = ModulateColor;
+        if (_svg?.Picture == null)
+            return;
 
-        // No cache, always create new draw op
-        _drawOp = new SkiaCustomDrawOperation(bounds, picture, color);
+        var bounds = Bounds;
+        var color = _modulateColor;
+        var picture = _svg.Picture;
+
+        // Only recreate draw op if parameters changed
+        if (_drawOp == null || !_drawOp.Equals(bounds, picture, color))
+            _drawOp = new SkiaCustomDrawOperation(bounds, picture, color);
+
         context.Custom(_drawOp);
     }
 
-    [method: MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private readonly struct SkiaCustomDrawOperation(Rect bounds, SKPicture picture, SKColor color)
-        : ICustomDrawOperation
+    private sealed class SkiaCustomDrawOperation : ICustomDrawOperation
     {
-        public readonly Rect Bounds = bounds;
-        public readonly SKPicture Picture = picture;
-        public readonly SKColor Color = color;
         private static readonly SKPaint SharedPaint = new();
         private static SKColor _lastColor = SKColors.Transparent;
         private static SKColorFilter? _lastFilter;
+        public readonly Rect Bounds;
+        public readonly SKColor Color;
+        public readonly SKPicture Picture;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public SkiaCustomDrawOperation(Rect bounds, SKPicture picture, SKColor color)
+        {
+            Bounds = bounds;
+            Picture = picture;
+            Color = color;
+        }
+
         public void Dispose()
         {
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool HitTest(Point p)
         {
             return true;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Render(ImmediateDrawingContext context)
         {
             if (context.TryGetFeature<ISkiaSharpApiLeaseFeature>(out var skiaFeature))
@@ -79,11 +110,14 @@ public sealed class LogoControl : Control
 
         Rect ICustomDrawOperation.Bounds => Bounds;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Equals(ICustomDrawOperation? other)
         {
             return false;
-            // Skip equality for speed
+        }
+
+        public bool Equals(Rect bounds, SKPicture picture, SKColor color)
+        {
+            return Bounds == bounds && Picture == picture && Color == color;
         }
     }
 }

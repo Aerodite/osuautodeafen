@@ -61,6 +61,7 @@ public class TosuApi : IDisposable
     private ClientWebSocket _webSocket;
     private string beatmapChecksum;
     private string? beatmapTitle;
+    private string? beatmapArtist;
     private double? realtimeBpm;
 
     public TosuApi()
@@ -270,6 +271,8 @@ public class TosuApi : IDisposable
                         if (beatmap.TryGetProperty("isKiai", out var isKiai)) _isKiai = isKiai.GetBoolean();
                         if (beatmap.TryGetProperty("title", out var title))
                             beatmapTitle = title.GetString();
+                        if (beatmap.TryGetProperty("artistUnicode", out var artist))
+                            beatmapArtist = artist.GetString();
 
                         if (beatmap.TryGetProperty("stats", out var stats))
                             if (stats.TryGetProperty("maxCombo", out var maxCombo))
@@ -459,6 +462,11 @@ public class TosuApi : IDisposable
     public string? GetBeatmapTitle()
     {
         return beatmapTitle;
+    }
+    
+    public string? GetBeatmapArtist()
+    {
+        return beatmapArtist;
     }
 
     public string? GetOsuFilePath()

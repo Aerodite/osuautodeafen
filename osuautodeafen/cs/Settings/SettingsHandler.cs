@@ -13,13 +13,18 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private readonly string _appPath;
     private readonly string _iniPath;
     private readonly FileIniDataParser _parser = new();
+    private double _blurRadius;
 
     private double _minCompletionPercentage;
     private double _performancePoints;
     private double _starRating;
-    private double _windowHeight;
 
+    private double _windowHeight;
     private double _windowWidth;
+    
+    public string DeafenKeybindKey => Data["Hotkeys"]["DeafenKeybindKey"];
+    public string DeafenKeybindModifiers => Data["Hotkeys"]["DeafenKeybindModifiers"];
+
     public IniData Data;
 
     public SettingsHandler()
@@ -68,6 +73,15 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         }
     }
 
+    public double BlurRadius
+    {
+        get => _blurRadius;
+        set
+        {
+            if (Set(ref _blurRadius, value)) SaveSetting("UI", "BlurRadius", value);
+        }
+    }
+
     public double WindowWidth
     {
         get => _windowWidth;
@@ -90,7 +104,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public bool UndeafenAfterMiss { get; set; }
     public bool IsBackgroundEnabled { get; set; }
     public bool IsParallaxEnabled { get; set; }
-    public bool IsBlurEffectEnabled { get; set; }
+
     public string? DeafenKeybind { get; set; }
     public bool IsBreakUndeafenToggleEnabled { get; set; }
     public bool IsKiaiEffectEnabled { get; set; }
@@ -118,7 +132,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         data.Sections.AddSection("UI");
         data["UI"]["IsBackgroundEnabled"] = "True";
         data["UI"]["IsParallaxEnabled"] = "True";
-        data["UI"]["IsBlurEffectEnabled"] = "False";
+        data["UI"]["BlurRadius"] = "0";
         data["UI"]["IsKiaiEffectEnabled"] = "True";
         data["UI"]["WindowWidth"] = "630";
         data["UI"]["WindowHeight"] = "630";
@@ -144,6 +158,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         _minCompletionPercentage = double.TryParse(Data["General"]["MinCompletionPercentage"], out var mcp) ? mcp : 0;
         _starRating = double.TryParse(Data["General"]["StarRating"], out var sr) ? sr : 0;
         _performancePoints = double.TryParse(Data["General"]["PerformancePoints"], out var pp) ? pp : 0;
+        BlurRadius = double.TryParse(Data["UI"]["BlurRadius"], out var blur) ? blur : 0;
 
         IsBreakUndeafenToggleEnabled =
             bool.TryParse(Data["Behavior"]["IsBreakUndeafenToggleEnabled"], out var bu) && bu;
@@ -154,7 +169,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
         IsBackgroundEnabled = bool.TryParse(Data["UI"]["IsBackgroundEnabled"], out var bg) && bg;
         IsParallaxEnabled = bool.TryParse(Data["UI"]["IsParallaxEnabled"], out var px) && px;
-        IsBlurEffectEnabled = bool.TryParse(Data["UI"]["IsBlurEffectEnabled"], out var blur) && blur;
         IsKiaiEffectEnabled = bool.TryParse(Data["UI"]["IsKiaiEffectEnabled"], out var kiai) && kiai;
         _windowWidth = double.TryParse(Data["UI"]["WindowWidth"], out var width) ? width : 630;
         _windowHeight = double.TryParse(Data["UI"]["WindowHeight"], out var height) ? height : 630;
@@ -166,7 +180,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(UndeafenAfterMiss)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsBackgroundEnabled)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsParallaxEnabled)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsBlurEffectEnabled)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BlurRadius)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybind)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsBreakUndeafenToggleEnabled)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsKiaiEffectEnabled)));

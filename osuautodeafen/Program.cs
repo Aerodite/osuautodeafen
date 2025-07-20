@@ -13,18 +13,6 @@ internal class Program
     public static void Main(string[] args)
     {
         VelopackApp.Build()
-            .OnFirstRun(v =>
-            {
-                // open a window to show the user that the app is being initialized
-                var initWindow = new MainWindow
-                {
-                    Title = "hi",
-                    Width = 400,
-                    Height = 200,
-                    Content = "hi"
-                };
-                initWindow.Show();
-            })
             .Run();
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);

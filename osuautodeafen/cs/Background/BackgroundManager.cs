@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -22,7 +21,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     private readonly Dictionary<string, OpacityRequest> _opacityRequests = new();
     private readonly Dictionary<string, BackgroundOverlayRequest> _overlayRequests = new();
     private readonly TimeSpan _parallaxInterval = TimeSpan.FromMilliseconds(16);
-    private BlurEffect? _backgroundBlurEffect;
+    public BlurEffect? _backgroundBlurEffect;
 
     private Rectangle? _backgroundOverlayRect;
     private PropertyChangedEventHandler? _backgroundPropertyChangedHandler;
@@ -96,7 +95,6 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         {
             if (!viewModel.IsBackgroundEnabled)
             {
-                window._blurredBackground?.SetValueSafe(x => x.IsVisible = false);
                 window._normalBackground?.SetValueSafe(x => x.IsVisible = false);
                 return;
             }
@@ -112,12 +110,11 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                     return;
                 }
 
-                await PrewarmBlur(backgroundPath);
                 _currentBitmap?.Dispose();
                 _currentBitmap = newBitmap;
 
                 await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
-                await Dispatcher.UIThread.InvokeAsync(_logoUpdater.UpdateLogoAsync);
+                if (_logoUpdater != null) await Dispatcher.UIThread.InvokeAsync(_logoUpdater.UpdateLogoAsync);
                 _isBlackBackgroundDisplayed = false;
             }
 
@@ -129,11 +126,6 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                     {
                         switch (args.PropertyName)
                         {
-                            case nameof(viewModel.IsParallaxEnabled):
-                            case nameof(viewModel.IsBlurEffectEnabled):
-                                await Dispatcher.UIThread.InvokeAsync(() =>
-                                    UpdateUIWithNewBackgroundAsync(_currentBitmap));
-                                break;
                             case nameof(viewModel.IsBackgroundEnabled) when !viewModel.IsBackgroundEnabled:
                                 if (!_isBlackBackgroundDisplayed)
                                 {
@@ -161,8 +153,6 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 };
                 viewModel.PropertyChanged += _backgroundPropertyChangedHandler;
             }
-
-            UpdateBackgroundVisibility();
         }
         catch (Exception ex)
         {
@@ -199,87 +189,40 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         });
     }
 
-    private Task AnimateBlurAsync(BlurEffect blurEffect, double from, double to, int durationMs,
-        CancellationToken token)
+    public async Task BlurBackgroundAsync(BlurEffect blurEffect, double radius, CancellationToken token)
     {
-        var tcs = new TaskCompletionSource<bool>();
-        var stopwatch = new Stopwatch();
-        const int steps = 5;
-        var step = (to - from) / steps;
-        var delay = durationMs / steps;
-        var i = 0;
+        if (token.IsCancellationRequested)
+            return;
 
-        stopwatch.Start();
-
-        IDisposable? timer = null;
-        timer = DispatcherTimer.Run(() =>
-        {
-            if (token.IsCancellationRequested)
-            {
-                stopwatch.Stop();
-                Console.WriteLine($"Blur animation canceled after {stopwatch.ElapsedMilliseconds} ms");
-                timer?.Dispose();
-                tcs.TrySetCanceled(token);
-                return false;
-            }
-
-            var radius = from + step * i;
-            blurEffect.Radius = radius;
-
-            i++;
-            if (i > steps)
-            {
-                blurEffect.Radius = to;
-                stopwatch.Stop();
-                Console.WriteLine($"Blur animation completed in {stopwatch.ElapsedMilliseconds} ms");
-                timer?.Dispose();
-                tcs.TrySetResult(true);
-                return false;
-            }
-
-            return true;
-        }, TimeSpan.FromMilliseconds(delay));
-
-        return tcs.Task;
+        blurEffect.Radius = radius;
+        await Task.CompletedTask;
     }
 
     // Implementation for everything below is largely based off of https://github.com/ppy/osu/blob/master/osu.Game/Graphics/Backgrounds/Background.cs
     // (thanks peppy :D)
     private double CalculateBlurDownscale(double sigma)
     {
-        var sw = Stopwatch.StartNew();
         if (sigma <= 1)
-        {
-            sw.Stop();
             //Console.WriteLine($"CalculateBlurDownscale elapsed: {sw.ElapsedMilliseconds} ms");
             return 1;
-        }
 
         var scale = -0.18 * Math.Log(0.004 * sigma);
         var result = Math.Max(0.1, Math.Round(scale / 0.2, MidpointRounding.AwayFromZero) * 0.2);
-        sw.Stop();
         //Console.WriteLine($"CalculateBlurDownscale elapsed: {sw.ElapsedMilliseconds} ms");
         return result;
     }
 
     private async Task<Bitmap> CreateDownscaledBitmapAsync(Bitmap source, double scale)
     {
-        var sw = Stopwatch.StartNew();
         if (scale >= 1.0)
-        {
-            sw.Stop();
             //Console.WriteLine($"CreateDownscaledBitmapAsync elapsed: {sw.ElapsedMilliseconds} ms");
             return source;
-        }
 
         if (_cachedDownscaledBitmap != null &&
             _cachedSourceBitmap == source &&
             Math.Abs(_cachedDownscale - scale) < 0.01)
-        {
-            sw.Stop();
             //Console.WriteLine($"CreateDownscaledBitmapAsync elapsed: {sw.ElapsedMilliseconds} ms (cached)");
             return _cachedDownscaledBitmap;
-        }
 
         _cachedDownscaledBitmap?.Dispose();
 
@@ -301,25 +244,9 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         _cachedDownscaledBitmap = target;
         _cachedDownscale = scale;
         _cachedSourceBitmap = source;
-        sw.Stop();
         //Console.WriteLine($"CreateDownscaledBitmapAsync elapsed: {sw.ElapsedMilliseconds} ms");
         return target;
     }
-
-    public async Task PrewarmBlur(string backgroundPath)
-    {
-        var bitmap = await LoadBitmapAsync(backgroundPath);
-        if (bitmap == null) return;
-
-        var blurRadius = 100;
-        var scale = CalculateBlurDownscale(blurRadius);
-        var downscaled = await CreateDownscaledBitmapAsync(bitmap, scale);
-
-        _cachedDownscaledBitmap = downscaled;
-        _cachedSourceBitmap = bitmap;
-        _cachedDownscale = scale;
-    }
-
 
     private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
     {
@@ -381,23 +308,11 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 window.Content = mainGrid;
             }
 
-// Always clamp to 800x800, but use the current window size
-            var bounds = mainGrid.Bounds;
-            var width = Math.Min(800, Math.Max(1, (int)Math.Ceiling(bounds.Width)));
-            var height = Math.Min(800, Math.Max(1, (int)Math.Ceiling(bounds.Height)));
-
-// Always create a new bitmap for the current size
-            var displayBitmap = await ResizeBitmapCoverAsync(bitmap, width, height);
-
+            var blurRadius = viewModel?.BlurRadius ?? 0;
+            var downscale = CalculateBlurDownscale(blurRadius);
+            var displayBitmap = await CreateDownscaledBitmapAsync(bitmap, downscale);
             _backgroundBlurEffect ??= new BlurEffect();
-            var currentRadius = _backgroundBlurEffect.Radius;
-            var targetRadius = viewModel?.IsBlurEffectEnabled == true ? 15 : 0;
-
-            if (viewModel?.IsBlurEffectEnabled == true)
-            {
-                var scale = CalculateBlurDownscale(targetRadius);
-                displayBitmap = await CreateDownscaledBitmapAsync(displayBitmap, scale);
-            }
+            _backgroundBlurEffect.Radius = blurRadius;
 
             var gpuBackground = new GpuBackgroundControl
             {
@@ -435,8 +350,6 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 }
             else
                 ApplyParallax(315, 315);
-
-            await AnimateBlurAsync(_backgroundBlurEffect, currentRadius, targetRadius, 150, token);
         }
     }
 
@@ -466,66 +379,66 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         _lastMovementY = 0;
     }
 
-    
-private void ApplyParallax(double mouseX, double mouseY)
-{
-    try
+
+    private void ApplyParallax(double mouseX, double mouseY)
     {
-        if (_currentBitmap == null)
-            return;
-
-        // Cache mainGrid and backgroundLayer for reuse
-        if (window.Content is not Grid mainGrid)
-            return;
-
-        var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
-        if (backgroundLayer == null)
-            return;
-
-        if (window.ParallaxToggle?.IsChecked == false || window.BackgroundToggle?.IsChecked == false)
+        try
         {
+            if (_currentBitmap == null)
+                return;
+
+            // Cache mainGrid and backgroundLayer for reuse
+            if (window.Content is not Grid mainGrid)
+                return;
+
+            var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
+            if (backgroundLayer == null)
+                return;
+
+            if (window.ParallaxToggle?.IsChecked == false || window.BackgroundToggle?.IsChecked == false)
+            {
+                if (_cachedGpuBackground == null || !backgroundLayer.Children.Contains(_cachedGpuBackground))
+                    _cachedGpuBackground = backgroundLayer.Children.OfType<GpuBackgroundControl>().FirstOrDefault();
+
+                if (_cachedGpuBackground != null && (Math.Abs(_lastMovementX) > 0.1 || Math.Abs(_lastMovementY) > 0.1))
+                    _ = AnimateBackgroundToCenterAsync();
+
+                return;
+            }
+
+            if (mouseX < 0 || mouseY < 0 || mouseX > window.Width || mouseY > window.Height)
+                return;
+
+            if (DateTime.UtcNow - _lastUpdate < _parallaxInterval)
+                return;
+            _lastUpdate = DateTime.UtcNow;
+
             if (_cachedGpuBackground == null || !backgroundLayer.Children.Contains(_cachedGpuBackground))
                 _cachedGpuBackground = backgroundLayer.Children.OfType<GpuBackgroundControl>().FirstOrDefault();
 
-            if (_cachedGpuBackground != null && (Math.Abs(_lastMovementX) > 0.1 || Math.Abs(_lastMovementY) > 0.1))
-                _ = AnimateBackgroundToCenterAsync();
+            if (_cachedGpuBackground == null)
+                return;
 
-            return;
+            var centerX = window.Width / 2;
+            var centerY = window.Height / 2;
+            var movementX = -(mouseX - centerX) * 0.015;
+            var movementY = -(mouseY - centerY) * 0.015;
+            movementX = Math.Clamp(movementX, -15, 15);
+            movementY = Math.Clamp(movementY, -15, 15);
+
+            // Only update if movement changed
+            if (Math.Abs(_lastMovementX - movementX) > 0.01 || Math.Abs(_lastMovementY - movementY) > 0.01)
+            {
+                _cachedGpuBackground.RenderTransform = new TranslateTransform(movementX, movementY);
+                _lastMovementX = movementX;
+                _lastMovementY = movementY;
+            }
         }
-
-        if (mouseX < 0 || mouseY < 0 || mouseX > window.Width || mouseY > window.Height)
-            return;
-
-        if (DateTime.UtcNow - _lastUpdate < _parallaxInterval)
-            return;
-        _lastUpdate = DateTime.UtcNow;
-
-        if (_cachedGpuBackground == null || !backgroundLayer.Children.Contains(_cachedGpuBackground))
-            _cachedGpuBackground = backgroundLayer.Children.OfType<GpuBackgroundControl>().FirstOrDefault();
-
-        if (_cachedGpuBackground == null)
-            return;
-
-        var centerX = window.Width / 2;
-        var centerY = window.Height / 2;
-        var movementX = -(mouseX - centerX) * 0.015;
-        var movementY = -(mouseY - centerY) * 0.015;
-        movementX = Math.Clamp(movementX, -15, 15);
-        movementY = Math.Clamp(movementY, -15, 15);
-
-        // Only update if movement changed
-        if (Math.Abs(_lastMovementX - movementX) > 0.01 || Math.Abs(_lastMovementY - movementY) > 0.01)
+        catch (Exception ex)
         {
-            _cachedGpuBackground.RenderTransform = new TranslateTransform(movementX, movementY);
-            _lastMovementX = movementX;
-            _lastMovementY = movementY;
+            Console.WriteLine("[ERROR] Exception in ApplyParallax: " + ex);
         }
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine("[ERROR] Exception in ApplyParallax: " + ex);
-    }
-}
 
     public void OnMouseMove(object? sender, PointerEventArgs e)
     {
@@ -540,15 +453,6 @@ private void ApplyParallax(double mouseX, double mouseY)
         _mouseY = position.Y;
 
         ApplyParallax(_mouseX, _mouseY);
-    }
-
-    private void UpdateBackgroundVisibility()
-    {
-        if (window._blurredBackground != null && window._normalBackground != null)
-        {
-            window._blurredBackground.IsVisible = viewModel.IsBlurEffectEnabled;
-            window._normalBackground.IsVisible = !viewModel.IsBlurEffectEnabled;
-        }
     }
 
     public async Task RequestBackgroundOpacity(string key, double opacity, int priority, int durationMs = 200)

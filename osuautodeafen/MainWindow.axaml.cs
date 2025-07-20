@@ -32,95 +32,56 @@ using osuautodeafen.cs.StrainGraph;
 using osuautodeafen.cs.StrainGraph.Tooltips;
 using SkiaSharp;
 using Svg.Skia;
-using Vector = Avalonia.Vector;
 
 namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
+    private readonly DispatcherTimer _mainTimer;
+    private readonly ChartManager _chartManager;
+    private readonly BackgroundManager? _backgroundManager;
+    private readonly Stopwatch _frameStopwatch = new();
+    private readonly SettingsHandler? _settingsHandler;
+    private readonly TosuApi _tosuApi;
+    private readonly UpdateChecker _updateChecker = new();
+    private readonly SharedViewModel _viewModel;
+    private LogoControl? _logoControl;
+    
+    private readonly BreakPeriodCalculator _breakPeriod;
     private const double beatsPerRotation = 4;
     private readonly AnimationManager _animationManager = new();
-
-    private readonly BackgroundManager? _backgroundManager;
-    private readonly BreakPeriodCalculator _breakPeriod;
-
-    private readonly ChartManager _chartManager;
-    private readonly object _cogSpinLock = new();
-
-    private readonly Stopwatch _frameStopwatch = new();
+    private readonly Lock _cogSpinLock = new();
     private readonly GetLowResBackground? _getLowResBackground;
-
-    private readonly StreamWriter _importantLogWriter;
-
     private readonly KiaiTimes _kiaiTimes = new();
-
     private readonly LogImportant _logImportant = new();
-    private readonly DispatcherTimer _mainTimer;
-
     private readonly SemaphoreSlim _panelAnimationLock = new(1, 1);
     private readonly ProgressIndicatorHelper _progressIndicatorHelper;
-    private readonly SettingsHandler? _settingsHandler;
-
     private readonly TooltipManager _tooltipManager = new();
-
-    public readonly TosuApi _tosuApi;
-
-    private readonly UpdateChecker _updateChecker = new();
-
-    private readonly SharedViewModel _viewModel;
-
     private readonly Action settingsButtonClicked;
-
-    public Image? _blurredBackground;
-
+    private CancellationTokenSource? _blurCts;
     private double _cogCurrentAngle;
     private double _cogSpinBpm = 140;
     private double _cogSpinStartAngle;
-
     private DateTime _cogSpinStartTime;
-
     private DispatcherTimer? _cogSpinTimer;
-
-    private Bitmap? _currentBitmap;
-    private CancellationTokenSource _frameCts;
-    private DispatcherTimer _frameTimer;
-
+    private CancellationTokenSource _frameCts = null!;
     private bool _isCogSpinning;
     private bool _isKiaiPulseHigh;
-
     public bool _isSettingsPanelOpen;
-
     private DispatcherTimer? _kiaiBrightnessTimer;
-
-    private double _kiaiMsPerBeat = 60000.0 / 140; // Default BPM
-
     private List<string> _lastDisplayedLogs = new();
-
-    private DateTime _lastFrameTime = DateTime.UtcNow;
     private double _lastFrameTimestamp;
-
     private GraphData? _lastGraphData;
-
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
-
-    private DateTime _lastRenderTime = DateTime.UtcNow;
-
-    private LogoControl? _logoControl;
-
     private DispatcherTimer? _logUpdateTimer;
-
     public Image? _normalBackground;
-
-    private CancellationTokenSource _timerCts;
-
-    private TosuLauncher _tosuLauncher = new();
+    private CancellationTokenSource _timerCts = null!;
     private Button? _updateNotificationBarButton;
-
     private ProgressBar? _updateProgressBar;
-
     private double opacity = 1.00;
-
+    private bool _previousDeafenState = false;
+    private readonly SemaphoreSlim _updateCheckLock = new(1, 1);
 
     //<summary>
     // constructor for the ui and subsequent panels
@@ -152,11 +113,35 @@ public partial class MainWindow : Window
             await _updateChecker.CheckForUpdatesAsync();
             if (_updateChecker.UpdateInfo != null) ShowUpdateNotification();
         };
+        
+        string resourceName = "osuautodeafen.Resources.favicon.ico";
+        string deafenResourceName = "osuautodeafen.Resources.favicon_d.ico";
+        string startupIconPath = Path.Combine(Path.GetTempPath(), "osuautodeafen_favicon.ico");
+        string deafenIconPath = Path.Combine(Path.GetTempPath(), "osuautodeafen_favicon_d.ico");
+        using (var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
+        {
+            if (resourceStream == null)
+                throw new FileNotFoundException("Embedded icon not found: " + resourceName);
 
-        //TODO
-        // maybe add a state for this depending on if its deafened or not
-        Icon = new WindowIcon(LoadEmbeddedResource("osuautodeafen.Resources.favicon.ico"));
+            using (var iconFileStream = new FileStream(startupIconPath, FileMode.Create, FileAccess.Write))
+            {
+                resourceStream.CopyTo(iconFileStream);
+            }
+            using (var deafenResourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(deafenResourceName))
+            {
+                if (deafenResourceStream == null)
+                    throw new FileNotFoundException("Embedded deafen icon not found: " + deafenResourceName);
 
+                using (var deafenIconFileStream = new FileStream(deafenIconPath, FileMode.Create, FileAccess.Write))
+                {
+                    deafenResourceStream.CopyTo(deafenIconFileStream);
+                }
+            }
+        }
+        
+        TaskbarIconChanger.SetTaskbarIcon(this, startupIconPath);
+        this.Icon = new WindowIcon(startupIconPath);
+        
         _getLowResBackground = new GetLowResBackground(_tosuApi);
 
         _backgroundManager = new BackgroundManager(this, _viewModel, _tosuApi)
@@ -173,6 +158,7 @@ public partial class MainWindow : Window
         _viewModel.MinCompletionPercentage = (int)Math.Round(_settingsHandler.MinCompletionPercentage);
         _viewModel.StarRating = _settingsHandler.StarRating;
         _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
+        _viewModel.BlurRadius = _settingsHandler.BlurRadius;
 
         _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
         _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
@@ -180,20 +166,22 @@ public partial class MainWindow : Window
 
         _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
         _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
-        _viewModel.IsBlurEffectEnabled = _settingsHandler.IsBlurEffectEnabled;
         _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
 
         CompletionPercentageSlider.ValueChanged -= CompletionPercentageSlider_ValueChanged;
         StarRatingSlider.ValueChanged -= StarRatingSlider_ValueChanged;
         PPSlider.ValueChanged -= PPSlider_ValueChanged;
+        BlurEffectSlider.ValueChanged -= BlurEffectSlider_ValueChanged;
 
         CompletionPercentageSlider.Value = _viewModel.MinCompletionPercentage;
         StarRatingSlider.Value = _viewModel.StarRating;
         PPSlider.Value = _viewModel.PerformancePoints;
+        BlurEffectSlider.Value = _viewModel.BlurRadius;
 
         CompletionPercentageSlider.ValueChanged += CompletionPercentageSlider_ValueChanged;
         StarRatingSlider.ValueChanged += StarRatingSlider_ValueChanged;
         PPSlider.ValueChanged += PPSlider_ValueChanged;
+        BlurEffectSlider.ValueChanged += BlurEffectSlider_ValueChanged;
 
         FCToggle.IsChecked = _viewModel.IsFCRequired;
         UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
@@ -201,7 +189,6 @@ public partial class MainWindow : Window
 
         BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
         ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
-        BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
         KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
 
         // end of settings bs
@@ -221,15 +208,28 @@ public partial class MainWindow : Window
 
         // we just need to initialize it, no need for a global variable
         var deafen = new Deafen(_tosuApi, _settingsHandler, _viewModel);
-
+        
+        deafen.Deafened += () =>
+        {
+            TaskbarIconChanger.SetTaskbarIcon(this, deafenIconPath);
+            this.Icon = new WindowIcon(deafenIconPath);
+        };
+        deafen.Undeafened += () =>
+        {
+            TaskbarIconChanger.SetTaskbarIcon(this, startupIconPath);
+            this.Icon = new WindowIcon(startupIconPath);
+        };
+        
         // ideally we could use no timers whatsoever but for now this works fine
         // because it really only checks if events should be triggered
-
         //updated to 16ms from 100ms since apparently it takes 1ms to run anyways, might as well have it be responsive
         _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
+
+        if (_backgroundManager._backgroundBlurEffect != null)
+            _backgroundManager._backgroundBlurEffect.Radius = _viewModel.BlurRadius;
 
         ProgressOverlay.ChartXMin = _progressIndicatorHelper.ChartXMin;
         ProgressOverlay.ChartXMax = _progressIndicatorHelper.ChartXMax;
@@ -238,12 +238,33 @@ public partial class MainWindow : Window
 
         ProgressOverlay.Points =
             _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage());
-
+        
+        _viewModel.DeafenKeybind = new HotKey
+        {
+            Key = _settingsHandler.Data["Hotkeys"]["DeafenKeybindKey"] is { } keyStr && int.TryParse(keyStr, out var keyVal)
+                ? (Key)keyVal
+                : Key.None,
+            ModifierKeys = _settingsHandler.Data["Hotkeys"]["DeafenKeybindModifiers"] is { } modStr && int.TryParse(modStr, out var modVal)
+                ? (KeyModifiers)modVal
+                : KeyModifiers.None,
+            FriendlyName = GetFriendlyKeyName(
+                _settingsHandler.Data["Hotkeys"]["DeafenKeybindKey"] is { } keyStr2 && int.TryParse(keyStr2, out var keyVal2)
+                    ? (Key)keyVal2
+                    : Key.None)
+        };
+        
         _tosuApi.BeatmapChanged += async () =>
         {
             _logImportant.logImportant("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false,
                 "Client");
-            _logImportant.logImportant("Map: " + _tosuApi.GetBeatmapTitle(), false, "Beatmap changed",
+            // thanks a lot take a hint for letting me figure this one out 😔
+            // if a map is over 70 characters it overflows to the next line
+            // so this just ensures its not ugly for people (me) looking at the debug menu
+            string mapInfo = _tosuApi.GetBeatmapArtist() + " - " + _tosuApi.GetBeatmapTitle();
+            if (mapInfo.Length > 67)
+                mapInfo = mapInfo.Substring(0, 67) + "...";
+
+            _logImportant.logImportant("Mapset: " + mapInfo, false, "Beatmap changed",
                 $"https://osu.ppy.sh/b/{_tosuApi.GetBeatmapId()}");
             _logImportant.logImportant("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
             _logImportant.logImportant("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
@@ -279,10 +300,14 @@ public partial class MainWindow : Window
         };
         _tosuApi.HasPercentageChanged += async () =>
         {
+            // might as well not update the debug menu if it isnt even visible
+            var debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
+            if (debugConsolePanel == null || !debugConsolePanel.IsVisible)
+                return;
             _logImportant.logImportant($"Progress %: {_tosuApi.GetCompletionPercentage():F2}%", false, "Map Progress");
             var rate = _tosuApi.GetRateAdjustRate();
             if (rate <= 0 || double.IsNaN(rate) || double.IsInfinity(rate))
-                rate = 1; // Default to 1 if invalid
+                rate = 1;
 
             var currentMs = _tosuApi.GetCurrentTime() / rate;
             var fullMs = _tosuApi.GetFullTime() / rate;
@@ -312,7 +337,6 @@ public partial class MainWindow : Window
             if (_tosuApi._isKiai && _kiaiBrightnessTimer != null)
             {
                 var bpm = _tosuApi.GetCurrentBpm();
-                _kiaiMsPerBeat = 60000.0 / bpm;
             }
 
             _logImportant.logImportant("BPM: " + _tosuApi.GetCurrentBpm(), false, "BPM Changed");
@@ -397,6 +421,13 @@ public partial class MainWindow : Window
         ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
         Background = Brushes.Black;
         BorderBrush = Brushes.Black;
+        /*
+        to anyone looking through the code yes you can make the window width and height
+        anything you want between 400x550 and 800x800, i was going to make this resizable
+        but that ended up being a massive pita because of the debug menu and the background didn't
+        really play nice with being resized (unless it started off at 800x800 (but thats stupid)
+        anyways have fun it should still technically work if you manually set this in the settings.ini
+        */
         Width = _settingsHandler.WindowWidth;
         Height = _settingsHandler.WindowHeight;
         Title = "osuautodeafen";
@@ -424,6 +455,7 @@ public partial class MainWindow : Window
         CompletionPercentageSlider.Value = ViewModel.MinCompletionPercentage;
         StarRatingSlider.Value = ViewModel.StarRating;
         PPSlider.Value = ViewModel.PerformancePoints;
+        BlurEffectSlider.Value = ViewModel.BlurRadius;
     }
 
     private SharedViewModel ViewModel { get; }
@@ -440,6 +472,7 @@ public partial class MainWindow : Window
             _viewModel.MinCompletionPercentage = (int)Math.Round(_settingsHandler.MinCompletionPercentage);
             _viewModel.StarRating = _settingsHandler.StarRating;
             _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
+            _viewModel.BlurRadius = _settingsHandler.BlurRadius;
 
             _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
             _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
@@ -447,13 +480,13 @@ public partial class MainWindow : Window
 
             _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
             _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
-            _viewModel.IsBlurEffectEnabled = _settingsHandler.IsBlurEffectEnabled;
             _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
 
             // Update UI controls
             CompletionPercentageSlider.ValueChanged -= CompletionPercentageSlider_ValueChanged;
             StarRatingSlider.ValueChanged -= StarRatingSlider_ValueChanged;
             PPSlider.ValueChanged -= PPSlider_ValueChanged;
+            BlurEffectSlider.ValueChanged -= BlurEffectSlider_ValueChanged;
 
             CompletionPercentageSlider.Value = _viewModel.MinCompletionPercentage;
             StarRatingSlider.Value = _viewModel.StarRating;
@@ -462,6 +495,7 @@ public partial class MainWindow : Window
             CompletionPercentageSlider.ValueChanged += CompletionPercentageSlider_ValueChanged;
             StarRatingSlider.ValueChanged += StarRatingSlider_ValueChanged;
             PPSlider.ValueChanged += PPSlider_ValueChanged;
+            BlurEffectSlider.ValueChanged += BlurEffectSlider_ValueChanged;
 
             FCToggle.IsChecked = _viewModel.IsFCRequired;
             UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
@@ -469,7 +503,7 @@ public partial class MainWindow : Window
 
             BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
             ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
-            BlurEffectToggle.IsChecked = _viewModel.IsBlurEffectEnabled;
+            BlurEffectSlider.Value = _viewModel.BlurRadius;
             KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
 
             var keyStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindKey"];
@@ -499,63 +533,64 @@ public partial class MainWindow : Window
         }
     }
 
-    public async void StartStableFrameTimer(int targetFps = 60) {
-    _frameCts = new CancellationTokenSource();
-    targetFps = Math.Clamp(targetFps, 1, 1000);
-    var intervalMs = 1000.0 / targetFps;
-
-    timeBeginPeriod(1);
-    _frameStopwatch.Restart();
-    var lastFrameTicks = _frameStopwatch.ElapsedTicks;
-    var tickMs = 1000.0 / Stopwatch.Frequency;
-
-    double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
-    int frameCount = 0, statsWindow = 100;
-
-    try
+    public async void StartStableFrameTimer(int targetFps = 60)
     {
-        while (!_frameCts.IsCancellationRequested)
+        _frameCts = new CancellationTokenSource();
+        targetFps = Math.Clamp(targetFps, 1, 1000);
+        var intervalMs = 1000.0 / targetFps;
+
+        timeBeginPeriod(1);
+        _frameStopwatch.Restart();
+        var lastFrameTicks = _frameStopwatch.ElapsedTicks;
+        var tickMs = 1000.0 / Stopwatch.Frequency;
+
+        double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
+        int frameCount = 0, statsWindow = 100;
+
+        try
         {
-            var frameStartTicks = _frameStopwatch.ElapsedTicks;
-            var frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
-            lastFrameTicks = frameStartTicks;
-
-            frameInterval = Math.Max(frameInterval, 1.0);
-
-            minFrame = Math.Min(minFrame, frameInterval);
-            maxFrame = Math.Max(maxFrame, frameInterval);
-            sumFrame += frameInterval;
-            frameCount++;
-            
-            if (frameCount % statsWindow == 0)
+            while (!_frameCts.IsCancellationRequested)
             {
-                var avgFrame = sumFrame / frameCount;
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    _logImportant.logImportant(
-                        $"Frame: {frameInterval:F2}ms/{1000.0 / avgFrame:F0}fps",
-                        false, "FrameLatency");
-                    _logImportant.logImportant($"Min/Max/Avg: {minFrame:F2}/{maxFrame:F2}/{avgFrame:F2}ms",
-                        false, "FrameStats");
-                });
-                minFrame = double.MaxValue;
-                maxFrame = double.MinValue;
-                sumFrame = 0;
-                frameCount = 0;
-            }
+                var frameStartTicks = _frameStopwatch.ElapsedTicks;
+                var frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
+                lastFrameTicks = frameStartTicks;
 
-            var elapsedMs = (_frameStopwatch.ElapsedTicks - frameStartTicks) * tickMs;
-            var sleep = intervalMs - elapsedMs;
-            if (sleep > 0)
-                await Task.Delay((int)sleep);
+                frameInterval = Math.Max(frameInterval, 1.0);
+
+                minFrame = Math.Min(minFrame, frameInterval);
+                maxFrame = Math.Max(maxFrame, frameInterval);
+                sumFrame += frameInterval;
+                frameCount++;
+
+                if (frameCount % statsWindow == 0)
+                {
+                    var avgFrame = sumFrame / frameCount;
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        _logImportant.logImportant(
+                            $"Frame: {frameInterval:F2}ms/{1000.0 / avgFrame:F0}fps",
+                            false, "FrameLatency");
+                        _logImportant.logImportant($"Min/Max/Avg: {minFrame:F2}/{maxFrame:F2}/{avgFrame:F2}ms",
+                            false, "FrameStats");
+                    });
+                    minFrame = double.MaxValue;
+                    maxFrame = double.MinValue;
+                    sumFrame = 0;
+                    frameCount = 0;
+                }
+
+                var elapsedMs = (_frameStopwatch.ElapsedTicks - frameStartTicks) * tickMs;
+                var sleep = intervalMs - elapsedMs;
+                if (sleep > 0)
+                    await Task.Delay((int)sleep);
+            }
+        }
+        finally
+        {
+            _frameStopwatch.Stop();
+            timeEndPeriod(1);
         }
     }
-    finally
-    {
-        _frameStopwatch.Stop();
-        timeEndPeriod(1);
-    }
-}
 
     [DllImport("winmm.dll")]
     private static extern int timeBeginPeriod(uint uMilliseconds);
@@ -656,12 +691,40 @@ public partial class MainWindow : Window
             ToolTip.SetIsOpen(slider, false);
     }
 
+    private void BlurEffectSlider_PointerPressed(object sender, PointerPressedEventArgs e)
+    {
+        ToolTip.SetIsOpen(BlurEffectSlider, true);
+    }
+
+    private void BlurEffectSlider_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (sender is Slider slider)
+        {
+            if (e.GetCurrentPoint(slider).Properties.IsLeftButtonPressed)
+            {
+                ToolTip.SetTip(slider, $"Blur: {slider.Value * 5:0}%");
+                ToolTip.SetPlacement(slider, PlacementMode.Pointer);
+                ToolTip.SetVerticalOffset(slider, -30);
+                ToolTip.SetIsOpen(slider, true);
+            }
+            else
+            {
+                ToolTip.SetIsOpen(slider, false);
+            }
+        }
+    }
+
+    private void BlurEffectSlider_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (sender is Slider slider)
+            ToolTip.SetIsOpen(slider, false);
+    }
+
     //Settings
     public async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (DataContext is not SharedViewModel vm) return;
         var roundedValue = (int)Math.Round(e.NewValue);
-        Console.WriteLine($"Min Comp. % Value: {roundedValue}");
         vm.MinCompletionPercentage = roundedValue;
         _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", roundedValue);
         try
@@ -697,6 +760,15 @@ public partial class MainWindow : Window
         _settingsHandler?.SaveSetting("General", "PerformancePoints", roundedValue);
     }
 
+    private void BlurEffectSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
+        var roundedValue = Math.Round(slider.Value, 1);
+        Console.WriteLine($"Blur Radius: {roundedValue:F1}");
+        vm.BlurRadius = roundedValue;
+        _settingsHandler?.SaveSetting("UI", "BlurRadius", roundedValue);
+    }
+
     private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(SharedViewModel.CompletionPercentage))
@@ -715,6 +787,20 @@ public partial class MainWindow : Window
                         force: true);
                 ProgressOverlay.Points = points;
             });
+        if (e.PropertyName == nameof(_viewModel.BlurRadius))
+        {
+            var blurEffect = _backgroundManager._backgroundBlurEffect;
+            if (blurEffect != null)
+            {
+                // Cancel previous animation
+                _blurCts?.Cancel();
+                _blurCts = new CancellationTokenSource();
+
+                var radius = _viewModel.BlurRadius;
+                var token = _blurCts.Token;
+                await _backgroundManager.BlurBackgroundAsync(blurEffect, radius, token);
+            }
+        }
     }
 
     private void OnGraphDataUpdated(GraphData? graphData)
@@ -750,8 +836,7 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(() =>
             _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage));
     }
-
-    // show the update notification bar if an update is available
+    
     private async void InitializeViewModel()
     {
         //await CheckForUpdates();
@@ -769,11 +854,11 @@ public partial class MainWindow : Window
     private void DeafenKeybindButton_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.IsKeybindCaptureFlyoutOpen = !ViewModel.IsKeybindCaptureFlyoutOpen;
-        var flyout = Resources["KeybindCaptureFlyout"] as Flyout;
+        var flyout = DeafenKeybindButton.Flyout as Flyout;
         if (flyout != null)
         {
             if (ViewModel.IsKeybindCaptureFlyoutOpen)
-                flyout.ShowAt(DeafenKeybindButton);
+                flyout.ShowAt(DeafenKeybindButton, true);
             else
                 flyout.Hide();
         }
@@ -783,10 +868,54 @@ public partial class MainWindow : Window
     {
         base.OnKeyDown(e);
 
+        if (ViewModel.IsKeybindCaptureFlyoutOpen)
+        {
+            var flyout = DeafenKeybindButton.Flyout as Flyout;
+            if (e.Key == Key.Escape)
+            {
+                ViewModel.IsKeybindCaptureFlyoutOpen = false;
+                flyout?.Hide();
+                return;
+            }
+
+            if (e.Key == Key.NumLock || IsModifierKey(e.Key))
+            {
+                // Ignore modifier/NumLock keys and do not set keybind
+                e.Handled = true;
+                return;
+            }
+
+            var currentTime = DateTime.Now;
+            if (e.Key == _lastKeyPressed && (currentTime - _lastKeyPressTime).TotalMilliseconds < 2500)
+                return;
+            _lastKeyPressed = e.Key;
+            _lastKeyPressTime = currentTime;
+
+            var modifiers = KeyModifiers.None;
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Control)) modifiers |= KeyModifiers.Control;
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Alt)) modifiers |= KeyModifiers.Alt;
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) modifiers |= KeyModifiers.Shift;
+
+            var friendlyKeyName = GetFriendlyKeyName(e.Key);
+            var hotKey = new HotKey { Key = e.Key, ModifierKeys = modifiers, FriendlyName = friendlyKeyName };
+            ViewModel.DeafenKeybind = hotKey;
+
+            _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindKey", (int)e.Key);
+            _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindModifiers", (int)modifiers);
+
+            ViewModel.IsKeybindCaptureFlyoutOpen = false;
+            UpdateDeafenKeybindDisplay();
+
+            e.Handled = true;
+            flyout?.Hide();
+            return;
+        }
+
         if (e.Key == Key.D && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             Dispatcher.UIThread.InvokeAsync(() => DebugConsoleButton_Click_NoAnim(null, null));
             e.Handled = true;
+            return;
         }
 
         if (e.Key == Key.O && e.KeyModifiers.HasFlag(KeyModifiers.Control))
@@ -794,44 +923,6 @@ public partial class MainWindow : Window
             Dispatcher.UIThread.InvokeAsync(() => SettingsButton_Click(null, null));
             e.Handled = true;
         }
-
-        if (!ViewModel.IsKeybindCaptureFlyoutOpen) return;
-        if (e.Key == Key.NumLock) return;
-
-        if (e.Key == Key.Escape)
-        {
-            ViewModel.IsKeybindCaptureFlyoutOpen = false;
-            (Resources["KeybindCaptureFlyout"] as Flyout)?.Hide();
-            return;
-        }
-
-        var currentTime = DateTime.Now;
-        if (e.Key == _lastKeyPressed && (currentTime - _lastKeyPressTime).TotalMilliseconds < 2500) return;
-        _lastKeyPressed = e.Key;
-        _lastKeyPressTime = currentTime;
-
-        if (IsModifierKey(e.Key)) return;
-
-        var modifiers = KeyModifiers.None;
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Control)) modifiers |= KeyModifiers.Control;
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Alt)) modifiers |= KeyModifiers.Alt;
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) modifiers |= KeyModifiers.Shift;
-
-        var friendlyKeyName = GetFriendlyKeyName(e.Key);
-        var hotKey = new HotKey { Key = e.Key, ModifierKeys = modifiers, FriendlyName = friendlyKeyName };
-        ViewModel.DeafenKeybind = hotKey;
-
-        // Save to settings
-        _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindKey", (int)e.Key);
-        _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindModifiers", (int)modifiers);
-
-        ViewModel.IsKeybindCaptureFlyoutOpen = false;
-        (Resources["KeybindCaptureFlyout"] as Flyout)?.Hide();
-
-        // Update display
-        UpdateDeafenKeybindDisplay();
-
-        e.Handled = true;
     }
 
     private string RetrieveKeybindFromSettings()
@@ -980,26 +1071,45 @@ public partial class MainWindow : Window
         _logImportant.logImportant("Velopack: " + _updateChecker.mgr.IsInstalled, false, "Velopack");
         _logImportant.logImportant("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");
     }
-
+    
     public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)
     {
-        var button = this.FindControl<Button>("CheckForUpdatesButton");
-        if (button == null) return;
+        if (!await _updateCheckLock.WaitAsync(0))
+            return; // already running
 
-        button.Content = "Checking for updates...";
-        await Task.Delay(1000);
-
-        await _updateChecker.CheckForUpdatesAsync();
-        if (_updateChecker?.UpdateInfo == null)
+        try
         {
-            button.Content = "No updates found";
-            await Task.Delay(1000);
-            button.Content = "Check for Updates";
-            return;
-        }
+            var button = this.FindControl<Button>("CheckForUpdatesButton");
+            if (button == null) return;
 
-        button.Content = "Update available!";
-        ShowUpdateNotification();
+            button.Content = "Checking for updates...";
+            await Task.Delay(1000);
+
+            await _updateChecker.CheckForUpdatesAsync();
+            if (_updateChecker?.mgr.IsInstalled == false)
+            {
+                button.Content = "Velopack not installed...";
+                await Task.Delay(1000);
+                button.Content = "Please reinstall osuautodeafen";
+                await Task.Delay(1000);
+                button.Content = "Check for Updates";
+                return;
+            }
+            if (_updateChecker?.UpdateInfo == null)
+            {
+                button.Content = "No updates found";
+                await Task.Delay(1000);
+                button.Content = "Check for Updates";
+                return;
+            }
+
+            button.Content = "Update available!";
+            ShowUpdateNotification();
+        }
+        finally
+        {
+            _updateCheckLock.Release();
+        }
     }
 
     private bool IsModifierKey(Key key)
@@ -1007,40 +1117,6 @@ public partial class MainWindow : Window
         return key == Key.LeftCtrl || key == Key.RightCtrl ||
                key == Key.LeftAlt || key == Key.RightAlt ||
                key == Key.LeftShift || key == Key.RightShift;
-    }
-
-    public Bitmap LoadEmbeddedResource(string resourceName)
-    {
-        const int maxRetries = 5;
-        const int initialDelayMilliseconds = 500;
-        var delay = initialDelayMilliseconds;
-
-        for (var retryCount = 0; retryCount < maxRetries; retryCount++)
-            try
-            {
-                using var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
-                                           ?? throw new FileNotFoundException("Resource not found: " + resourceName);
-
-                return new Bitmap(resourceStream)
-                       ?? throw new InvalidOperationException("Failed to create bitmap from resource stream.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(
-                    $"[ERROR] Exception while loading embedded resource '{resourceName}': {ex.Message}. Attempt {retryCount + 1} of {maxRetries}.");
-
-                if (retryCount >= maxRetries - 1)
-                {
-                    Console.WriteLine("[ERROR] Max retry attempts reached. Failing operation.");
-                    throw;
-                }
-
-                // Exponential backoff
-                Task.Delay(delay).Wait();
-                delay *= 2;
-            }
-
-        throw new InvalidOperationException("Failed to load embedded resource after multiple attempts.");
     }
 
     public SKSvg LoadHighResolutionLogo(string resourceName)
@@ -1098,7 +1174,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task<Bitmap> LoadLogoAsync(string resourceName)
+    private Task<Bitmap> LoadLogoAsync(string resourceName)
     {
         using var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
                                    ?? throw new FileNotFoundException("Resource not found: " + resourceName);
@@ -1106,9 +1182,9 @@ public partial class MainWindow : Window
         var svg = new SKSvg();
         svg.Load(resourceStream);
 
-        return svg.Picture == null
+        return Task.FromResult(svg.Picture == null
             ? throw new InvalidOperationException("Failed to load SVG picture.")
-            : ConvertSvgToBitmap(svg, 100, 100);
+            : ConvertSvgToBitmap(svg, 100, 100));
     }
 
     private Bitmap ConvertSvgToBitmap(SKSvg svg, int width, int height)
@@ -1179,26 +1255,6 @@ public partial class MainWindow : Window
         }
     }
 
-
-    private Bitmap? CreateBlackBitmap(int width = 600, int height = 600)
-    {
-        var renderTargetBitmap = new RenderTargetBitmap(new PixelSize(width, height), new Vector(96, 96));
-        using (var drawingContext = renderTargetBitmap.CreateDrawingContext())
-        {
-            var rect = new Rect(0, 0, width, height);
-            var brush = new SolidColorBrush(Colors.Black);
-            drawingContext.FillRectangle(brush, rect);
-        }
-
-        using (var stream = new MemoryStream())
-        {
-            renderTargetBitmap.Save(stream);
-            stream.Position = 0; // reset stream position to the beginning
-
-            return new Bitmap(stream);
-        }
-    }
-
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
         _mainTimer?.Stop();
@@ -1219,7 +1275,6 @@ public partial class MainWindow : Window
             var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
             var versionPanel = textBlockPanel?.FindControl<TextBlock>("VersionPanel");
             var debugConsoleTextBlock = this.FindControl<TextBlock>("DebugConsoleTextBlock");
-            var debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
             if (settingsPanel == null || buttonContainer == null || cogImage == null ||
                 textBlockPanel == null || osuautodeafenLogoPanel == null || versionPanel == null ||
                 debugConsoleTextBlock == null)
@@ -1636,20 +1691,16 @@ public partial class MainWindow : Window
     {
         var hyperlink = ExtractHyperlink(logText);
 
-        if (!string.IsNullOrEmpty(hyperlink) && logText.StartsWith("Map:"))
+        if (!string.IsNullOrEmpty(hyperlink))
         {
-            var nameStart = "Map:".Length;
-            var nameEnd = logText.IndexOf(hyperlink, StringComparison.Ordinal);
-            var beatmapName = logText.Substring(nameStart, nameEnd - nameStart).Trim();
-
-            var linePanel = new WrapPanel { Orientation = Orientation.Horizontal };
-            linePanel.Children.Add(new TextBlock { Text = "Map: ", Foreground = Brushes.White });
+            // Remove the hyperlink from the displayed text
+            var displayText = logText.Replace(hyperlink, "").TrimEnd();
 
             var linkButton = new Button
             {
                 Content = new TextBlock
                 {
-                    Text = beatmapName,
+                    Text = displayText,
                     Foreground = Brushes.LightBlue,
                     TextDecorations = TextDecorations.Underline,
                     Cursor = new Cursor(StandardCursorType.Hand)
@@ -1667,9 +1718,7 @@ public partial class MainWindow : Window
                     UseShellExecute = true
                 });
             };
-            linePanel.Children.Add(linkButton);
-
-            return linePanel;
+            return linkButton;
         }
 
         return new TextBlock { Text = logText, Foreground = Brushes.White };
@@ -1686,7 +1735,7 @@ public partial class MainWindow : Window
     {
         public Key Key { get; init; }
         public KeyModifiers ModifierKeys { get; init; }
-        public string FriendlyName { get; init; }
+        public required string FriendlyName { get; init; }
 
         public override string? ToString()
         {
@@ -1701,7 +1750,7 @@ public partial class MainWindow : Window
 
             parts.Add(FriendlyName);
 
-            return string.Join("+", parts).Replace("==", "="); // Fix for equal key
+            return string.Join("+", parts).Replace("==", "="); // Fix for equal key not working
         }
     }
 }

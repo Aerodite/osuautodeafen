@@ -192,7 +192,7 @@ public class ChartManager
 
                 await UpdateDeafenOverlayAsync(newPercentage);
 
-                tooltipManager.ShowCustomTooltip(pixelPoint, $"Deafen %: \n{newPercentage:F1}%", PlotView.Bounds);
+                tooltipManager.ShowCustomTooltip(pixelPoint, $"Deafen Min %: \n{newPercentage:F1}%", PlotView.Bounds);
                 PlotView.InvalidateVisual();
                 e.Handled = true;
                 return;
@@ -379,9 +379,14 @@ public class ChartManager
 
         MaxYValue = GetMaxYValue(graphData);
 
-        var seriesArr = PlotView.Series.ToList();
+        var seriesUpdated = false;
+        var seriesArr = PlotView.Series as List<ISeries> ?? PlotView.Series.ToList();
+
         if (graphChanged)
+        {
             seriesArr = UpdateSeries(graphData, seriesArr);
+            seriesUpdated = true;
+        }
 
         if (osuFilePath != null && (fileChanged || graphChanged))
             await UpdateSectionsAsync(graphData, osuFilePath);
@@ -391,11 +396,17 @@ public class ChartManager
         if (!seriesArr.Contains(_progressIndicator))
         {
             seriesArr.Add(_progressIndicator);
+            seriesUpdated = true;
+        }
+
+        if (seriesUpdated)
+        {
             Series = seriesArr.ToArray();
             PlotView.Series = Series;
         }
 
-        UpdateAxes();
+        if (graphChanged || fileChanged)
+            UpdateAxes();
 
         if (minCompletionChanged)
             await UpdateDeafenOverlayAsync(minCompletionPercentage);
@@ -418,14 +429,21 @@ public class ChartManager
 
     private List<ISeries> UpdateSeries(GraphData graphData, List<ISeries> seriesArr)
     {
-        var maxPoints = 1000;
+        const int maxPoints = 1000;
         var newSeriesList = new List<ISeries>();
+        var maxLimit = 0;
+
+        // Cache existing series by name for fast lookup
+        var existingSeriesDict = seriesArr
+            .OfType<LineSeries<ObservablePoint>>()
+            .ToDictionary(ls => ls.Name, ls => ls);
+
         foreach (var series in graphData.Series)
         {
-            int start = 0, end = series.Data.Count - 1;
-            while (start <= end && series.Data[start] == -100) start++;
-            while (end >= start && series.Data[end] == -100) end--;
-            if (end < start) continue;
+            // Find valid data range
+            var start = series.Data.FindIndex(v => v != -100);
+            var end = series.Data.FindLastIndex(v => v != -100);
+            if (start == -1 || end == -1 || end < start) continue;
 
             var updatedCount = end - start + 1;
             var updatedValues = new ObservablePoint[updatedCount];
@@ -433,20 +451,18 @@ public class ChartManager
             for (var i = start; i <= end; i++)
                 if (series.Data[i] != -100)
                     updatedValues[idx++] = new ObservablePoint(i - start, series.Data[i]);
-            MaxLimit = idx;
+            maxLimit = Math.Max(maxLimit, idx);
 
-            var downsampled = Downsample(updatedValues, idx, maxPoints);
+            var downsampled = Downsample(updatedValues, maxPoints);
             var smoothed = SmoothData(downsampled, 10, 0.2);
 
             var color = series.Name == "aim" ? AimColor : SpeedColor;
             var name = series.Name == "aim" ? "Aim" : "Speed";
 
-            var existing =
-                seriesArr.OfType<LineSeries<ObservablePoint>>().FirstOrDefault(ls => ls.Name == name);
-
-            if (existing != null)
+            if (existingSeriesDict.TryGetValue(name, out var existing))
             {
-                existing.Values = smoothed;
+                if (!ReferenceEquals(existing.Values, smoothed))
+                    existing.Values = smoothed;
                 existing.TooltipLabelFormatter = _ => "";
                 newSeriesList.Add(existing);
             }
@@ -466,6 +482,8 @@ public class ChartManager
                 });
             }
         }
+
+        MaxLimit = maxLimit;
 
         if (!newSeriesList.Contains(_progressIndicator))
             newSeriesList.Add(_progressIndicator);
@@ -622,31 +640,40 @@ public class ChartManager
         PlotView.YAxes = YAxes;
     }
 
-    private int FindClosestIndex(List<double> xAxis, double value)
+    private int FindClosestIndex(List<double>? xAxis, double value)
     {
-        var closestIndex = 0;
-        var smallestDifference = double.MaxValue;
-        for (var i = 0; i < xAxis.Count; i++)
+        if (xAxis == null || xAxis.Count == 0) return 0;
+
+        int left = 0, right = xAxis.Count - 1;
+        while (left < right)
         {
-            var difference = Math.Abs(xAxis[i] - value);
-            if (difference < smallestDifference)
-            {
-                smallestDifference = difference;
-                closestIndex = i;
-            }
+            var mid = (left + right) / 2;
+            if (xAxis[mid] < value)
+                left = mid + 1;
+            else
+                right = mid;
         }
 
-        return closestIndex;
+        if (left == 0) return 0;
+        if (left == xAxis.Count) return xAxis.Count - 1;
+
+        var diffLeft = Math.Abs(xAxis[left] - value);
+        var diffPrev = Math.Abs(xAxis[left - 1] - value);
+        return diffLeft < diffPrev ? left : left - 1;
     }
 
-    private static ObservablePoint[] Downsample(ObservablePoint[] data, int dataCount, int maxPoints)
+    private static ObservablePoint[] Downsample(ObservablePoint[] data, int maxPoints)
     {
+        var dataCount = data.Length;
         if (dataCount <= maxPoints) return data;
+
         var result = new ObservablePoint[maxPoints];
-        var step = (double)dataCount / maxPoints;
+        var step = (double)(dataCount - 1) / (maxPoints - 1);
+
         for (var i = 0; i < maxPoints; i++)
         {
-            var idx = (int)(i * step);
+            var idx = (int)Math.Round(i * step);
+            if (idx >= dataCount) idx = dataCount - 1;
             result[i] = data[idx];
         }
 
@@ -657,24 +684,19 @@ public class ChartManager
     {
         var n = data.Length;
         var smoothedData = new ObservablePoint[n];
-        var adjustedWindow = Math.Max(1, (int)(windowSize * smoothingFactor));
-        var sum = 0.0;
-        var count = 0;
-        var left = 0;
+        var halfWindow = Math.Max(1, (int)(windowSize * smoothingFactor));
+        var prefixSum = new double[n + 1];
+
+        // Build prefix sum for fast range sum queries
+        for (var i = 0; i < n; i++)
+            prefixSum[i + 1] = prefixSum[i] + (data[i].Y ?? 0.0);
 
         for (var i = 0; i < n; i++)
         {
-            var y = data[i].Y ?? 0.0;
-            sum += y;
-            count++;
-
-            if (i - left + 1 > adjustedWindow * 2 + 1)
-            {
-                sum -= data[left].Y ?? 0.0;
-                left++;
-                count--;
-            }
-
+            var left = Math.Max(0, i - halfWindow);
+            var right = Math.Min(n - 1, i + halfWindow);
+            var count = right - left + 1;
+            var sum = prefixSum[right + 1] - prefixSum[left];
             smoothedData[i] = new ObservablePoint(data[i].X, sum / count);
         }
 
@@ -683,11 +705,9 @@ public class ChartManager
 
     private bool AreListsEqual<T>(List<T>? a, List<T>? b)
     {
+        if (ReferenceEquals(a, b)) return true;
         if (a == null || b == null || a.Count != b.Count) return false;
-        for (var i = 0; i < a.Count; i++)
-            if (!EqualityComparer<T>.Default.Equals(a[i], b[i]))
-                return false;
-        return true;
+        return a.SequenceEqual(b);
     }
 
     public async Task<List<BreakPeriod>> GetBreakPeriodsAsync(
