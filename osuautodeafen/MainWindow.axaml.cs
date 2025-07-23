@@ -37,26 +37,26 @@ namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
-    private readonly DispatcherTimer _mainTimer;
-    private readonly ChartManager _chartManager;
-    private readonly BackgroundManager? _backgroundManager;
-    private readonly Stopwatch _frameStopwatch = new();
-    private readonly SettingsHandler? _settingsHandler;
-    private readonly TosuApi _tosuApi;
-    private readonly UpdateChecker _updateChecker = new();
-    private readonly SharedViewModel _viewModel;
-    private LogoControl? _logoControl;
-    
-    private readonly BreakPeriodCalculator _breakPeriod;
     private const double beatsPerRotation = 4;
     private readonly AnimationManager _animationManager = new();
+    private readonly BackgroundManager? _backgroundManager;
+
+    private readonly BreakPeriodCalculator _breakPeriod;
+    private readonly ChartManager _chartManager;
     private readonly Lock _cogSpinLock = new();
+    private readonly Stopwatch _frameStopwatch = new();
     private readonly GetLowResBackground? _getLowResBackground;
     private readonly KiaiTimes _kiaiTimes = new();
     private readonly LogImportant _logImportant = new();
+    private readonly DispatcherTimer _mainTimer;
     private readonly SemaphoreSlim _panelAnimationLock = new(1, 1);
     private readonly ProgressIndicatorHelper _progressIndicatorHelper;
+    private readonly SettingsHandler? _settingsHandler;
     private readonly TooltipManager _tooltipManager = new();
+    private readonly TosuApi _tosuApi;
+    private readonly UpdateChecker _updateChecker = new();
+    private readonly SemaphoreSlim _updateCheckLock = new(1, 1);
+    private readonly SharedViewModel _viewModel;
     private readonly Action settingsButtonClicked;
     private CancellationTokenSource? _blurCts;
     private double _cogCurrentAngle;
@@ -69,19 +69,19 @@ public partial class MainWindow : Window
     private bool _isKiaiPulseHigh;
     public bool _isSettingsPanelOpen;
     private DispatcherTimer? _kiaiBrightnessTimer;
-    private List<string> _lastDisplayedLogs = new();
+    private List<string> _lastDisplayedLogs = [];
     private double _lastFrameTimestamp;
     private GraphData? _lastGraphData;
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
+    private LogoControl? _logoControl;
     private DispatcherTimer? _logUpdateTimer;
     public Image? _normalBackground;
+    private bool _previousDeafenState = false;
     private CancellationTokenSource _timerCts = null!;
     private Button? _updateNotificationBarButton;
     private ProgressBar? _updateProgressBar;
     private double opacity = 1.00;
-    private bool _previousDeafenState = false;
-    private readonly SemaphoreSlim _updateCheckLock = new(1, 1);
 
     //<summary>
     // constructor for the ui and subsequent panels
@@ -113,11 +113,11 @@ public partial class MainWindow : Window
             await _updateChecker.CheckForUpdatesAsync();
             if (_updateChecker.UpdateInfo != null) ShowUpdateNotification();
         };
-        
-        string resourceName = "osuautodeafen.Resources.favicon.ico";
-        string deafenResourceName = "osuautodeafen.Resources.favicon_d.ico";
-        string startupIconPath = Path.Combine(Path.GetTempPath(), "osuautodeafen_favicon.ico");
-        string deafenIconPath = Path.Combine(Path.GetTempPath(), "osuautodeafen_favicon_d.ico");
+
+        var resourceName = "osuautodeafen.Resources.favicon.ico";
+        var deafenResourceName = "osuautodeafen.Resources.favicon_d.ico";
+        var startupIconPath = Path.Combine(Path.GetTempPath(), "osuautodeafen_favicon.ico");
+        var deafenIconPath = Path.Combine(Path.GetTempPath(), "osuautodeafen_favicon_d.ico");
         using (var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
         {
             if (resourceStream == null)
@@ -127,7 +127,9 @@ public partial class MainWindow : Window
             {
                 resourceStream.CopyTo(iconFileStream);
             }
-            using (var deafenResourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(deafenResourceName))
+
+            using (var deafenResourceStream =
+                   Assembly.GetExecutingAssembly().GetManifestResourceStream(deafenResourceName))
             {
                 if (deafenResourceStream == null)
                     throw new FileNotFoundException("Embedded deafen icon not found: " + deafenResourceName);
@@ -138,10 +140,10 @@ public partial class MainWindow : Window
                 }
             }
         }
-        
+
         TaskbarIconChanger.SetTaskbarIcon(this, startupIconPath);
-        this.Icon = new WindowIcon(startupIconPath);
-        
+        Icon = new WindowIcon(startupIconPath);
+
         _getLowResBackground = new GetLowResBackground(_tosuApi);
 
         _backgroundManager = new BackgroundManager(this, _viewModel, _tosuApi)
@@ -208,18 +210,19 @@ public partial class MainWindow : Window
 
         // we just need to initialize it, no need for a global variable
         var deafen = new Deafen(_tosuApi, _settingsHandler, _viewModel);
-        
-        deafen.Deafened += () =>
-        {
-            TaskbarIconChanger.SetTaskbarIcon(this, deafenIconPath);
-            this.Icon = new WindowIcon(deafenIconPath);
-        };
-        deafen.Undeafened += () =>
-        {
-            TaskbarIconChanger.SetTaskbarIcon(this, startupIconPath);
-            this.Icon = new WindowIcon(startupIconPath);
-        };
-        
+
+        // im d1 lazy so ill do this in 1.0.9 :tf:
+        // deafen.Deafened += () =>
+        // {
+        //     TaskbarIconChanger.SetTaskbarIcon(this, deafenIconPath);
+        //     Icon = new WindowIcon(deafenIconPath);
+        // };
+        // deafen.Undeafened += () =>
+        // {
+        //     TaskbarIconChanger.SetTaskbarIcon(this, startupIconPath);
+        //     Icon = new WindowIcon(startupIconPath);
+        // };
+
         // ideally we could use no timers whatsoever but for now this works fine
         // because it really only checks if events should be triggered
         //updated to 16ms from 100ms since apparently it takes 1ms to run anyways, might as well have it be responsive
@@ -238,21 +241,24 @@ public partial class MainWindow : Window
 
         ProgressOverlay.Points =
             _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage());
-        
+
         _viewModel.DeafenKeybind = new HotKey
         {
-            Key = _settingsHandler.Data["Hotkeys"]["DeafenKeybindKey"] is { } keyStr && int.TryParse(keyStr, out var keyVal)
+            Key = _settingsHandler.Data["Hotkeys"]["DeafenKeybindKey"] is { } keyStr &&
+                  int.TryParse(keyStr, out var keyVal)
                 ? (Key)keyVal
                 : Key.None,
-            ModifierKeys = _settingsHandler.Data["Hotkeys"]["DeafenKeybindModifiers"] is { } modStr && int.TryParse(modStr, out var modVal)
+            ModifierKeys = _settingsHandler.Data["Hotkeys"]["DeafenKeybindModifiers"] is { } modStr &&
+                           int.TryParse(modStr, out var modVal)
                 ? (KeyModifiers)modVal
                 : KeyModifiers.None,
             FriendlyName = GetFriendlyKeyName(
-                _settingsHandler.Data["Hotkeys"]["DeafenKeybindKey"] is { } keyStr2 && int.TryParse(keyStr2, out var keyVal2)
+                _settingsHandler.Data["Hotkeys"]["DeafenKeybindKey"] is { } keyStr2 &&
+                int.TryParse(keyStr2, out var keyVal2)
                     ? (Key)keyVal2
                     : Key.None)
         };
-        
+
         _tosuApi.BeatmapChanged += async () =>
         {
             _logImportant.logImportant("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false,
@@ -260,7 +266,7 @@ public partial class MainWindow : Window
             // thanks a lot take a hint for letting me figure this one out 😔
             // if a map is over 70 characters it overflows to the next line
             // so this just ensures its not ugly for people (me) looking at the debug menu
-            string mapInfo = _tosuApi.GetBeatmapArtist() + " - " + _tosuApi.GetBeatmapTitle();
+            var mapInfo = _tosuApi.GetBeatmapArtist() + " - " + _tosuApi.GetBeatmapTitle();
             if (mapInfo.Length > 67)
                 mapInfo = mapInfo.Substring(0, 67) + "...";
 
@@ -592,6 +598,7 @@ public partial class MainWindow : Window
         }
     }
 
+    // windows multimedia api timeperiods just to make sure timing is accurate
     [DllImport("winmm.dll")]
     private static extern int timeBeginPeriod(uint uMilliseconds);
 
@@ -603,6 +610,17 @@ public partial class MainWindow : Window
     {
         _frameCts?.Cancel();
     }
+
+    //TODO
+    /*
+        we need to start handling all of this slider bullshit somewhere else bro istg
+        ESPECIALLY for tooltips because holy hell they are kind of a mess
+        i tried making custom tooltips in https://github.com/Aerodite/osuautodeafen/commit/3adb7ab579152bbdc3fb624077bb82c628db6dfc
+        but that ultimately ended up being a buggy mess.
+
+        maybe we could grab from the really simple new tooltip system used in the straingraph by TooltipManager.cs,
+        but honestly i feel like that entire system might need to be expanded upon because those tooltips are pretty barebones
+    */
 
     private void CompletionPercentageSlider_PointerPressed(object sender, PointerPressedEventArgs e)
     {
@@ -720,7 +738,6 @@ public partial class MainWindow : Window
             ToolTip.SetIsOpen(slider, false);
     }
 
-    //Settings
     public async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (DataContext is not SharedViewModel vm) return;
@@ -774,7 +791,7 @@ public partial class MainWindow : Window
         if (e.PropertyName == nameof(SharedViewModel.CompletionPercentage))
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (_progressIndicatorHelper == null || _tosuApi == null || ProgressOverlay == null)
+                if (ProgressOverlay == null)
                     return;
 
                 ProgressOverlay.ChartXMin = _progressIndicatorHelper.ChartXMin;
@@ -789,7 +806,7 @@ public partial class MainWindow : Window
             });
         if (e.PropertyName == nameof(_viewModel.BlurRadius))
         {
-            var blurEffect = _backgroundManager._backgroundBlurEffect;
+            var blurEffect = _backgroundManager?._backgroundBlurEffect;
             if (blurEffect != null)
             {
                 // Cancel previous animation
@@ -836,7 +853,7 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(() =>
             _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage));
     }
-    
+
     private async void InitializeViewModel()
     {
         //await CheckForUpdates();
@@ -880,7 +897,7 @@ public partial class MainWindow : Window
 
             if (e.Key == Key.NumLock || IsModifierKey(e.Key))
             {
-                // Ignore modifier/NumLock keys and do not set keybind
+                // ignore modifier/NumLock keys and do not set keybind
                 e.Handled = true;
                 return;
             }
@@ -1027,7 +1044,7 @@ public partial class MainWindow : Window
             var remainingMs = minDisplayMs - (int)displaySw.ElapsedMilliseconds;
             if (remainingMs < 0) remainingMs = 0;
             remainingMs /= 5;
-            var delayPerStep = steps > 0 ? remainingMs / steps : 0;
+            var delayPerStep = remainingMs / steps;
 
             for (var i = 1; i <= steps; i++)
             {
@@ -1071,7 +1088,7 @@ public partial class MainWindow : Window
         _logImportant.logImportant("Velopack: " + _updateChecker.mgr.IsInstalled, false, "Velopack");
         _logImportant.logImportant("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");
     }
-    
+
     public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)
     {
         if (!await _updateCheckLock.WaitAsync(0))
@@ -1095,6 +1112,7 @@ public partial class MainWindow : Window
                 button.Content = "Check for Updates";
                 return;
             }
+
             if (_updateChecker?.UpdateInfo == null)
             {
                 button.Content = "No updates found";
@@ -1240,7 +1258,7 @@ public partial class MainWindow : Window
                 {
                     Console.WriteLine(
                         $"[ERROR] Exception while loading SVG after {maxRetries} attempts: {retryEx.Message}");
-                    return; // Exit if loading the SVG fails after max retries
+                    return;
                 }
             }
     }
@@ -1264,7 +1282,7 @@ public partial class MainWindow : Window
         _tosuApi.Dispose();
     }
 
-    private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
+    private async void SettingsButton_Click(object? sender, RoutedEventArgs? e)
     {
         try
         {
@@ -1669,7 +1687,7 @@ public partial class MainWindow : Window
 
     private void UpdateDebugConsolePanel(StackPanel debugConsolePanel, List<string> currentLogs)
     {
-        // If the count changed, rebuild everything
+        // if the count changed, rebuild everything
         if (debugConsolePanel.Children.Count != currentLogs.Count)
         {
             debugConsolePanel.Children.Clear();
@@ -1678,7 +1696,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            // Only update changed entries
+            // only update changed entries
             for (var i = 0; i < currentLogs.Count; i++)
                 if (_lastDisplayedLogs.Count <= i || _lastDisplayedLogs[i] != currentLogs[i])
                     debugConsolePanel.Children[i] = CreateLogElement(currentLogs[i]);
@@ -1693,7 +1711,7 @@ public partial class MainWindow : Window
 
         if (!string.IsNullOrEmpty(hyperlink))
         {
-            // Remove the hyperlink from the displayed text
+            // remove the hyperlink from the displayed text
             var displayText = logText.Replace(hyperlink, "").TrimEnd();
 
             var linkButton = new Button
@@ -1750,7 +1768,7 @@ public partial class MainWindow : Window
 
             parts.Add(FriendlyName);
 
-            return string.Join("+", parts).Replace("==", "="); // Fix for equal key not working
+            return string.Join("+", parts).Replace("==", "="); // fix for equal key not working
         }
     }
 }

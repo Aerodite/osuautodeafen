@@ -40,8 +40,8 @@
     <ItemGroup>
         <EmbeddedResource Include="Resources\autodeafen.svg"/>
         <EmbeddedResource Include="Resources\favicon.ico"/>
-        <None Remove="Resources\favicon_d.ico" />
-        <EmbeddedResource Include="Resources\favicon_d.ico" />
+        <None Remove="Resources\favicon_d.ico"/>
+        <EmbeddedResource Include="Resources\favicon_d.ico"/>
     </ItemGroup>
 
     <ItemGroup>

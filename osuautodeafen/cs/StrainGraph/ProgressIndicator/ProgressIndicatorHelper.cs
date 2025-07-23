@@ -69,7 +69,6 @@ public class ProgressIndicatorHelper
         }
     }
 
-    // Old method retained for compatibility
     public List<ObservablePoint> CalculateProgressIndicatorPoints(double completionPercentage, bool force = false)
     {
         var XAxes = _chartManager.XAxes;

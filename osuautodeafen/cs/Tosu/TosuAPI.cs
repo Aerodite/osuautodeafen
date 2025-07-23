@@ -59,9 +59,9 @@ public class TosuApi : IDisposable
     private string? _settingsSongsDirectory;
     private string? _songFilePath;
     private ClientWebSocket _webSocket;
+    private string? beatmapArtist;
     private string beatmapChecksum;
     private string? beatmapTitle;
-    private string? beatmapArtist;
     private double? realtimeBpm;
 
     public TosuApi()
@@ -463,7 +463,7 @@ public class TosuApi : IDisposable
     {
         return beatmapTitle;
     }
-    
+
     public string? GetBeatmapArtist()
     {
         return beatmapArtist;

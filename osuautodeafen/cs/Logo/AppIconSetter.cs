@@ -1,6 +1,6 @@
-﻿using Avalonia.Controls;
+﻿using System.IO;
+using Avalonia.Controls;
 using Avalonia.Threading;
-using System.IO;
 
 public static class AppIconSetter
 {
@@ -10,7 +10,6 @@ public static class AppIconSetter
     {
         var iconStream = LoadEmbeddedResource(iconResourceName);
         if (iconStream != null)
-        {
             Dispatcher.UIThread.InvokeAsync(() =>
             {
                 // Dispose previous stream if exists
@@ -18,7 +17,6 @@ public static class AppIconSetter
                 window.Icon = new WindowIcon(iconStream);
                 _previousIconStream = iconStream;
             });
-        }
     }
 
     private static Stream? LoadEmbeddedResource(string resourceName)

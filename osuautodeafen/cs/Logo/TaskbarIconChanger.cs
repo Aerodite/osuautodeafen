@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
-using Avalonia.Platform.Interop;
 
 public static class TaskbarIconChanger
 {
@@ -15,7 +14,8 @@ public static class TaskbarIconChanger
     private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr LoadImage(IntPtr hInstance, string lpFilename, uint uType, int cxDesired, int cyDesired, uint fuLoad);
+    private static extern IntPtr LoadImage(IntPtr hInstance, string lpFilename, uint uType, int cxDesired,
+        int cyDesired, uint fuLoad);
 
     public static void SetTaskbarIcon(Window window, string imagePath)
     {
@@ -28,8 +28,8 @@ public static class TaskbarIconChanger
         var hIconBig = LoadImage(IntPtr.Zero, imagePath, IMAGE_ICON, 32, 32, LR_LOADFROMFILE);
 
         // Set small icon (titlebar)
-        SendMessage(handle, WM_SETICON, (IntPtr)ICON_SMALL, hIconSmall);
+        SendMessage(handle, WM_SETICON, ICON_SMALL, hIconSmall);
         // Set big icon (taskbar)
-        SendMessage(handle, WM_SETICON, (IntPtr)ICON_BIG, hIconBig);
+        SendMessage(handle, WM_SETICON, ICON_BIG, hIconBig);
     }
 }

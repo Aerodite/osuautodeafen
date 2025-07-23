@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using osuautodeafen.cs.Logo;
 using osuautodeafen.cs.Settings;
 using SharpHook;
 using SharpHook.Data;
@@ -21,6 +20,9 @@ public class Deafen : IDisposable
     public bool _deafened;
     private bool _isInBreakPeriod;
 
+    public Action? Deafened;
+    public Action? Undeafened;
+
     public Deafen(TosuApi tosuAPI, SettingsHandler settingsHandler, SharedViewModel sharedViewModel)
     {
         _tosuAPI = tosuAPI;
@@ -36,9 +38,6 @@ public class Deafen : IDisposable
 
     private bool IsUndeafenAfterMissEnabled => _sharedViewModel.UndeafenAfterMiss;
     private bool IsBreakUndeafenToggleEnabled => _sharedViewModel.IsBreakUndeafenToggleEnabled;
-
-    public Action? Deafened;
-    public Action? Undeafened;
 
     public void Dispose()
     {
@@ -69,6 +68,7 @@ public class Deafen : IDisposable
                     if ((modValue & 4) != 0) modifiers.Add(KeyCode.VcLeftShift);
                     if ((modValue & 8) != 0) modifiers.Add(KeyCode.VcLeftMeta);
                 }
+
                 Console.WriteLine("[SimulateDeafenKey] DeafenKeybind was null, using settings handler value.");
             }
             else
@@ -91,7 +91,8 @@ public class Deafen : IDisposable
 
             foreach (var mod in modifiers.AsEnumerable().Reverse())
                 _eventSimulator.SimulateKeyRelease(mod);
-            Console.WriteLine($"[SimulateDeafenKey] Released modifiers: {string.Join(", ", modifiers.AsEnumerable().Reverse())}");
+            Console.WriteLine(
+                $"[SimulateDeafenKey] Released modifiers: {string.Join(", ", modifiers.AsEnumerable().Reverse())}");
         }
         catch (Exception ex)
         {
@@ -189,7 +190,6 @@ public class Deafen : IDisposable
             SimulateDeafenKey();
             _deafened = !_deafened;
             Console.WriteLine($"[ToggleDeafenState] New deafen state: {_deafened}");
-            
         }
     }
 
@@ -286,7 +286,7 @@ public class Deafen : IDisposable
             }
             else
             {
-                if (ushort.TryParse(trimmedPart, out ushort keyCodeValue) && Enum.IsDefined(typeof(KeyCode), keyCodeValue))
+                if (ushort.TryParse(trimmedPart, out var keyCodeValue) && Enum.IsDefined(typeof(KeyCode), keyCodeValue))
                 {
                     key = (KeyCode)keyCodeValue;
                 }
