@@ -19,6 +19,9 @@ public static class TaskbarIconChanger
 
     public static void SetTaskbarIcon(Window window, string imagePath)
     {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            return;
+
         var handle = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
         if (handle == IntPtr.Zero)
             throw new InvalidOperationException("Could not get native window handle.");

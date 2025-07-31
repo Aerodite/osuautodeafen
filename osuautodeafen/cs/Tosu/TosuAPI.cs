@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.WebSockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -511,7 +513,19 @@ public class TosuApi : IDisposable
 
     public string GetBackgroundPath()
     {
-        return _settingsSongsDirectory + "\\" + _fullPath;
+        string songsDir = _settingsSongsDirectory ?? "";
+        string fullPath = _fullPath ?? "";
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            var home = Environment.GetEnvironmentVariable("HOME") ?? "";
+            // If _settingsSongsDirectory is just "Songs", use the default osu-wine path
+            if (songsDir == "Songs" || string.IsNullOrEmpty(songsDir))
+                songsDir = Path.Combine(home, ".local", "share", "osu-wine", "osu!", "Songs");
+            return Path.Combine(songsDir, fullPath.Replace("\\", Path.DirectorySeparatorChar.ToString()));
+        }
+        //windows is way simpler
+        return songsDir + "\\" + fullPath;
     }
 
     public string? GetGameDirectory()

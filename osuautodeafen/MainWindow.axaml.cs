@@ -89,11 +89,10 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        var appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen");
+        var appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen");
+        Directory.CreateDirectory(appPath);
         var logFile = Path.Combine(appPath, "osuautodeafen.log");
-        File.WriteAllText(logFile, string.Empty); // clear log at startup
-
+        File.WriteAllText(logFile, string.Empty); // we want to clear the log on startup
         var fileStream = new FileStream(logFile, FileMode.Append, FileAccess.Write, FileShare.Read);
         var writer = new StreamWriter(fileStream) { AutoFlush = true };
         Console.SetOut(new TimestampTextWriter(writer));
