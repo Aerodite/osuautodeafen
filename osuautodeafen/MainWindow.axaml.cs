@@ -421,9 +421,17 @@ public partial class MainWindow : Window
             }
         };
 
-        ExtendClientAreaToDecorationsHint = true;
-        ExtendClientAreaTitleBarHeightHint = 32;
-        ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
+        if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
+        {
+            ExtendClientAreaToDecorationsHint = true;
+            ExtendClientAreaTitleBarHeightHint = 32;
+            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
+        }
+        else if (OperatingSystem.IsLinux())
+        {
+            ExtendClientAreaToDecorationsHint = false;
+            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.SystemChrome;
+        }
         Background = Brushes.Black;
         BorderBrush = Brushes.Black;
         /*
@@ -538,74 +546,146 @@ public partial class MainWindow : Window
         }
     }
 
-    public async void StartStableFrameTimer(int targetFps = 60)
+public void StartPlatformStableFrameTimer(int targetFps = 60)
+{
+    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        StartStableFrameTimer(targetFps);
+    else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
+             RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        //StartStableUnixFrameTimer(targetFps);
+        return;
+}
+
+private void StartStableFrameTimer(int targetFps = 60)
+{
+#if WINDOWS
+    _frameCts = new CancellationTokenSource();
+    targetFps = Math.Clamp(targetFps, 1, 1000);
+    var intervalMs = 1000.0 / targetFps;
+
+    timeBeginPeriod(1);
+
+    _frameStopwatch.Restart();
+    var lastFrameTicks = _frameStopwatch.ElapsedTicks;
+    var tickMs = 1000.0 / Stopwatch.Frequency;
+
+    double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
+    int frameCount = 0, statsWindow = 100;
+
+    try
     {
-        _frameCts = new CancellationTokenSource();
-        targetFps = Math.Clamp(targetFps, 1, 1000);
-        var intervalMs = 1000.0 / targetFps;
-
-        timeBeginPeriod(1);
-        _frameStopwatch.Restart();
-        var lastFrameTicks = _frameStopwatch.ElapsedTicks;
-        var tickMs = 1000.0 / Stopwatch.Frequency;
-
-        double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
-        int frameCount = 0, statsWindow = 100;
-
-        try
+        while (!_frameCts.IsCancellationRequested)
         {
-            while (!_frameCts.IsCancellationRequested)
+            var frameStartTicks = _frameStopwatch.ElapsedTicks;
+            var frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
+            lastFrameTicks = frameStartTicks;
+
+            frameInterval = Math.Max(frameInterval, 1.0);
+
+            minFrame = Math.Min(minFrame, frameInterval);
+            maxFrame = Math.Max(maxFrame, frameInterval);
+            sumFrame += frameInterval;
+            frameCount++;
+
+            if (frameCount % statsWindow == 0)
             {
-                var frameStartTicks = _frameStopwatch.ElapsedTicks;
-                var frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
-                lastFrameTicks = frameStartTicks;
-
-                frameInterval = Math.Max(frameInterval, 1.0);
-
-                minFrame = Math.Min(minFrame, frameInterval);
-                maxFrame = Math.Max(maxFrame, frameInterval);
-                sumFrame += frameInterval;
-                frameCount++;
-
-                if (frameCount % statsWindow == 0)
+                var avgFrame = sumFrame / frameCount;
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    var avgFrame = sumFrame / frameCount;
-                    await Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        _logImportant.logImportant(
-                            $"Frame: {frameInterval:F2}ms/{1000.0 / avgFrame:F0}fps",
-                            false, "FrameLatency");
-                        _logImportant.logImportant($"Min/Max/Avg: {minFrame:F2}/{maxFrame:F2}/{avgFrame:F2}ms",
-                            false, "FrameStats");
-                    });
-                    minFrame = double.MaxValue;
-                    maxFrame = double.MinValue;
-                    sumFrame = 0;
-                    frameCount = 0;
-                }
-
-                var elapsedMs = (_frameStopwatch.ElapsedTicks - frameStartTicks) * tickMs;
-                var sleep = intervalMs - elapsedMs;
-                if (sleep > 0)
-                    await Task.Delay((int)sleep);
+                    _logImportant.logImportant(
+                        $"Frame: {frameInterval:F2}ms/{1000.0 / avgFrame:F0}fps",
+                        false, "FrameLatency");
+                    _logImportant.logImportant($"Min/Max/Avg: {minFrame:F2}/{maxFrame:F2}/{avgFrame:F2}ms",
+                        false, "FrameStats");
+                });
+                minFrame = double.MaxValue;
+                maxFrame = double.MinValue;
+                sumFrame = 0;
+                frameCount = 0;
             }
-        }
-        finally
-        {
-            _frameStopwatch.Stop();
-            timeEndPeriod(1);
+
+            var elapsedMs = (_frameStopwatch.ElapsedTicks - frameStartTicks) * tickMs;
+            var sleep = intervalMs - elapsedMs;
+            if (sleep > 0)
+                await Task.Delay((int)sleep);
         }
     }
+    finally
+    {
+        _frameStopwatch.Stop();
+        timeEndPeriod(1);
+    }
+#endif
+}
 
-    // windows multimedia api timeperiods just to make sure timing is accurate
-    [DllImport("winmm.dll")]
-    private static extern int timeBeginPeriod(uint uMilliseconds);
+private void StartStableUnixFrameTimer(int targetFps = 60)
+{
+    _frameCts = new CancellationTokenSource();
+    targetFps = Math.Clamp(targetFps, 1, 1000);
+    var intervalMs = 1000.0 / targetFps;
 
-    [DllImport("winmm.dll")]
-    private static extern int timeEndPeriod(uint uMilliseconds);
+    _frameStopwatch.Restart();
+    var lastFrameTicks = _frameStopwatch.ElapsedTicks;
+    var tickMs = 1000.0 / Stopwatch.Frequency;
+
+    double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
+    int frameCount = 0, statsWindow = 100;
+
+    try
+    {
+        while (!_frameCts.IsCancellationRequested)
+        {
+            var frameStartTicks = _frameStopwatch.ElapsedTicks;
+            var frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
+            lastFrameTicks = frameStartTicks;
+
+            frameInterval = Math.Max(frameInterval, 1.0);
+
+            minFrame = Math.Min(minFrame, frameInterval);
+            maxFrame = Math.Max(maxFrame, frameInterval);
+            sumFrame += frameInterval;
+            frameCount++;
+
+            if (frameCount % statsWindow == 0)
+            {
+                var avgFrame = sumFrame / frameCount;
+                Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    _logImportant.logImportant(
+                        $"Frame: {frameInterval:F2}ms/{1000.0 / avgFrame:F0}fps",
+                        false, "FrameLatency");
+                    _logImportant.logImportant(
+                        $"Min/Max/Avg: {minFrame:F2}/{maxFrame:F2}/{avgFrame:F2}ms",
+                        false, "FrameStats");
+                });
+                minFrame = double.MaxValue;
+                maxFrame = double.MinValue;
+                sumFrame = 0;
+                frameCount = 0;
+            }
+
+            var elapsedMs = (_frameStopwatch.ElapsedTicks - frameStartTicks) * tickMs;
+            var sleep = intervalMs - elapsedMs;
+            if (sleep > 0) 
+                Task.Delay((int)sleep);
+        }
+    }
+    finally
+    {
+        _frameStopwatch.Stop();
+    }
+}
+
+#if WINDOWS
+[System.Runtime.InteropServices.DllImport("winmm.dll")]
+private static extern int timeBeginPeriod(uint uMilliseconds);
+
+[System.Runtime.InteropServices.DllImport("winmm.dll")]
+private static extern int timeEndPeriod(uint uMilliseconds);
+#endif
 
 
-    public void StopStableFrameTimer()
+    public void StopPlatformStableFrameTimer()
     {
         _frameCts?.Cancel();
     }
@@ -1624,7 +1704,8 @@ public partial class MainWindow : Window
         var debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
         if (debugConsolePanel != null && !debugConsolePanel.IsVisible)
         {
-            StartStableFrameTimer(1000);
+            StartPlatformStableFrameTimer(1000);
+
             await SetupDebugConsoleTransitionsAsync(debugConsolePanel);
             debugConsolePanel.IsVisible = true;
             await AnimateDebugConsoleInAsync(debugConsolePanel);
@@ -1639,7 +1720,9 @@ public partial class MainWindow : Window
         }
         else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
         {
-            StopStableFrameTimer();
+            if (OperatingSystem.IsWindows())
+                StopPlatformStableFrameTimer();
+
             await AnimateDebugConsoleOutAsync(debugConsolePanel);
             debugConsolePanel.IsVisible = false;
             _logUpdateTimer?.Stop();
@@ -1656,7 +1739,8 @@ public partial class MainWindow : Window
         var debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
         if (debugConsolePanel != null && !debugConsolePanel.IsVisible)
         {
-            StartStableFrameTimer(1000);
+            StartPlatformStableFrameTimer(1000);
+
             await SetupDebugConsoleTransitionsAsync(debugConsolePanel);
             debugConsolePanel.IsVisible = true;
             await AnimateDebugConsoleInAsync(debugConsolePanel);
@@ -1671,9 +1755,10 @@ public partial class MainWindow : Window
         }
         else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
         {
-            StopStableFrameTimer();
+            if (OperatingSystem.IsWindows())
+                StopPlatformStableFrameTimer();
+
             await AnimateDebugConsoleOutAsync(debugConsolePanel);
-            await Task.Delay(400);
             debugConsolePanel.IsVisible = false;
             _logUpdateTimer?.Stop();
             _logUpdateTimer = null;

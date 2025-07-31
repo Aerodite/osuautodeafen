@@ -65,6 +65,7 @@ public class TosuApi : IDisposable
     private string beatmapChecksum;
     private string? beatmapTitle;
     private double? realtimeBpm;
+    private double _maxPlayCombo;
 
     public TosuApi()
     {
@@ -286,6 +287,9 @@ public class TosuApi : IDisposable
                         if (play.TryGetProperty("combo", out var combo))
                             if (combo.TryGetProperty("current", out var currentCombo))
                                 _combo = currentCombo.GetDouble();
+                        if (combo.TryGetProperty("max", out var maxComboElement))
+                            if (maxComboElement.ValueKind == JsonValueKind.Number)
+                                _maxPlayCombo = maxComboElement.GetDouble();
                         if (play.TryGetProperty("pp", out var pp))
                             if (pp.TryGetProperty("current", out var currentPP))
                                 _currentPP = currentPP.GetDouble();
@@ -495,6 +499,11 @@ public class TosuApi : IDisposable
     {
         return _maxCombo;
     }
+    
+    public double GetMaxPlayCombo()
+    {
+        return _maxPlayCombo;
+    }
 
     public double GetMissCount()
     {
@@ -685,12 +694,16 @@ public class TosuApi : IDisposable
 
     public void CheckForModChange()
     {
-        if (_modNames == _lastModNames)
+        // Normalize to "NM" if null or empty
+        var currentMods = string.IsNullOrEmpty(_modNames) ? "NM" : _modNames;
+
+        if (currentMods == _lastModNames)
             return;
-        _lastModNames = _modNames ?? string.Empty;
+
+        _lastModNames = currentMods;
         var handler = HasModsChanged;
         handler?.Invoke();
-        Console.WriteLine($"Mods changed to: {_modNames}");
+        Console.WriteLine($"Mods changed to: {currentMods}");
     }
 
     public void CheckForRateAdjustChange()

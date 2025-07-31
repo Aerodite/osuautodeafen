@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace osuautodeafen.cs;
 
@@ -15,6 +16,14 @@ public class GetLowResBackground
     public string? GetLowResBitmapPath()
     {
         var osuFolderPath = _tosuApi.GetGameDirectory();
+
+        // on Linux, map Wine's D:\ to the real osu! folder
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && osuFolderPath == "D:\\")
+        {
+            var home = Environment.GetEnvironmentVariable("HOME") ?? "";
+            osuFolderPath = Path.Combine(home, ".local", "share", "osu-wine", "osu!");
+        }
+
         if (string.IsNullOrEmpty(osuFolderPath))
         {
             Console.WriteLine("osuFolderPath is null or empty");
@@ -52,8 +61,5 @@ public class GetLowResBackground
         Console.WriteLine("No path exists, just using high res background");
         var _backgroundPath = _tosuApi.GetBackgroundPath();
         return _backgroundPath;
-
-        Console.WriteLine("No path exists");
-        return null;
     }
 }

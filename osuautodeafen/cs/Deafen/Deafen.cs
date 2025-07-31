@@ -22,6 +22,7 @@ public class Deafen : IDisposable
 
     public Action? Deafened;
     public Action? Undeafened;
+    
 
     public Deafen(TosuApi tosuAPI, SettingsHandler settingsHandler, SharedViewModel sharedViewModel)
     {
@@ -167,15 +168,18 @@ public class Deafen : IDisposable
 
         return false;
     }
-
+    
     private void CheckAndDeafen()
     {
-        if (ShouldDeafen())
+        //this should seal any edge debounce cases
+        bool hasHitObjects = _tosuAPI.GetMaxPlayCombo() != 0;
+        
+        if (ShouldDeafen() && !_deafened && hasHitObjects)
         {
             Console.WriteLine("[CheckAndDeafen] Should deafen. Toggling deafen state.");
             ToggleDeafenState();
         }
-        else if (ShouldUndeafen())
+        else if (ShouldUndeafen() && _deafened)
         {
             Console.WriteLine("[CheckAndDeafen] Should undeafen. Toggling deafen state.");
             ToggleDeafenState();
