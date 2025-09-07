@@ -25,18 +25,31 @@ Deafen on Discord when certain criteria are reached
 > * If Tosu is installed, osuautodeafen will try to automatically open it if it isn't detected on startup
 ></details>
 
-1. Download the [latest release](https://github.com/Aerodite/osuautodeafen/releases/latest) for your platform and unzip
-   it.
-2. Launch "osuautodeafen.exe" on Windows and wait for it to start / Create an executable file from the Linux build and
-   then run it
-3. Set the Deafen Keybind in the app to your Discord "Toggle Deafen" keybind
-4. Modify the settings in the app to what you want!
+## Windows
+1. Download the [latest release](https://github.com/Aerodite/osuautodeafen/releases/latest) (osuautodeafen-win-Portable.zip)
+2. Unzip the folder
+3. Launch "osuautodeafen.exe" and wait for it to start
+4. Set the Deafen Keybind in the app to your Discord "Toggle Deafen" keybind
+5. Modify the settings in the app to what you want!
+
+## Linux
+1. Download the [latest release](https://github.com/Aerodite/osuautodeafen/releases/latest) (osuautodeafen.AppImage)
+3. Launch the AppImage
+4. Set the Deafen Keybind in the app to your Discord "Toggle Deafen" keybind
+5. Modify the settings in the app to what you want!
+
+<details>
+  <summary>Linux Info</summary>
+Linux was tested on Linux 6.16.4 CachyOS x86_64 (Hyprland) on osu!lazer with Tosu running from the latest GitHub Release being ran with sudo ./tosu
+</details>
+
 
 # Features
 
 * Works with osu!lazer and osu!stable
 * Custom settings for deafening
 * Undeafening during Break Periods
+* Custom IP and port support for Tosu
 
 > [!NOTE]
 > If you want osuautodeafen to work with osu!lazer you must be using v1.0.6 or newer and v4.0.0 of Tosu or newer.
