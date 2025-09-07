@@ -6,24 +6,27 @@ using Velopack.Sources;
 
 public class UpdateChecker
 {
-    public static string currentVersion = "1.0.9";
+    public const string CurrentVersion = "1.0.9";
 
     private static readonly GithubSource updateSource = new("https://github.com/Aerodite/osuautodeafen",
         null, false);
 
     private MainWindow _mainWindow;
-    public UpdateManager mgr = new(updateSource);
+    public UpdateManager Mgr = new(updateSource);
     public UpdateInfo? UpdateInfo;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="UpdateChecker"/> class.
+    /// </summary>
     public async Task CheckForUpdatesAsync()
     {
-        if (!mgr.IsInstalled)
+        if (!Mgr.IsInstalled)
         {
             Console.WriteLine("Update check skipped: application is not installed.");
             return;
         }
 
-        UpdateInfo? updateInfo = await mgr.CheckForUpdatesAsync();
+        UpdateInfo? updateInfo = await Mgr.CheckForUpdatesAsync();
         if (updateInfo == null)
         {
             Console.WriteLine("No updates available.");
@@ -33,6 +36,6 @@ public class UpdateChecker
         UpdateInfo = updateInfo;
 
         Console.WriteLine("Update available.");
-        await mgr.DownloadUpdatesAsync(UpdateInfo);
+        await Mgr.DownloadUpdatesAsync(UpdateInfo);
     }
 }

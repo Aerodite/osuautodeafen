@@ -1098,7 +1098,7 @@ public partial class MainWindow : Window
         });
 
         Stopwatch displaySw = Stopwatch.StartNew();
-        await _updateChecker.mgr.DownloadUpdatesAsync(_updateChecker.UpdateInfo, progress);
+        await _updateChecker.Mgr.DownloadUpdatesAsync(_updateChecker.UpdateInfo, progress);
         displaySw.Stop();
 
         // sorry guys sunk cost fallacy this took too long to implement
@@ -1143,7 +1143,7 @@ public partial class MainWindow : Window
     private async void UpdateNotificationBar_Click(object sender, RoutedEventArgs e)
     {
         await DownloadUpdateWithProgressAsync();
-        _updateChecker.mgr.ApplyUpdatesAndRestart(_updateChecker.UpdateInfo);
+        _updateChecker.Mgr.ApplyUpdatesAndRestart(_updateChecker.UpdateInfo);
     }
 
     /// <summary>
@@ -1162,7 +1162,7 @@ public partial class MainWindow : Window
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
         _tosuApi.CheckForPercentageChange();
         _kiaiTimes.UpdateKiaiPeriodState(_tosuApi.GetCurrentTime());
-        _logImportant.logImportant("Velopack: " + _updateChecker.mgr.IsInstalled, false, "Velopack");
+        _logImportant.logImportant("Velopack: " + _updateChecker.Mgr.IsInstalled, false, "Velopack");
         _logImportant.logImportant("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");
     }
 
@@ -1185,7 +1185,7 @@ public partial class MainWindow : Window
             await Task.Delay(1000);
 
             await _updateChecker.CheckForUpdatesAsync();
-            if (_updateChecker?.mgr.IsInstalled == false)
+            if (_updateChecker?.Mgr.IsInstalled == false)
             {
                 button.Content = "Velopack not installed...";
                 await Task.Delay(1000);

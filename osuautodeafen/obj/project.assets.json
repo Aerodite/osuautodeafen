@@ -499,6 +499,12 @@
           "lib/net5.0/MicroCom.Runtime.dll": {}
         }
       },
+      "Microsoft.NET.ILLink.Tasks/9.0.8": {
+        "type": "package",
+        "build": {
+          "build/Microsoft.NET.ILLink.Tasks.props": {}
+        }
+      },
       "Newtonsoft.Json/13.0.4-beta1": {
         "type": "package",
         "compile": {
@@ -744,6 +750,777 @@
             "assetType": "native",
             "rid": "win-x86"
           }
+        }
+      },
+      "SkiaSharp.Views/3.119.0": {
+        "type": "package",
+        "dependencies": {
+          "SkiaSharp": "3.119.0"
+        },
+        "compile": {
+          "lib/net462/_._": {}
+        },
+        "runtime": {
+          "lib/net462/_._": {}
+        },
+        "build": {
+          "buildTransitive/net462/SkiaSharp.Views.targets": {}
+        }
+      },
+      "Splat/16.1.1": {
+        "type": "package",
+        "dependencies": {
+          "Splat.Builder": "16.1.1",
+          "Splat.Logging": "16.1.1",
+          "System.Reactive": "6.0.2"
+        },
+        "compile": {
+          "lib/net9.0/Splat.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net9.0/Splat.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Splat.Builder/16.1.1": {
+        "type": "package",
+        "dependencies": {
+          "Splat.Core": "16.1.1",
+          "System.Reactive": "6.0.2"
+        },
+        "compile": {
+          "lib/net9.0/Splat.Builder.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net9.0/Splat.Builder.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Splat.Core/16.1.1": {
+        "type": "package",
+        "dependencies": {
+          "System.Reactive": "6.0.2"
+        },
+        "compile": {
+          "lib/net9.0/Splat.Core.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net9.0/Splat.Core.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Splat.Logging/16.1.1": {
+        "type": "package",
+        "dependencies": {
+          "Splat.Core": "16.1.1",
+          "System.Reactive": "6.0.2"
+        },
+        "compile": {
+          "lib/net9.0/Splat.Logging.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net9.0/Splat.Logging.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Svg.Custom/3.0.6": {
+        "type": "package",
+        "dependencies": {
+          "ExCSS": "4.3.1"
+        },
+        "compile": {
+          "lib/net8.0/Svg.Custom.dll": {}
+        },
+        "runtime": {
+          "lib/net8.0/Svg.Custom.dll": {}
+        }
+      },
+      "Svg.Model/3.0.6": {
+        "type": "package",
+        "dependencies": {
+          "ShimSkiaSharp": "3.0.6",
+          "Svg.Custom": "3.0.6"
+        },
+        "compile": {
+          "lib/net8.0/Svg.Model.dll": {}
+        },
+        "runtime": {
+          "lib/net8.0/Svg.Model.dll": {}
+        }
+      },
+      "Svg.Skia/3.0.6": {
+        "type": "package",
+        "dependencies": {
+          "SkiaSharp": "2.88.9",
+          "Svg.Custom": "3.0.6",
+          "Svg.Model": "3.0.6"
+        },
+        "compile": {
+          "lib/net8.0/Svg.Skia.dll": {}
+        },
+        "runtime": {
+          "lib/net8.0/Svg.Skia.dll": {}
+        }
+      },
+      "System.ComponentModel.Annotations/5.0.0": {
+        "type": "package",
+        "compile": {
+          "ref/netstandard2.1/System.ComponentModel.Annotations.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.1/System.ComponentModel.Annotations.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "System.IO.Pipelines/8.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/System.IO.Pipelines.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/System.IO.Pipelines.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "buildTransitive/net6.0/_._": {}
+        }
+      },
+      "System.Reactive/6.0.2": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/System.Reactive.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/System.Reactive.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "buildTransitive/net6.0/_._": {}
+        }
+      },
+      "Tmds.DBus.Protocol/0.21.2": {
+        "type": "package",
+        "dependencies": {
+          "System.IO.Pipelines": "8.0.0"
+        },
+        "compile": {
+          "lib/net8.0/Tmds.DBus.Protocol.dll": {}
+        },
+        "runtime": {
+          "lib/net8.0/Tmds.DBus.Protocol.dll": {}
+        }
+      },
+      "Velopack/0.0.1362-gfa48e3c": {
+        "type": "package",
+        "dependencies": {
+          "NuGet.Versioning": "6.14.0"
+        },
+        "compile": {
+          "lib/net9.0/Velopack.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net9.0/Velopack.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "WebSocketSharp/1.0.3-rc11": {
+        "type": "package",
+        "compile": {
+          "lib/websocket-sharp.dll": {}
+        },
+        "runtime": {
+          "lib/websocket-sharp.dll": {}
+        }
+      }
+    },
+    "net9.0/linux-x64": {
+      "Avalonia/11.3.5": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia.BuildServices": "0.0.31",
+          "Avalonia.Remote.Protocol": "11.3.5",
+          "MicroCom.Runtime": "0.11.0"
+        },
+        "compile": {
+          "ref/net8.0/Avalonia.Base.dll": {
+            "related": ".xml"
+          },
+          "ref/net8.0/Avalonia.Controls.dll": {
+            "related": ".xml"
+          },
+          "ref/net8.0/Avalonia.DesignerSupport.dll": {
+            "related": ".xml"
+          },
+          "ref/net8.0/Avalonia.Dialogs.dll": {
+            "related": ".xml"
+          },
+          "ref/net8.0/Avalonia.Markup.Xaml.dll": {
+            "related": ".xml"
+          },
+          "ref/net8.0/Avalonia.Markup.dll": {
+            "related": ".Xaml.xml;.xml"
+          },
+          "ref/net8.0/Avalonia.Metal.dll": {
+            "related": ".xml"
+          },
+          "ref/net8.0/Avalonia.MicroCom.dll": {
+            "related": ".xml"
+          },
+          "ref/net8.0/Avalonia.OpenGL.dll": {
+            "related": ".xml"
+          },
+          "ref/net8.0/Avalonia.Vulkan.dll": {
+            "related": ".xml"
+          },
+          "ref/net8.0/Avalonia.dll": {
+            "related": ".Base.xml;.Controls.xml;.DesignerSupport.xml;.Dialogs.xml;.Markup.Xaml.xml;.Markup.xml;.Metal.xml;.MicroCom.xml;.OpenGL.xml;.Vulkan.xml;.xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.Base.dll": {
+            "related": ".xml"
+          },
+          "lib/net8.0/Avalonia.Controls.dll": {
+            "related": ".xml"
+          },
+          "lib/net8.0/Avalonia.DesignerSupport.dll": {
+            "related": ".xml"
+          },
+          "lib/net8.0/Avalonia.Dialogs.dll": {
+            "related": ".xml"
+          },
+          "lib/net8.0/Avalonia.Markup.Xaml.dll": {
+            "related": ".xml"
+          },
+          "lib/net8.0/Avalonia.Markup.dll": {
+            "related": ".Xaml.xml;.xml"
+          },
+          "lib/net8.0/Avalonia.Metal.dll": {
+            "related": ".xml"
+          },
+          "lib/net8.0/Avalonia.MicroCom.dll": {
+            "related": ".xml"
+          },
+          "lib/net8.0/Avalonia.OpenGL.dll": {
+            "related": ".xml"
+          },
+          "lib/net8.0/Avalonia.Vulkan.dll": {
+            "related": ".xml"
+          },
+          "lib/net8.0/Avalonia.dll": {
+            "related": ".Base.xml;.Controls.xml;.DesignerSupport.xml;.Dialogs.xml;.Markup.Xaml.xml;.Markup.xml;.Metal.xml;.MicroCom.xml;.OpenGL.xml;.Vulkan.xml;.xml"
+          }
+        },
+        "build": {
+          "buildTransitive/Avalonia.props": {},
+          "buildTransitive/Avalonia.targets": {}
+        }
+      },
+      "Avalonia.Angle.Windows.Natives/2.1.25547.20250602": {
+        "type": "package"
+      },
+      "Avalonia.BuildServices/0.0.31": {
+        "type": "package",
+        "build": {
+          "buildTransitive/Avalonia.BuildServices.targets": {}
+        }
+      },
+      "Avalonia.Desktop/11.3.5": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.3.5",
+          "Avalonia.Native": "11.3.5",
+          "Avalonia.Skia": "11.3.5",
+          "Avalonia.Win32": "11.3.5",
+          "Avalonia.X11": "11.3.5"
+        },
+        "compile": {
+          "lib/net8.0/Avalonia.Desktop.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.Desktop.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Avalonia.Fonts.Inter/11.3.5": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.3.5"
+        },
+        "compile": {
+          "lib/net8.0/Avalonia.Fonts.Inter.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.Fonts.Inter.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Avalonia.FreeDesktop/11.3.5": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.3.5",
+          "Tmds.DBus.Protocol": "0.21.2"
+        },
+        "compile": {
+          "lib/net8.0/Avalonia.FreeDesktop.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.FreeDesktop.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Avalonia.Native/11.3.5": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.3.5"
+        },
+        "compile": {
+          "lib/net8.0/Avalonia.Native.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.Native.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Avalonia.Remote.Protocol/11.3.5": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/Avalonia.Remote.Protocol.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.Remote.Protocol.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Avalonia.Skia/11.3.5": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.3.5",
+          "HarfBuzzSharp": "8.3.1.1",
+          "HarfBuzzSharp.NativeAssets.Linux": "8.3.1.1",
+          "HarfBuzzSharp.NativeAssets.WebAssembly": "8.3.1.1",
+          "SkiaSharp": "2.88.9",
+          "SkiaSharp.NativeAssets.Linux": "2.88.9",
+          "SkiaSharp.NativeAssets.WebAssembly": "2.88.9"
+        },
+        "compile": {
+          "lib/net8.0/Avalonia.Skia.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.Skia.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Avalonia.Themes.Fluent/11.3.5": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.3.5"
+        },
+        "compile": {
+          "lib/net8.0/Avalonia.Themes.Fluent.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.Themes.Fluent.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Avalonia.Win32/11.3.5": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.3.5",
+          "Avalonia.Angle.Windows.Natives": "2.1.25547.20250602"
+        },
+        "compile": {
+          "lib/net8.0/Avalonia.Win32.Automation.dll": {
+            "related": ".xml"
+          },
+          "lib/net8.0/Avalonia.Win32.dll": {
+            "related": ".Automation.xml;.xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.Win32.Automation.dll": {
+            "related": ".xml"
+          },
+          "lib/net8.0/Avalonia.Win32.dll": {
+            "related": ".Automation.xml;.xml"
+          }
+        }
+      },
+      "Avalonia.X11/11.3.5": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.3.5",
+          "Avalonia.FreeDesktop": "11.3.5",
+          "Avalonia.Skia": "11.3.5"
+        },
+        "compile": {
+          "lib/net8.0/Avalonia.X11.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.X11.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "DynamicData/9.4.1": {
+        "type": "package",
+        "dependencies": {
+          "System.Reactive": "6.0.1"
+        },
+        "compile": {
+          "lib/net9.0/DynamicData.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net9.0/DynamicData.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "ExCSS/4.3.1": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/ExCSS.dll": {}
+        },
+        "runtime": {
+          "lib/net8.0/ExCSS.dll": {}
+        }
+      },
+      "HarfBuzzSharp/8.3.1.1": {
+        "type": "package",
+        "dependencies": {
+          "HarfBuzzSharp.NativeAssets.Win32": "8.3.1.1",
+          "HarfBuzzSharp.NativeAssets.macOS": "8.3.1.1"
+        },
+        "compile": {
+          "lib/net8.0/HarfBuzzSharp.dll": {
+            "related": ".pdb"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/HarfBuzzSharp.dll": {
+            "related": ".pdb"
+          }
+        }
+      },
+      "HarfBuzzSharp.NativeAssets.Linux/8.3.1.1": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/_._": {}
+        },
+        "runtime": {
+          "lib/net8.0/_._": {}
+        },
+        "native": {
+          "runtimes/linux-x64/native/libHarfBuzzSharp.so": {}
+        }
+      },
+      "HarfBuzzSharp.NativeAssets.macOS/8.3.1.1": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/_._": {}
+        },
+        "runtime": {
+          "lib/net8.0/_._": {}
+        }
+      },
+      "HarfBuzzSharp.NativeAssets.WebAssembly/8.3.1.1": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/_._": {}
+        },
+        "runtime": {
+          "lib/net8.0/_._": {}
+        },
+        "build": {
+          "buildTransitive/netstandard1.0/HarfBuzzSharp.NativeAssets.WebAssembly.props": {},
+          "buildTransitive/netstandard1.0/HarfBuzzSharp.NativeAssets.WebAssembly.targets": {}
+        }
+      },
+      "HarfBuzzSharp.NativeAssets.Win32/8.3.1.1": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/_._": {}
+        },
+        "runtime": {
+          "lib/net8.0/_._": {}
+        }
+      },
+      "ILMerge/3.0.41": {
+        "type": "package",
+        "build": {
+          "build/ILMerge.props": {}
+        }
+      },
+      "ini-parser/2.5.2": {
+        "type": "package",
+        "compile": {
+          "lib/net20/INIFileParser.dll": {
+            "related": ".dll.mdb;.xml"
+          }
+        },
+        "runtime": {
+          "lib/net20/INIFileParser.dll": {
+            "related": ".dll.mdb;.xml"
+          }
+        }
+      },
+      "LiveChartsCore/2.0.0-rc5.4": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/LiveChartsCore.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/LiveChartsCore.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "LiveChartsCore.SkiaSharpView/2.0.0-rc5.4": {
+        "type": "package",
+        "dependencies": {
+          "LiveChartsCore": "2.0.0-rc5.4",
+          "SkiaSharp": "2.88.9",
+          "SkiaSharp.HarfBuzz": "2.88.9"
+        },
+        "compile": {
+          "lib/net8.0/LiveChartsCore.SkiaSharpView.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/LiveChartsCore.SkiaSharpView.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "LiveChartsCore.SkiaSharpView.Avalonia/2.0.0-rc5.4": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.0.0",
+          "Avalonia.Skia": "11.0.0",
+          "LiveChartsCore.SkiaSharpView": "2.0.0-rc5.4"
+        },
+        "compile": {
+          "lib/net8.0/LiveChartsCore.SkiaSharpView.Avalonia.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/LiveChartsCore.SkiaSharpView.Avalonia.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "MicroCom.Runtime/0.11.0": {
+        "type": "package",
+        "compile": {
+          "lib/net5.0/MicroCom.Runtime.dll": {}
+        },
+        "runtime": {
+          "lib/net5.0/MicroCom.Runtime.dll": {}
+        }
+      },
+      "Microsoft.NET.ILLink.Tasks/9.0.8": {
+        "type": "package",
+        "build": {
+          "build/Microsoft.NET.ILLink.Tasks.props": {}
+        }
+      },
+      "Newtonsoft.Json/13.0.4-beta1": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/Newtonsoft.Json.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/Newtonsoft.Json.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "NuGet.Versioning/6.14.0": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard2.0/NuGet.Versioning.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/NuGet.Versioning.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "ReactiveUI/21.0.1": {
+        "type": "package",
+        "dependencies": {
+          "DynamicData": "9.4.1",
+          "Splat": "16.1.1",
+          "System.ComponentModel.Annotations": "5.0.0",
+          "System.Reactive": "6.0.2"
+        },
+        "compile": {
+          "lib/net9.0/ReactiveUI.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net9.0/ReactiveUI.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "SharpHook/7.0.1": {
+        "type": "package",
+        "compile": {
+          "lib/net9.0/SharpHook.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net9.0/SharpHook.dll": {
+            "related": ".xml"
+          }
+        },
+        "native": {
+          "runtimes/linux-x64/native/libuiohook.so": {}
+        }
+      },
+      "ShimSkiaSharp/3.0.6": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/ShimSkiaSharp.dll": {}
+        },
+        "runtime": {
+          "lib/net8.0/ShimSkiaSharp.dll": {}
+        }
+      },
+      "SkiaSharp/3.119.0": {
+        "type": "package",
+        "dependencies": {
+          "SkiaSharp.NativeAssets.Win32": "3.119.0",
+          "SkiaSharp.NativeAssets.macOS": "3.119.0"
+        },
+        "compile": {
+          "ref/net8.0/SkiaSharp.dll": {}
+        },
+        "runtime": {
+          "lib/net8.0/SkiaSharp.dll": {
+            "related": ".pdb"
+          }
+        }
+      },
+      "SkiaSharp.HarfBuzz/2.88.9": {
+        "type": "package",
+        "dependencies": {
+          "HarfBuzzSharp": "7.3.0.3",
+          "SkiaSharp": "2.88.9"
+        },
+        "compile": {
+          "lib/net6.0/SkiaSharp.HarfBuzz.dll": {
+            "related": ".pdb;.xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/SkiaSharp.HarfBuzz.dll": {
+            "related": ".pdb;.xml"
+          }
+        }
+      },
+      "SkiaSharp.NativeAssets.Linux/3.119.0": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/_._": {}
+        },
+        "runtime": {
+          "lib/net8.0/_._": {}
+        },
+        "native": {
+          "runtimes/linux-x64/native/libSkiaSharp.so": {}
+        }
+      },
+      "SkiaSharp.NativeAssets.macOS/3.119.0": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/_._": {}
+        },
+        "runtime": {
+          "lib/net8.0/_._": {}
+        }
+      },
+      "SkiaSharp.NativeAssets.WebAssembly/2.88.9": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard1.0/_._": {}
+        },
+        "runtime": {
+          "lib/netstandard1.0/_._": {}
+        },
+        "build": {
+          "buildTransitive/netstandard1.0/SkiaSharp.NativeAssets.WebAssembly.props": {},
+          "buildTransitive/netstandard1.0/SkiaSharp.NativeAssets.WebAssembly.targets": {}
+        }
+      },
+      "SkiaSharp.NativeAssets.Win32/3.119.0": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/_._": {}
+        },
+        "runtime": {
+          "lib/net8.0/_._": {}
         }
       },
       "SkiaSharp.Views/3.119.0": {
@@ -1659,6 +2436,57 @@
         "microcom.runtime.nuspec"
       ]
     },
+    "Microsoft.NET.ILLink.Tasks/9.0.8": {
+      "sha512": "rd1CbIsMtVPtZNTIVD6Xydue//klYOOQIDpRgu3BHtv17AlpRs74/6QFbcYgMm/jL+naVU2T3OFLxVSLV5lQLQ==",
+      "type": "package",
+      "path": "microsoft.net.illink.tasks/9.0.8",
+      "hasTools": true,
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Icon.png",
+        "LICENSE.TXT",
+        "Sdk/Sdk.props",
+        "THIRD-PARTY-NOTICES.TXT",
+        "analyzers/dotnet/cs/ILLink.CodeFixProvider.dll",
+        "analyzers/dotnet/cs/ILLink.RoslynAnalyzer.dll",
+        "build/Microsoft.NET.ILLink.Analyzers.props",
+        "build/Microsoft.NET.ILLink.Tasks.props",
+        "build/Microsoft.NET.ILLink.targets",
+        "microsoft.net.illink.tasks.9.0.8.nupkg.sha512",
+        "microsoft.net.illink.tasks.nuspec",
+        "tools/net472/ILLink.Tasks.dll",
+        "tools/net472/ILLink.Tasks.dll.config",
+        "tools/net472/Mono.Cecil.Mdb.dll",
+        "tools/net472/Mono.Cecil.Pdb.dll",
+        "tools/net472/Mono.Cecil.Rocks.dll",
+        "tools/net472/Mono.Cecil.dll",
+        "tools/net472/Sdk/Sdk.props",
+        "tools/net472/System.Buffers.dll",
+        "tools/net472/System.Collections.Immutable.dll",
+        "tools/net472/System.Memory.dll",
+        "tools/net472/System.Numerics.Vectors.dll",
+        "tools/net472/System.Reflection.Metadata.dll",
+        "tools/net472/System.Runtime.CompilerServices.Unsafe.dll",
+        "tools/net472/build/Microsoft.NET.ILLink.Analyzers.props",
+        "tools/net472/build/Microsoft.NET.ILLink.Tasks.props",
+        "tools/net472/build/Microsoft.NET.ILLink.targets",
+        "tools/net9.0/ILLink.Tasks.deps.json",
+        "tools/net9.0/ILLink.Tasks.dll",
+        "tools/net9.0/Mono.Cecil.Mdb.dll",
+        "tools/net9.0/Mono.Cecil.Pdb.dll",
+        "tools/net9.0/Mono.Cecil.Rocks.dll",
+        "tools/net9.0/Mono.Cecil.dll",
+        "tools/net9.0/Sdk/Sdk.props",
+        "tools/net9.0/build/Microsoft.NET.ILLink.Analyzers.props",
+        "tools/net9.0/build/Microsoft.NET.ILLink.Tasks.props",
+        "tools/net9.0/build/Microsoft.NET.ILLink.targets",
+        "tools/net9.0/illink.deps.json",
+        "tools/net9.0/illink.dll",
+        "tools/net9.0/illink.runtimeconfig.json",
+        "useSharedDesignerContext.txt"
+      ]
+    },
     "Newtonsoft.Json/13.0.4-beta1": {
       "sha512": "6V0WDUzcU5p3R2/RN6UC+1wJtWfCB9YahSUe37mSGbPoH+Q84HTOjmsLIgynkZwJb/NYv0vFARSvDdUse3ZODA==",
       "type": "package",
@@ -2373,6 +3201,7 @@
       "ILMerge >= 3.0.41",
       "LiveChartsCore.SkiaSharpView >= 2.0.0-rc5.4",
       "LiveChartsCore.SkiaSharpView.Avalonia >= 2.0.0-rc5.4",
+      "Microsoft.NET.ILLink.Tasks >= 9.0.8",
       "Newtonsoft.Json >= 13.0.4-beta1",
       "ReactiveUI >= 21.0.1",
       "SharpHook >= 7.0.1",
@@ -2454,6 +3283,12 @@
             "target": "Package",
             "version": "[2.0.0-rc5.4, )"
           },
+          "Microsoft.NET.ILLink.Tasks": {
+            "suppressParent": "All",
+            "target": "Package",
+            "version": "[9.0.8, )",
+            "autoReferenced": true
+          },
           "Newtonsoft.Json": {
             "target": "Package",
             "version": "[13.0.4-beta1, )"
@@ -2518,6 +3353,22 @@
           {
             "name": "Microsoft.AspNetCore.App.Ref",
             "version": "[9.0.8, 9.0.8]"
+          },
+          {
+            "name": "Microsoft.AspNetCore.App.Runtime.linux-x64",
+            "version": "[9.0.8, 9.0.8]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Crossgen2.linux-x64",
+            "version": "[9.0.8, 9.0.8]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Host.linux-x64",
+            "version": "[9.0.8, 9.0.8]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Runtime.linux-x64",
+            "version": "[9.0.8, 9.0.8]"
           }
         ],
         "frameworkReferences": {
@@ -2526,6 +3377,11 @@
           }
         },
         "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/9.0.109/PortableRuntimeIdentifierGraph.json"
+      }
+    },
+    "runtimes": {
+      "linux-x64": {
+        "#import": []
       }
     }
   },

@@ -7,6 +7,7 @@
         xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
         xmlns:settings="clr-namespace:osuautodeafen.cs.Settings"
         xmlns:strainGraph="clr-namespace:osuautodeafen.cs.StrainGraph"
+        xmlns:global="clr-namespace:"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osuautodeafen"
@@ -14,9 +15,59 @@
 
 
     <Window.Resources>
+        <local:UpdateNotificationMarginConverter x:Key="UpdateNotificationMarginConverter" />
         <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
+        <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
+        <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
     </Window.Resources>
+    <Window.Styles>
+        <Style Selector="CheckBox.custom">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="18" Height="18"
+                                CornerRadius="3"
+                                BorderBrush="Gray"
+                                BorderThickness="1"
+                                Margin="0,0,6,0"
+                                VerticalAlignment="Center">
+                            <Border.Background>
+                                <MultiBinding Converter="{StaticResource CheckBoxBackgroundConverter}">
+                                    <Binding Path="IsChecked" RelativeSource="{RelativeSource TemplatedParent}" />
+                                    <Binding Path="Background" RelativeSource="{RelativeSource TemplatedParent}" />
+                                </MultiBinding>
+                            </Border.Background>
+                            <Canvas Width="18" Height="18">
+                                <Path
+                                    Classes="custom-checkmark"
+                                    Data="M4,9 L8,13 L14,5"
+                                    Stroke="White"
+                                    StrokeThickness="2"
+                                    IsVisible="{TemplateBinding IsChecked}" />
+                            </Canvas>
+                        </Border>
+                        <ContentPresenter Content="{TemplateBinding Content}" 
+                                          VerticalAlignment="Center"
+                                          Foreground="White"/>
+                    </StackPanel>
+                </ControlTemplate>
+            </Setter>
+            <Setter Property="Background" Value="{StaticResource ButtonBackgroundBrush}" />
+        </Style>
+        <Style Selector="CheckBox.custom Path.custom-checkmark:disabled">
+            <Setter Property="Opacity" Value="0.3" />
+        </Style>
+        <Style Selector="CheckBox.custom:disabled">
+            <Setter Property="Background" Value="#444" />
+        </Style>
+    </Window.Styles>
 
     <Grid ZIndex="5">
         <Grid.ColumnDefinitions>
@@ -200,7 +251,7 @@
                         </Image>
                         <CheckBox x:Name="FCToggle" Content="FC Required?" Foreground="White"
                                   IsChecked="{Binding IsFCRequired, Mode=TwoWay}"
-                                  HorizontalAlignment="Left" Margin="0" Width="120">
+                                  HorizontalAlignment="Left" Margin="0" Width="120" Classes="custom">
                             <ToolTip.Tip>
                                 <TextBlock Text="Toggle if an FC is required to deafen" />
                             </ToolTip.Tip>
@@ -216,7 +267,7 @@
                         <CheckBox x:Name="UndeafenOnMissToggle" Content="Undeafen on miss" Foreground="White"
                                   IsChecked="{Binding UndeafenAfterMiss, Mode=TwoWay}"
                                   IsEnabled="{Binding ElementName=FCToggle, Path=IsChecked}"
-                                  HorizontalAlignment="Left" Margin="0" Width="120">
+                                  HorizontalAlignment="Left" Margin="0" Width="120" Classes="custom">
                             <ToolTip.Tip>
                                 <TextBlock Text="Do you get undeafened after a miss?" />
                             </ToolTip.Tip>
@@ -236,7 +287,7 @@
                         </Image>
                         <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
                                   IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
-                                  HorizontalAlignment="Left" Margin="0">
+                                  HorizontalAlignment="Left" Margin="0" Classes="custom">
                             <ToolTip.Tip>
                                 <TextBlock>
                                     <Run Text="Toggle whether or not breaks should be undeafened" />
@@ -294,7 +345,7 @@
                         </Image>
                         <CheckBox x:Name="BackgroundToggle" Content="Background" Foreground="White"
                                   IsChecked="{Binding IsBackgroundEnabled, Mode=TwoWay}"
-                                  HorizontalAlignment="Left" Margin="0">
+                                  HorizontalAlignment="Left" Margin="0" Classes="custom">
                             <ToolTip.Tip>
                                 <TextBlock Text="Enable or disable the background" />
                             </ToolTip.Tip>
@@ -312,7 +363,7 @@
                                   VerticalAlignment="Center"
                                   IsChecked="{Binding IsParallaxEnabled, Mode=TwoWay}"
                                   IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
-                                  HorizontalAlignment="Left" Margin="0">
+                                  HorizontalAlignment="Left" Margin="0" Classes="custom">
                             <ToolTip.Tip>
                                 <TextBlock Text="Enable or disable the parallax effect" />
                             </ToolTip.Tip>
@@ -330,7 +381,7 @@
                                   VerticalAlignment="Center"
                                   IsChecked="{Binding IsKiaiEffectEnabled, Mode=TwoWay}"
                                   IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
-                                  HorizontalAlignment="Left" Margin="0">
+                                  HorizontalAlignment="Left" Margin="0" Classes="custom">
                             <ToolTip.Tip>
                                 <TextBlock Text="Enable or disable the Kiai Flashes" />
                             </ToolTip.Tip>
