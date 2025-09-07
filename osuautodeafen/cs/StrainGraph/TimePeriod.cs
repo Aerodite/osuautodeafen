@@ -6,16 +6,25 @@ using System.Threading.Tasks;
 
 namespace osuautodeafen.cs.StrainGraph;
 
+/// <summary>
+///     Represents a generic time period with start and end times
+/// </summary>
 public class TimePeriod
 {
     public int Start { get; set; }
     public int End { get; set; }
 }
 
+/// <summary>
+///     Represents a kiai time period with start and end times
+/// </summary>
 public class KiaiTime : TimePeriod
 {
 }
 
+/// <summary>
+///     Represents a break period with additional properties for indexing and percentage calculations
+/// </summary>
 public class BreakPeriod : TimePeriod
 {
     public int StartIndex { get; set; }
@@ -24,6 +33,9 @@ public class BreakPeriod : TimePeriod
     public double EndPercentage { get; set; }
 }
 
+/// <summary>
+///     Manages kiai time periods parsed from an osu! beatmap file
+/// </summary>
 public class KiaiTimes
 {
     private bool _isInKiaiPeriod;
@@ -31,15 +43,20 @@ public class KiaiTimes
     public event Action? KiaiPeriodEntered;
     public event Action? KiaiPeriodExited;
 
-    public async Task<List<KiaiTime>> ParseKiaiTimesAsync(string osuFilePath)
+    /// <summary>
+    ///     Parses kiai times from the specified osu! beatmap file
+    /// </summary>
+    /// <param name="osuFilePath"></param>
+    /// <returns></returns>
+    public async Task<List<KiaiTime>> ParseKiaiTimesAsync(string? osuFilePath)
     {
         Times.Clear();
-        var lines = await File.ReadAllLinesAsync(osuFilePath);
-        var inTimingPoints = false;
+        string[] lines = await File.ReadAllLinesAsync(osuFilePath);
+        bool inTimingPoints = false;
         int? currentKiaiStart = null;
         var rawPeriods = new List<KiaiTime>();
 
-        foreach (var line in lines)
+        foreach (string line in lines)
         {
             if (line.StartsWith("[TimingPoints]"))
             {
@@ -54,12 +71,12 @@ public class KiaiTimes
                 if (string.IsNullOrWhiteSpace(line) || line.StartsWith("//"))
                     continue;
 
-                var parts = line.Split(',');
+                string[] parts = line.Split(',');
                 if (parts.Length < 8) continue;
-                if (!int.TryParse(parts[0], out var time)) continue;
-                if (!int.TryParse(parts[7], out var effects)) continue;
+                if (!int.TryParse(parts[0], out int time)) continue;
+                if (!int.TryParse(parts[7], out int effects)) continue;
 
-                var kiai = (effects & 1) == 1;
+                bool kiai = (effects & 1) == 1;
                 if (kiai && currentKiaiStart == null)
                 {
                     currentKiaiStart = time;
@@ -79,17 +96,26 @@ public class KiaiTimes
         return Times;
     }
 
+    /// <summary>
+    ///     Checks if the current time is within any kiai period
+    /// </summary>
+    /// <param name="currentTime"></param>
+    /// <returns></returns>
     public bool IsKiaiPeriod(int currentTime)
     {
-        foreach (var kiai in Times)
+        foreach (KiaiTime kiai in Times)
             if (currentTime >= kiai.Start && currentTime < kiai.End)
                 return true;
         return false;
     }
 
+    /// <summary>
+    ///     Updates the internal state and triggers events if entering or exiting a kiai period
+    /// </summary>
+    /// <param name="currentTime"></param>
     public void UpdateKiaiPeriodState(int currentTime)
     {
-        var currentlyInKiai = IsKiaiPeriod(currentTime);
+        bool currentlyInKiai = IsKiaiPeriod(currentTime);
         if (currentlyInKiai != _isInKiaiPeriod)
         {
             _isInKiaiPeriod = currentlyInKiai;
@@ -100,16 +126,22 @@ public class KiaiTimes
         }
     }
 
+    /// <summary>
+    ///     Merges overlapping or contiguous kiai periods into a single period
+    /// </summary>
+    /// <param name="periods"></param>
+    /// <returns></returns>
     private static List<KiaiTime> MergePeriods(List<KiaiTime> periods)
     {
+        const int mergeThresholdMs = 100;
         if (periods.Count == 0) return new List<KiaiTime>();
         var sorted = periods.OrderBy(p => p.Start).ToList();
         var merged = new List<KiaiTime> { sorted[0] };
-        for (var i = 1; i < sorted.Count; i++)
+        for (int i = 1; i < sorted.Count; i++)
         {
-            var last = merged[^1];
-            var curr = sorted[i];
-            if (curr.Start <= last.End)
+            KiaiTime last = merged[^1];
+            KiaiTime curr = sorted[i];
+            if (curr.Start <= last.End + mergeThresholdMs)
                 last.End = Math.Max(last.End, curr.End);
             else
                 merged.Add(curr);
@@ -119,6 +151,9 @@ public class KiaiTimes
     }
 }
 
+/// <summary>
+///     Manages break periods parsed from an osu! beatmap file
+/// </summary>
 public class BreakPeriodCalculator
 {
     private bool _isInBreakPeriod;
@@ -126,16 +161,23 @@ public class BreakPeriodCalculator
     public event Action? BreakPeriodEntered;
     public event Action? BreakPeriodExited;
 
-    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string osuFilePath, List<double> xAxis,
+    /// <summary>
+    ///     Parses break periods from the specified osu! beatmap file and maps them to the provided xAxis and yAxis data
+    /// </summary>
+    /// <param name="osuFilePath"></param>
+    /// <param name="xAxis"></param>
+    /// <param name="yAxis"></param>
+    /// <returns></returns>
+    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string? osuFilePath, List<double> xAxis,
         List<double> yAxis)
     {
         BreakPeriods.Clear();
-        var lines = await File.ReadAllLinesAsync(osuFilePath);
-        var inBreakPeriodSection = false;
-        var totalPoints = xAxis.Count;
+        string[] lines = await File.ReadAllLinesAsync(osuFilePath);
+        bool inBreakPeriodSection = false;
+        int totalPoints = xAxis.Count;
         var rawPeriods = new List<BreakPeriod>();
 
-        foreach (var line in lines)
+        foreach (string line in lines)
         {
             if (line.StartsWith("//Break Periods"))
             {
@@ -146,14 +188,14 @@ public class BreakPeriodCalculator
             if (inBreakPeriodSection)
             {
                 if (line.StartsWith("//")) break;
-                var parts = line.Split(',');
+                string[] parts = line.Split(',');
                 if (parts.Length == 3 && parts[0] == "2")
-                    if (double.TryParse(parts[1], out var start) && double.TryParse(parts[2], out var end))
+                    if (double.TryParse(parts[1], out double start) && double.TryParse(parts[2], out double end))
                     {
-                        var startIndex = FindClosestIndex(xAxis, start);
-                        var endIndex = FindClosestIndex(xAxis, end);
-                        var startPercentage = startIndex / (double)totalPoints * 100;
-                        var endPercentage = endIndex / (double)totalPoints * 100;
+                        int startIndex = FindClosestIndex(xAxis, start);
+                        int endIndex = FindClosestIndex(xAxis, end);
+                        double startPercentage = startIndex / (double)totalPoints * 100;
+                        double endPercentage = endIndex / (double)totalPoints * 100;
                         rawPeriods.Add(new BreakPeriod
                         {
                             Start = (int)start,
@@ -171,14 +213,23 @@ public class BreakPeriodCalculator
         return BreakPeriods;
     }
 
+    /// <summary>
+    ///     Uses the Tosu WebSocket response to check if currently in a break period
+    /// </summary>
+    /// <param name="tosuApi"></param>
+    /// <returns></returns>
     public bool IsBreakPeriod(TosuApi tosuApi)
     {
         return tosuApi.IsBreakPeriod();
     }
 
+    /// <summary>
+    ///     Updates the internal state and triggers events if entering or exiting a break period
+    /// </summary>
+    /// <param name="tosuApi"></param>
     public void UpdateBreakPeriodState(TosuApi tosuApi)
     {
-        var currentlyInBreak = IsBreakPeriod(tosuApi);
+        bool currentlyInBreak = IsBreakPeriod(tosuApi);
         if (currentlyInBreak != _isInBreakPeriod)
         {
             _isInBreakPeriod = currentlyInBreak;
@@ -189,13 +240,19 @@ public class BreakPeriodCalculator
         }
     }
 
+    /// <summary>
+    ///     Finds the index of the closest value in the xAxis to the specified value
+    /// </summary>
+    /// <param name="xAxis"></param>
+    /// <param name="value"></param>
+    /// <returns></returns>
     private static int FindClosestIndex(List<double> xAxis, double value)
     {
-        var closestIndex = 0;
-        var smallestDifference = double.MaxValue;
-        for (var i = 0; i < xAxis.Count; i++)
+        int closestIndex = 0;
+        double smallestDifference = double.MaxValue;
+        for (int i = 0; i < xAxis.Count; i++)
         {
-            var difference = Math.Abs(xAxis[i] - value);
+            double difference = Math.Abs(xAxis[i] - value);
             if (difference < smallestDifference)
             {
                 smallestDifference = difference;
@@ -206,16 +263,22 @@ public class BreakPeriodCalculator
         return closestIndex;
     }
 
+    /// <summary>
+    ///     Merges overlapping or contiguous break periods into a single period
+    /// </summary>
+    /// <param name="periods"></param>
+    /// <returns></returns>
     private static List<BreakPeriod> MergePeriods(List<BreakPeriod> periods)
     {
+        const int mergeThresholdMs = 100;
         if (periods.Count == 0) return new List<BreakPeriod>();
         var sorted = periods.OrderBy(p => p.Start).ToList();
         var merged = new List<BreakPeriod> { sorted[0] };
-        for (var i = 1; i < sorted.Count; i++)
+        for (int i = 1; i < sorted.Count; i++)
         {
-            var last = merged[^1];
-            var curr = sorted[i];
-            if (curr.Start <= last.End)
+            BreakPeriod last = merged[^1];
+            BreakPeriod curr = sorted[i];
+            if (curr.Start <= last.End + mergeThresholdMs)
             {
                 last.End = Math.Max(last.End, curr.End);
                 last.EndIndex = Math.Max(last.EndIndex, curr.EndIndex);

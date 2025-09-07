@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Threading;
 
@@ -8,7 +9,7 @@ public static class AppIconSetter
 
     public static void SetIcon(Window window, string iconResourceName)
     {
-        var iconStream = LoadEmbeddedResource(iconResourceName);
+        Stream? iconStream = LoadEmbeddedResource(iconResourceName);
         if (iconStream != null)
             Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -21,7 +22,7 @@ public static class AppIconSetter
 
     private static Stream? LoadEmbeddedResource(string resourceName)
     {
-        var assembly = typeof(AppIconSetter).Assembly;
+        Assembly assembly = typeof(AppIconSetter).Assembly;
         return assembly.GetManifestResourceStream(resourceName);
     }
 }

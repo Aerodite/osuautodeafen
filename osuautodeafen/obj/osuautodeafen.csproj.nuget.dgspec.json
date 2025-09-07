@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj": {}
+    "/home/anthony/RiderProjects/osuautodeafen/osuautodeafen/osuautodeafen.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj": {
+    "/home/anthony/RiderProjects/osuautodeafen/osuautodeafen/osuautodeafen.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj",
+        "projectUniqueName": "/home/anthony/RiderProjects/osuautodeafen/osuautodeafen/osuautodeafen.csproj",
         "projectName": "osuautodeafen",
-        "projectPath": "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\osuautodeafen\\osuautodeafen.csproj",
-        "packagesPath": "C:\\Users\\Anthony\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Anthony\\Documents\\GitHub\\osuautodeafen\\osuautodeafen\\obj\\",
+        "projectPath": "/home/anthony/RiderProjects/osuautodeafen/osuautodeafen/osuautodeafen.csproj",
+        "packagesPath": "/home/anthony/.nuget/packages/",
+        "outputPath": "/home/anthony/RiderProjects/osuautodeafen/osuautodeafen/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\Anthony\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "/home/anthony/.nuget/NuGet/NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net9.0"
@@ -38,35 +38,23 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "9.0.300"
+        "SdkAnalysisLevel": "9.0.100"
       },
       "frameworks": {
         "net9.0": {
           "targetAlias": "net9.0",
           "dependencies": {
-            "Avalonia": {
-              "target": "Package",
-              "version": "[11.3.0, )"
-            },
             "Avalonia.Desktop": {
               "target": "Package",
-              "version": "[11.3.0, )"
-            },
-            "Avalonia.Diagnostics": {
-              "target": "Package",
-              "version": "[11.3.0, )"
+              "version": "[11.3.5, )"
             },
             "Avalonia.Fonts.Inter": {
               "target": "Package",
-              "version": "[11.3.0, )"
-            },
-            "Avalonia.Skia": {
-              "target": "Package",
-              "version": "[11.3.0, )"
+              "version": "[11.3.5, )"
             },
             "Avalonia.Themes.Fluent": {
               "target": "Package",
-              "version": "[11.3.0, )"
+              "version": "[11.3.5, )"
             },
             "ILMerge": {
               "target": "Package",
@@ -74,51 +62,51 @@
             },
             "LiveChartsCore.SkiaSharpView": {
               "target": "Package",
-              "version": "[2.0.0-rc2, )"
+              "version": "[2.0.0-rc5.4, )"
             },
             "LiveChartsCore.SkiaSharpView.Avalonia": {
               "target": "Package",
-              "version": "[2.0.0-rc2, )"
+              "version": "[2.0.0-rc5.4, )"
             },
             "Newtonsoft.Json": {
               "target": "Package",
-              "version": "[13.0.3, )"
+              "version": "[13.0.4-beta1, )"
             },
             "ReactiveUI": {
               "target": "Package",
-              "version": "[20.2.45, )"
+              "version": "[21.0.1, )"
             },
             "SharpHook": {
               "target": "Package",
-              "version": "[6.0.0, )"
+              "version": "[7.0.1, )"
             },
             "SkiaSharp": {
               "target": "Package",
-              "version": "[2.88.9, )"
+              "version": "[3.119.0, )"
             },
             "SkiaSharp.NativeAssets.Linux": {
               "target": "Package",
-              "version": "[2.88.9, )"
+              "version": "[3.119.0, )"
             },
             "SkiaSharp.NativeAssets.Win32": {
               "target": "Package",
-              "version": "[2.88.9, )"
+              "version": "[3.119.0, )"
             },
             "SkiaSharp.NativeAssets.macOS": {
               "target": "Package",
-              "version": "[2.88.9, )"
+              "version": "[3.119.0, )"
             },
             "SkiaSharp.Views": {
               "target": "Package",
-              "version": "[2.88.3, )"
+              "version": "[3.119.0, )"
             },
             "Svg.Skia": {
               "target": "Package",
-              "version": "[2.0.0.4, )"
+              "version": "[3.0.6, )"
             },
             "Velopack": {
               "target": "Package",
-              "version": "[0.0.1298, )"
+              "version": "[0.0.1362-gfa48e3c, )"
             },
             "WebSocketSharp": {
               "target": "Package",
@@ -140,12 +128,18 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.AspNetCore.App.Ref",
+              "version": "[9.0.8, 9.0.8]"
+            }
+          ],
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/9.0.109/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

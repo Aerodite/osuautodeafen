@@ -13,14 +13,19 @@ public class GetLowResBackground
         _tosuApi = tosuApi;
     }
 
+    /// <summary>
+    ///     Attempts to get the path to the low resolution background image for the current beatmap
+    ///     (The one used in the beatmap carousel on stable, if on lazer, it just ignores it and uses the regular image)
+    /// </summary>
+    /// <returns></returns>
     public string? GetLowResBitmapPath()
     {
-        var osuFolderPath = _tosuApi.GetGameDirectory();
+        string? osuFolderPath = _tosuApi.GetGameDirectory();
 
         // on Linux, map Wine's D:\ to the real osu! folder
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && osuFolderPath == "D:\\")
         {
-            var home = Environment.GetEnvironmentVariable("HOME") ?? "";
+            string home = Environment.GetEnvironmentVariable("HOME") ?? "";
             osuFolderPath = Path.Combine(home, ".local", "share", "osu-wine", "osu!");
         }
 
@@ -32,15 +37,15 @@ public class GetLowResBackground
 
         Console.WriteLine($"Osu Folder Path: {osuFolderPath}");
 
-        var beatmapId = _tosuApi.GetBeatmapId().ToString();
+        string beatmapId = _tosuApi.GetBeatmapId().ToString();
         if (string.IsNullOrEmpty(beatmapId))
         {
             Console.WriteLine("[ERROR] beatmapId is null or empty");
             return null;
         }
 
-        var path1 = Path.Combine(osuFolderPath, "Data", "bt", beatmapId + ".jpg");
-        var path2 = Path.Combine(osuFolderPath, "Data", "bt", beatmapId + "l.jpg");
+        string path1 = Path.Combine(osuFolderPath, "Data", "bt", beatmapId + ".jpg");
+        string path2 = Path.Combine(osuFolderPath, "Data", "bt", beatmapId + "l.jpg");
 
         Console.WriteLine($"Path 1: {path1}");
         Console.WriteLine($"Path 2: {path2}");
@@ -59,7 +64,7 @@ public class GetLowResBackground
 
         //just return the normal background (really only affects lazer)
         Console.WriteLine("No path exists, just using high res background");
-        var _backgroundPath = _tosuApi.GetBackgroundPath();
+        string _backgroundPath = _tosuApi.GetBackgroundPath();
         return _backgroundPath;
     }
 }

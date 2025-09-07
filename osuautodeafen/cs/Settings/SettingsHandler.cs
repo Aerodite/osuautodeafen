@@ -40,11 +40,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
             Data = _parser.ReadFile(_iniPath);
         }
 
+        EnsureSectionsExist();
         LoadSettings();
     }
-
-    public string DeafenKeybindKey => Data["Hotkeys"]["DeafenKeybindKey"];
-    public string DeafenKeybindModifiers => Data["Hotkeys"]["DeafenKeybindModifiers"];
 
     public double MinCompletionPercentage
     {
@@ -108,12 +106,49 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public string? DeafenKeybind { get; set; }
     public bool IsBreakUndeafenToggleEnabled { get; set; }
     public bool IsKiaiEffectEnabled { get; set; }
+    public string? tosuApiIp { get; set; }
+    public string? tosuApiPort { get; set; }
 
     public new event PropertyChangedEventHandler? PropertyChanged;
 
-    public static IniData CreateDefaultIniData()
+    /// <summary>
+    ///     Ensures that all required sections and keys exist in the INI data.
+    /// </summary>
+    /// <remarks>
+    ///     Very useful in the case that a user updates the application and new settings are added,
+    ///     should be called on every start up
+    /// </remarks>
+    private void EnsureSectionsExist()
     {
-        var data = new IniData();
+        IniData defaults = CreateDefaultIniData();
+        bool changed = false;
+
+        foreach (SectionData? section in defaults.Sections)
+        {
+            if (!Data.Sections.ContainsSection(section.SectionName))
+            {
+                Data.Sections.AddSection(section.SectionName);
+                changed = true;
+            }
+
+            foreach (KeyData? key in section.Keys)
+                if (!Data[section.SectionName].ContainsKey(key.KeyName))
+                {
+                    Data[section.SectionName][key.KeyName] = key.Value;
+                    changed = true;
+                }
+        }
+
+        if (changed)
+            _parser.WriteFile(_iniPath, Data);
+    }
+
+    /// <summary>
+    ///     Creates a default IniData object with all necessary sections and keys
+    /// </summary>
+    private static IniData CreateDefaultIniData()
+    {
+        IniData data = new();
 
         data.Sections.AddSection("General");
         data["General"]["MinCompletionPercentage"] = "60";
@@ -137,14 +172,34 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         data["UI"]["WindowWidth"] = "630";
         data["UI"]["WindowHeight"] = "630";
 
+        data.Sections.AddSection("Network");
+        data["Network"]["tosuApiIp"] = "127.0.0.1";
+        data["Network"]["tosuApiPort"] = "24050";
+
         return data;
     }
 
+    /// <summary>
+    ///     Returns the application data path where settings are stored
+    /// </summary>
+    /// <returns>
+    ///     The application data path as a string
+    /// </returns>
     public string GetPath()
     {
         return _appPath;
     }
 
+    /// <summary>
+    ///     Sets the field to the specified value and raises the PropertyChanged event if the value has changed
+    /// </summary>
+    /// <param name="field"></param>
+    /// <param name="value"></param>
+    /// <param name="propertyName"></param>
+    /// <typeparam name="T"></typeparam>
+    /// <returns>
+    ///     True if the value was changed, false if it was the same
+    /// </returns>
     private bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (Equals(field, value)) return false;
@@ -153,25 +208,32 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         return true;
     }
 
+    /// <summary>
+    ///     Loads settings from the INI file into the properties
+    /// </summary>
     public void LoadSettings()
     {
-        _minCompletionPercentage = double.TryParse(Data["General"]["MinCompletionPercentage"], out var mcp) ? mcp : 0;
-        _starRating = double.TryParse(Data["General"]["StarRating"], out var sr) ? sr : 0;
-        _performancePoints = double.TryParse(Data["General"]["PerformancePoints"], out var pp) ? pp : 0;
-        BlurRadius = double.TryParse(Data["UI"]["BlurRadius"], out var blur) ? blur : 0;
+        _minCompletionPercentage =
+            double.TryParse(Data["General"]["MinCompletionPercentage"], out double mcp) ? mcp : 0;
+        _starRating = double.TryParse(Data["General"]["StarRating"], out double sr) ? sr : 0;
+        _performancePoints = double.TryParse(Data["General"]["PerformancePoints"], out double pp) ? pp : 0;
+        BlurRadius = double.TryParse(Data["UI"]["BlurRadius"], out double blur) ? blur : 0;
 
         IsBreakUndeafenToggleEnabled =
-            bool.TryParse(Data["Behavior"]["IsBreakUndeafenToggleEnabled"], out var bu) && bu;
-        IsFCRequired = bool.TryParse(Data["Behavior"]["IsFCRequired"], out var fc) && fc;
-        UndeafenAfterMiss = bool.TryParse(Data["Behavior"]["UndeafenAfterMiss"], out var uam) && uam;
+            bool.TryParse(Data["Behavior"]["IsBreakUndeafenToggleEnabled"], out bool bu) && bu;
+        IsFCRequired = bool.TryParse(Data["Behavior"]["IsFCRequired"], out bool fc) && fc;
+        UndeafenAfterMiss = bool.TryParse(Data["Behavior"]["UndeafenAfterMiss"], out bool uam) && uam;
 
         DeafenKeybind = $"{Data["Hotkeys"]["DeafenKeybindKey"]},{Data["Hotkeys"]["DeafenKeybindModifiers"]}";
 
-        IsBackgroundEnabled = bool.TryParse(Data["UI"]["IsBackgroundEnabled"], out var bg) && bg;
-        IsParallaxEnabled = bool.TryParse(Data["UI"]["IsParallaxEnabled"], out var px) && px;
-        IsKiaiEffectEnabled = bool.TryParse(Data["UI"]["IsKiaiEffectEnabled"], out var kiai) && kiai;
-        _windowWidth = double.TryParse(Data["UI"]["WindowWidth"], out var width) ? width : 630;
-        _windowHeight = double.TryParse(Data["UI"]["WindowHeight"], out var height) ? height : 630;
+        IsBackgroundEnabled = bool.TryParse(Data["UI"]["IsBackgroundEnabled"], out bool bg) && bg;
+        IsParallaxEnabled = bool.TryParse(Data["UI"]["IsParallaxEnabled"], out bool px) && px;
+        IsKiaiEffectEnabled = bool.TryParse(Data["UI"]["IsKiaiEffectEnabled"], out bool kiai) && kiai;
+        _windowWidth = double.TryParse(Data["UI"]["WindowWidth"], out double width) ? width : 630;
+        _windowHeight = double.TryParse(Data["UI"]["WindowHeight"], out double height) ? height : 630;
+
+        tosuApiIp = Data["Network"]["tosuApiIp"];
+        tosuApiPort = Data["Network"]["tosuApiPort"];
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MinCompletionPercentage)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StarRating)));
@@ -184,8 +246,16 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybind)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsBreakUndeafenToggleEnabled)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsKiaiEffectEnabled)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(tosuApiIp)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(tosuApiPort)));
     }
 
+    /// <summary>
+    ///     Saves a setting to the INI file.
+    /// </summary>
+    /// <param name="section"></param>
+    /// <param name="key"></param>
+    /// <param name="value"></param>
     public void SaveSetting(string section, string key, object? value)
     {
         if (!Data.Sections.ContainsSection(section))
@@ -194,6 +264,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         _parser.WriteFile(_iniPath, Data);
     }
 
+    /// <summary>
+    ///     Resets all settings to their default values and saves them to the INI file.
+    /// </summary>
     public void ResetToDefaults()
     {
         Data = CreateDefaultIniData();

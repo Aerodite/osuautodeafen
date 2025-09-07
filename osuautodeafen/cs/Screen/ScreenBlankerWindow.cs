@@ -31,9 +31,9 @@ public class ScreenBlankerWindow : Window
         IsVisible = true;
         Show(); // Ensure the window is created
 
-        var platformImpl = GetType().GetProperty("PlatformImpl", BindingFlags.NonPublic | BindingFlags.Instance)
+        object? platformImpl = GetType().GetProperty("PlatformImpl", BindingFlags.NonPublic | BindingFlags.Instance)
             ?.GetValue(this);
-        var handle = platformImpl?.GetType().GetProperty("Handle", BindingFlags.NonPublic | BindingFlags.Instance)
+        IntPtr? handle = platformImpl?.GetType().GetProperty("Handle", BindingFlags.NonPublic | BindingFlags.Instance)
             ?.GetValue(platformImpl) as IntPtr?;
         if (handle.HasValue)
             SetWindowLong(handle.Value, GWL_EXSTYLE, GetWindowLong(handle.Value, GWL_EXSTYLE) | WS_EX_TRANSPARENT);

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using osuautodeafen.cs.Settings;
 using SharpHook;
 using SharpHook.Data;
@@ -10,7 +11,7 @@ namespace osuautodeafen.cs.Deafen;
 
 public class Deafen : IDisposable
 {
-    private readonly object _deafenLock = new();
+    private readonly Lock _deafenLock = new();
     private readonly EventSimulator _eventSimulator = new();
     private readonly SimpleGlobalHook _hook;
     private readonly SettingsHandler _settingsHandler;
@@ -22,7 +23,7 @@ public class Deafen : IDisposable
 
     public Action? Deafened;
     public Action? Undeafened;
-    
+
 
     public Deafen(TosuApi tosuAPI, SettingsHandler settingsHandler, SharedViewModel sharedViewModel)
     {
@@ -40,12 +41,24 @@ public class Deafen : IDisposable
     private bool IsUndeafenAfterMissEnabled => _sharedViewModel.UndeafenAfterMiss;
     private bool IsBreakUndeafenToggleEnabled => _sharedViewModel.IsBreakUndeafenToggleEnabled;
 
+    /// <summary>
+    ///     Cleans up resources used by the Deafen class
+    /// </summary>
     public void Dispose()
     {
         Console.WriteLine("[Dispose] Disposing Deafen resources.");
         _hook.Dispose();
+        GC.SuppressFinalize(this);
     }
 
+    /// <summary>
+    ///     Attempts to simulate the press(ing) of keybinds to deafen/undeafen in Discord.
+    /// </summary>
+    /// <remarks>
+    ///     The only reason theres a fallback to string parsing iirc is because im pretty certain theres still
+    ///     some dumbass dogshit somewhere that I forgot about that is still trying to use string parsing, just leaving
+    ///     that there here just in case i guess man
+    /// </remarks>
     private void SimulateDeafenKey()
     {
         try
@@ -53,15 +66,15 @@ public class Deafen : IDisposable
             KeyCode key;
             List<KeyCode> modifiers = new();
 
-            var keybindObj = _sharedViewModel.DeafenKeybind;
+            MainWindow.HotKey? keybindObj = _sharedViewModel.DeafenKeybind;
             if (keybindObj == null)
             {
-                var keybindParts = _settingsHandler.DeafenKeybind?.Split(',');
+                string[]? keybindParts = _settingsHandler.DeafenKeybind?.Split(',');
                 if (keybindParts == null || keybindParts.Length < 2)
                     throw new ArgumentException("Invalid DeafenKeybind format in settings.");
 
                 key = (KeyCode)ushort.Parse(keybindParts[0]);
-                var modValue = ushort.Parse(keybindParts[1]);
+                ushort modValue = ushort.Parse(keybindParts[1]);
                 if (modValue != 0)
                 {
                     if ((modValue & 1) != 0) modifiers.Add(KeyCode.VcLeftAlt);
@@ -70,18 +83,17 @@ public class Deafen : IDisposable
                     if ((modValue & 8) != 0) modifiers.Add(KeyCode.VcLeftMeta);
                 }
 
-                Console.WriteLine("[SimulateDeafenKey] DeafenKeybind was null, using settings handler value.");
+                Console.WriteLine("[SimulateDeafenKey] DeafenKeybind null, using settings handler value.");
             }
             else
             {
-                // Fallback to string parsing if needed
                 var keybinds = ConvertToInputSimulatorSyntax(keybindObj.ToString());
                 modifiers = keybinds[0].Modifiers.ToList();
                 key = keybinds[0].Key;
             }
 
             Console.WriteLine($"[SimulateDeafenKey] Pressing modifiers: {string.Join(", ", modifiers)}");
-            foreach (var mod in modifiers)
+            foreach (KeyCode mod in modifiers)
                 _eventSimulator.SimulateKeyPress(mod);
 
             Console.WriteLine($"[SimulateDeafenKey] Pressing main key: {key}");
@@ -90,7 +102,7 @@ public class Deafen : IDisposable
             _eventSimulator.SimulateKeyRelease(key);
             Console.WriteLine($"[SimulateDeafenKey] Released main key: {key}");
 
-            foreach (var mod in modifiers.AsEnumerable().Reverse())
+            foreach (KeyCode mod in modifiers.AsEnumerable().Reverse())
                 _eventSimulator.SimulateKeyRelease(mod);
             Console.WriteLine(
                 $"[SimulateDeafenKey] Released modifiers: {string.Join(", ", modifiers.AsEnumerable().Reverse())}");
@@ -101,28 +113,34 @@ public class Deafen : IDisposable
         }
     }
 
+    /// <summary>
+    ///     Determines whether the conditions to deafen are met.
+    /// </summary>
+    /// <returns>
+    ///     True if the conditions to deafen are met, otherwise, false.
+    /// </returns>
     private bool ShouldDeafen()
     {
-        var completionPercentage = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
-        var currentStarRating = _tosuAPI.GetFullSR();
-        var currentPerformancePoints = _tosuAPI.GetMaxPP();
+        double completionPercentage = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
+        double currentStarRating = _tosuAPI.GetFullSR();
+        double currentPerformancePoints = _tosuAPI.GetMaxPP();
         double requiredCompletion = _sharedViewModel.MinCompletionPercentage;
-        var requiredStarRating = _sharedViewModel.StarRating;
+        double requiredStarRating = _sharedViewModel.StarRating;
         double requiredPerformancePoints = _sharedViewModel.PerformancePoints;
-        var isFCRequired = _sharedViewModel.IsFCRequired;
-        var isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
-        var notAlreadyDeafened = !_deafened;
-        var completionMet = completionPercentage >= requiredCompletion;
-        var starRatingMet = currentStarRating >= requiredStarRating;
-        var performancePointsMet = currentPerformancePoints >= requiredPerformancePoints;
-        var hasHitObjects = _tosuAPI.GetMaxCombo() != 0;
-        var notPracticeDifficulty = (int)_tosuAPI.GetRankedStatus() != 1;
-        var isFullCombo = _tosuAPI.IsFullCombo();
+        bool isFCRequired = _sharedViewModel.IsFCRequired;
+        bool isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
+        bool notAlreadyDeafened = !_deafened;
+        bool completionMet = completionPercentage >= requiredCompletion;
+        bool starRatingMet = currentStarRating >= requiredStarRating;
+        bool performancePointsMet = currentPerformancePoints >= requiredPerformancePoints;
+        bool hasHitObjects = _tosuAPI.GetMaxCombo() != 0;
+        bool notPracticeDifficulty = (int)_tosuAPI.GetRankedStatus() != 1;
+        bool isFullCombo = _tosuAPI.IsFullCombo();
         _isInBreakPeriod = _tosuAPI.IsBreakPeriod();
 
-        var fcRequirementMet = !isFCRequired || isFullCombo;
-        var breakConditionMet = !IsBreakUndeafenToggleEnabled || !_isInBreakPeriod;
-        var missConditionMet = !IsUndeafenAfterMissEnabled || isFullCombo;
+        bool fcRequirementMet = !isFCRequired || isFullCombo;
+        bool breakConditionMet = !IsBreakUndeafenToggleEnabled || !_isInBreakPeriod;
+        bool missConditionMet = !IsUndeafenAfterMissEnabled || isFullCombo;
 
         //Console.WriteLine($"[ShouldDeafen] isPlaying={isPlaying}, notAlreadyDeafened={notAlreadyDeafened}, completionMet={completionMet}, starRatingMet={starRatingMet}, performancePointsMet={performancePointsMet}, hasHitObjects={hasHitObjects}, notPracticeDifficulty={notPracticeDifficulty}, fcRequirementMet={fcRequirementMet}, breakConditionMet={breakConditionMet}, missConditionMet={missConditionMet}");
 
@@ -138,12 +156,18 @@ public class Deafen : IDisposable
                && missConditionMet;
     }
 
+    /// <summary>
+    ///     Determines whether the conditions to undeafen are met.
+    /// </summary>
+    /// <returns>
+    ///     True if the conditions to undeafen are met, otherwise, false.
+    /// </returns>
     private bool ShouldUndeafen()
     {
-        var completionPercentage = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
-        var isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
-        var isFullCombo = _tosuAPI.IsFullCombo();
-        var isFCRequired = _sharedViewModel.IsFCRequired;
+        double completionPercentage = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
+        bool isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
+        bool isFullCombo = _tosuAPI.IsFullCombo();
+        bool isFCRequired = _sharedViewModel.IsFCRequired;
 
         //Console.WriteLine($"[ShouldUndeafen] isPlaying={isPlaying}, completionPercentage={completionPercentage}, isFullCombo={isFullCombo}, _deafened={_deafened}, IsUndeafenAfterMissEnabled={IsUndeafenAfterMissEnabled}, IsBreakUndeafenToggleEnabled={IsBreakUndeafenToggleEnabled}, _isInBreakPeriod={_isInBreakPeriod}");
 
@@ -168,12 +192,15 @@ public class Deafen : IDisposable
 
         return false;
     }
-    
+
+    /// <summary>
+    ///     Checks the conditions to deafen or undeafen and toggles the deafen state accordingly.
+    /// </summary>
     private void CheckAndDeafen()
     {
         //this should seal any edge debounce cases
         bool hasHitObjects = _tosuAPI.GetMaxPlayCombo() != 0;
-        
+
         if (ShouldDeafen() && !_deafened && hasHitObjects)
         {
             Console.WriteLine("[CheckAndDeafen] Should deafen. Toggling deafen state.");
@@ -186,6 +213,9 @@ public class Deafen : IDisposable
         }
     }
 
+    /// <summary>
+    ///     Toggles the deafen state by simulating the deafen key press.
+    /// </summary>
     private void ToggleDeafenState()
     {
         lock (_deafenLock)
@@ -197,13 +227,19 @@ public class Deafen : IDisposable
         }
     }
 
+    /// <summary>
+    ///     Converts a keybind string into a format compatible with the InputSimulator library.
+    /// </summary>
+    /// <param name="keybind"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentException"></exception>
     private List<(IEnumerable<KeyCode> Modifiers, KeyCode Key)> ConvertToInputSimulatorSyntax(string? keybind)
     {
         Console.WriteLine($"[ConvertToInputSimulatorSyntax] Converting keybind: {keybind}");
-        var parts = keybind?.Split(new[] { '+', ',' }, StringSplitOptions.RemoveEmptyEntries);
+        string[]? parts = keybind?.Split(new[] { '+', ',' }, StringSplitOptions.RemoveEmptyEntries);
         var keybinds = new List<(IEnumerable<KeyCode> Modifiers, KeyCode Key)>();
         var modifiers = new List<KeyCode>();
-        var key = KeyCode.Vc0;
+        KeyCode key = KeyCode.Vc0;
 
         var specialKeys = new Dictionary<string, KeyCode>(StringComparer.OrdinalIgnoreCase)
         {
@@ -277,10 +313,10 @@ public class Deafen : IDisposable
             { "5", KeyCode.Vc5 }, { "6", KeyCode.Vc6 }, { "7", KeyCode.Vc7 }, { "8", KeyCode.Vc8 }, { "9", KeyCode.Vc9 }
         };
 
-        foreach (var t in parts!)
+        foreach (string t in parts!)
         {
-            var trimmedPart = t.Trim();
-            if (specialKeys.TryGetValue(trimmedPart, out var foundKey))
+            string trimmedPart = t.Trim();
+            if (specialKeys.TryGetValue(trimmedPart, out KeyCode foundKey))
             {
                 if (trimmedPart is "Shift" or "Ctrl" or "Alt" or "Win" or "LeftShift" or "RightShift" or "LeftControl"
                     or "RightControl" or "LeftAlt" or "RightAlt" or "LeftWin" or "RightWin" or "Control")
@@ -290,7 +326,8 @@ public class Deafen : IDisposable
             }
             else
             {
-                if (ushort.TryParse(trimmedPart, out var keyCodeValue) && Enum.IsDefined(typeof(KeyCode), keyCodeValue))
+                if (ushort.TryParse(trimmedPart, out ushort keyCodeValue) &&
+                    Enum.IsDefined(typeof(KeyCode), keyCodeValue))
                 {
                     key = (KeyCode)keyCodeValue;
                 }

@@ -46,9 +46,9 @@ public sealed class LogoControl : Control
         if (_svg?.Picture == null)
             return;
 
-        var bounds = Bounds;
-        var color = _modulateColor;
-        var picture = _svg.Picture;
+        Rect bounds = Bounds;
+        SKColor color = _modulateColor;
+        SKPicture? picture = _svg.Picture;
 
         // Only recreate draw op if parameters changed
         if (_drawOp == null || !_drawOp.Equals(bounds, picture, color))
@@ -84,15 +84,15 @@ public sealed class LogoControl : Control
 
         public void Render(ImmediateDrawingContext context)
         {
-            if (context.TryGetFeature<ISkiaSharpApiLeaseFeature>(out var skiaFeature))
-                using (var lease = skiaFeature.Lease())
+            if (context.TryGetFeature<ISkiaSharpApiLeaseFeature>(out ISkiaSharpApiLeaseFeature? skiaFeature))
+                using (ISkiaSharpApiLease lease = skiaFeature.Lease())
                 {
-                    var canvas = lease.SkCanvas;
+                    SKCanvas canvas = lease.SkCanvas;
                     canvas.Save();
 
-                    var cullRect = Picture.CullRect;
-                    var scaleX = (float)(Bounds.Width / cullRect.Width);
-                    var scaleY = (float)(Bounds.Height / cullRect.Height);
+                    SKRect cullRect = Picture.CullRect;
+                    float scaleX = (float)(Bounds.Width / cullRect.Width);
+                    float scaleY = (float)(Bounds.Height / cullRect.Height);
                     canvas.Scale(scaleX, scaleY);
 
                     if (_lastColor != Color || _lastFilter == null)

@@ -13,17 +13,29 @@ public class TimestampTextWriter : TextWriter
 
     public override Encoding Encoding => _innerWriter.Encoding;
 
+    /// <summary>
+    ///     Writes a line with a timestamp prefix
+    /// </summary>
+    /// <param name="value"></param>
     public override void WriteLine(string? value)
     {
-        var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+        string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
         _innerWriter.WriteLine($"[{timestamp}] {value}");
     }
 
+    /// <summary>
+    ///     Writes a single character without a timestamp
+    /// </summary>
+    /// <param name="value"></param>
     public override void Write(char value)
     {
         _innerWriter.Write(value);
     }
 
+    /// <summary>
+    ///     Disposes the inner writer if disposing is true
+    /// </summary>
+    /// <param name="disposing"></param>
     protected override void Dispose(bool disposing)
     {
         if (disposing)

@@ -167,7 +167,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         {
             if (_isBackgroundEnabled != value)
             {
-                var wasDisabled = !_isBackgroundEnabled;
+                bool wasDisabled = !_isBackgroundEnabled;
                 _isBackgroundEnabled = value;
                 OnPropertyChanged();
                 _settingsHandler?.SaveSetting("UI", "IsBackgroundEnabled", value);
@@ -425,7 +425,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     {
         while (true)
         {
-            var newCompletionPercentage = _tosuApi.GetCompletionPercentage();
+            double newCompletionPercentage = _tosuApi.GetCompletionPercentage();
             CompletionPercentage = newCompletionPercentage;
             await Task.Delay(50);
         }
@@ -442,7 +442,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     public void CheckAndUpdateStatusMessage()
     {
-        var currentVersionObj = new Version(UpdateChecker.currentVersion);
+        Version currentVersionObj = new(UpdateChecker.currentVersion);
         Version latestVersionObj;
 
         string message;

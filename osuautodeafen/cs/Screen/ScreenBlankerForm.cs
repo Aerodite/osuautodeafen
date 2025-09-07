@@ -2,7 +2,9 @@
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using osuautodeafen.cs.Screen;
 
@@ -30,7 +32,7 @@ public class ScreenBlankerForm : IDisposable
     {
         if (_blankingWindows != null)
         {
-            foreach (var window in _blankingWindows)
+            foreach (ScreenBlankerWindow window in _blankingWindows)
                 window.Close();
             _blankingWindows = null;
         }
@@ -47,11 +49,11 @@ public class ScreenBlankerForm : IDisposable
         var screens = _mainWindow.Screens.All.Where(screen => !screen.IsPrimary).ToList();
         _blankingWindows = new ScreenBlankerWindow[screens.Count];
 
-        for (var i = 0; i < screens.Count; i++)
+        for (int i = 0; i < screens.Count; i++)
         {
-            var screen = screens[i];
-            var pixelBounds = ScreenBlankerHelper.GetPixelBounds(screen);
-            var window = new ScreenBlankerWindow($"ScreenBlankerWindow_{i}", pixelBounds, screen.Scaling)
+            Screen screen = screens[i];
+            PixelRect pixelBounds = ScreenBlankerHelper.GetPixelBounds(screen);
+            ScreenBlankerWindow window = new($"ScreenBlankerWindow_{i}", pixelBounds, screen.Scaling)
             {
                 IsVisible = false,
                 IsHitTestVisible = false,
@@ -67,7 +69,7 @@ public class ScreenBlankerForm : IDisposable
     {
         if (_blankingWindows == null) return;
 
-        foreach (var window in _blankingWindows)
+        foreach (ScreenBlankerWindow window in _blankingWindows)
             if (bottommost)
             {
                 window.Topmost = false;
@@ -86,7 +88,7 @@ public class ScreenBlankerForm : IDisposable
         {
             Console.WriteLine(@"Blanking screens...");
             if (_blankingWindows != null)
-                foreach (var window in _blankingWindows)
+                foreach (ScreenBlankerWindow window in _blankingWindows)
                     window.Opacity = 1;
             IsScreenBlanked = true;
         });
@@ -98,7 +100,7 @@ public class ScreenBlankerForm : IDisposable
         {
             Console.WriteLine(@"Unblanking screens...");
             if (_blankingWindows != null)
-                foreach (var window in _blankingWindows)
+                foreach (ScreenBlankerWindow window in _blankingWindows)
                     window.Opacity = 0;
             IsScreenBlanked = false;
         });
@@ -106,7 +108,7 @@ public class ScreenBlankerForm : IDisposable
 
     private async Task CheckMouseClickOutsideOsuAsync()
     {
-        var focusedProcess = GetFocusedProcess();
+        Process? focusedProcess = GetFocusedProcess();
         if (focusedProcess is { ProcessName: not "osu!" })
             await Dispatcher.UIThread.InvokeAsync(() => SetBlankingWindowsTopmost(false, true));
     }
@@ -118,7 +120,7 @@ public class ScreenBlankerForm : IDisposable
 
         _isHandlingFocusChange = true;
 
-        var focusedProcess = GetFocusedProcess();
+        Process? focusedProcess = GetFocusedProcess();
         if (focusedProcess != null && focusedProcess.ProcessName is "osu!")
         {
             if (!_isOsuFocused)

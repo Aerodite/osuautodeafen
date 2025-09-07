@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Avalonia.Threading;
 using LiveChartsCore;
+using LiveChartsCore.Painting;
 using LiveChartsCore.SkiaSharpView.Painting;
 using SkiaSharp;
 
@@ -9,8 +10,20 @@ namespace osuautodeafen.cs.StrainGraph.Sections;
 
 public class SectionManager
 {
-    private readonly Dictionary<object?, DispatcherTimer> _sectionFillTimers = new();
+    private readonly Dictionary<object, DispatcherTimer> _sectionFillTimers = new();
 
+    /// <summary>
+    ///     Animates the fill color of a section from startColor to endColor over durationMs milliseconds.
+    /// </summary>
+    /// <param name="section"></param>
+    /// <param name="startColor"></param>
+    /// <param name="endColor"></param>
+    /// <param name="useGradient"></param>
+    /// <param name="gradientWidth"></param>
+    /// <param name="gradientHeight"></param>
+    /// <param name="setFill"></param>
+    /// <param name="invalidateVisual"></param>
+    /// <param name="durationMs"></param>
     public void AnimateSectionFill(
         object? section,
         SKColor startColor,
@@ -22,25 +35,25 @@ public class SectionManager
         Action invalidateVisual,
         int durationMs = 800)
     {
-        if (_sectionFillTimers.TryGetValue(section, out var oldTimer))
+        if (_sectionFillTimers.TryGetValue(section, out DispatcherTimer? oldTimer))
         {
             oldTimer.Stop();
             _sectionFillTimers.Remove(section);
         }
 
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-        var startTime = DateTime.UtcNow;
+        DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(16) };
+        DateTime startTime = DateTime.UtcNow;
 
         timer.Tick += (_, _) =>
         {
-            var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
-            var t = Math.Min(1, elapsed / durationMs);
+            double elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
+            double t = Math.Min(1, elapsed / durationMs);
             t = EasingFunctions.ExponentialOut((float)t);
 
-            var r = (byte)(startColor.Red + (endColor.Red - startColor.Red) * t);
-            var g = (byte)(startColor.Green + (endColor.Green - startColor.Green) * t);
-            var b = (byte)(startColor.Blue + (endColor.Blue - startColor.Blue) * t);
-            var a = (byte)(startColor.Alpha + (endColor.Alpha - startColor.Alpha) * t);
+            byte r = (byte)(startColor.Red + (endColor.Red - startColor.Red) * t);
+            byte g = (byte)(startColor.Green + (endColor.Green - startColor.Green) * t);
+            byte b = (byte)(startColor.Blue + (endColor.Blue - startColor.Blue) * t);
+            byte a = (byte)(startColor.Alpha + (endColor.Alpha - startColor.Alpha) * t);
 
             Paint fill;
             if (useGradient)

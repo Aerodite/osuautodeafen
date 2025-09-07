@@ -5,22 +5,27 @@ namespace osuautodeafen;
 
 public class Background
 {
+    /// <summary>
+    ///     Gets the full background directory from the provided JSON string.
+    /// </summary>
+    /// <param name="json"></param>
+    /// <returns></returns>
     public string? GetFullBackgroundDirectory(string? json)
     {
         Console.WriteLine("getting full background directory");
-        using (var document = JsonDocument.Parse(json))
+        using (JsonDocument document = JsonDocument.Parse(json))
         {
-            var settingsSongsDirectory = string.Empty;
-            var fullPath = string.Empty;
+            string? settingsSongsDirectory = string.Empty;
+            string? fullPath = string.Empty;
 
-            if (document.RootElement.TryGetProperty("folders", out var folders) &&
-                folders.TryGetProperty("songs", out var songs))
+            if (document.RootElement.TryGetProperty("folders", out JsonElement folders) &&
+                folders.TryGetProperty("songs", out JsonElement songs))
                 settingsSongsDirectory = songs.GetString();
 
-            if (document.RootElement.TryGetProperty("directPath", out var directPath) &&
-                directPath.TryGetProperty("beatmapBackground", out var beatmapBackground))
+            if (document.RootElement.TryGetProperty("directPath", out JsonElement directPath) &&
+                directPath.TryGetProperty("beatmapBackground", out JsonElement beatmapBackground))
                 fullPath = beatmapBackground.GetString();
-            var combinedPath = settingsSongsDirectory + "\\" + fullPath;
+            string combinedPath = settingsSongsDirectory + "\\" + fullPath;
             //Console.WriteLine(Path.Combine(settingsSongsDirectory, fullPath));
             return combinedPath;
         }

@@ -1,19 +1,19 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using Microsoft.Win32;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 
 namespace osuautodeafen.cs;
 
 public class TosuLauncher
 {
-    //<summary>
-    // ensures that tosu is running, if not, it will attempt to start it
-    //</summary>
+    /// <summary>
+    ///     Ensures that Tosu is running. If it is not running, attempts to start it
+    /// </summary>
     public static void EnsureTosuRunning()
     {
-        var tosuPath = GetTosuPath();
+        string tosuPath = GetTosuPath();
         if (string.IsNullOrEmpty(tosuPath))
         {
             Console.WriteLine("Tosu path could not be determined.");
@@ -39,20 +39,21 @@ public class TosuLauncher
         }
     }
 
-    //<remarks>
-    // for the record this might be a bit fucky if for whatever reason tosu changes it's value. but oh well
-    //</remarks>
+    /// <summary>
+    ///     Attempts to retrieve the Tosu installation path from the Windows Registry
+    /// </summary>
+    /// <returns></returns>
     private static string GetTosuPathFromRegistry()
     {
         const string keyPath = @"SOFTWARE\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache";
         string tosuPath = null;
 
-        using (var key = Registry.CurrentUser.OpenSubKey(keyPath))
+        using (RegistryKey? key = Registry.CurrentUser.OpenSubKey(keyPath))
         {
             if (key != null)
-                foreach (var valueName in key.GetValueNames())
+                foreach (string valueName in key.GetValueNames())
                 {
-                    var value = key.GetValue(valueName) as string;
+                    string? value = key.GetValue(valueName) as string;
                     if (value != null && value.Contains("osu! memory reader, built in typescript"))
                     {
                         tosuPath = valueName;
@@ -64,10 +65,14 @@ public class TosuLauncher
         return tosuPath;
     }
 
+    /// <summary>
+    ///     Checks if Tosu is currently running
+    /// </summary>
+    /// <returns></returns>
     public static bool IsTosuRunning()
     {
         var processes = Process.GetProcessesByName("tosu");
-        foreach (var proc in processes)
+        foreach (Process proc in processes)
             try
             {
                 if (!proc.HasExited)
@@ -81,26 +86,27 @@ public class TosuLauncher
         return false;
     }
 
+    /// <summary>
+    ///     Gets the installation path of Tosu from the Registry
+    /// </summary>
+    /// <returns></returns>
     public static string GetTosuPath()
     {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            return string.Empty;
-        }
-        
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return string.Empty;
+
         const string keyPath = @"SOFTWARE\tosu";
-        using (var key = Registry.LocalMachine.OpenSubKey(keyPath))
+        using (RegistryKey? key = Registry.LocalMachine.OpenSubKey(keyPath))
         {
-            var path = key?.GetValue("InstallPath") as string;
+            string? path = key?.GetValue("InstallPath") as string;
             if (!string.IsNullOrEmpty(path))
                 return path;
         }
 
         var processes = Process.GetProcessesByName("tosu");
-        foreach (var proc in processes)
+        foreach (Process proc in processes)
             try
             {
-                var path = proc.MainModule?.FileName;
+                string? path = proc.MainModule?.FileName;
                 if (!string.IsNullOrEmpty(path))
                     return path;
             }
@@ -108,8 +114,8 @@ public class TosuLauncher
             {
             }
 
-        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-        var possiblePath = Path.Combine(programFiles, "Tosu", "tosu.exe");
+        string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        string possiblePath = Path.Combine(programFiles, "Tosu", "tosu.exe");
         if (File.Exists(possiblePath))
             return possiblePath;
 

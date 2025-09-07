@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,6 +28,7 @@ using osuautodeafen.cs.Log;
 using osuautodeafen.cs.Logo;
 using osuautodeafen.cs.Settings;
 using osuautodeafen.cs.StrainGraph;
+using osuautodeafen.cs.StrainGraph.ProgressIndicator;
 using osuautodeafen.cs.StrainGraph.Tooltips;
 using SkiaSharp;
 using Svg.Skia;
@@ -64,7 +64,8 @@ public partial class MainWindow : Window
     private double _cogSpinStartAngle;
     private DateTime _cogSpinStartTime;
     private DispatcherTimer? _cogSpinTimer;
-    private CancellationTokenSource _frameCts = null!;
+
+    private CancellationTokenSource? _frameCts;
     private bool _isCogSpinning;
     private bool _isKiaiPulseHigh;
     public bool _isSettingsPanelOpen;
@@ -83,24 +84,26 @@ public partial class MainWindow : Window
     private ProgressBar? _updateProgressBar;
     private double opacity = 1.00;
 
-    //<summary>
-    // constructor for the ui and subsequent panels
-    //</summary>
+    /// <summary>
+    ///     Primary Constructor for MainWindow
+    /// </summary>
+    /// <exception cref="FileNotFoundException"></exception>
     public MainWindow()
     {
         InitializeComponent();
-        var appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen");
+
+        string appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen");
         Directory.CreateDirectory(appPath);
-        var logFile = Path.Combine(appPath, "osuautodeafen.log");
-        File.WriteAllText(logFile, string.Empty); // we want to clear the log on startup
-        var fileStream = new FileStream(logFile, FileMode.Append, FileAccess.Write, FileShare.Read);
-        var writer = new StreamWriter(fileStream) { AutoFlush = true };
-        Console.SetOut(new TimestampTextWriter(writer));
-        Console.WriteLine($"[INFO] osuautodeafen started at {DateTime.Now:MM-dd HH:mm:ss.fff}");
+
+        string logFile = Path.Combine(appPath, "osuautodeafen.log");
+        LogFileManager.CreateLogFile(logFile);
+        LogFileManager.ClearLogFile(logFile);
+
+        LogFileManager.InitializeLogging(logFile);
 
         _tosuApi = new TosuApi();
 
-        // ViewModel and DataContext
         _viewModel = new SharedViewModel(_tosuApi);
         ViewModel = _viewModel;
         DataContext = _viewModel;
@@ -113,27 +116,27 @@ public partial class MainWindow : Window
             if (_updateChecker.UpdateInfo != null) ShowUpdateNotification();
         };
 
-        var resourceName = "osuautodeafen.Resources.favicon.ico";
-        var deafenResourceName = "osuautodeafen.Resources.favicon_d.ico";
-        var startupIconPath = Path.Combine(Path.GetTempPath(), "osuautodeafen_favicon.ico");
-        var deafenIconPath = Path.Combine(Path.GetTempPath(), "osuautodeafen_favicon_d.ico");
-        using (var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
+        string resourceName = "osuautodeafen.Resources.favicon.ico";
+        string deafenResourceName = "osuautodeafen.Resources.favicon_d.ico";
+        string startupIconPath = Path.Combine(Path.GetTempPath(), "osuautodeafen_favicon.ico");
+        string deafenIconPath = Path.Combine(Path.GetTempPath(), "osuautodeafen_favicon_d.ico");
+        using (Stream? resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
         {
             if (resourceStream == null)
                 throw new FileNotFoundException("Embedded icon not found: " + resourceName);
 
-            using (var iconFileStream = new FileStream(startupIconPath, FileMode.Create, FileAccess.Write))
+            using (FileStream iconFileStream = new(startupIconPath, FileMode.Create, FileAccess.Write))
             {
                 resourceStream.CopyTo(iconFileStream);
             }
 
-            using (var deafenResourceStream =
+            using (Stream? deafenResourceStream =
                    Assembly.GetExecutingAssembly().GetManifestResourceStream(deafenResourceName))
             {
                 if (deafenResourceStream == null)
                     throw new FileNotFoundException("Embedded deafen icon not found: " + deafenResourceName);
 
-                using (var deafenIconFileStream = new FileStream(deafenIconPath, FileMode.Create, FileAccess.Write))
+                using (FileStream deafenIconFileStream = new(deafenIconPath, FileMode.Create, FileAccess.Write))
                 {
                     deafenResourceStream.CopyTo(deafenIconFileStream);
                 }
@@ -152,7 +155,7 @@ public partial class MainWindow : Window
 
         // settings bs
 
-        var settingsPanel = new SettingsHandler();
+        SettingsHandler settingsPanel = new();
         _settingsHandler = settingsPanel;
         _settingsHandler.LoadSettings();
 
@@ -194,7 +197,7 @@ public partial class MainWindow : Window
 
         // end of settings bs
 
-        var oldContent = Content;
+        object? oldContent = Content;
         Content = null;
         Content = new Grid
         {
@@ -205,10 +208,9 @@ public partial class MainWindow : Window
 
         _breakPeriod = new BreakPeriodCalculator();
         _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel, _kiaiTimes, _tooltipManager);
-        _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager, _tosuApi, _viewModel);
+        _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager);
 
-        // we just need to initialize it, no need for a global variable
-        var deafen = new Deafen(_tosuApi, _settingsHandler, _viewModel);
+        Deafen deafen = new(_tosuApi, _settingsHandler, _viewModel);
 
         // im d1 lazy so ill do this in 1.0.9 :tf:
         // deafen.Deafened += () =>
@@ -224,14 +226,14 @@ public partial class MainWindow : Window
 
         // ideally we could use no timers whatsoever but for now this works fine
         // because it really only checks if events should be triggered
-        //updated to 16ms from 100ms since apparently it takes 1ms to run anyways, might as well have it be responsive
+        // updated to 16ms from 100ms since apparently it takes 1ms to run anyways, might as well have it be responsive
         _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
 
-        if (_backgroundManager._backgroundBlurEffect != null)
-            _backgroundManager._backgroundBlurEffect.Radius = _viewModel.BlurRadius;
+        if (_backgroundManager.BackgroundBlurEffect != null)
+            _backgroundManager.BackgroundBlurEffect.Radius = _viewModel.BlurRadius;
 
         ProgressOverlay.ChartXMin = _progressIndicatorHelper.ChartXMin;
         ProgressOverlay.ChartXMax = _progressIndicatorHelper.ChartXMax;
@@ -244,16 +246,16 @@ public partial class MainWindow : Window
         _viewModel.DeafenKeybind = new HotKey
         {
             Key = _settingsHandler.Data["Hotkeys"]["DeafenKeybindKey"] is { } keyStr &&
-                  int.TryParse(keyStr, out var keyVal)
+                  int.TryParse(keyStr, out int keyVal)
                 ? (Key)keyVal
                 : Key.None,
             ModifierKeys = _settingsHandler.Data["Hotkeys"]["DeafenKeybindModifiers"] is { } modStr &&
-                           int.TryParse(modStr, out var modVal)
+                           int.TryParse(modStr, out int modVal)
                 ? (KeyModifiers)modVal
                 : KeyModifiers.None,
             FriendlyName = GetFriendlyKeyName(
                 _settingsHandler.Data["Hotkeys"]["DeafenKeybindKey"] is { } keyStr2 &&
-                int.TryParse(keyStr2, out var keyVal2)
+                int.TryParse(keyStr2, out int keyVal2)
                     ? (Key)keyVal2
                     : Key.None)
         };
@@ -265,7 +267,7 @@ public partial class MainWindow : Window
             // thanks a lot take a hint for letting me figure this one out 😔
             // if a map is over 70 characters it overflows to the next line
             // so this just ensures its not ugly for people (me) looking at the debug menu
-            var mapInfo = _tosuApi.GetBeatmapArtist() + " - " + _tosuApi.GetBeatmapTitle();
+            string mapInfo = _tosuApi.GetBeatmapArtist() + " - " + _tosuApi.GetBeatmapTitle();
             if (mapInfo.Length > 67)
                 mapInfo = mapInfo.Substring(0, 67) + "...";
 
@@ -281,9 +283,9 @@ public partial class MainWindow : Window
             _logImportant.logImportant("Beatmap Set ID: " + _tosuApi.GetBeatmapSetId(), false, "Beatmap Set ID");
             _logImportant.logImportant("Break: " + _tosuApi.IsBreakPeriod(), false, "Break");
             _logImportant.logImportant("Kiai: " + _kiaiTimes.IsKiaiPeriod(_tosuApi.GetCurrentTime()), false, "Kiai");
-            var graphTask = Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()))
+            Task graphTask = Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()))
                 .GetTask();
-            var bgTask = _backgroundManager != null
+            Task bgTask = _backgroundManager != null
                 ? _backgroundManager.UpdateBackground(null, null)
                 : Task.CompletedTask;
             await Task.WhenAll(graphTask, bgTask);
@@ -306,16 +308,16 @@ public partial class MainWindow : Window
         _tosuApi.HasPercentageChanged += async () =>
         {
             // might as well not update the debug menu if it isnt even visible
-            var debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
+            StackPanel? debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
             if (debugConsolePanel == null || !debugConsolePanel.IsVisible)
                 return;
             _logImportant.logImportant($"Progress %: {_tosuApi.GetCompletionPercentage():F2}%", false, "Map Progress");
-            var rate = _tosuApi.GetRateAdjustRate();
+            double rate = _tosuApi.GetRateAdjustRate();
             if (rate <= 0 || double.IsNaN(rate) || double.IsInfinity(rate))
                 rate = 1;
 
-            var currentMs = _tosuApi.GetCurrentTime() / rate;
-            var fullMs = _tosuApi.GetFullTime() / rate;
+            double currentMs = _tosuApi.GetCurrentTime() / rate;
+            double fullMs = _tosuApi.GetFullTime() / rate;
 
             if (double.IsNaN(currentMs) || double.IsInfinity(currentMs) || currentMs < 0)
                 currentMs = 0;
@@ -341,7 +343,7 @@ public partial class MainWindow : Window
 
             if (_tosuApi._isKiai && _kiaiBrightnessTimer != null)
             {
-                var bpm = _tosuApi.GetCurrentBpm();
+                double bpm = _tosuApi.GetCurrentBpm();
             }
 
             _logImportant.logImportant("BPM: " + _tosuApi.GetCurrentBpm(), false, "BPM Changed");
@@ -352,16 +354,20 @@ public partial class MainWindow : Window
         };
         _tosuApi.HasKiaiChanged += async (sender, e) =>
         {
-            if (!_viewModel.IsBackgroundEnabled)
+            if (!_viewModel.IsBackgroundEnabled || !_viewModel.IsKiaiEffectEnabled)
+            {
+                _kiaiBrightnessTimer?.Stop();
+                _kiaiBrightnessTimer = null;
+                _backgroundManager.RemoveBackgroundOpacityRequest("kiai");
                 return;
+            }
 
-            // Always update opacity based on the current state
             opacity = _isSettingsPanelOpen ? 0.50 : 0;
 
-            if (_tosuApi._isKiai && _viewModel.IsKiaiEffectEnabled)
+            if (_tosuApi._isKiai)
             {
-                var bpm = _tosuApi.GetCurrentBpm();
-                var intervalMs = 60000.0 / bpm;
+                double bpm = _tosuApi.GetCurrentBpm();
+                double intervalMs = 60000.0 / bpm;
 
                 _kiaiBrightnessTimer?.Stop();
                 _kiaiBrightnessTimer = new DispatcherTimer
@@ -375,7 +381,7 @@ public partial class MainWindow : Window
                         await _backgroundManager.RequestBackgroundOpacity("kiai", 1.0 - opacity, 10000,
                             (int)(intervalMs / 4));
                     else
-                        await _backgroundManager.RequestBackgroundOpacity("kiai", 0.85 - opacity, 10000,
+                        await _backgroundManager.RequestBackgroundOpacity("kiai", 0.95 - opacity, 10000,
                             (int)(intervalMs / 4));
                 };
                 _kiaiBrightnessTimer.Start();
@@ -405,7 +411,6 @@ public partial class MainWindow : Window
             else
             {
                 opacity = 0.5;
-                // Only set settings opacity if not in kiai
                 if (!_tosuApi._isKiai || !_viewModel.IsKiaiEffectEnabled)
                     await _backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150);
             }
@@ -421,19 +426,14 @@ public partial class MainWindow : Window
             }
         };
 
-        if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
-        {
-            ExtendClientAreaToDecorationsHint = true;
-            ExtendClientAreaTitleBarHeightHint = 32;
-            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
-        }
-        else if (OperatingSystem.IsLinux())
-        {
-            ExtendClientAreaToDecorationsHint = false;
-            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.SystemChrome;
-        }
+
+        ExtendClientAreaToDecorationsHint = true;
+        ExtendClientAreaTitleBarHeightHint = 32;
+        ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
+
         Background = Brushes.Black;
         BorderBrush = Brushes.Black;
+
         /*
         to anyone looking through the code yes you can make the window width and height
         anything you want between 400x550 and 800x800, i was going to make this resizable
@@ -455,14 +455,13 @@ public partial class MainWindow : Window
 
         PointerPressed += (sender, e) =>
         {
-            var point = e.GetPosition(this);
+            Point point = e.GetPosition(this);
             const int titleBarHeight = 34;
             if (point.Y <= titleBarHeight) BeginMoveDrag(e);
         };
 
         PointerMoved += _backgroundManager.OnMouseMove;
 
-        // Settings visuals and stuff
         InitializeKeybindButtonText();
         UpdateDeafenKeybindDisplay();
         CompletionPercentageSlider.Value = ViewModel.MinCompletionPercentage;
@@ -473,6 +472,11 @@ public partial class MainWindow : Window
 
     private SharedViewModel ViewModel { get; }
 
+    /// <summary>
+    ///     Resets all settings to their default values on click
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private async void ResetButton_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -481,7 +485,6 @@ public partial class MainWindow : Window
 
             if (_settingsHandler == null) return;
 
-            // Reload settings into ViewModel
             _viewModel.MinCompletionPercentage = (int)Math.Round(_settingsHandler.MinCompletionPercentage);
             _viewModel.StarRating = _settingsHandler.StarRating;
             _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
@@ -495,7 +498,6 @@ public partial class MainWindow : Window
             _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
             _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
 
-            // Update UI controls
             CompletionPercentageSlider.ValueChanged -= CompletionPercentageSlider_ValueChanged;
             StarRatingSlider.ValueChanged -= StarRatingSlider_ValueChanged;
             PPSlider.ValueChanged -= PPSlider_ValueChanged;
@@ -519,12 +521,12 @@ public partial class MainWindow : Window
             BlurEffectSlider.Value = _viewModel.BlurRadius;
             KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
 
-            var keyStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindKey"];
-            var modStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindModifiers"];
-            if (int.TryParse(keyStr, out var keyVal) && int.TryParse(modStr, out var modVal))
+            string? keyStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindKey"];
+            string? modStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindModifiers"];
+            if (int.TryParse(keyStr, out int keyVal) && int.TryParse(modStr, out int modVal))
             {
-                var key = (Key)keyVal;
-                var modifiers = (KeyModifiers)modVal;
+                Key key = (Key)keyVal;
+                KeyModifiers modifiers = (KeyModifiers)modVal;
                 _viewModel.DeafenKeybind = new HotKey
                 {
                     Key = key,
@@ -546,150 +548,80 @@ public partial class MainWindow : Window
         }
     }
 
-public void StartPlatformStableFrameTimer(int targetFps = 60)
-{
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        StartStableFrameTimer(targetFps);
-    else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
-             RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        //StartStableUnixFrameTimer(targetFps);
-        return;
-}
-
-private void StartStableFrameTimer(int targetFps = 60)
-{
-#if WINDOWS
-    _frameCts = new CancellationTokenSource();
-    targetFps = Math.Clamp(targetFps, 1, 1000);
-    var intervalMs = 1000.0 / targetFps;
-
-    timeBeginPeriod(1);
-
-    _frameStopwatch.Restart();
-    var lastFrameTicks = _frameStopwatch.ElapsedTicks;
-    var tickMs = 1000.0 / Stopwatch.Frequency;
-
-    double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
-    int frameCount = 0, statsWindow = 100;
-
-    try
+    /// <summary>
+    ///     Starts the frame timer for debug panel to measure frametimes and framerate
+    /// </summary>
+    /// <param name="targetFps"></param>
+    private void StartStableFrameTimer(int targetFps = 999)
     {
-        while (!_frameCts.IsCancellationRequested)
+        StopStableFrameTimer();
+
+        targetFps = Math.Clamp(targetFps, 1, 999);
+        double intervalMs = 1000.0 / targetFps;
+
+        _frameCts = new CancellationTokenSource();
+        _frameStopwatch.Restart();
+
+        double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
+        int frameCount = 0, statsWindow = 100;
+        long lastFrameTicks = _frameStopwatch.ElapsedTicks;
+        double tickMs = 1000.0 / Stopwatch.Frequency;
+
+        Task.Run(async () =>
         {
-            var frameStartTicks = _frameStopwatch.ElapsedTicks;
-            var frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
-            lastFrameTicks = frameStartTicks;
-
-            frameInterval = Math.Max(frameInterval, 1.0);
-
-            minFrame = Math.Min(minFrame, frameInterval);
-            maxFrame = Math.Max(maxFrame, frameInterval);
-            sumFrame += frameInterval;
-            frameCount++;
-
-            if (frameCount % statsWindow == 0)
+            try
             {
-                var avgFrame = sumFrame / frameCount;
-                await Dispatcher.UIThread.InvokeAsync(() =>
+                while (!_frameCts!.IsCancellationRequested)
                 {
-                    _logImportant.logImportant(
-                        $"Frame: {frameInterval:F2}ms/{1000.0 / avgFrame:F0}fps",
-                        false, "FrameLatency");
-                    _logImportant.logImportant($"Min/Max/Avg: {minFrame:F2}/{maxFrame:F2}/{avgFrame:F2}ms",
-                        false, "FrameStats");
-                });
-                minFrame = double.MaxValue;
-                maxFrame = double.MinValue;
-                sumFrame = 0;
-                frameCount = 0;
+                    long frameStartTicks = _frameStopwatch.ElapsedTicks;
+                    double frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
+                    lastFrameTicks = frameStartTicks;
+
+                    frameInterval = Math.Max(frameInterval, 1.0);
+
+                    minFrame = Math.Min(minFrame, frameInterval);
+                    maxFrame = Math.Max(maxFrame, frameInterval);
+                    sumFrame += frameInterval;
+                    frameCount++;
+
+                    if (frameCount % statsWindow == 0)
+                    {
+                        double avgFrame = sumFrame / frameCount;
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            _logImportant.logImportant(
+                                $"Frame: {frameInterval:F2}ms/{1000.0 / avgFrame:F0}fps",
+                                false, "FrameLatency");
+                            _logImportant.logImportant($"Min/Max/Avg: {minFrame:F2}/{maxFrame:F2}/{avgFrame:F2}ms",
+                                false, "FrameStats");
+                        });
+                        minFrame = double.MaxValue;
+                        maxFrame = double.MinValue;
+                        sumFrame = 0;
+                        frameCount = 0;
+                    }
+
+                    double elapsedMs = (_frameStopwatch.ElapsedTicks - frameStartTicks) * tickMs;
+                    double sleep = intervalMs - elapsedMs;
+                    if (sleep > 0)
+                        await Task.Delay((int)sleep);
+                }
             }
-
-            var elapsedMs = (_frameStopwatch.ElapsedTicks - frameStartTicks) * tickMs;
-            var sleep = intervalMs - elapsedMs;
-            if (sleep > 0)
-                await Task.Delay((int)sleep);
-        }
-    }
-    finally
-    {
-        _frameStopwatch.Stop();
-        timeEndPeriod(1);
-    }
-#endif
-}
-
-private void StartStableUnixFrameTimer(int targetFps = 60)
-{
-    _frameCts = new CancellationTokenSource();
-    targetFps = Math.Clamp(targetFps, 1, 1000);
-    var intervalMs = 1000.0 / targetFps;
-
-    _frameStopwatch.Restart();
-    var lastFrameTicks = _frameStopwatch.ElapsedTicks;
-    var tickMs = 1000.0 / Stopwatch.Frequency;
-
-    double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
-    int frameCount = 0, statsWindow = 100;
-
-    try
-    {
-        while (!_frameCts.IsCancellationRequested)
-        {
-            var frameStartTicks = _frameStopwatch.ElapsedTicks;
-            var frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
-            lastFrameTicks = frameStartTicks;
-
-            frameInterval = Math.Max(frameInterval, 1.0);
-
-            minFrame = Math.Min(minFrame, frameInterval);
-            maxFrame = Math.Max(maxFrame, frameInterval);
-            sumFrame += frameInterval;
-            frameCount++;
-
-            if (frameCount % statsWindow == 0)
+            finally
             {
-                var avgFrame = sumFrame / frameCount;
-                Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    _logImportant.logImportant(
-                        $"Frame: {frameInterval:F2}ms/{1000.0 / avgFrame:F0}fps",
-                        false, "FrameLatency");
-                    _logImportant.logImportant(
-                        $"Min/Max/Avg: {minFrame:F2}/{maxFrame:F2}/{avgFrame:F2}ms",
-                        false, "FrameStats");
-                });
-                minFrame = double.MaxValue;
-                maxFrame = double.MinValue;
-                sumFrame = 0;
-                frameCount = 0;
+                _frameStopwatch.Stop();
             }
-
-            var elapsedMs = (_frameStopwatch.ElapsedTicks - frameStartTicks) * tickMs;
-            var sleep = intervalMs - elapsedMs;
-            if (sleep > 0) 
-                Task.Delay((int)sleep);
-        }
+        }, _frameCts.Token);
     }
-    finally
-    {
-        _frameStopwatch.Stop();
-    }
-}
 
-#if WINDOWS
-[System.Runtime.InteropServices.DllImport("winmm.dll")]
-private static extern int timeBeginPeriod(uint uMilliseconds);
-
-[System.Runtime.InteropServices.DllImport("winmm.dll")]
-private static extern int timeEndPeriod(uint uMilliseconds);
-#endif
-
-
-    public void StopPlatformStableFrameTimer()
+    /// <summary>
+    ///     Stops the frame timer for debug panel
+    /// </summary>
+    private void StopStableFrameTimer()
     {
         _frameCts?.Cancel();
+        _frameStopwatch.Stop();
     }
-
     //TODO
     /*
         we need to start handling all of this slider bullshit somewhere else bro istg
@@ -820,7 +752,7 @@ private static extern int timeEndPeriod(uint uMilliseconds);
     public async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (DataContext is not SharedViewModel vm) return;
-        var roundedValue = (int)Math.Round(e.NewValue);
+        int roundedValue = (int)Math.Round(e.NewValue);
         vm.MinCompletionPercentage = roundedValue;
         _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", roundedValue);
         try
@@ -841,7 +773,7 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         RangeBaseValueChangedEventArgs rangeBaseValueChangedEventArgs)
     {
         if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
-        var roundedValue = Math.Round(slider.Value, 1);
+        double roundedValue = Math.Round(slider.Value, 1);
         Console.WriteLine($"Min SR Value: {roundedValue:F1}");
         vm.StarRating = roundedValue;
         _settingsHandler?.SaveSetting("General", "StarRating", roundedValue);
@@ -850,7 +782,7 @@ private static extern int timeEndPeriod(uint uMilliseconds);
     private void PPSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
-        var roundedValue = (int)Math.Round(slider.Value);
+        int roundedValue = (int)Math.Round(slider.Value);
         Console.WriteLine($"Min PP Value: {roundedValue}");
         vm.PerformancePoints = roundedValue;
         _settingsHandler?.SaveSetting("General", "PerformancePoints", roundedValue);
@@ -859,7 +791,7 @@ private static extern int timeEndPeriod(uint uMilliseconds);
     private void BlurEffectSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
-        var roundedValue = Math.Round(slider.Value, 1);
+        double roundedValue = Math.Round(slider.Value, 1);
         Console.WriteLine($"Blur Radius: {roundedValue:F1}");
         vm.BlurRadius = roundedValue;
         _settingsHandler?.SaveSetting("UI", "BlurRadius", roundedValue);
@@ -885,20 +817,52 @@ private static extern int timeEndPeriod(uint uMilliseconds);
             });
         if (e.PropertyName == nameof(_viewModel.BlurRadius))
         {
-            var blurEffect = _backgroundManager?._backgroundBlurEffect;
+            BlurEffect? blurEffect = _backgroundManager?.BackgroundBlurEffect;
             if (blurEffect != null)
             {
-                // Cancel previous animation
                 _blurCts?.Cancel();
                 _blurCts = new CancellationTokenSource();
 
-                var radius = _viewModel.BlurRadius;
-                var token = _blurCts.Token;
+                double radius = _viewModel.BlurRadius;
+                CancellationToken token = _blurCts.Token;
                 await _backgroundManager.BlurBackgroundAsync(blurEffect, radius, token);
+            }
+        }
+
+        if (e.PropertyName == nameof(SharedViewModel.IsBackgroundEnabled))
+        {
+            if (!_viewModel.IsBackgroundEnabled)
+            {
+                _kiaiBrightnessTimer?.Stop();
+                _kiaiBrightnessTimer = null;
+                _backgroundManager?.RemoveBackgroundOpacityRequest("kiai");
+            }
+            else if (_tosuApi._isKiai && _viewModel.IsKiaiEffectEnabled)
+            {
+                double bpm = _tosuApi.GetCurrentBpm();
+                double intervalMs = 60000.0 / bpm;
+
+                _kiaiBrightnessTimer?.Stop();
+                _kiaiBrightnessTimer = new DispatcherTimer
+                {
+                    Interval = TimeSpan.FromMilliseconds(intervalMs)
+                };
+                _kiaiBrightnessTimer.Tick += async (_, _) =>
+                {
+                    _isKiaiPulseHigh = !_isKiaiPulseHigh;
+                    double opacityValue = _isKiaiPulseHigh ? 1.0 - opacity : 0.95 - opacity;
+                    await _backgroundManager.RequestBackgroundOpacity("kiai", opacityValue, 10000,
+                        (int)(intervalMs / 4));
+                };
+                _kiaiBrightnessTimer.Start();
             }
         }
     }
 
+    /// <summary>
+    ///     Handles updates to the graph data and refreshes the strain graph
+    /// </summary>
+    /// <param name="graphData"></param>
     private void OnGraphDataUpdated(GraphData? graphData)
     {
         if (graphData == null || graphData.Series.Count < 2)
@@ -908,15 +872,15 @@ private static extern int timeEndPeriod(uint uMilliseconds);
             return;
         _lastGraphData = graphData;
 
-        var series0 = graphData.Series[0];
-        var series1 = graphData.Series[1];
+        Series series0 = graphData.Series[0];
+        Series series1 = graphData.Series[1];
         series0.Name = "aim";
         series1.Name = "speed";
 
         if (!ReferenceEquals(ChartData.Series1Values, series0.Data))
         {
             var list0 = new List<ObservablePoint>(series0.Data.Count);
-            for (var i = 0; i < series0.Data.Count; i++)
+            for (int i = 0; i < series0.Data.Count; i++)
                 list0.Add(new ObservablePoint(i, series0.Data[i]));
             ChartData.Series1Values = list0;
         }
@@ -924,7 +888,7 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         if (!ReferenceEquals(ChartData.Series2Values, series1.Data))
         {
             var list1 = new List<ObservablePoint>(series1.Data.Count);
-            for (var i = 0; i < series1.Data.Count; i++)
+            for (int i = 0; i < series1.Data.Count; i++)
                 list1.Add(new ObservablePoint(i, series1.Data[i]));
             ChartData.Series2Values = list1;
         }
@@ -939,18 +903,24 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         DataContext = ViewModel;
     }
 
-    // grab the keybind from the settings file and update the display
+    /// <summary>
+    ///     Initializes the button with the selected keybind from settings
+    /// </summary>
     private void UpdateDeafenKeybindDisplay()
     {
-        var currentKeybind = RetrieveKeybindFromSettings();
+        string currentKeybind = RetrieveKeybindFromSettings();
         DeafenKeybindButton.Content = currentKeybind;
     }
 
-    // save the keybind to the settings file
+    /// <summary>
+    ///     Shows a flyout for the user to set a new deafen keybind
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private void DeafenKeybindButton_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.IsKeybindCaptureFlyoutOpen = !ViewModel.IsKeybindCaptureFlyoutOpen;
-        var flyout = DeafenKeybindButton.Flyout as Flyout;
+        Flyout? flyout = DeafenKeybindButton.Flyout as Flyout;
         if (flyout != null)
         {
             if (ViewModel.IsKeybindCaptureFlyoutOpen)
@@ -960,13 +930,17 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         }
     }
 
+    /// <summary>
+    ///     Captures key presses when the keybind capture flyout is open
+    /// </summary>
+    /// <param name="e"></param>
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
 
         if (ViewModel.IsKeybindCaptureFlyoutOpen)
         {
-            var flyout = DeafenKeybindButton.Flyout as Flyout;
+            Flyout? flyout = DeafenKeybindButton.Flyout as Flyout;
             if (e.Key == Key.Escape)
             {
                 ViewModel.IsKeybindCaptureFlyoutOpen = false;
@@ -981,19 +955,19 @@ private static extern int timeEndPeriod(uint uMilliseconds);
                 return;
             }
 
-            var currentTime = DateTime.Now;
+            DateTime currentTime = DateTime.Now;
             if (e.Key == _lastKeyPressed && (currentTime - _lastKeyPressTime).TotalMilliseconds < 2500)
                 return;
             _lastKeyPressed = e.Key;
             _lastKeyPressTime = currentTime;
 
-            var modifiers = KeyModifiers.None;
+            KeyModifiers modifiers = KeyModifiers.None;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Control)) modifiers |= KeyModifiers.Control;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Alt)) modifiers |= KeyModifiers.Alt;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) modifiers |= KeyModifiers.Shift;
 
-            var friendlyKeyName = GetFriendlyKeyName(e.Key);
-            var hotKey = new HotKey { Key = e.Key, ModifierKeys = modifiers, FriendlyName = friendlyKeyName };
+            string friendlyKeyName = GetFriendlyKeyName(e.Key);
+            HotKey hotKey = new() { Key = e.Key, ModifierKeys = modifiers, FriendlyName = friendlyKeyName };
             ViewModel.DeafenKeybind = hotKey;
 
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindKey", (int)e.Key);
@@ -1021,20 +995,24 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         }
     }
 
+    /// <summary>
+    ///     Retrieves the currently set keybind from settings and formats it for display
+    /// </summary>
+    /// <returns></returns>
     private string RetrieveKeybindFromSettings()
     {
-        var keyStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindKey"];
-        var modStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindModifiers"];
+        string? keyStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindKey"];
+        string? modStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindModifiers"];
         if (string.IsNullOrEmpty(keyStr) || string.IsNullOrEmpty(modStr))
             return "Set Keybind";
 
-        if (!int.TryParse(keyStr, out var keyVal) || !int.TryParse(modStr, out var modVal))
+        if (!int.TryParse(keyStr, out int keyVal) || !int.TryParse(modStr, out int modVal))
             return "Set Keybind";
 
-        var key = (Key)keyVal;
-        var modifiers = (KeyModifiers)modVal;
+        Key key = (Key)keyVal;
+        KeyModifiers modifiers = (KeyModifiers)modVal;
 
-        var display = "";
+        string display = "";
         if (modifiers.HasFlag(KeyModifiers.Control)) display += "Ctrl+";
         if (modifiers.HasFlag(KeyModifiers.Alt)) display += "Alt+";
         if (modifiers.HasFlag(KeyModifiers.Shift)) display += "Shift+";
@@ -1042,7 +1020,11 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         return display;
     }
 
-
+    /// <summary>
+    ///     Converts certain keys to more user-friendly names for display purposes
+    /// </summary>
+    /// <param name="key"></param>
+    /// <returns></returns>
     private string GetFriendlyKeyName(Key key)
     {
         return key switch
@@ -1074,6 +1056,9 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         };
     }
 
+    /// <summary>
+    ///     Displays the update notification bar and initializes progress bar
+    /// </summary>
     public async void ShowUpdateNotification()
     {
         Console.WriteLine("Showing Update Notification");
@@ -1092,10 +1077,13 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         }
     }
 
+    /// <summary>
+    ///     Downloads the newest version from GitHub while ensuring a nice progress bar is visible
+    /// </summary>
     private async Task DownloadUpdateWithProgressAsync()
     {
-        var minDisplayMs = 1500;
-        var sw = Stopwatch.StartNew();
+        int minDisplayMs = 1500;
+        Stopwatch sw = Stopwatch.StartNew();
         Console.WriteLine("Starting update download...");
         if (_updateChecker.UpdateInfo == null)
             return;
@@ -1109,7 +1097,7 @@ private static extern int timeEndPeriod(uint uMilliseconds);
                 _updateProgressBar.Value = p;
         });
 
-        var displaySw = Stopwatch.StartNew();
+        Stopwatch displaySw = Stopwatch.StartNew();
         await _updateChecker.mgr.DownloadUpdatesAsync(_updateChecker.UpdateInfo, progress);
         displaySw.Stop();
 
@@ -1117,15 +1105,15 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         // have fun with your "slow" wifi :tf:
         if (_updateProgressBar != null && _updateProgressBar.Value < 100)
         {
-            var steps = 30;
-            var start = _updateProgressBar.Value;
+            int steps = 30;
+            double start = _updateProgressBar.Value;
             double end = 100;
-            var remainingMs = minDisplayMs - (int)displaySw.ElapsedMilliseconds;
+            int remainingMs = minDisplayMs - (int)displaySw.ElapsedMilliseconds;
             if (remainingMs < 0) remainingMs = 0;
             remainingMs /= 5;
-            var delayPerStep = remainingMs / steps;
+            int delayPerStep = remainingMs / steps;
 
-            for (var i = 1; i <= steps; i++)
+            for (int i = 1; i <= steps; i++)
             {
                 _updateProgressBar.Value = start + (end - start) * i / steps;
                 await Task.Delay(delayPerStep);
@@ -1147,12 +1135,22 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         Console.WriteLine($"Update download completed in {sw.ElapsedMilliseconds} ms");
     }
 
+    /// <summary>
+    ///     Handles the click event on the update notification bar to start the update process
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private async void UpdateNotificationBar_Click(object sender, RoutedEventArgs e)
     {
         await DownloadUpdateWithProgressAsync();
         _updateChecker.mgr.ApplyUpdatesAndRestart(_updateChecker.UpdateInfo);
     }
 
+    /// <summary>
+    ///     Main timer that handles checking states in the API
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
         _tosuApi.CheckForBeatmapChange();
@@ -1168,6 +1166,11 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         _logImportant.logImportant("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");
     }
 
+    /// <summary>
+    ///     Checks for newer versions when the button is clicked
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)
     {
         if (!await _updateCheckLock.WaitAsync(0))
@@ -1175,7 +1178,7 @@ private static extern int timeEndPeriod(uint uMilliseconds);
 
         try
         {
-            var button = this.FindControl<Button>("CheckForUpdatesButton");
+            Button? button = this.FindControl<Button>("CheckForUpdatesButton");
             if (button == null) return;
 
             button.Content = "Checking for updates...";
@@ -1209,6 +1212,11 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         }
     }
 
+    /// <summary>
+    ///     Determines if the pressed key is a modifier key
+    /// </summary>
+    /// <param name="key"></param>
+    /// <returns></returns>
     private bool IsModifierKey(Key key)
     {
         return key == Key.LeftCtrl || key == Key.RightCtrl ||
@@ -1216,21 +1224,30 @@ private static extern int timeEndPeriod(uint uMilliseconds);
                key == Key.LeftShift || key == Key.RightShift;
     }
 
+    /// <summary>
+    ///     Loads a high-resolution SVG logo from embedded resources
+    /// </summary>
+    /// <param name="resourceName"></param>
+    /// <returns></returns>
+    /// <exception cref="FileNotFoundException"></exception>
     public SKSvg LoadHighResolutionLogo(string resourceName)
     {
-        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
-                           ?? throw new FileNotFoundException("Resource not found: " + resourceName);
-        var svg = new SKSvg();
+        using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
+                              ?? throw new FileNotFoundException("Resource not found: " + resourceName);
+        SKSvg svg = new();
         svg.Load(stream);
         return svg;
     }
 
+    /// <summary>
+    ///     Initializes the logo control and loads the SVG logo asynchronously
+    /// </summary>
     private async void InitializeLogo()
     {
         const string resourceName = "osuautodeafen.Resources.autodeafen.svg";
         try
         {
-            var svg = await Task.Run(() => LoadHighResolutionLogo(resourceName));
+            SKSvg svg = await Task.Run(() => LoadHighResolutionLogo(resourceName));
 
             if (_logoControl == null)
                 _logoControl = new LogoControl
@@ -1242,7 +1259,7 @@ private static extern int timeEndPeriod(uint uMilliseconds);
             _logoControl.Svg = svg;
             _logoControl.ModulateColor = SKColors.White;
 
-            var logoHost = this.FindControl<ContentControl>("LogoHost");
+            ContentControl? logoHost = this.FindControl<ContentControl>("LogoHost");
             if (logoHost != null)
                 logoHost.Content = _logoControl;
 
@@ -1271,12 +1288,19 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         }
     }
 
+    /// <summary>
+    ///     Loads an SVG logo from embedded resources and converts it to a Bitmap
+    /// </summary>
+    /// <param name="resourceName"></param>
+    /// <returns></returns>
+    /// <exception cref="FileNotFoundException"></exception>
+    /// <exception cref="InvalidOperationException"></exception>
     private Task<Bitmap> LoadLogoAsync(string resourceName)
     {
-        using var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
-                                   ?? throw new FileNotFoundException("Resource not found: " + resourceName);
+        using Stream resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
+                                      ?? throw new FileNotFoundException("Resource not found: " + resourceName);
 
-        var svg = new SKSvg();
+        SKSvg svg = new();
         svg.Load(resourceStream);
 
         return Task.FromResult(svg.Picture == null
@@ -1284,6 +1308,15 @@ private static extern int timeEndPeriod(uint uMilliseconds);
             : ConvertSvgToBitmap(svg, 100, 100));
     }
 
+    /// <summary>
+    ///     Converts an SKSvg object to a Bitmap with specified dimensions
+    /// </summary>
+    /// <param name="svg"></param>
+    /// <param name="width"></param>
+    /// <param name="height"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentNullException"></exception>
+    /// <exception cref="InvalidOperationException"></exception>
     private Bitmap ConvertSvgToBitmap(SKSvg svg, int width, int height)
     {
         if (svg == null)
@@ -1291,21 +1324,21 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         if (svg.Picture == null)
             throw new InvalidOperationException("SVG does not contain a valid picture.");
 
-        var info = new SKImageInfo(width, height);
+        SKImageInfo info = new(width, height);
 
         try
         {
-            using var surface = SKSurface.Create(info);
+            using SKSurface? surface = SKSurface.Create(info);
             if (surface == null)
                 throw new InvalidOperationException("Failed to create SKSurface.");
 
-            var canvas = surface.Canvas;
+            SKCanvas? canvas = surface.Canvas;
             canvas.Clear(SKColors.Transparent);
             canvas.DrawPicture(svg.Picture);
 
-            using var image = surface.Snapshot();
-            using var data = image.Encode();
-            using var stream = new MemoryStream(data.ToArray());
+            using SKImage? image = surface.Snapshot();
+            using SKData? data = image.Encode();
+            using MemoryStream stream = new(data.ToArray());
             return new Bitmap(stream);
         }
         catch (Exception ex)
@@ -1315,18 +1348,22 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         }
     }
 
+    /// <summary>
+    ///     Retries loading the SVG logo multiple times in case of failure
+    /// </summary>
+    /// <param name="resourceName"></param>
     private async Task RetryLoadLogoAsync(string resourceName)
     {
         const int maxRetries = 3;
-        var retryCount = 0;
-        var success = false;
+        int retryCount = 0;
+        bool success = false;
 
         while (retryCount < maxRetries && !success)
             try
             {
                 retryCount++;
                 Console.WriteLine($"Retrying to load SVG... Attempt {retryCount}");
-                var logoImage = await LoadLogoAsync(resourceName);
+                Bitmap logoImage = await LoadLogoAsync(resourceName);
                 UpdateViewModelWithLogo(logoImage);
                 success = true;
             }
@@ -1342,9 +1379,13 @@ private static extern int timeEndPeriod(uint uMilliseconds);
             }
     }
 
+    /// <summary>
+    ///     Updates the ViewModel with the loaded logo image
+    /// </summary>
+    /// <param name="logoImage"></param>
     private void UpdateViewModelWithLogo(Bitmap logoImage)
     {
-        var viewModel = DataContext as SharedViewModel;
+        SharedViewModel? viewModel = DataContext as SharedViewModel;
         if (viewModel != null)
         {
             viewModel.ModifiedLogoImage = logoImage;
@@ -1352,35 +1393,44 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         }
     }
 
+    /// <summary>
+    ///     Handles the closing event of the main window to clean up resources
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
         _mainTimer?.Stop();
         _cogSpinTimer?.Stop();
         _kiaiBrightnessTimer?.Stop();
-
         _tosuApi.Dispose();
     }
 
+    /// <summary>
+    ///     Shows or hides the settings panel if the button is clicked
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private async void SettingsButton_Click(object? sender, RoutedEventArgs? e)
     {
         try
         {
             settingsButtonClicked?.Invoke();
-            var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
-            var buttonContainer = this.FindControl<Border>("SettingsButtonContainer");
-            var cogImage = this.FindControl<Image>("SettingsCogImage");
-            var textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
-            var versionPanel = textBlockPanel?.FindControl<TextBlock>("VersionPanel");
-            var debugConsoleTextBlock = this.FindControl<TextBlock>("DebugConsoleTextBlock");
+            DockPanel? settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
+            Border? buttonContainer = this.FindControl<Border>("SettingsButtonContainer");
+            Image? cogImage = this.FindControl<Image>("SettingsCogImage");
+            StackPanel? textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
+            TextBlock? versionPanel = textBlockPanel?.FindControl<TextBlock>("VersionPanel");
+            TextBlock? debugConsoleTextBlock = this.FindControl<TextBlock>("DebugConsoleTextBlock");
             if (settingsPanel == null || buttonContainer == null || cogImage == null ||
                 textBlockPanel == null || osuautodeafenLogoPanel == null || versionPanel == null ||
                 debugConsoleTextBlock == null)
                 return;
 
-            var showMargin = new Thickness(0, 42, 0, 0);
-            var hideMargin = new Thickness(200, 42, -200, 0);
-            var buttonRightMargin = new Thickness(0, 42, 0, 10);
-            var buttonLeftMargin = new Thickness(0, 42, 200, 10);
+            Thickness showMargin = new(0, 42, 0, 0);
+            Thickness hideMargin = new(200, 42, -200, 0);
+            Thickness buttonRightMargin = new(0, 42, 0, 10);
+            Thickness buttonLeftMargin = new(0, 42, 200, 10);
 
             if (!settingsPanel.IsVisible)
             {
@@ -1416,6 +1466,12 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         }
     }
 
+    /// <summary>
+    ///     Sets up the initial state and transitions for the settings panel and related UI elements
+    /// </summary>
+    /// <param name="settingsPanel"></param>
+    /// <param name="buttonContainer"></param>
+    /// <param name="versionPanel"></param>
     private async Task SetupPanelTransitionsAsync(DockPanel settingsPanel, Border buttonContainer,
         TextBlock versionPanel)
     {
@@ -1462,11 +1518,19 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         });
     }
 
+    /// <summary>
+    ///     Animates the settings panel into view
+    /// </summary>
+    /// <param name="settingsPanel"></param>
+    /// <param name="buttonContainer"></param>
+    /// <param name="versionPanel"></param>
+    /// <param name="showMargin"></param>
+    /// <param name="buttonLeftMargin"></param>
     private async Task AnimatePanelInAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel,
         Thickness showMargin, Thickness buttonLeftMargin)
     {
         await _panelAnimationLock.WaitAsync();
-        var shouldAnimate = !_isSettingsPanelOpen;
+        bool shouldAnimate = !_isSettingsPanelOpen;
         if (shouldAnimate)
             _isSettingsPanelOpen = true;
         _panelAnimationLock.Release();
@@ -1500,11 +1564,19 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         await Task.WhenAll(tasks);
     }
 
+    /// <summary>
+    ///     Animates the settings panel out of view
+    /// </summary>
+    /// <param name="settingsPanel"></param>
+    /// <param name="buttonContainer"></param>
+    /// <param name="versionPanel"></param>
+    /// <param name="hideMargin"></param>
+    /// <param name="buttonRightMargin"></param>
     private async Task AnimatePanelOutAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel,
         Thickness hideMargin, Thickness buttonRightMargin)
     {
         await _panelAnimationLock.WaitAsync();
-        var shouldAnimate = _isSettingsPanelOpen;
+        bool shouldAnimate = _isSettingsPanelOpen;
         if (shouldAnimate)
             _isSettingsPanelOpen = false;
         _panelAnimationLock.Release();
@@ -1535,6 +1607,10 @@ private static extern int timeEndPeriod(uint uMilliseconds);
             }).GetTask());
     }
 
+    /// <summary>
+    ///     Sets up the initial state and transitions for the debug console panel
+    /// </summary>
+    /// <param name="debugConsolePanel"></param>
     private async Task SetupDebugConsoleTransitionsAsync(StackPanel debugConsolePanel)
     {
         await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1560,8 +1636,15 @@ private static extern int timeEndPeriod(uint uMilliseconds);
     private async Task AnimateDebugConsoleOutAsync(StackPanel debugConsolePanel)
     {
         await Dispatcher.UIThread.InvokeAsync(() => { debugConsolePanel.Margin = new Thickness(-727, 0, 0, 0); });
+        await Task.Delay(400);
+        await Dispatcher.UIThread.InvokeAsync(() => { debugConsolePanel.IsVisible = false; });
     }
 
+    /// <summary>
+    ///     Ensures the cog image is centered and has a RotateTransform applied (to make sure it rotates at it's center)
+    /// </summary>
+    /// <param name="cogImage"></param>
+    /// <returns></returns>
     private Task EnsureCogCenterAsync(Image cogImage)
     {
         return Dispatcher.UIThread.InvokeAsync(() =>
@@ -1572,15 +1655,27 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         }).GetTask();
     }
 
+    /// <summary>
+    ///     Calculates the interval for cog spinning based on the current BPM
+    /// </summary>
+    /// <param name="bpm"></param>
+    /// <param name="updatesPerBeat"></param>
+    /// <param name="minMs"></param>
+    /// <param name="maxMs"></param>
+    /// <returns></returns>
     private double CalculateCogSpinInterval(double bpm, double updatesPerBeat = 60, double minMs = 4, double maxMs = 50)
     {
         if (bpm <= 0) bpm = 140;
-        var msPerBeat = 60000.0 / bpm;
-        var intervalMs = msPerBeat / updatesPerBeat;
+        double msPerBeat = 60000.0 / bpm;
+        double intervalMs = msPerBeat / updatesPerBeat;
         Console.WriteLine($"Calculated interval: {intervalMs}ms for BPM: {bpm}");
         return Math.Clamp(intervalMs, minMs, maxMs);
     }
 
+    /// <summary>
+    ///     Starts the cog spinning animation based on the current BPM
+    /// </summary>
+    /// <param name="cogImage"></param>
     private void StartCogSpin(Image cogImage)
     {
         lock (_cogSpinLock)
@@ -1595,18 +1690,18 @@ private static extern int timeEndPeriod(uint uMilliseconds);
                 _cogSpinTimer = null;
             }
 
-            var rotate = (RotateTransform)cogImage.RenderTransform!;
+            RotateTransform rotate = (RotateTransform)cogImage.RenderTransform!;
             _cogSpinStartTime = DateTime.UtcNow;
             _cogSpinStartAngle = _cogCurrentAngle;
             _cogSpinBpm = _tosuApi.GetCurrentBpm() > 0 ? _tosuApi.GetCurrentBpm() : 140;
 
-            var intervalMs = CalculateCogSpinInterval(_cogSpinBpm);
+            double intervalMs = CalculateCogSpinInterval(_cogSpinBpm);
 
             _cogSpinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(intervalMs) };
             _cogSpinTimer.Tick += (s, ev) =>
             {
-                var elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
-                var angle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / beatsPerRotation) % 360;
+                double elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
+                double angle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / beatsPerRotation) % 360;
                 _cogCurrentAngle = angle;
                 rotate.Angle = angle;
             };
@@ -1614,6 +1709,10 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         }
     }
 
+    /// <summary>
+    ///     Stops the cog spinning animation and smoothly returns it to the original position
+    /// </summary>
+    /// <param name="cogImage"></param>
     private async Task StopCogSpinAsync(Image cogImage)
     {
         lock (_cogSpinLock)
@@ -1627,17 +1726,17 @@ private static extern int timeEndPeriod(uint uMilliseconds);
 
         if (cogImage.RenderTransform is RotateTransform rotate)
         {
-            var start = _cogCurrentAngle;
+            double start = _cogCurrentAngle;
             double end = 0;
-            var duration = 250;
-            var steps = 20;
-            var step = (end - start) / steps;
+            int duration = 250;
+            int steps = 20;
+            double step = (end - start) / steps;
             await Task.Run(async () =>
             {
-                for (var i = 1; i <= steps; i++)
+                for (int i = 1; i <= steps; i++)
                 {
                     await Task.Delay(duration / steps);
-                    var angle = start + step * i;
+                    double angle = start + step * i;
                     await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle).GetTask();
                 }
 
@@ -1647,30 +1746,38 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         }
     }
 
+    /// <summary>
+    ///     Updates the cog spinning BPM and adjusts the timer interval accordingly
+    /// </summary>
     private void UpdateCogSpinBpm()
     {
         if (_cogSpinTimer != null && _cogSpinTimer.IsEnabled)
         {
-            var elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
+            double elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
             _cogSpinStartAngle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / beatsPerRotation) % 360;
             _cogSpinStartTime = DateTime.UtcNow;
             _cogSpinBpm = _tosuApi.GetCurrentBpm() > 0 ? _tosuApi.GetCurrentBpm() : 140;
 
-            var intervalMs = CalculateCogSpinInterval(_cogSpinBpm);
+            double intervalMs = CalculateCogSpinInterval(_cogSpinBpm);
             _cogSpinTimer.Interval = TimeSpan.FromMilliseconds(intervalMs);
         }
     }
 
     private void InitializeKeybindButtonText()
     {
-        var currentKeybind = RetrieveKeybindFromSettings();
-        var deafenKeybindButton = this.FindControl<Button>("DeafenKeybindButton");
+        string currentKeybind = RetrieveKeybindFromSettings();
+        Button? deafenKeybindButton = this.FindControl<Button>("DeafenKeybindButton");
         if (deafenKeybindButton != null) deafenKeybindButton.Content = currentKeybind;
     }
 
+    /// <summary>
+    ///     Opens the file location of AppData in either File Explorer or the terminal on click
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private void OpenFileLocationButton_Click(object? sender, RoutedEventArgs e)
     {
-        var appPath = _settingsHandler?.GetPath();
+        string? appPath = _settingsHandler?.GetPath();
         if (appPath != null)
         {
             if (Directory.Exists(appPath))
@@ -1688,9 +1795,14 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         }
     }
 
+    /// <summary>
+    ///     Opens the GitHub issues page in the default web browser with a default issue template
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private void ReportIssueButton_Click(object? sender, RoutedEventArgs e)
     {
-        var issueUrl =
+        string issueUrl =
             "https://github.com/aerodite/osuautodeafen/issues/new?template=help.md&title=[BUG]%20Something%20Broke&body=help&labels=bug";
         Process.Start(new ProcessStartInfo
         {
@@ -1699,12 +1811,17 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         });
     }
 
+    /// <summary>
+    ///     Shows or hides the debug console panel if the button is clicked
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private async void DebugConsoleButton_Click(object? sender, RoutedEventArgs e)
     {
-        var debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
+        StackPanel? debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
         if (debugConsolePanel != null && !debugConsolePanel.IsVisible)
         {
-            StartPlatformStableFrameTimer(1000);
+            StartStableFrameTimer();
 
             await SetupDebugConsoleTransitionsAsync(debugConsolePanel);
             debugConsolePanel.IsVisible = true;
@@ -1720,8 +1837,7 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         }
         else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
         {
-            if (OperatingSystem.IsWindows())
-                StopPlatformStableFrameTimer();
+            StopStableFrameTimer();
 
             await AnimateDebugConsoleOutAsync(debugConsolePanel);
             debugConsolePanel.IsVisible = false;
@@ -1734,12 +1850,17 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         }
     }
 
+    /// <summary>
+    ///     Shows or hides the debug console panel if the button is clicked, without animations
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private async void DebugConsoleButton_Click_NoAnim(object? sender, RoutedEventArgs e)
     {
-        var debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
+        StackPanel? debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
         if (debugConsolePanel != null && !debugConsolePanel.IsVisible)
         {
-            StartPlatformStableFrameTimer(1000);
+            StartStableFrameTimer();
 
             await SetupDebugConsoleTransitionsAsync(debugConsolePanel);
             debugConsolePanel.IsVisible = true;
@@ -1755,8 +1876,7 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         }
         else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
         {
-            if (OperatingSystem.IsWindows())
-                StopPlatformStableFrameTimer();
+            StopStableFrameTimer();
 
             await AnimateDebugConsoleOutAsync(debugConsolePanel);
             debugConsolePanel.IsVisible = false;
@@ -1769,19 +1889,22 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         }
     }
 
+    /// <summary>
+    ///     Updates the debug console panel with the current important logs
+    /// </summary>
+    /// <param name="debugConsolePanel"></param>
+    /// <param name="currentLogs"></param>
     private void UpdateDebugConsolePanel(StackPanel debugConsolePanel, List<string> currentLogs)
     {
-        // if the count changed, rebuild everything
         if (debugConsolePanel.Children.Count != currentLogs.Count)
         {
             debugConsolePanel.Children.Clear();
-            foreach (var logText in currentLogs)
+            foreach (string logText in currentLogs)
                 debugConsolePanel.Children.Add(CreateLogElement(logText));
         }
         else
         {
-            // only update changed entries
-            for (var i = 0; i < currentLogs.Count; i++)
+            for (int i = 0; i < currentLogs.Count; i++)
                 if (_lastDisplayedLogs.Count <= i || _lastDisplayedLogs[i] != currentLogs[i])
                     debugConsolePanel.Children[i] = CreateLogElement(currentLogs[i]);
         }
@@ -1789,16 +1912,21 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         _lastDisplayedLogs = currentLogs;
     }
 
+    /// <summary>
+    ///     Creates a log element, converting hyperlinks into clickable buttons
+    /// </summary>
+    /// <param name="logText"></param>
+    /// <returns></returns>
     private Control CreateLogElement(string logText)
     {
-        var hyperlink = ExtractHyperlink(logText);
+        string? hyperlink = ExtractHyperlink(logText);
 
         if (!string.IsNullOrEmpty(hyperlink))
         {
             // remove the hyperlink from the displayed text
-            var displayText = logText.Replace(hyperlink, "").TrimEnd();
+            string displayText = logText.Replace(hyperlink, "").TrimEnd();
 
-            var linkButton = new Button
+            Button linkButton = new()
             {
                 Content = new TextBlock
                 {
@@ -1826,10 +1954,15 @@ private static extern int timeEndPeriod(uint uMilliseconds);
         return new TextBlock { Text = logText, Foreground = Brushes.White };
     }
 
+    /// <summary>
+    ///     Extracts the hyperlink from a log text if present
+    /// </summary>
+    /// <param name="logText"></param>
+    /// <returns></returns>
     public static string? ExtractHyperlink(string logText)
     {
-        var urlRegex = new Regex(@"https?://\S+");
-        var match = urlRegex.Match(logText);
+        Regex urlRegex = new(@"https?://\S+");
+        Match match = urlRegex.Match(logText);
         return match.Success ? match.Value : null;
     }
 
@@ -1852,7 +1985,7 @@ private static extern int timeEndPeriod(uint uMilliseconds);
 
             parts.Add(FriendlyName);
 
-            return string.Join("+", parts).Replace("==", "="); // fix for equal key not working
+            return string.Join("+", parts).Replace("==", "=");
         }
     }
 }

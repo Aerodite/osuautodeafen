@@ -4,26 +4,13 @@ using System.Linq;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.SkiaSharpView;
 
-namespace osuautodeafen.cs.StrainGraph;
+namespace osuautodeafen.cs.StrainGraph.ProgressIndicator;
 
-public class ProgressIndicatorHelper
+public class ProgressIndicatorHelper(ChartManager chartManager)
 {
-    private readonly ChartManager _chartManager;
-    private readonly TosuApi _tosuApi;
-    private readonly SharedViewModel _viewModel;
+    private readonly ChartManager _chartManager = chartManager ?? throw new ArgumentNullException(nameof(chartManager));
     private double _lastCompletionPercentage = -1;
-
     private List<ObservablePoint> _lastContour = new();
-
-    public ProgressIndicatorHelper(
-        ChartManager chartManager,
-        TosuApi tosuApi,
-        SharedViewModel viewModel)
-    {
-        _chartManager = chartManager ?? throw new ArgumentNullException(nameof(chartManager));
-        _tosuApi = tosuApi ?? throw new ArgumentNullException(nameof(tosuApi));
-        _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
-    }
 
     public double ChartXMin
     {
@@ -31,7 +18,7 @@ public class ProgressIndicatorHelper
         {
             var xAxes = _chartManager.XAxes;
             if (xAxes.Length == 0) return 0;
-            var min = xAxes[0].MinLimit;
+            double? min = xAxes[0].MinLimit;
             return min ?? 0;
         }
     }
@@ -42,7 +29,7 @@ public class ProgressIndicatorHelper
         {
             var xAxes = _chartManager.XAxes;
             if (xAxes.Length == 0) return 0;
-            var max = xAxes[0].MaxLimit;
+            double? max = xAxes[0].MaxLimit;
             return max ?? 0;
         }
     }
@@ -53,7 +40,7 @@ public class ProgressIndicatorHelper
         {
             var yAxes = _chartManager.YAxes;
             if (yAxes.Length == 0) return 0;
-            var min = yAxes[0].MinLimit;
+            double? min = yAxes[0].MinLimit;
             return min ?? 0;
         }
     }
@@ -64,192 +51,23 @@ public class ProgressIndicatorHelper
         {
             var yAxes = _chartManager.YAxes;
             if (yAxes.Length == 0) return 0;
-            var max = yAxes[0].MaxLimit;
+            double? max = yAxes[0].MaxLimit;
             return max ?? 0;
         }
     }
 
-    public List<ObservablePoint> CalculateProgressIndicatorPoints(double completionPercentage, bool force = false)
-    {
-        var XAxes = _chartManager.XAxes;
-        if (XAxes.Length == 0 || completionPercentage < 0 || completionPercentage > 100)
-            return new List<ObservablePoint>();
-
-        if (!force && Math.Abs(completionPercentage - _lastCompletionPercentage) < 0.1)
-            return new List<ObservablePoint>();
-        _lastCompletionPercentage = completionPercentage;
-
-        var xAxis = XAxes[0];
-        var maxXLimit = xAxis.MaxLimit;
-        if (!maxXLimit.HasValue) return new List<ObservablePoint>();
-
-        var progressPosition = completionPercentage / 100 * maxXLimit.Value;
-        var leftEdgePosition = Math.Max(progressPosition - 0.1, 0);
-
-        var lineSeriesList = _chartManager.Series
-            .OfType<LineSeries<ObservablePoint>>()
-            .Where(s => s.Name == "Aim" || s.Name == "Speed")
-            .ToArray();
-
-        if (lineSeriesList.Length == 0) return new List<ObservablePoint>();
-
-        var sortedPointsCache =
-            new Dictionary<LineSeries<ObservablePoint>, List<ObservablePoint>>(lineSeriesList.Length);
-        foreach (var series in lineSeriesList)
-        {
-            var values = series.Values as List<ObservablePoint> ?? series.Values.ToList();
-            if (values.Count > 1 && !IsSortedByX(values))
-                values.Sort((a, b) => Nullable.Compare(a.X, b.X));
-            sortedPointsCache[series] = values;
-        }
-
-        var steps = Math.Max(32, (int)(_chartManager.PlotView.Bounds.Width / 5));
-        var step = (progressPosition - leftEdgePosition) / steps;
-        if (step <= 0) step = 0.1;
-
-        var topContourPoints = new List<ObservablePoint>(steps + 4);
-        topContourPoints.Add(new ObservablePoint(leftEdgePosition, 0));
-
-        for (var i = 0; i <= steps; i++)
-        {
-            var x = leftEdgePosition + i * step;
-            if (x > progressPosition) x = progressPosition;
-
-            double maxInterpolatedY = 0;
-            foreach (var series in lineSeriesList)
-            {
-                var points = sortedPointsCache[series];
-                if (points.Count == 0) continue;
-
-                var leftIndex = BinarySearchX(points, x);
-                var leftPoint = points[Math.Max(leftIndex, 0)];
-                var rightPoint = points[Math.Min(leftIndex + 1, points.Count - 1)];
-
-                var interpolatedY = InterpolateY(leftPoint, rightPoint, x);
-                if (interpolatedY > maxInterpolatedY)
-                    maxInterpolatedY = interpolatedY;
-            }
-
-            topContourPoints.Add(new ObservablePoint(x, maxInterpolatedY));
-        }
-
-        double rightEdgeY = 0;
-        foreach (var series in lineSeriesList)
-        {
-            var points = sortedPointsCache[series];
-            if (points.Count == 0) continue;
-
-            var leftIndex = BinarySearchX(points, progressPosition);
-            var leftPoint = points[Math.Max(leftIndex, 0)];
-            var rightPoint = points[Math.Min(leftIndex + 1, points.Count - 1)];
-
-            var interpolatedY = InterpolateY(leftPoint, rightPoint, progressPosition);
-            if (interpolatedY > rightEdgeY)
-                rightEdgeY = interpolatedY;
-        }
-
-        topContourPoints.Add(new ObservablePoint(progressPosition, rightEdgeY));
-        topContourPoints.Add(new ObservablePoint(progressPosition, 0));
-        topContourPoints.Add(new ObservablePoint(leftEdgePosition, 0));
-
-        return topContourPoints;
-
-        static int BinarySearchX(List<ObservablePoint> points, double x)
-        {
-            int lo = 0, hi = points.Count - 1;
-            while (lo <= hi)
-            {
-                var mid = lo + ((hi - lo) >> 1);
-                if (points[mid].X < x) lo = mid + 1;
-                else if (points[mid].X > x) hi = mid - 1;
-                else return mid;
-            }
-
-            return lo - 1;
-        }
-
-        static bool IsSortedByX(List<ObservablePoint> points)
-        {
-            for (var i = 1; i < points.Count; i++)
-                if (points[i - 1].X > points[i].X)
-                    return false;
-            return true;
-        }
-    }
-
-
-    public List<ObservablePoint> CalculateOverlayPoints()
-    {
-        var XAxes = _chartManager.XAxes;
-        if (XAxes.Length == 0)
-            return new List<ObservablePoint>();
-
-        var xAxis = XAxes[0];
-        var minX = xAxis.MinLimit ?? 0;
-        var maxX = xAxis.MaxLimit ?? 0;
-        if (maxX <= minX) return new List<ObservablePoint>();
-
-        var lineSeriesList = _chartManager.Series
-            .OfType<LineSeries<ObservablePoint>>()
-            .Where(s => s.Name == "Aim" || s.Name == "Speed")
-            .ToArray();
-
-        if (lineSeriesList.Length == 0) return new List<ObservablePoint>();
-
-        var steps = Math.Max(32, (int)(_chartManager.PlotView.Bounds.Width / 5));
-        var step = (maxX - minX) / steps;
-
-        var points = new List<ObservablePoint>();
-
-        // Top edge (left to right)
-        for (var i = 0; i <= steps; i++)
-        {
-            var x = minX + i * step;
-            double? maxY = null;
-            foreach (var series in lineSeriesList)
-            {
-                var values = series.Values as List<ObservablePoint> ?? series.Values.ToList();
-                if (values.Count == 0) continue;
-                var idx = BinarySearchX(values, x);
-                var left = values[Math.Max(idx, 0)];
-                var right = values[Math.Min(idx + 1, values.Count - 1)];
-                var y = InterpolateY(left, right, x);
-                if (maxY == null || y > maxY) maxY = y;
-            }
-
-            if (maxY != null)
-                points.Add(new ObservablePoint(x, maxY.Value));
-        }
-
-        // Right edge up to ChartYMax, then left edge at ChartYMax
-        for (var i = steps; i >= 0; i--)
-        {
-            var x = minX + i * step;
-            points.Add(new ObservablePoint(x, ChartYMax));
-        }
-
-        return points;
-
-        static int BinarySearchX(List<ObservablePoint> points, double x)
-        {
-            int lo = 0, hi = points.Count - 1;
-            while (lo <= hi)
-            {
-                var mid = lo + ((hi - lo) >> 1);
-                if (points[mid].X < x) lo = mid + 1;
-                else if (points[mid].X > x) hi = mid - 1;
-                else return mid;
-            }
-
-            return lo - 1;
-        }
-    }
-
-    public List<ObservablePoint> CalculateSmoothProgressContour(double completionPercentage, int steps = 400,
+    /// <summary>
+    ///     Calculates a smooth contour representing the maximum Y values of the Strain Graph
+    /// </summary>
+    /// <param name="completionPercentage"></param>
+    /// <param name="steps"></param>
+    /// <param name="force"></param>
+    /// <returns></returns>
+    public List<ObservablePoint> CalculateSmoothProgressContour(double completionPercentage, int steps = 250,
         bool force = false)
     {
-        var XAxes = _chartManager.XAxes;
-        if (XAxes.Length == 0 || completionPercentage < 0 || completionPercentage > 100)
+        var xAxes = _chartManager.XAxes;
+        if (xAxes.Length == 0 || completionPercentage < 0 || completionPercentage > 100)
             return new List<ObservablePoint>();
 
         if (!force && Math.Abs(completionPercentage - _lastCompletionPercentage) < 0.1)
@@ -257,13 +75,13 @@ public class ProgressIndicatorHelper
 
         _lastCompletionPercentage = completionPercentage;
 
-        var xAxis = XAxes[0];
-        var maxXLimit = xAxis.MaxLimit;
+        Axis xAxis = xAxes[0];
+        double? maxXLimit = xAxis.MaxLimit;
         if (!maxXLimit.HasValue) return new List<ObservablePoint>();
 
-        var progressPosition = completionPercentage / 100 * maxXLimit.Value;
-        var window = Math.Max(maxXLimit.Value * 0.002, 0.002);
-        var leftEdgePosition = Math.Max(progressPosition - window, 0);
+        double progressPosition = completionPercentage / 100 * maxXLimit.Value;
+        double window = Math.Max(maxXLimit.Value * 0.002, 0.002);
+        double leftEdgePosition = Math.Max(progressPosition - window, 0);
         if (progressPosition <= leftEdgePosition)
             leftEdgePosition = Math.Max(progressPosition - 0.01, 0);
 
@@ -284,16 +102,15 @@ public class ProgressIndicatorHelper
             sortedPointsCache[series] = values;
         }
 
-        steps = Math.Max(8, (int)(_chartManager.PlotView.Bounds.Width / 5));
-        var range = progressPosition - leftEdgePosition;
-        var step = range / steps;
+        double range = progressPosition - leftEdgePosition;
+        double step = range / steps;
         if (step <= 0) step = Math.Max(0.001, range / 8);
 
         var contour = new List<ObservablePoint>();
 
-        for (var i = 0; i <= steps; i++)
+        for (int i = 0; i <= steps; i++)
         {
-            var x = leftEdgePosition + i * step;
+            double x = leftEdgePosition + i * step;
             if (x > progressPosition) x = progressPosition;
 
             double? maxY = null;
@@ -302,11 +119,11 @@ public class ProgressIndicatorHelper
                 var points = sortedPointsCache[series];
                 if (points.Count < 2) continue;
 
-                var leftIndex = BinarySearchX(points, x);
-                var leftPoint = points[Math.Max(leftIndex, 0)];
-                var rightPoint = points[Math.Min(leftIndex + 1, points.Count - 1)];
+                int leftIndex = BinarySearchX(points, x);
+                ObservablePoint leftPoint = points[Math.Max(leftIndex, 0)];
+                ObservablePoint rightPoint = points[Math.Min(leftIndex + 1, points.Count - 1)];
 
-                var y = InterpolateY(leftPoint, rightPoint, x);
+                double y = InterpolateY(leftPoint, rightPoint, x);
                 if (maxY == null || y > maxY) maxY = y;
             }
 
@@ -316,23 +133,20 @@ public class ProgressIndicatorHelper
 
         if (contour.Count < 2) contour.Add(new ObservablePoint(progressPosition, 0));
 
-        // Add multiple horizontal extension points before dropping to zero
-        var extraPoints = 10;
-        var extensionStep = step * 0.1;
+        int extraPoints = 10;
+        double extensionStep = step * 0.1;
 
-        var last = contour.Last();
-        for (var j = 1; j <= extraPoints; j++)
+        ObservablePoint last = contour.Last();
+        for (int j = 1; j <= extraPoints; j++)
         {
-            var extX = (last.X ?? progressPosition) + extensionStep * j;
+            double extX = (last.X ?? progressPosition) + extensionStep * j;
             contour.Add(new ObservablePoint(extX, last.Y));
         }
 
-        // Drop vertically to zero at the last extension
-        var finalX = (last.X ?? progressPosition) + extensionStep * extraPoints;
+        double finalX = (last.X ?? progressPosition) + extensionStep * extraPoints;
         contour.Add(new ObservablePoint(finalX, 0));
 
-        // Close the contour
-        var leftX = contour.First().X ?? leftEdgePosition;
+        double leftX = contour.First().X ?? leftEdgePosition;
         contour.Add(new ObservablePoint(leftX, 0));
         contour.Add(contour.First());
 
@@ -344,7 +158,7 @@ public class ProgressIndicatorHelper
             int lo = 0, hi = points.Count - 1;
             while (lo <= hi)
             {
-                var mid = lo + ((hi - lo) >> 1);
+                int mid = lo + ((hi - lo) >> 1);
                 if (points[mid].X < x) lo = mid + 1;
                 else if (points[mid].X > x) hi = mid - 1;
                 else return mid;
@@ -355,20 +169,26 @@ public class ProgressIndicatorHelper
 
         static bool IsSortedByX(List<ObservablePoint> points)
         {
-            for (var i = 1; i < points.Count; i++)
+            for (int i = 1; i < points.Count; i++)
                 if (points[i - 1].X > points[i].X)
                     return false;
             return true;
         }
     }
 
-
+    /// <summary>
+    ///     Linearly interpolates the Y value at a given X between two points
+    /// </summary>
+    /// <param name="leftPoint"></param>
+    /// <param name="rightPoint"></param>
+    /// <param name="x"></param>
+    /// <returns></returns>
     private double InterpolateY(ObservablePoint leftPoint, ObservablePoint rightPoint, double x)
     {
-        var lx = leftPoint.X;
-        var rx = rightPoint.X;
-        var ly = leftPoint.Y ?? 0.0;
-        var ry = rightPoint.Y ?? 0.0;
+        double? lx = leftPoint.X;
+        double? rx = rightPoint.X;
+        double ly = leftPoint.Y ?? 0.0;
+        double ry = rightPoint.Y ?? 0.0;
 
         if (lx == rx)
             return ly;

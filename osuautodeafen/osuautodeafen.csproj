@@ -14,25 +14,22 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Avalonia" Version="11.3.0"/>
-        <PackageReference Include="Avalonia.Desktop" Version="11.3.0"/>
-        <PackageReference Include="Avalonia.Skia" Version="11.3.0"/>
-        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.0"/>
-        <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.0"/>
-        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.3.0"/>
+        <PackageReference Include="Avalonia.Desktop" Version="11.3.5"/>
+        <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.5"/>
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.5"/>
         <PackageReference Include="ini-parser" Version="2.5.2"/>
-        <PackageReference Include="LiveChartsCore.SkiaSharpView" Version="2.0.0-rc2"/>
-        <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc2"/>
-        <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
-        <PackageReference Include="ReactiveUI" Version="20.2.45"/>
-        <PackageReference Include="SharpHook" Version="6.0.0"/>
-        <PackageReference Include="SkiaSharp" Version="2.88.9"/>
-        <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.9"/>
-        <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="2.88.9"/>
-        <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="2.88.9"/>
-        <PackageReference Include="SkiaSharp.Views" Version="2.88.3"/>
-        <PackageReference Include="Svg.Skia" Version="2.0.0.4"/>
-        <PackageReference Include="Velopack" Version="0.0.1298"/>
+        <PackageReference Include="LiveChartsCore.SkiaSharpView" Version="2.0.0-rc5.4"/>
+        <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc5.4"/>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.4-beta1"/>
+        <PackageReference Include="ReactiveUI" Version="21.0.1"/>
+        <PackageReference Include="SharpHook" Version="7.0.1"/>
+        <PackageReference Include="SkiaSharp" Version="3.119.0"/>
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.0"/>
+        <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="3.119.0"/>
+        <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.0"/>
+        <PackageReference Include="SkiaSharp.Views" Version="3.119.0"/>
+        <PackageReference Include="Svg.Skia" Version="3.0.6"/>
+        <PackageReference Include="Velopack" Version="0.0.1362-gfa48e3c"/>
         <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11"/>
         <PackageReference Include="ILMerge" Version="3.0.41"/>
     </ItemGroup>

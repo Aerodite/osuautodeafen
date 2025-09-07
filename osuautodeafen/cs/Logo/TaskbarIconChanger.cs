@@ -17,18 +17,24 @@ public static class TaskbarIconChanger
     private static extern IntPtr LoadImage(IntPtr hInstance, string lpFilename, uint uType, int cxDesired,
         int cyDesired, uint fuLoad);
 
+    /// <summary>
+    ///     Sets the taskbar icon for the given Avalonia window.
+    /// </summary>
+    /// <param name="window"></param>
+    /// <param name="imagePath"></param>
+    /// <exception cref="InvalidOperationException"></exception>
     public static void SetTaskbarIcon(Window window, string imagePath)
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             return;
 
-        var handle = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+        IntPtr handle = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
         if (handle == IntPtr.Zero)
             throw new InvalidOperationException("Could not get native window handle.");
 
         // Load icons for both sizes
-        var hIconSmall = LoadImage(IntPtr.Zero, imagePath, IMAGE_ICON, 16, 16, LR_LOADFROMFILE);
-        var hIconBig = LoadImage(IntPtr.Zero, imagePath, IMAGE_ICON, 32, 32, LR_LOADFROMFILE);
+        IntPtr hIconSmall = LoadImage(IntPtr.Zero, imagePath, IMAGE_ICON, 16, 16, LR_LOADFROMFILE);
+        IntPtr hIconBig = LoadImage(IntPtr.Zero, imagePath, IMAGE_ICON, 32, 32, LR_LOADFROMFILE);
 
         // Set small icon (titlebar)
         SendMessage(handle, WM_SETICON, ICON_SMALL, hIconSmall);

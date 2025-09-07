@@ -10,12 +10,16 @@ public sealed class GpuBackgroundControl : Control
     public Bitmap? Bitmap;
     public Stretch Stretch = Stretch.Uniform;
 
+    /// <summary>
+    ///     Render the image to the drawing context with the specified stretch mode.
+    /// </summary>
+    /// <param name="context"></param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override void Render(DrawingContext context)
     {
-        var bmp = Bitmap!;
-        var bounds = Bounds;
-        var srcSize = new Size(bmp.PixelSize.Width, bmp.PixelSize.Height);
+        Bitmap bmp = Bitmap!;
+        Rect bounds = Bounds;
+        Size srcSize = new(bmp.PixelSize.Width, bmp.PixelSize.Height);
 
         double bw = bounds.Width, bh = bounds.Height, sw = srcSize.Width, sh = srcSize.Height;
         Rect destRect;
@@ -29,19 +33,19 @@ public sealed class GpuBackgroundControl : Control
                 break;
             case Stretch.Uniform:
             {
-                var scale = Math.Min(bw / sw, bh / sh);
-                var w = sw * scale;
-                var h = sh * scale;
-                var topLeft = bounds.Center - new Vector(w / 2, h / 2);
+                double scale = Math.Min(bw / sw, bh / sh);
+                double w = sw * scale;
+                double h = sh * scale;
+                Point topLeft = bounds.Center - new Vector(w / 2, h / 2);
                 destRect = new Rect(topLeft, new Size(w, h));
                 break;
             }
             case Stretch.UniformToFill:
             {
-                var scale = Math.Max(bw / sw, bh / sh);
-                var w = sw * scale;
-                var h = sh * scale;
-                var topLeft = bounds.Center - new Vector(w / 2, h / 2);
+                double scale = Math.Max(bw / sw, bh / sh);
+                double w = sw * scale;
+                double h = sh * scale;
+                Point topLeft = bounds.Center - new Vector(w / 2, h / 2);
                 destRect = new Rect(topLeft, new Size(w, h));
                 break;
             }

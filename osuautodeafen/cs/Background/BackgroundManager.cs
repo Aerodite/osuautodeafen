@@ -21,7 +21,6 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     private readonly Dictionary<string, OpacityRequest> _opacityRequests = new();
     private readonly Dictionary<string, BackgroundOverlayRequest> _overlayRequests = new();
     private readonly TimeSpan _parallaxInterval = TimeSpan.FromMilliseconds(16);
-    public BlurEffect? _backgroundBlurEffect;
 
     private Rectangle? _backgroundOverlayRect;
     private PropertyChangedEventHandler? _backgroundPropertyChangedHandler;
@@ -45,12 +44,18 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     private double _mouseX;
     private double _mouseY;
     private CancellationTokenSource? _overlayAnimationCts;
+    public BlurEffect? BackgroundBlurEffect;
 
     public double GetBackgroundOpacity()
     {
         return _currentBackgroundOpacity;
     }
 
+    /// <summary>
+    ///     Sets the background opacity, optionally animating the transition over a specified duration
+    /// </summary>
+    /// <param name="targetOpacity"></param>
+    /// <param name="durationMs"></param>
     public async Task SetBackgroundOpacity(double targetOpacity, int durationMs = 0)
     {
         targetOpacity = Math.Clamp(targetOpacity, 0, 1);
@@ -62,13 +67,13 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             return;
         }
 
-        var start = _currentBackgroundOpacity;
-        var end = targetOpacity;
-        var steps = Math.Max(1, durationMs / 16);
-        var step = (end - start) / steps;
-        var delay = durationMs / steps;
+        double start = _currentBackgroundOpacity;
+        double end = targetOpacity;
+        int steps = Math.Max(1, durationMs / 16);
+        double step = (end - start) / steps;
+        int delay = durationMs / steps;
 
-        for (var i = 1; i <= steps; i++)
+        for (int i = 1; i <= steps; i++)
         {
             _currentBackgroundOpacity = start + step * i;
             UpdateBackgroundLayerOpacity();
@@ -79,16 +84,24 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         UpdateBackgroundLayerOpacity();
     }
 
+    /// <summary>
+    ///     Updates the opacity of the background layer in the UI
+    /// </summary>
     private void UpdateBackgroundLayerOpacity()
     {
         if (window.Content is Grid mainGrid)
         {
-            var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
+            Grid? backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
             if (backgroundLayer != null)
                 backgroundLayer.Opacity = _currentBackgroundOpacity;
         }
     }
 
+    /// <summary>
+    ///     Loads and updates the background image based on the current settings and beatmap
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     public async Task UpdateBackground(object? sender, EventArgs? e)
     {
         try
@@ -99,11 +112,11 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 return;
             }
 
-            var backgroundPath = tosuApi.GetBackgroundPath();
+            string backgroundPath = tosuApi.GetBackgroundPath();
             if (_currentBitmap == null || backgroundPath != _currentBackgroundDirectory)
             {
                 _currentBackgroundDirectory = backgroundPath;
-                var newBitmap = await LoadBitmapAsync(backgroundPath);
+                Bitmap? newBitmap = await LoadBitmapAsync(backgroundPath);
                 if (newBitmap == null)
                 {
                     Console.WriteLine($"Failed to load background: {backgroundPath}");
@@ -160,6 +173,11 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         }
     }
 
+    /// <summary>
+    ///     Loads a bitmap from the specified file path asynchronously
+    /// </summary>
+    /// <param name="path"></param>
+    /// <returns></returns>
     private async Task<Bitmap?> LoadBitmapAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -178,7 +196,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
 
             try
             {
-                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                 return new Bitmap(stream);
             }
             catch (Exception ex)
@@ -189,6 +207,12 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         });
     }
 
+    /// <summary>
+    ///     Applies a blur effect to the background asynchronously
+    /// </summary>
+    /// <param name="blurEffect"></param>
+    /// <param name="radius"></param>
+    /// <param name="token"></param>
     public async Task BlurBackgroundAsync(BlurEffect blurEffect, double radius, CancellationToken token)
     {
         if (token.IsCancellationRequested)
@@ -198,16 +222,26 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         await Task.CompletedTask;
     }
 
-    // Implementation for everything below is largely based off of https://github.com/ppy/osu/blob/master/osu.Game/Graphics/Backgrounds/Background.cs
-    // (thanks peppy :D)
+    /// <summary>
+    ///     Calculates an appropriate downscale factor based on the desired blur radius
+    /// </summary>
+    /// <param name="sigma"></param>
+    /// <returns>
+    ///     A downscale factor between 0.1 and 1.0, where 1.0 means no downscaling
+    /// </returns>
+    /// <remarks>
+    ///     Implementation for everything is largely based off of
+    ///     https://github.com/ppy/osu/blob/master/osu.Game/Graphics/Backgrounds/Background.cs
+    ///     (thanks peppy :D)
+    /// </remarks>
     private double CalculateBlurDownscale(double sigma)
     {
         if (sigma <= 1)
             //Console.WriteLine($"CalculateBlurDownscale elapsed: {sw.ElapsedMilliseconds} ms");
             return 1;
 
-        var scale = -0.18 * Math.Log(0.004 * sigma);
-        var result = Math.Max(0.1, Math.Round(scale / 0.2, MidpointRounding.AwayFromZero) * 0.2);
+        double scale = -0.18 * Math.Log(0.004 * sigma);
+        double result = Math.Max(0.1, Math.Round(scale / 0.2, MidpointRounding.AwayFromZero) * 0.2);
         //Console.WriteLine($"CalculateBlurDownscale elapsed: {sw.ElapsedMilliseconds} ms");
         return result;
     }
@@ -226,13 +260,13 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
 
         _cachedDownscaledBitmap?.Dispose();
 
-        var width = Math.Max(1, (int)(source.PixelSize.Width * scale));
-        var height = Math.Max(1, (int)(source.PixelSize.Height * scale));
+        int width = Math.Max(1, (int)(source.PixelSize.Width * scale));
+        int height = Math.Max(1, (int)(source.PixelSize.Height * scale));
 
-        var target = await Task.Run(() =>
+        RenderTargetBitmap target = await Task.Run(() =>
         {
-            var bmp = new RenderTargetBitmap(new PixelSize(width, height));
-            using (var ctx = bmp.CreateDrawingContext(false))
+            RenderTargetBitmap bmp = new(new PixelSize(width, height));
+            using (DrawingContext ctx = bmp.CreateDrawingContext(false))
             {
                 ctx.DrawImage(source, new Rect(0, 0, source.PixelSize.Width, source.PixelSize.Height),
                     new Rect(0, 0, width, height));
@@ -248,6 +282,10 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         return target;
     }
 
+    /// <summary>
+    ///     Updates the UI with a new background image
+    /// </summary>
+    /// <param name="bitmap"></param>
     private async Task UpdateUIWithNewBackgroundAsync(Bitmap? bitmap)
     {
         if (bitmap == null)
@@ -260,9 +298,10 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             _lastValidBitmap = bitmap;
         }
 
-        var cts = Interlocked.Exchange(ref _cancellationTokenSource, new CancellationTokenSource());
+        CancellationTokenSource?
+            cts = Interlocked.Exchange(ref _cancellationTokenSource, new CancellationTokenSource());
         await cts?.CancelAsync()!;
-        var token = _cancellationTokenSource.Token;
+        CancellationToken token = _cancellationTokenSource.Token;
 
         if (Dispatcher.UIThread.CheckAccess())
             await UpdateUI();
@@ -275,18 +314,18 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             if (source.PixelSize.Width == targetWidth && source.PixelSize.Height == targetHeight)
                 return Task.FromResult(source);
 
-            var scale = Math.Max(
+            double scale = Math.Max(
                 (double)targetWidth / source.PixelSize.Width,
                 (double)targetHeight / source.PixelSize.Height);
 
-            var drawWidth = (int)(source.PixelSize.Width * scale);
-            var drawHeight = (int)(source.PixelSize.Height * scale);
+            int drawWidth = (int)(source.PixelSize.Width * scale);
+            int drawHeight = (int)(source.PixelSize.Height * scale);
 
-            var offsetX = (targetWidth - drawWidth) / 2;
-            var offsetY = (targetHeight - drawHeight) / 2;
+            int offsetX = (targetWidth - drawWidth) / 2;
+            int offsetY = (targetHeight - drawHeight) / 2;
 
-            var resized = new RenderTargetBitmap(new PixelSize(targetWidth, targetHeight));
-            using (var ctx = resized.CreateDrawingContext(false))
+            RenderTargetBitmap resized = new(new PixelSize(targetWidth, targetHeight));
+            using (DrawingContext ctx = resized.CreateDrawingContext(false))
             {
                 ctx.DrawImage(
                     source,
@@ -308,24 +347,24 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 window.Content = mainGrid;
             }
 
-            var blurRadius = viewModel?.BlurRadius ?? 0;
-            var downscale = CalculateBlurDownscale(blurRadius);
-            var displayBitmap = await CreateDownscaledBitmapAsync(bitmap, downscale);
-            _backgroundBlurEffect ??= new BlurEffect();
-            _backgroundBlurEffect.Radius = blurRadius;
+            double blurRadius = viewModel?.BlurRadius ?? 0;
+            double downscale = CalculateBlurDownscale(blurRadius);
+            Bitmap displayBitmap = await CreateDownscaledBitmapAsync(bitmap, downscale);
+            BackgroundBlurEffect ??= new BlurEffect();
+            BackgroundBlurEffect.Radius = blurRadius;
 
-            var gpuBackground = new GpuBackgroundControl
+            GpuBackgroundControl gpuBackground = new()
             {
                 Bitmap = displayBitmap,
                 Opacity = 0.5,
                 ZIndex = -1,
                 Stretch = Stretch.UniformToFill,
-                Effect = _backgroundBlurEffect,
+                Effect = BackgroundBlurEffect,
                 Clip = new RectangleGeometry(new Rect(0, 0, 800 * 1.05, 800 * 1.05))
             };
 
-            var backgroundLayer = mainGrid.Children.Count > 0 && mainGrid.Children[0] is Grid g &&
-                                  g.Name == "BackgroundLayer"
+            Grid backgroundLayer = mainGrid.Children.Count > 0 && mainGrid.Children[0] is Grid g &&
+                                   g.Name == "BackgroundLayer"
                 ? g
                 : new Grid { Name = "BackgroundLayer", ZIndex = -1 };
             //this just ensures that parallax doesnt rubber band to the center of the screen.
@@ -353,23 +392,27 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         }
     }
 
+    /// <summary>
+    ///     Animates the background back to the center position over a specified duration for parallax
+    /// </summary>
+    /// <param name="durationMs"></param>
     private async Task AnimateBackgroundToCenterAsync(int durationMs = 50)
     {
         if (_cachedGpuBackground == null)
             return;
 
-        var startX = _lastMovementX;
-        var startY = _lastMovementY;
+        double startX = _lastMovementX;
+        double startY = _lastMovementY;
         double endX = 0;
         double endY = 0;
-        var steps = Math.Max(1, durationMs / 16);
-        var stepX = (endX - startX) / steps;
-        var stepY = (endY - startY) / steps;
+        int steps = Math.Max(1, durationMs / 16);
+        double stepX = (endX - startX) / steps;
+        double stepY = (endY - startY) / steps;
 
-        for (var i = 1; i <= steps; i++)
+        for (int i = 1; i <= steps; i++)
         {
-            var newX = startX + stepX * i;
-            var newY = startY + stepY * i;
+            double newX = startX + stepX * i;
+            double newY = startY + stepY * i;
             _cachedGpuBackground.RenderTransform = new TranslateTransform(newX, newY);
             await Task.Delay(durationMs / steps);
         }
@@ -379,7 +422,11 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         _lastMovementY = 0;
     }
 
-
+    /// <summary>
+    ///     Applies a parallax effect to the background based on mouse position
+    /// </summary>
+    /// <param name="mouseX"></param>
+    /// <param name="mouseY"></param>
     private void ApplyParallax(double mouseX, double mouseY)
     {
         try
@@ -387,11 +434,10 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             if (_currentBitmap == null)
                 return;
 
-            // Cache mainGrid and backgroundLayer for reuse
             if (window.Content is not Grid mainGrid)
                 return;
 
-            var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
+            Grid? backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
             if (backgroundLayer == null)
                 return;
 
@@ -419,10 +465,10 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             if (_cachedGpuBackground == null)
                 return;
 
-            var centerX = window.Width / 2;
-            var centerY = window.Height / 2;
-            var movementX = -(mouseX - centerX) * 0.015;
-            var movementY = -(mouseY - centerY) * 0.015;
+            double centerX = window.Width / 2;
+            double centerY = window.Height / 2;
+            double movementX = -(mouseX - centerX) * 0.015;
+            double movementY = -(mouseY - centerY) * 0.015;
             movementX = Math.Clamp(movementX, -15, 15);
             movementY = Math.Clamp(movementY, -15, 15);
 
@@ -440,12 +486,17 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         }
     }
 
+    /// <summary>
+    ///     Handles mouse movement events to update the parallax effect
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     public void OnMouseMove(object? sender, PointerEventArgs e)
     {
         if (window.ParallaxToggle?.IsChecked == false || window.BackgroundToggle?.IsChecked == false)
             return;
 
-        var position = e.GetPosition(window);
+        Point position = e.GetPosition(window);
         if (position.X < 0 || position.Y < 0 || position.X > window.Width || position.Y > window.Height)
             return;
 
@@ -455,6 +506,13 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         ApplyParallax(_mouseX, _mouseY);
     }
 
+    /// <summary>
+    ///     Requests a change in background opacity with a given priority
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="opacity"></param>
+    /// <param name="priority"></param>
+    /// <param name="durationMs"></param>
     public async Task RequestBackgroundOpacity(string key, double opacity, int priority, int durationMs = 200)
     {
         Console.WriteLine(
@@ -463,6 +521,10 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         await ApplyHighestPriorityOpacity(durationMs);
     }
 
+    /// <summary>
+    ///     Removes a previously made background opacity request
+    /// </summary>
+    /// <param name="key"></param>
     public void RemoveBackgroundOpacityRequest(string key)
     {
         if (_opacityRequests.Remove(key))
@@ -476,6 +538,10 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         }
     }
 
+    /// <summary>
+    ///     Applies the highest priority opacity request
+    /// </summary>
+    /// <param name="durationMs"></param>
     private async Task ApplyHighestPriorityOpacity(int durationMs)
     {
         if (_opacityRequests.Count == 0)
@@ -485,12 +551,21 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             return;
         }
 
-        var highest = _opacityRequests.Values.OrderByDescending(r => r.Priority).First();
+        OpacityRequest highest = _opacityRequests.Values.OrderByDescending(r => r.Priority).First();
         Console.WriteLine(
             $"[Opacity] Applying highest priority: opacity={highest.Opacity}, priority={highest.Priority}, durationMs={durationMs}");
         await SetBackgroundOpacity(highest.Opacity, durationMs);
     }
 
+    /// <summary>
+    ///     Requests a background overlay with specified color, opacity, and priority
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="overlayColor"></param>
+    /// <param name="opacity"></param>
+    /// <param name="priority"></param>
+    /// <param name="durationMs"></param>
+    [Obsolete]
     public async Task RequestBackgroundOverlay(string key, Color overlayColor, double opacity, int priority,
         int durationMs = 200)
     {
@@ -500,6 +575,12 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         await ApplyHighestPriorityOverlay(durationMs);
     }
 
+
+    /// <summary>
+    ///     Removes a previously made background overlay request
+    /// </summary>
+    /// <param name="key"></param>
+    [Obsolete]
     public void RemoveBackgroundOverlayRequest(string key)
     {
         if (_overlayRequests.Remove(key))
@@ -513,6 +594,10 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         }
     }
 
+    /// <summary>
+    ///     Applies the highest priority background overlay request
+    /// </summary>
+    /// <param name="durationMs"></param>
     private async Task ApplyHighestPriorityOverlay(int durationMs)
     {
         if (_overlayRequests.Count == 0)
@@ -522,12 +607,19 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             return;
         }
 
-        var highest = _overlayRequests.Values.OrderByDescending(r => r.Priority).First();
+        BackgroundOverlayRequest highest = _overlayRequests.Values.OrderByDescending(r => r.Priority).First();
         Console.WriteLine(
             $"[Overlay] Applying highest priority: color={highest.OverlayColor}, opacity={highest.Opacity}, priority={highest.Priority}, durationMs={durationMs}");
         await SetBackgroundOverlay(highest.OverlayColor, highest.Opacity, durationMs, highest.Key);
     }
 
+    /// <summary>
+    ///     Sets the background overlay color and opacity, optionally animating the transition
+    /// </summary>
+    /// <param name="color"></param>
+    /// <param name="opacity"></param>
+    /// <param name="durationMs"></param>
+    /// <param name="key"></param>
     private async Task SetBackgroundOverlay(Color color, double opacity, int durationMs, string? key = null)
     {
         if (key != null && _currentOverlayKey == key)
@@ -535,7 +627,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
 
         _overlayAnimationCts = new CancellationTokenSource();
         _currentOverlayKey = key;
-        var token = _overlayAnimationCts.Token;
+        CancellationToken token = _overlayAnimationCts.Token;
 
 
         await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -543,7 +635,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             if (window.Content is not Grid mainGrid)
                 return;
 
-            var backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
+            Grid? backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
             if (backgroundLayer == null)
                 return;
 
@@ -561,25 +653,25 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             _backgroundOverlayRect.Width = backgroundLayer.Bounds.Width;
             _backgroundOverlayRect.Height = backgroundLayer.Bounds.Height;
 
-            var brush = _backgroundOverlayRect.Fill as SolidColorBrush;
+            SolidColorBrush? brush = _backgroundOverlayRect.Fill as SolidColorBrush;
             if (brush == null)
             {
                 brush = new SolidColorBrush(color, opacity);
                 _backgroundOverlayRect.Fill = brush;
             }
 
-            var startColor = brush.Color;
-            var startOpacity = brush.Opacity;
-            var endColor = color;
-            var endOpacity = opacity;
+            Color startColor = brush.Color;
+            double startOpacity = brush.Opacity;
+            Color endColor = color;
+            double endOpacity = opacity;
 
             if (durationMs > 0)
             {
-                var steps = Math.Max(1, durationMs / 16);
-                for (var i = 1; i <= steps; i++)
+                int steps = Math.Max(1, durationMs / 16);
+                for (int i = 1; i <= steps; i++)
                 {
                     if (token.IsCancellationRequested) return;
-                    var t = (double)i / steps;
+                    double t = (double)i / steps;
                     brush.Color = LerpColor(startColor, endColor, t);
                     brush.Opacity = startOpacity + (endOpacity - startOpacity) * t;
                     await Task.Delay(durationMs / steps);
@@ -595,6 +687,13 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         });
     }
 
+    /// <summary>
+    ///     Linearly interpolates between two colors based on a parameter t (0.0 to 1.0)
+    /// </summary>
+    /// <param name="a"></param>
+    /// <param name="b"></param>
+    /// <param name="t"></param>
+    /// <returns></returns>
     private static Color LerpColor(Color a, Color b, double t)
     {
         return Color.FromArgb(

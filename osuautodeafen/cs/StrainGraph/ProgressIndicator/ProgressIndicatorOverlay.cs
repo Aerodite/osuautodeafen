@@ -68,10 +68,10 @@ public class ProgressIndicatorOverlay : Control
         if (Points == null || Points.Count < 2)
             return;
 
-        var geometry = new StreamGeometry();
-        using (var ctx = geometry.Open())
+        StreamGeometry geometry = new();
+        using (StreamGeometryContext ctx = geometry.Open())
         {
-            var first = Points[0];
+            ObservablePoint first = Points[0];
             ctx.BeginFigure(
                 new Point(
                     MapChartXToCanvas(first.X ?? 0),
@@ -80,9 +80,9 @@ public class ProgressIndicatorOverlay : Control
                 false
             );
 
-            for (var i = 1; i < Points.Count; i++)
+            for (int i = 1; i < Points.Count; i++)
             {
-                var p = Points[i];
+                ObservablePoint p = Points[i];
                 ctx.LineTo(
                     new Point(
                         MapChartXToCanvas(p.X ?? 0),
@@ -100,7 +100,7 @@ public class ProgressIndicatorOverlay : Control
         if (ChartXMax == ChartXMin)
             //Console.WriteLine($"[MapChartXToCanvas] ChartXMax == ChartXMin ({ChartXMax}), returning 0");
             return 0;
-        var result = (chartX - ChartXMin) / (ChartXMax - ChartXMin) * Bounds.Width;
+        double result = (chartX - ChartXMin) / (ChartXMax - ChartXMin) * Bounds.Width;
         //Console.WriteLine($"[MapChartXToCanvas] chartX={chartX}, ChartXMin={ChartXMin}, ChartXMax={ChartXMax}, Bounds.Width={Bounds.Width} => {result}");
         return result;
     }
@@ -110,7 +110,7 @@ public class ProgressIndicatorOverlay : Control
         if (localYMax == ChartYMin)
             //Console.WriteLine($"[MapChartYToCanvas] localYMax == ChartYMin ({ChartYMin}), returning 0");
             return 0;
-        var result = Bounds.Height - (chartY - ChartYMin) / (localYMax - ChartYMin) * Bounds.Height;
+        double result = Bounds.Height - (chartY - ChartYMin) / (localYMax - ChartYMin) * Bounds.Height;
         //Console.WriteLine($"[MapChartYToCanvas] chartY={chartY}, ChartYMin={ChartYMin}, localYMax={localYMax}, Bounds.Height={Bounds.Height} => {result}");
         return result;
     }

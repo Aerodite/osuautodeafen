@@ -7,10 +7,17 @@ public class LogImportant
 {
     public readonly Dictionary<string, string> _importantLogs = new();
 
+    /// <summary>
+    ///     Logs an important message with optional timestamp, keyword, and hyperlink
+    /// </summary>
+    /// <param name="message"></param>
+    /// <param name="includeTimestamp"></param>
+    /// <param name="keyword"></param>
+    /// <param name="hyperLink"></param>
     public void logImportant(string message, bool includeTimestamp = true, string? keyword = null,
         string? hyperLink = null)
     {
-        var newLine = includeTimestamp
+        string newLine = includeTimestamp
             ? $"[{DateTime.Now:MM-dd HH:mm:ss.fff}]{message}"
             : message;
 
@@ -23,6 +30,9 @@ public class LogImportant
             _importantLogs[Guid.NewGuid().ToString()] = newLine;
     }
 
+    /// <summary>
+    ///     Clears all logged important messages
+    /// </summary>
     public void ClearLogs()
     {
         _importantLogs.Clear();

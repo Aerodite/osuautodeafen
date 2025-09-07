@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -30,6 +31,9 @@ public class LogoUpdater
     private Bitmap? _lowResBitmap;
     private SKColor _oldAverageColor;
 
+    private List<SKColor> _sectionColors = new();
+    private int _currentSectionIndex;
+    private SKColor _lastRenderedColor = new(255, 255, 255, 255);
     public LogoUpdater(
         GetLowResBackground getLowResBackground,
         LogoControl logoControl,
@@ -47,6 +51,40 @@ public class LogoUpdater
 
     public SKColor AverageColor { get; private set; }
 
+    /// <summary>
+    ///   Smoothly interpolates from one color to another over a set duration
+    /// </summary>
+    /// <param name="from"></param>
+    /// <param name="to"></param>
+    /// <param name="token"></param>
+    private async Task InterpolateToFirstColorAsync(SKColor from, SKColor to, CancellationToken token)
+    {
+        int steps = 60, delay = 16;
+        for (int i = 0; i <= steps; i++)
+        {
+            if (token.IsCancellationRequested) return;
+            float t = i / (float)steps;
+            var interpolatedColor = InterpolateColor(from, to, t);
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (_logoControl is { } skiaLogo)
+                {
+                    skiaLogo.ModulateColor = interpolatedColor;
+                    skiaLogo.InvalidateVisual();
+                }
+                _viewModel.AverageColorBrush = new SolidColorBrush(
+                    Color.FromArgb(interpolatedColor.Alpha, interpolatedColor.Red, interpolatedColor.Green, interpolatedColor.Blue));
+                _lastRenderedColor = interpolatedColor;
+            }, DispatcherPriority.Render);
+
+            await Task.Delay(delay, token);
+        }
+    }
+    
+    /// <summary>
+    ///   Updates the logo based on the current low-res background image
+    /// </summary>
     public async Task UpdateLogoAsync()
     {
         try
@@ -59,10 +97,10 @@ public class LogoUpdater
 
             if (_cachedBitmapPath != lowResBitmapPath)
             {
-                _lowResBitmap = await LoadLowResBitmapAsync(lowResBitmapPath).ConfigureAwait(false);
+                var lowResBitmap = await LoadLowResBitmapAsync(lowResBitmapPath).ConfigureAwait(false);
                 _cachedBitmapPath = lowResBitmapPath;
                 _cachedSKBitmap?.Dispose();
-                _cachedSKBitmap = ConvertToSKBitmap(_lowResBitmap);
+                _cachedSKBitmap = ConvertToSKBitmap(lowResBitmap);
             }
 
             if (_cachedSKBitmap == null) return;
@@ -71,25 +109,164 @@ public class LogoUpdater
             if (highResLogoSvg == null) return;
             _cachedLogoSvg = highResLogoSvg;
 
-            var newAverageColor = await CalculateAverageColorAsync(_cachedSKBitmap).ConfigureAwait(false);
+            var newSectionColors = CalculateSectionColors(_cachedSKBitmap);
 
-            if (_oldAverageColor == default)
-                _oldAverageColor = SKColors.White;
+            _colorTransitionCts?.Cancel();
+            _colorTransitionCts = new CancellationTokenSource();
+        
+            int closestIndex = FindClosestColorIndex(_lastRenderedColor, newSectionColors);
+            var firstColor = newSectionColors[closestIndex];
+        
+            await InterpolateToFirstColorAsync(_lastRenderedColor, firstColor, _colorTransitionCts.Token);
 
-            if (_oldAverageColor == newAverageColor)
-                return;
+            _currentSectionIndex = closestIndex;
+            _sectionColors = newSectionColors;
 
-            await UpdateAverageColorAsync(newAverageColor);
-            await AnimateLogoColorAsync(newAverageColor);
-
-            _oldAverageColor = newAverageColor;
+            _ = AnimateLogoColorsLoopAsync(_colorTransitionCts.Token);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[ERROR] Exception in UpdateLogoAsync: {ex}");
         }
     }
+    /// <summary>
+    ///  Continuously animates the logo colors by interpolating between section colors
+    /// </summary>
+    /// <param name="token"></param>
+    private async Task AnimateLogoColorsLoopAsync(CancellationToken token)
+    {
+        if (_sectionColors.Count < 3) return;
+        int steps = 120, delay = 16;
 
+        while (!token.IsCancellationRequested)
+        {
+            var from = _sectionColors[_currentSectionIndex];
+            var to = _sectionColors[(_currentSectionIndex + 1) % _sectionColors.Count];
+
+            for (int i = 0; i <= steps; i++)
+            {
+                if (token.IsCancellationRequested) return;
+                float t = i / (float)steps;
+                var interpolatedColor = InterpolateColor(from, to, t);
+
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (_logoControl is { } skiaLogo)
+                    {
+                        skiaLogo.ModulateColor = interpolatedColor;
+                        skiaLogo.InvalidateVisual();
+                    }
+                    _viewModel.AverageColorBrush = new SolidColorBrush(
+                        Color.FromArgb(interpolatedColor.Alpha, interpolatedColor.Red, interpolatedColor.Green, interpolatedColor.Blue));
+                    _lastRenderedColor = interpolatedColor;
+                }, DispatcherPriority.Render);
+
+                await Task.Delay(delay, token);
+            }
+
+            _currentSectionIndex = (_currentSectionIndex + 1) % _sectionColors.Count;
+        }
+    }
+
+    /// <summary>
+    ///  Divides the bitmap into three horizontal sections and calculates the average color for each section
+    /// </summary>
+    /// <param name="bitmap"></param>
+    /// <returns></returns>
+    private List<SKColor> CalculateSectionColors(SKBitmap bitmap)
+    {
+        int width = bitmap.Width, height = bitmap.Height;
+        int sectionHeight = height / 3;
+        var colors = new List<SKColor>();
+        for (int section = 0; section < 3; section++)
+        {
+            int yStart = section * sectionHeight;
+            int yEnd = (section == 2) ? height : yStart + sectionHeight;
+            var color = CalculateAverageColor(bitmap, yStart, yEnd);
+            
+            byte max = Math.Max(color.Red, Math.Max(color.Green, color.Blue));
+            if (max > 0)
+            {
+                float scale = 180f / max;
+                color = new SKColor(
+                    (byte)Math.Clamp(color.Red * scale, 32, 180),
+                    (byte)Math.Clamp(color.Green * scale, 32, 180),
+                    (byte)Math.Clamp(color.Blue * scale, 32, 180),
+                    color.Alpha
+                );
+            }
+
+            colors.Add(color);
+        }
+        return colors;
+    }
+    
+    /// <summary>
+    /// Calculates the average color of a specified section of the bitmap
+    /// </summary>
+    /// <param name="bitmap"></param>
+    /// <param name="yStart"></param>
+    /// <param name="yEnd"></param>
+    /// <returns></returns>
+    private unsafe SKColor CalculateAverageColor(SKBitmap bitmap, int yStart, int yEnd)
+    {
+        int width = bitmap.Width;
+        long totalR = 0, totalG = 0, totalB = 0;
+        long pixelCount = (long)width * (yEnd - yStart);
+
+        if (!bitmap.IsImmutable)
+            bitmap.SetImmutable();
+
+        fixed (void* ptr = &bitmap.GetPixelSpan()[0])
+        {
+            uint* pixels = (uint*)ptr;
+            for (int y = yStart; y < yEnd; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    uint pixel = pixels[y * width + x];
+                    totalB += pixel & 0xFF;
+                    totalG += (pixel >> 8) & 0xFF;
+                    totalR += (pixel >> 16) & 0xFF;
+                }
+            }
+        }
+
+        byte avgR = (byte)Math.Clamp(totalR / pixelCount, 0, 255);
+        byte avgG = (byte)Math.Clamp(totalG / pixelCount, 0, 255);
+        byte avgB = (byte)Math.Clamp(totalB / pixelCount, 0, 255);
+
+        return new SKColor(avgR, avgG, avgB);
+    }
+
+    /// <summary>
+    /// Finds the index of the color in the list that is closest to the target color
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="colors"></param>
+    /// <returns></returns>
+    private int FindClosestColorIndex(SKColor target, List<SKColor> colors)
+    {
+        int closestIndex = 0;
+        double minDistance = double.MaxValue;
+        for (int i = 0; i < colors.Count; i++)
+        {
+            double distance = Math.Pow(target.Red - colors[i].Red, 2) +
+                              Math.Pow(target.Green - colors[i].Green, 2) +
+                              Math.Pow(target.Blue - colors[i].Blue, 2);
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                closestIndex = i;
+            }
+        }
+        return closestIndex;
+    }
+    
+    /// <summary>
+    ///  Attempts to get the path of the low-resolution bitmap, retrying if necessary
+    /// </summary>
+    /// <returns></returns>
     private async Task<string?> GetLowResBitmapPathAsync()
     {
         var lowResBitmapPath = await TryGetLowResBitmapPathAsync(5, 1000).ConfigureAwait(false);
@@ -98,6 +275,11 @@ public class LogoUpdater
         return lowResBitmapPath;
     }
 
+    /// <summary>
+    /// Loads a low-resolution bitmap from the specified path
+    /// </summary>
+    /// <param name="path"></param>
+    /// <returns></returns>
     private async Task<Bitmap?> LoadLowResBitmapAsync(string path)
     {
         try
@@ -112,6 +294,10 @@ public class LogoUpdater
         }
     }
 
+    /// <summary>
+    /// Loads the high-resolution SVG logo
+    /// </summary>
+    /// <returns></returns>
     private async Task<SKSvg?> LoadHighResLogoAsync()
     {
         return await Task.Run(() =>
@@ -126,94 +312,13 @@ public class LogoUpdater
             }
         }).ConfigureAwait(false);
     }
-
-    private async Task AnimateLogoColorAsync(SKColor newAverageColor)
-    {
-        _colorTransitionCts?.Cancel();
-        _colorTransitionCts = new CancellationTokenSource();
-        var token = _colorTransitionCts.Token;
-
-        await _animationManager.EnqueueAnimation(async () =>
-        {
-            if (_cachedLogoSvg?.Picture == null) return;
-
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (_logoControl is { } skiaLogo && skiaLogo.Svg != _cachedLogoSvg)
-                    skiaLogo.Svg = _cachedLogoSvg;
-                _viewModel.ModifiedLogoImage = null;
-            });
-
-            const int steps = 10, delay = 16;
-            var fromColor = _currentColor == default ? _oldAverageColor : _currentColor;
-            var toColor = newAverageColor;
-
-            for (var i = 0; i <= steps; i++)
-            {
-                if (token.IsCancellationRequested) return;
-                var t = i / (float)steps;
-                var interpolatedColor = InterpolateColor(fromColor, toColor, t);
-                _currentColor = interpolatedColor;
-
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    if (_logoControl is { } skiaLogo)
-                    {
-                        skiaLogo.ModulateColor = interpolatedColor;
-                        skiaLogo.InvalidateVisual();
-                    }
-                }, DispatcherPriority.Render);
-
-                await Task.Delay(delay, token).ContinueWith(_ => { });
-            }
-
-            _oldAverageColor = toColor;
-            _currentColor = toColor;
-        }).ConfigureAwait(false);
-    }
-
-    private async Task<SKColor> CalculateAverageColorAsync(SKBitmap bitmap)
-    {
-        return await Task.Run(() => CalculateAverageColor(bitmap));
-    }
-
-    public async Task UpdateAverageColorAsync(SKColor newColor)
-    {
-        _colorTransitionCts?.Cancel();
-        _colorTransitionCts = new CancellationTokenSource();
-        var token = _colorTransitionCts.Token;
-
-        const int steps = 10, delay = 16;
-        var fromColor = _currentColor == default ? _oldAverageColor : _currentColor;
-        var toColor = newColor;
-
-        for (var i = 0; i <= steps; i++)
-        {
-            if (token.IsCancellationRequested) return;
-            var t = i / (float)steps;
-            var interpolatedColor = InterpolateColor(fromColor, toColor, t);
-            _currentColor = interpolatedColor;
-            _logImportant.logImportant("Average Color: " + interpolatedColor, false, "AverageColor");
-            var avaloniaColor = Color.FromArgb(interpolatedColor.Alpha, interpolatedColor.Red, interpolatedColor.Green,
-                interpolatedColor.Blue);
-
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                _viewModel.AverageColorBrush = new SolidColorBrush(avaloniaColor);
-                if (_logoControl is { } skiaLogo)
-                {
-                    skiaLogo.ModulateColor = interpolatedColor;
-                    skiaLogo.InvalidateVisual();
-                }
-            }, DispatcherPriority.Render);
-
-            await Task.Delay(delay, token);
-        }
-
-        _oldAverageColor = toColor;
-        _currentColor = toColor;
-    }
-
+    
+    /// <summary>
+    /// Tries to get the low-resolution bitmap path with retries
+    /// </summary>
+    /// <param name="maxAttempts"></param>
+    /// <param name="delayMilliseconds"></param>
+    /// <returns></returns>
     private async Task<string?> TryGetLowResBitmapPathAsync(int maxAttempts, int delayMilliseconds)
     {
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
@@ -235,6 +340,11 @@ public class LogoUpdater
         return null;
     }
 
+    /// <summary>
+    /// Converts an Avalonia Bitmap to a SkiaSharp SKBitmap
+    /// </summary>
+    /// <param name="avaloniaBitmap"></param>
+    /// <returns></returns>
     public SKBitmap? ConvertToSKBitmap(Bitmap? avaloniaBitmap)
     {
         if (avaloniaBitmap == null) return null;
@@ -283,57 +393,13 @@ public class LogoUpdater
         }
     }
 
-    private unsafe SKColor CalculateAverageColor(SKBitmap bitmap)
-    {
-        int width = bitmap.Width, height = bitmap.Height;
-        long totalR = 0, totalG = 0, totalB = 0;
-        var pixelCount = (long)width * height;
-
-        if (!bitmap.IsImmutable)
-            bitmap.SetImmutable();
-
-        fixed (void* ptr = &bitmap.GetPixelSpan()[0])
-        {
-            var pixels = (uint*)ptr;
-            var length = (int)pixelCount;
-            var processorCount = Environment.ProcessorCount;
-            var rSums = new long[processorCount];
-            var gSums = new long[processorCount];
-            var bSums = new long[processorCount];
-
-            Parallel.For(0, processorCount, workerId =>
-            {
-                var start = workerId * length / processorCount;
-                var end = (workerId + 1) * length / processorCount;
-                long r = 0, g = 0, b = 0;
-                for (var i = start; i < end; i++)
-                {
-                    var pixel = pixels[i];
-                    b += pixel & 0xFF;
-                    g += (pixel >> 8) & 0xFF;
-                    r += (pixel >> 16) & 0xFF;
-                }
-
-                rSums[workerId] = r;
-                gSums[workerId] = g;
-                bSums[workerId] = b;
-            });
-
-            for (var i = 0; i < processorCount; i++)
-            {
-                totalR += rSums[i];
-                totalG += gSums[i];
-                totalB += bSums[i];
-            }
-        }
-
-        var avgR = (byte)Math.Clamp(totalR / pixelCount, 0, 255);
-        var avgG = (byte)Math.Clamp(totalG / pixelCount, 0, 255);
-        var avgB = (byte)Math.Clamp(totalB / pixelCount, 0, 255);
-
-        return new SKColor(avgR, avgG, avgB);
-    }
-
+    /// <summary>
+    /// Linearly interpolates between two SKColor values
+    /// </summary>
+    /// <param name="from"></param>
+    /// <param name="to"></param>
+    /// <param name="t"></param>
+    /// <returns></returns>
     private SKColor InterpolateColor(SKColor from, SKColor to, float t)
     {
         byte InterpolateComponent(byte start, byte end, float factor)
