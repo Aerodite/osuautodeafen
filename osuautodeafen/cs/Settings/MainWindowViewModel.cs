@@ -114,7 +114,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     }
 
 
-    public string CurrentAppVersion => $"Current Version: v{UpdateChecker.currentVersion}";
+    public string CurrentAppVersion => $"Current Version: v{UpdateChecker.CurrentVersion}";
 
     //<remarks>
     // this file might be the worst organized file in this entire app but most of everything depends on it.
@@ -442,7 +442,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     public void CheckAndUpdateStatusMessage()
     {
-        Version currentVersionObj = new(UpdateChecker.currentVersion);
+        Version currentVersionObj = new(UpdateChecker.CurrentVersion);
         Version latestVersionObj;
 
         string message;

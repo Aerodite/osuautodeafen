@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "aPKK/fdkC/M=",
+  "dgSpecHash": "qIkJJg0Dm50=",
   "success": true,
   "projectFilePath": "/home/anthony/RiderProjects/osuautodeafen/osuautodeafen/osuautodeafen.csproj",
   "expectedPackageFiles": [
@@ -29,6 +29,7 @@
     "/home/anthony/.nuget/packages/livechartscore.skiasharpview/2.0.0-rc5.4/livechartscore.skiasharpview.2.0.0-rc5.4.nupkg.sha512",
     "/home/anthony/.nuget/packages/livechartscore.skiasharpview.avalonia/2.0.0-rc5.4/livechartscore.skiasharpview.avalonia.2.0.0-rc5.4.nupkg.sha512",
     "/home/anthony/.nuget/packages/microcom.runtime/0.11.0/microcom.runtime.0.11.0.nupkg.sha512",
+    "/home/anthony/.nuget/packages/microsoft.net.illink.tasks/9.0.8/microsoft.net.illink.tasks.9.0.8.nupkg.sha512",
     "/home/anthony/.nuget/packages/newtonsoft.json/13.0.4-beta1/newtonsoft.json.13.0.4-beta1.nupkg.sha512",
     "/home/anthony/.nuget/packages/nuget.versioning/6.14.0/nuget.versioning.6.14.0.nupkg.sha512",
     "/home/anthony/.nuget/packages/reactiveui/21.0.1/reactiveui.21.0.1.nupkg.sha512",
@@ -54,16 +55,18 @@
     "/home/anthony/.nuget/packages/tmds.dbus.protocol/0.21.2/tmds.dbus.protocol.0.21.2.nupkg.sha512",
     "/home/anthony/.nuget/packages/velopack/0.0.1362-gfa48e3c/velopack.0.0.1362-gfa48e3c.nupkg.sha512",
     "/home/anthony/.nuget/packages/websocketsharp/1.0.3-rc11/websocketsharp.1.0.3-rc11.nupkg.sha512",
-    "/home/anthony/.nuget/packages/microsoft.aspnetcore.app.ref/9.0.8/microsoft.aspnetcore.app.ref.9.0.8.nupkg.sha512"
+    "/home/anthony/.nuget/packages/microsoft.netcore.app.runtime.linux-x64/9.0.8/microsoft.netcore.app.runtime.linux-x64.9.0.8.nupkg.sha512",
+    "/home/anthony/.nuget/packages/microsoft.aspnetcore.app.ref/9.0.8/microsoft.aspnetcore.app.ref.9.0.8.nupkg.sha512",
+    "/home/anthony/.nuget/packages/microsoft.aspnetcore.app.runtime.linux-x64/9.0.8/microsoft.aspnetcore.app.runtime.linux-x64.9.0.8.nupkg.sha512",
+    "/home/anthony/.nuget/packages/microsoft.netcore.app.crossgen2.linux-x64/9.0.8/microsoft.netcore.app.crossgen2.linux-x64.9.0.8.nupkg.sha512",
+    "/home/anthony/.nuget/packages/microsoft.netcore.app.host.linux-x64/9.0.8/microsoft.netcore.app.host.linux-x64.9.0.8.nupkg.sha512"
   ],
   "logs": [
     {
       "code": "NU1701",
       "level": "Warning",
-      "message": "Package 'ini-parser 2.5.2' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net9.0'. This package may not be fully compatible with your project.",
-      "projectPath": "/home/anthony/RiderProjects/osuautodeafen/osuautodeafen/osuautodeafen.csproj",
       "warningLevel": 1,
-      "filePath": "/home/anthony/RiderProjects/osuautodeafen/osuautodeafen/osuautodeafen.csproj",
+      "message": "Package 'ini-parser 2.5.2' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net9.0'. This package may not be fully compatible with your project.",
       "libraryId": "ini-parser",
       "targetGraphs": [
         "net9.0"
@@ -72,10 +75,8 @@
     {
       "code": "NU1701",
       "level": "Warning",
-      "message": "Package 'SkiaSharp.Views 3.119.0' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net9.0'. This package may not be fully compatible with your project.",
-      "projectPath": "/home/anthony/RiderProjects/osuautodeafen/osuautodeafen/osuautodeafen.csproj",
       "warningLevel": 1,
-      "filePath": "/home/anthony/RiderProjects/osuautodeafen/osuautodeafen/osuautodeafen.csproj",
+      "message": "Package 'SkiaSharp.Views 3.119.0' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net9.0'. This package may not be fully compatible with your project.",
       "libraryId": "SkiaSharp.Views",
       "targetGraphs": [
         "net9.0"
@@ -84,10 +85,8 @@
     {
       "code": "NU1701",
       "level": "Warning",
-      "message": "Package 'WebSocketSharp 1.0.3-rc11' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net9.0'. This package may not be fully compatible with your project.",
-      "projectPath": "/home/anthony/RiderProjects/osuautodeafen/osuautodeafen/osuautodeafen.csproj",
       "warningLevel": 1,
-      "filePath": "/home/anthony/RiderProjects/osuautodeafen/osuautodeafen/osuautodeafen.csproj",
+      "message": "Package 'WebSocketSharp 1.0.3-rc11' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net9.0'. This package may not be fully compatible with your project.",
       "libraryId": "WebSocketSharp",
       "targetGraphs": [
         "net9.0"

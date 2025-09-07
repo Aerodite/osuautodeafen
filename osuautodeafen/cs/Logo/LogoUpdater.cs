@@ -187,11 +187,11 @@ public class LogoUpdater
             byte max = Math.Max(color.Red, Math.Max(color.Green, color.Blue));
             if (max > 0)
             {
-                float scale = 180f / max;
+                float scale = 200f / max;
                 color = new SKColor(
-                    (byte)Math.Clamp(color.Red * scale, 32, 180),
-                    (byte)Math.Clamp(color.Green * scale, 32, 180),
-                    (byte)Math.Clamp(color.Blue * scale, 32, 180),
+                    (byte)Math.Clamp(color.Red * scale, 16, 200),
+                    (byte)Math.Clamp(color.Green * scale, 16, 200),
+                    (byte)Math.Clamp(color.Blue * scale, 16, 200),
                     color.Alpha
                 );
             }
