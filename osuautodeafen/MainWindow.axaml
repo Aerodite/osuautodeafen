@@ -170,8 +170,8 @@
                             <Slider x:Name="CompletionPercentageSlider"
                                     Minimum="0"
                                     Maximum="100"
-                                    TickFrequency="1"
-                                    IsSnapToTickEnabled="True"
+                                    TickFrequency="0.01"
+                                    IsSnapToTickEnabled="False"
                                     Value="{Binding MinCompletionPercentage, Mode=OneWayToSource}"
                                     Width="100"
                                     HorizontalAlignment="Center"
@@ -181,7 +181,7 @@
                                     PointerReleased="CompletionPercentageSlider_PointerReleased">
                                 <ToolTip.Tip>
                                     <TextBlock
-                                        Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F0}%'}" />
+                                        Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F1}'}" />
                                 </ToolTip.Tip>
                             </Slider>
                         </StackPanel>
@@ -200,7 +200,7 @@
                                     Minimum="0"
                                     Maximum="10"
                                     TickFrequency="0.1"
-                                    IsSnapToTickEnabled="True"
+                                    IsSnapToTickEnabled="False"
                                     Value="{Binding StarRating, Mode=OneWayToSource}"
                                     Width="100" HorizontalAlignment="Center"
                                     ValueChanged="StarRatingSlider_ValueChanged"

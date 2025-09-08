@@ -20,6 +20,6 @@ public class CheckBoxBackgroundConverter : IMultiValueConverter
     {
         var isChecked = values[0] as bool?;
         var brush = values[1] as IBrush;
-        return isChecked == true ? brush : Brushes.Transparent;
+        return isChecked == true ? brush : new SolidColorBrush(Color.Parse("#171717"));
     }
 }

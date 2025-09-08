@@ -41,7 +41,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     private bool _isSliderTooltipOpen;
     private bool _isUpdateReady;
-    private int _minCompletionPercentage;
+    private double _minCompletionPercentage;
 
     private Bitmap? _modifiedLogoImage;
     private int _performancePoints;
@@ -272,7 +272,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    public int MinCompletionPercentage
+    public double MinCompletionPercentage
     {
         get => _minCompletionPercentage;
         set

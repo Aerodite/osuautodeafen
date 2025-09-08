@@ -68,12 +68,6 @@
               "target": "Package",
               "version": "[2.0.0-rc5.4, )"
             },
-            "Microsoft.NET.ILLink.Tasks": {
-              "suppressParent": "All",
-              "target": "Package",
-              "version": "[9.0.8, )",
-              "autoReferenced": true
-            },
             "Newtonsoft.Json": {
               "target": "Package",
               "version": "[13.0.4-beta1, )"
@@ -138,22 +132,6 @@
             {
               "name": "Microsoft.AspNetCore.App.Ref",
               "version": "[9.0.8, 9.0.8]"
-            },
-            {
-              "name": "Microsoft.AspNetCore.App.Runtime.linux-x64",
-              "version": "[9.0.8, 9.0.8]"
-            },
-            {
-              "name": "Microsoft.NETCore.App.Crossgen2.linux-x64",
-              "version": "[9.0.8, 9.0.8]"
-            },
-            {
-              "name": "Microsoft.NETCore.App.Host.linux-x64",
-              "version": "[9.0.8, 9.0.8]"
-            },
-            {
-              "name": "Microsoft.NETCore.App.Runtime.linux-x64",
-              "version": "[9.0.8, 9.0.8]"
             }
           ],
           "frameworkReferences": {
@@ -162,11 +140,6 @@
             }
           },
           "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/9.0.109/PortableRuntimeIdentifierGraph.json"
-        }
-      },
-      "runtimes": {
-        "linux-x64": {
-          "#import": []
         }
       }
     }

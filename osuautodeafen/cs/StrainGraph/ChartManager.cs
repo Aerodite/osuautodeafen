@@ -255,7 +255,7 @@ public class ChartManager
                 mainWindow.CompletionPercentageSlider != null)
             {
                 mainWindow.CompletionPercentageSlider.Value = newPercentage;
-                int oldValue = _viewModel.MinCompletionPercentage;
+                double oldValue = _viewModel.MinCompletionPercentage;
                 RangeBaseValueChangedEventArgs args = new(oldValue, newPercentage, null);
                 mainWindow.CompletionPercentageSlider_ValueChanged(null, args);
             }
@@ -263,7 +263,7 @@ public class ChartManager
             _lastTooltipSection = null;
             _lastTooltipText = null;
 
-            tooltipManager.ShowCustomTooltip(pixelPoint, $"Deafen Min %: \n{newPercentage:F1}%", PlotView.Bounds);
+            tooltipManager.ShowCustomTooltip(pixelPoint, $"Deafen Min %: \n{newPercentage:F2}%", PlotView.Bounds);
             PlotView.InvalidateVisual();
             return TooltipType.Deafen;
         }

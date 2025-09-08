@@ -159,7 +159,7 @@ public partial class MainWindow : Window
         _settingsHandler = settingsPanel;
         _settingsHandler.LoadSettings();
 
-        _viewModel.MinCompletionPercentage = (int)Math.Round(_settingsHandler.MinCompletionPercentage);
+        _viewModel.MinCompletionPercentage = _settingsHandler.MinCompletionPercentage;
         _viewModel.StarRating = _settingsHandler.StarRating;
         _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
         _viewModel.BlurRadius = _settingsHandler.BlurRadius;
@@ -265,7 +265,7 @@ public partial class MainWindow : Window
             _logImportant.logImportant("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false,
                 "Client");
             // thanks a lot take a hint for letting me figure this one out 😔
-            // if a map is over 70 characters it overflows to the next line
+            // if a map is over 70 characters it overflows to the next line (on 630 width)
             // so this just ensures its not ugly for people (me) looking at the debug menu
             string mapInfo = _tosuApi.GetBeatmapArtist() + " - " + _tosuApi.GetBeatmapTitle();
             if (mapInfo.Length > 67)
@@ -335,6 +335,9 @@ public partial class MainWindow : Window
             _logImportant.logImportant("isDeafened: " + deafen._deafened, false, "isDeafened");
             _logImportant.logImportant("Deafen Start Percentage: " + _viewModel.MinCompletionPercentage + "%", false,
                 "Min Deafen Percentage");
+            _logImportant.logImportant("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");
+            _logImportant.logImportant("Min SS PP: " + _viewModel.PerformancePoints, false,
+                "Min SS PP");
         };
         _tosuApi.HasBPMChanged += async () =>
         {
@@ -485,7 +488,7 @@ public partial class MainWindow : Window
 
             if (_settingsHandler == null) return;
 
-            _viewModel.MinCompletionPercentage = (int)Math.Round(_settingsHandler.MinCompletionPercentage);
+            _viewModel.MinCompletionPercentage = _settingsHandler.MinCompletionPercentage;
             _viewModel.StarRating = _settingsHandler.StarRating;
             _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
             _viewModel.BlurRadius = _settingsHandler.BlurRadius;
@@ -644,7 +647,7 @@ public partial class MainWindow : Window
         {
             if (e.GetCurrentPoint(slider).Properties.IsLeftButtonPressed)
             {
-                ToolTip.SetTip(slider, $"{slider.Value:0}%");
+                ToolTip.SetTip(slider, $"{slider.Value:0.00}%");
                 ToolTip.SetPlacement(slider, PlacementMode.Pointer);
                 ToolTip.SetVerticalOffset(slider, -30);
                 ToolTip.SetIsOpen(slider, true);
@@ -664,7 +667,7 @@ public partial class MainWindow : Window
 
     private void PPSlider_PointerPressed(object sender, PointerPressedEventArgs e)
     {
-        ToolTip.SetIsOpen(CompletionPercentageSlider, true);
+        ToolTip.SetIsOpen(PPSlider, true);
     }
 
     private void PPSlider_PointerMoved(object? sender, PointerEventArgs e)
@@ -693,7 +696,7 @@ public partial class MainWindow : Window
 
     private void StarRatingSlider_PointerPressed(object sender, PointerPressedEventArgs e)
     {
-        ToolTip.SetIsOpen(CompletionPercentageSlider, true);
+        ToolTip.SetIsOpen(StarRatingSlider, true);
     }
 
     private void StarRatingSlider_PointerMoved(object? sender, PointerEventArgs e)
@@ -752,7 +755,7 @@ public partial class MainWindow : Window
     public async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (DataContext is not SharedViewModel vm) return;
-        int roundedValue = (int)Math.Round(e.NewValue);
+        double roundedValue = Math.Round(e.NewValue, 2);
         vm.MinCompletionPercentage = roundedValue;
         _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", roundedValue);
         try
