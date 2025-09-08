@@ -17,10 +17,18 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private readonly SettingsHandler _settingsHandler;
 
     private readonly TosuApi _tosuApi;
-
+    
+    public bool CanCreatePreset => !PresetExistsForCurrentChecksum;
+    
     private SolidColorBrush _averageColorBrush = new(Colors.Gray);
 
     private double _blurRadius;
+
+    private string _beatmapName;
+    
+    private string _fullBeatmapName;
+
+    private string _beatmapDifficulty;
 
     private double _completionPercentage;
     private MainWindow.HotKey? _deafenKeybind;
@@ -86,6 +94,61 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             }
         }
     }
+    public string BeatmapName
+    {
+        get => _beatmapName;
+        set
+        {
+            if (_beatmapName != value)
+            {
+                _beatmapName = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+    
+    public string FullBeatmapName
+    {
+        get => _fullBeatmapName;
+        set
+        {
+            if (_fullBeatmapName != value)
+            {
+                _fullBeatmapName = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+    
+    public bool PresetExistsForCurrentChecksum
+    {
+        get => _presetExistsForCurrentChecksum;
+        set
+        {
+            if (_presetExistsForCurrentChecksum != value)
+            {
+                _presetExistsForCurrentChecksum = value;
+                OnPropertyChanged(nameof(PresetExistsForCurrentChecksum));
+                OnPropertyChanged(nameof(CanCreatePreset));
+            }
+        }
+    }
+    private bool _presetExistsForCurrentChecksum;
+    
+    public string BeatmapDifficulty
+    {
+        get => _beatmapDifficulty;
+        set
+        {
+            if (_beatmapDifficulty != value)
+            {
+                _beatmapDifficulty = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+    
+    public string BeatmapDifficultyBrackets => $"[{BeatmapDifficulty}]";
 
     public bool IsUpdateReady
     {
@@ -170,7 +233,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 bool wasDisabled = !_isBackgroundEnabled;
                 _isBackgroundEnabled = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("UI", "IsBackgroundEnabled", value);
                 if (wasDisabled && value) _tosuApi.ForceBeatmapChange();
             }
         }
@@ -185,7 +247,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _isParallaxEnabled = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("UI", "IsParallaxEnabled", value);
             }
         }
     }
@@ -199,7 +260,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _IsBreakUndeafenToggleEnabled = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled", value);
             }
         }
     }
@@ -213,20 +273,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _IsKiaiEffectEnabled = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("UI", "IsKiaiEffectEnabled", value);
                 _tosuApi.RaiseKiaiChanged();
             }
-        }
-    }
-
-
-    public string StatusMessage
-    {
-        get => _statusMessage;
-        set
-        {
-            _statusMessage = value;
-            OnPropertyChanged();
         }
     }
 
@@ -239,7 +287,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _undeafenAfterMiss = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("Behavior", "UndeafenAfterMiss", value);
             }
         }
     }
@@ -253,8 +300,17 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _isFCRequired = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("Behavior", "IsFCRequired", value);
             }
+        }
+    }
+    
+    public string StatusMessage
+    {
+        get => _statusMessage;
+        set
+        {
+            _statusMessage = value;
+            OnPropertyChanged();
         }
     }
 
@@ -267,7 +323,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _deafenKeybind = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybind", value?.ToString());
             }
         }
     }
@@ -281,7 +336,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _minCompletionPercentage = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", value);
             }
         }
     }
@@ -295,7 +349,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _starRating = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("General", "StarRating", value);
             }
         }
     }
@@ -309,7 +362,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _performancePoints = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("General", "PerformancePoints", value);
             }
         }
     }
@@ -323,7 +375,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _blurRadius = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("UI", "BlurRadius", value);
             }
         }
     }
@@ -460,7 +511,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     }
 
 
-    private void OnPropertyChanged([CallerMemberName] string propertyName = null)
+    public void OnPropertyChanged([CallerMemberName] string propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }

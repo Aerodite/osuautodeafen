@@ -75,8 +75,6 @@
         <None Remove="Icons\map-location-dot-solid.png"/>
         <AvaloniaResource Include="Icons\map-location-dot-solid.png"/>
         <AvaloniaResource Include="Icons\gear-solid-outline.png"/>
-        <None Remove="Icons\gear-solid-outline.png"/>
-        <AvaloniaResource Include="Icons\gear-solid-outline.png"/>
         <None Remove="Icons\outline.png"/>
         <AvaloniaResource Include="Icons\outline.png"/>
         <None Remove="Icons\gear-solid-small.png"/>
@@ -91,6 +89,8 @@
         <AvaloniaResource Include="Icons\star-half-stroke-solid.png"/>
         <None Remove="Icons\code-solid.png"/>
         <AvaloniaResource Include="Icons\code-solid.png"/>
+        <None Remove="Icons\trash-can-solid-full.png" />
+        <AvaloniaResource Include="Icons\trash-can-solid.png" />
     </ItemGroup>
 
     <ItemGroup>

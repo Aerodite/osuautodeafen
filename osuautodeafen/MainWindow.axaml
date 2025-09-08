@@ -15,6 +15,7 @@
 
 
     <Window.Resources>
+        <global:InverseBooleanConverter x:Key="InverseBooleanConverter" />
         <local:UpdateNotificationMarginConverter x:Key="UpdateNotificationMarginConverter" />
         <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
         <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
@@ -28,6 +29,13 @@
         <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
     </Window.Resources>
     <Window.Styles>
+        <Style Selector="Button:disabled">
+            <Setter Property="Background" Value="#222" />
+            <Setter Property="Foreground" Value="#444" />
+        </Style>
+        <Style Selector="Button:disabled TextBlock.beatmap-name">
+            <Setter Property="Opacity" Value="0.5" />
+        </Style>
         <Style Selector="CheckBox.custom">
             <Setter Property="Template">
                 <ControlTemplate>
@@ -297,6 +305,168 @@
                     </StackPanel>
                     <Button Content="Reset to Default" Click="ResetButton_Click" Margin="0,7,0,0" FontSize="12"
                             Foreground="White" HorizontalAlignment="Center" />
+                    <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
+                     <!--title-->
+                    <TextBlock Text="Preset Settings"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,8"
+                               Foreground="White"
+                               FontSize="16" />
+                    <StackPanel Orientation="Vertical" Margin="0,3,0,0" HorizontalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                        <Button x:Name="CreatePresetButton"
+                                Width="120"
+                                HorizontalAlignment="Left"
+                                FontSize="11"
+                                Margin="0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                IsVisible="{Binding CanCreatePreset}">
+                            <Button.Content>
+                                <StackPanel>
+                                    <TextBlock Text="Create Preset for"
+                                               TextAlignment="Center" />
+                                    <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                                                  VerticalScrollBarVisibility="Disabled"
+                                                  Width="110">
+                                        <TextBlock Text="{Binding BeatmapName}"
+                                                   Foreground="{Binding AverageColorBrush}"
+                                                   TextAlignment="Center"
+                                                   Classes="beatmap-name" />
+                                    </ScrollViewer>
+                                </StackPanel>
+                            </Button.Content>
+                            <Button.Flyout>
+                                <Flyout Placement="Bottom" ShowMode="Transient">
+                                    <StackPanel>
+                                        <TextBlock Text="Are you sure you want to make a preset for"
+                                                   Foreground="White"
+                                                   TextAlignment="Center" />
+                                        <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                                                      VerticalScrollBarVisibility="Disabled">
+                                            <TextBlock TextAlignment="Center">
+                                                <Run Text="{Binding FullBeatmapName}" Foreground="{Binding AverageColorBrush}" />
+                                                <Run Text="{Binding BeatmapDifficultyBrackets}" Foreground="{Binding AverageColorBrush}" />
+                                            </TextBlock>
+                                        </ScrollViewer>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
+                                            <Button Content="Yes"
+                                                    Width="60"
+                                                    Height="32"
+                                                    Margin="8,0"
+                                                    FontSize="14"
+                                                    Background="{StaticResource ButtonBackgroundBrush}"
+                                                    Foreground="White"
+                                                    CornerRadius="6"
+                                                    HorizontalContentAlignment="Center"
+                                                    VerticalContentAlignment="Center"
+                                                    Click="PresetButtonYes_Click"/>
+                                            <Button Content="No"
+                                                    Width="60"
+                                                    Height="32"
+                                                    Margin="8,0"
+                                                    FontSize="14"
+                                                    Background="#444"
+                                                    Foreground="White"
+                                                    CornerRadius="6"
+                                                    HorizontalContentAlignment="Center"
+                                                    VerticalContentAlignment="Center"
+                                                    Click="PresetButtonNo_Click"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                            <ToolTip.Tip>
+                                <TextBlock Text="Create a preset from your current settings" />
+                            </ToolTip.Tip>
+                        </Button>
+                            <Button x:Name="DeletePresetButton"
+                                    Width="120"
+                                    HorizontalAlignment="Left"
+                                    FontSize="11"
+                                    Margin="0"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    IsVisible="{Binding CanCreatePreset, Converter={StaticResource InverseBooleanConverter}}"
+                                    Background="DarkRed" 
+                                    Foreground="White"
+                                    BorderBrush="IndianRed"
+                            >
+                            <Button.Content>
+                                <StackPanel>
+                                    <TextBlock Text="Delete Preset for"
+                                               TextAlignment="Center"/>
+                                    <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                                                  VerticalScrollBarVisibility="Disabled"
+                                                  Width="110">
+                                        <TextBlock Text="{Binding BeatmapName}"
+                                                   Foreground="{Binding AverageColorBrush}"
+                                                   TextAlignment="Center"
+                                                   Classes="beatmap-name" />
+                                    </ScrollViewer>
+                                </StackPanel>
+                            </Button.Content>
+                            <Button.Flyout>
+                                <Flyout Placement="Bottom" ShowMode="Transient">
+                                    <StackPanel>
+                                        <TextBlock Text="Are you sure you want to delete your preset for"
+                                                   Foreground="White"
+                                                   TextAlignment="Center" />
+                                        <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                                                      VerticalScrollBarVisibility="Disabled">
+                                            <TextBlock TextAlignment="Center">
+                                                <Run Text="{Binding FullBeatmapName}" Foreground="{Binding AverageColorBrush}" />
+                                                <Run Text="{Binding BeatmapDifficultyBrackets}" Foreground="{Binding AverageColorBrush}" />
+                                            </TextBlock>
+                                        </ScrollViewer>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
+                                            <Button Content="Yes"
+                                                    Width="60"
+                                                    Height="32"
+                                                    Margin="8,0"
+                                                    FontSize="14"
+                                                    Background="{StaticResource ButtonBackgroundBrush}"
+                                                    Foreground="White"
+                                                    CornerRadius="6"
+                                                    HorizontalContentAlignment="Center"
+                                                    VerticalContentAlignment="Center"
+                                                    Click="PresetButtonDeleteYes_Click"/>
+                                            <Button Content="No"
+                                                    Width="60"
+                                                    Height="32"
+                                                    Margin="8,0"
+                                                    FontSize="14"
+                                                    Background="#444"
+                                                    Foreground="White"
+                                                    CornerRadius="6"
+                                                    HorizontalContentAlignment="Center"
+                                                    VerticalContentAlignment="Center"
+                                                    Click="PresetButtonDeleteNo_Click"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                            <ToolTip.Tip>
+                                <TextBlock Text="Delete a preset from your current settings" />
+                            </ToolTip.Tip>
+                        </Button>
+                        </StackPanel>
+                        <Button x:Name="LoadPresetButton"
+                                Width="120"
+                                HorizontalAlignment="Left"
+                                FontSize="11"
+                                Margin="0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center">
+                            
+                            <Button.Content>
+                                <TextBlock Text="Load Preset" />
+                            </Button.Content>
+                            <ToolTip.Tip>
+                                <TextBlock Text="Load a preset onto your current beatmap" />
+                            </ToolTip.Tip>
+                        </Button>
+                    </StackPanel>
                     <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
                     <!--title-->
                     <TextBlock Text="Discord Settings"

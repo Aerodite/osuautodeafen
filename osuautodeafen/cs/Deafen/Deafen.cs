@@ -130,7 +130,8 @@ public class Deafen : IDisposable
         bool isFCRequired = _sharedViewModel.IsFCRequired;
         bool isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
         bool notAlreadyDeafened = !_deafened;
-        bool completionMet = completionPercentage >= requiredCompletion;
+        // 100% will basically act as the deafening part disabled
+        bool completionMet = requiredCompletion < 100 && completionPercentage >= requiredCompletion;
         bool starRatingMet = currentStarRating >= requiredStarRating;
         bool performancePointsMet = currentPerformancePoints >= requiredPerformancePoints;
         bool hasHitObjects = _tosuAPI.GetMaxCombo() != 0;

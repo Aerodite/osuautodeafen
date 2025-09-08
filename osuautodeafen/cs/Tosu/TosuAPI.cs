@@ -23,6 +23,7 @@ public class TosuApi : IDisposable
     private readonly Timer _timer;
     private string? _beatmapArtist;
     private string _beatmapChecksum;
+    private string _beatmapDifficulty;
     private int _beatmapId;
     private int _beatmapSetId;
     private string? _beatmapTitle;
@@ -322,6 +323,8 @@ public class TosuApi : IDisposable
                             _beatmapTitle = title.GetString();
                         if (beatmap.TryGetProperty("artistUnicode", out JsonElement artist))
                             _beatmapArtist = artist.GetString();
+                        if (beatmap.TryGetProperty("version", out JsonElement beatmapDifficulty))
+                            _beatmapDifficulty = beatmapDifficulty.GetString() ?? throw new InvalidOperationException();
 
                         if (beatmap.TryGetProperty("stats", out JsonElement stats))
                             if (stats.TryGetProperty("maxCombo", out JsonElement maxCombo))
@@ -576,6 +579,11 @@ public class TosuApi : IDisposable
     public string? GetBeatmapArtist()
     {
         return _beatmapArtist;
+    }
+    
+    public string GetBeatmapDifficulty()
+    {
+        return (_beatmapDifficulty ?? "Unknown Difficulty").TrimEnd();
     }
 
     /// <summary>
