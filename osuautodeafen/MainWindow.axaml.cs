@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -865,7 +866,6 @@ public partial class MainWindow : Window
         string checksum = _tosuApi.GetBeatmapChecksum();
         string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "presets");
         string presetFilePath = Path.Combine(presetsPath, $"{checksum}.preset");
-        string settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "settings.ini");
         if (File.Exists(presetFilePath))
             File.Delete(presetFilePath);
         _viewModel.PresetExistsForCurrentChecksum = false;
@@ -881,6 +881,7 @@ public partial class MainWindow : Window
         {
             Console.WriteLine($"[ERROR] Exception while updating chart after deleting preset: {ex}");
         }
+        DeletePresetData();
     }
     private void PresetButtonYes_Click(object sender, RoutedEventArgs e)
     {
@@ -892,6 +893,7 @@ public partial class MainWindow : Window
         File.Copy(settingsPath, presetFilePath, true);
         _viewModel.PresetExistsForCurrentChecksum = true;
         _settingsHandler.ActivatePreset(presetFilePath);
+        CreatePresetData();
     }
     private void PresetButtonNo_Click(object sender, RoutedEventArgs e)
     {
@@ -901,6 +903,58 @@ public partial class MainWindow : Window
     private void PresetButtonDeleteNo_Click(object sender, RoutedEventArgs e)
     {
         DeletePresetButton.Flyout?.Hide();
+    }
+
+    private void CreatePresetData()
+    {
+        string checksum = _tosuApi.GetBeatmapChecksum();
+        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "presets");
+        string presetDataFilePath = Path.Combine(presetsPath, $"{checksum}.preset.data");
+
+        string artist = _tosuApi.GetBeatmapArtist();
+        string beatmapName = _tosuApi.GetBeatmapTitle();
+        string fullBeatmapName = $"{artist} - {beatmapName}";
+        string beatmapDifficulty = _tosuApi.GetBeatmapDifficulty();
+        string backgroundPath = _tosuApi.GetBackgroundPath();
+        string beatmapId = _tosuApi.GetBeatmapId().ToString();
+        string rankedStatus = _tosuApi.GetRankedStatus().ToString(CultureInfo.InvariantCulture);
+        string starRating = _tosuApi.GetFullSR().ToString("F1", CultureInfo.InvariantCulture);
+        string mapper = _tosuApi.GetBeatmapMapper();
+        
+
+        var logoUpdater = _backgroundManager?._logoUpdater;
+        string avgColor1 = logoUpdater?.AverageColor1.ToString() ?? "#000000";
+        string avgColor2 = logoUpdater?.AverageColor2.ToString() ?? "#000000";
+        string avgColor3 = logoUpdater?.AverageColor3.ToString() ?? "#000000";
+
+        var lines = new List<string>
+        {
+            "[Preset]",
+            $"FullBeatmapName={fullBeatmapName}",
+            $"Artist={artist}",
+            $"BeatmapName={beatmapName}",
+            $"BeatmapDifficulty={beatmapDifficulty}",
+            $"BeatmapID={beatmapId}",
+            $"RankedStatus={rankedStatus}",
+            $"BackgroundPath={backgroundPath}",
+            $"Mapper={mapper}",
+            $"StarRating={starRating}",
+            $"AverageColor1={avgColor1}",
+            $"AverageColor2={avgColor2}",
+            $"AverageColor3={avgColor3}"
+        };
+
+        File.WriteAllLines(presetDataFilePath, lines);
+    }
+    
+    private void DeletePresetData()
+    {
+        string checksum = _tosuApi.GetBeatmapChecksum();
+        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "presets");
+        string presetDataFilePath = Path.Combine(presetsPath, $"{checksum}.preset.data");
+
+        if (File.Exists(presetDataFilePath))
+            File.Delete(presetDataFilePath);
     }
 
     private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)

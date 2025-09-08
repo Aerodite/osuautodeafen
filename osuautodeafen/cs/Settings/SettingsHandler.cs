@@ -35,13 +35,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private bool IsPresetActive => _activePresetPath != null;
     private IniData CurrentData => IsPresetActive ? _presetData! : _mainData;
     private string ActivePath => _activePresetPath ?? _iniPath;
-
-    private IniData DeepCopyIniData(IniData source)
-    {
-        var parser = new IniDataParser();
-        var iniString = source.ToString();
-        return parser.Parse(iniString);
-    }
     
     public void ActivatePreset(string presetFilePath)
     {

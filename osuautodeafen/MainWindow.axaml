@@ -167,6 +167,15 @@
                                Margin="0,0,0,8"
                                Foreground="White"
                                FontSize="16" />
+                    <StackPanel Orientation="Vertical" IsVisible="{Binding CanCreatePreset, Converter={StaticResource InverseBooleanConverter}}">
+                    <TextBlock Text="Editing Preset Settings"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,0"
+                               Foreground="Red"
+                               FontSize="16" 
+                               FontWeight="Bold"/>
+                    <Separator Margin="0,0,0,10" Background="Red" />
+                    </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/clock-solid.png" Width="25" Height="25"
                                Margin="0,0,5,0">
@@ -315,7 +324,7 @@
                     <StackPanel Orientation="Vertical" Margin="0,3,0,0" HorizontalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
                         <Button x:Name="CreatePresetButton"
-                                Width="120"
+                                Width="135"
                                 HorizontalAlignment="Left"
                                 FontSize="11"
                                 Margin="0"
@@ -324,11 +333,11 @@
                                 IsVisible="{Binding CanCreatePreset}">
                             <Button.Content>
                                 <StackPanel>
-                                    <TextBlock Text="Create Preset for"
+                                    <TextBlock Text="Create Map Preset for"
                                                TextAlignment="Center" />
                                     <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                                                   VerticalScrollBarVisibility="Disabled"
-                                                  Width="110">
+                                                  Width="130">
                                         <TextBlock Text="{Binding BeatmapName}"
                                                    Foreground="{Binding AverageColorBrush}"
                                                    TextAlignment="Center"
@@ -339,7 +348,7 @@
                             <Button.Flyout>
                                 <Flyout Placement="Bottom" ShowMode="Transient">
                                     <StackPanel>
-                                        <TextBlock Text="Are you sure you want to make a preset for"
+                                        <TextBlock Text="Are you sure you want to make a map preset for"
                                                    Foreground="White"
                                                    TextAlignment="Center" />
                                         <ScrollViewer HorizontalScrollBarVisibility="Hidden"
@@ -377,11 +386,11 @@
                                 </Flyout>
                             </Button.Flyout>
                             <ToolTip.Tip>
-                                <TextBlock Text="Create a preset from your current settings" />
+                                <TextBlock Text="Create a map preset from your current settings" />
                             </ToolTip.Tip>
                         </Button>
                             <Button x:Name="DeletePresetButton"
-                                    Width="120"
+                                    Width="135"
                                     HorizontalAlignment="Left"
                                     FontSize="11"
                                     Margin="0"
@@ -394,11 +403,11 @@
                             >
                             <Button.Content>
                                 <StackPanel>
-                                    <TextBlock Text="Delete Preset for"
+                                    <TextBlock Text="Delete Map Preset for"
                                                TextAlignment="Center"/>
                                     <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                                                   VerticalScrollBarVisibility="Disabled"
-                                                  Width="110">
+                                                  Width="130">
                                         <TextBlock Text="{Binding BeatmapName}"
                                                    Foreground="{Binding AverageColorBrush}"
                                                    TextAlignment="Center"
@@ -409,9 +418,11 @@
                             <Button.Flyout>
                                 <Flyout Placement="Bottom" ShowMode="Transient">
                                     <StackPanel>
-                                        <TextBlock Text="Are you sure you want to delete your preset for"
-                                                   Foreground="White"
-                                                   TextAlignment="Center" />
+                                        <TextBlock>
+                                            <Run Text="Are you sure you want to" Foreground="White"/>
+                                            <Run Text="delete" Foreground="Red" FontWeight="Bold"/>
+                                            <Run Text="your map preset for" Foreground="White"/>
+                                        </TextBlock>
                                         <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                                                       VerticalScrollBarVisibility="Disabled">
                                             <TextBlock TextAlignment="Center">
@@ -447,12 +458,12 @@
                                 </Flyout>
                             </Button.Flyout>
                             <ToolTip.Tip>
-                                <TextBlock Text="Delete a preset from your current settings" />
+                                <TextBlock Text="Delete a map preset from your current settings" />
                             </ToolTip.Tip>
                         </Button>
                         </StackPanel>
                         <Button x:Name="LoadPresetButton"
-                                Width="120"
+                                Width="135"
                                 HorizontalAlignment="Left"
                                 FontSize="11"
                                 Margin="0"

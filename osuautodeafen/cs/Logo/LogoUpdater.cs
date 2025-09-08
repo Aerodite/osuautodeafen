@@ -26,6 +26,10 @@ public class LogoUpdater
     private SKSvg? _cachedLogoSvg;
     private SKBitmap? _cachedSKBitmap;
     private CancellationTokenSource? _colorTransitionCts;
+    
+    public SKColor AverageColor1 { get; private set; }
+    public SKColor AverageColor2 { get; private set; }
+    public SKColor AverageColor3 { get; private set; }
 
     private SKColor _currentColor;
     private Bitmap? _lowResBitmap;
@@ -111,6 +115,17 @@ public class LogoUpdater
 
             var newSectionColors = CalculateSectionColors(_cachedSKBitmap);
 
+            if (newSectionColors.Count >= 3)
+            {
+                AverageColor1 = newSectionColors[0];
+                AverageColor2 = newSectionColors[1];
+                AverageColor3 = newSectionColors[2];
+            }
+            else
+            {
+                AverageColor1 = AverageColor2 = AverageColor3 = new SKColor(0, 0, 0);
+            }
+            
             _colorTransitionCts?.Cancel();
             _colorTransitionCts = new CancellationTokenSource();
         

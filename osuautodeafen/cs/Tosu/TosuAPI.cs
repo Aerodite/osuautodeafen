@@ -66,6 +66,7 @@ public class TosuApi : IDisposable
     private string _server;
     private string? _settingsSongsDirectory;
     private string? _songFilePath;
+    private string? _beatmapMapper;
     private ClientWebSocket _webSocket;
 
     public TosuApi()
@@ -325,7 +326,10 @@ public class TosuApi : IDisposable
                             _beatmapArtist = artist.GetString();
                         if (beatmap.TryGetProperty("version", out JsonElement beatmapDifficulty))
                             _beatmapDifficulty = beatmapDifficulty.GetString() ?? throw new InvalidOperationException();
-
+                        if (beatmap.TryGetProperty("mapper", out var mapper))
+                        {
+                            _beatmapMapper = mapper.GetString();
+                        }
                         if (beatmap.TryGetProperty("stats", out JsonElement stats))
                             if (stats.TryGetProperty("maxCombo", out JsonElement maxCombo))
                                 _maxCombo = maxCombo.GetDouble();
@@ -770,6 +774,15 @@ public class TosuApi : IDisposable
     public int GetBeatmapSetId()
     {
         return _beatmapSetId;
+    }
+    
+    /// <summary>
+    ///    Gets the beatmap mapper of the current beatmap
+    /// </summary>
+    /// <returns></returns>
+    public string GetBeatmapMapper()
+    {
+        return _beatmapMapper ?? "Unknown Mapper";
     }
 
     /// <summary>
