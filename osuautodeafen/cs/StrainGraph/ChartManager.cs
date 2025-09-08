@@ -263,7 +263,7 @@ public class ChartManager
             _lastTooltipSection = null;
             _lastTooltipText = null;
 
-            tooltipManager.ShowCustomTooltip(pixelPoint, $"Deafen Min %: \n{newPercentage:F1}%", PlotView.Bounds);
+            tooltipManager.ShowCustomTooltip(pixelPoint, $"Deafen Min %: \n{newPercentage:F2}%", PlotView.Bounds);
             PlotView.InvalidateVisual();
             return TooltipType.Deafen;
         }

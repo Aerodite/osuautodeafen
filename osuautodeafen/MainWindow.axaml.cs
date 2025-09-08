@@ -265,7 +265,7 @@ public partial class MainWindow : Window
             _logImportant.logImportant("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false,
                 "Client");
             // thanks a lot take a hint for letting me figure this one out 😔
-            // if a map is over 70 characters it overflows to the next line
+            // if a map is over 70 characters it overflows to the next line (on 630 width)
             // so this just ensures its not ugly for people (me) looking at the debug menu
             string mapInfo = _tosuApi.GetBeatmapArtist() + " - " + _tosuApi.GetBeatmapTitle();
             if (mapInfo.Length > 67)
