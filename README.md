@@ -2,12 +2,16 @@
   <img width="1000" src="osuautodeafen/Resources/osuautodeafen.png">
 </p>
 
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/aerodite/osuautodeafen"></a>
+  <img src="https://img.shields.io/github/languages/top/aerodite/osuautodeafen">
+  <a href="https://www.codefactor.io/repository/github/aerodite/osuautodeafen">
+    <img src="https://www.codefactor.io/repository/github/aerodite/osuautodeafen/badge">
+  </a>
+  <img src="https://img.shields.io/github/v/release/Aerodite/osuautodeafen">
+  <img src="https://img.shields.io/github/downloads/aerodite/osuautodeafen/total">
+</p>
 
-[![GitHub License](https://img.shields.io/github/license/aerodite/osuautodeafen)](LICENSE)
-[![GitHub Top Language](https://img.shields.io/github/languages/top/aerodite/osuautodeafen)]()
-[![CodeFactor Grade](https://www.codefactor.io/repository/github/aerodite/osuautodeafen/badge)](https://www.codefactor.io/repository/github/aerodite/osuautodeafen)
-![GitHub Release](https://img.shields.io/github/v/release/Aerodite/osuautodeafen)
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/aerodite/osuautodeafen/total)
 
 ##
 
