@@ -255,7 +255,7 @@ public class ChartManager
                 mainWindow.CompletionPercentageSlider != null)
             {
                 mainWindow.CompletionPercentageSlider.Value = newPercentage;
-                int oldValue = _viewModel.MinCompletionPercentage;
+                double oldValue = _viewModel.MinCompletionPercentage;
                 RangeBaseValueChangedEventArgs args = new(oldValue, newPercentage, null);
                 mainWindow.CompletionPercentageSlider_ValueChanged(null, args);
             }
