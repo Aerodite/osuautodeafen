@@ -22,16 +22,21 @@
         <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
         <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
-
-        <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
-                         x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="ButtonBackgroundBrushDisabled" Color="{Binding AverageColorBrushDark.Color}"
-                         x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="ButtonForegroundBrush" Color="{Binding AverageColorBrushDim.Color}"
-                         x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="CheckBoxBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
-                         x:DataType="cs:SharedViewModel" />
-
+        <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrushDim.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrushDim.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+        
+        <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="ButtonBackgroundBrushPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="ButtonBackgroundBrushPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="ButtonBackgroundBrushDisabled" Color="{Binding AverageColorBrushDark.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="ButtonBorderBrush" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="ButtonForegroundBrush" Color="{Binding AverageColorBrushDim.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="ButtonHighlightBrush" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="CheckBoxBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}" x:DataType="cs:SharedViewModel" />
     </Window.Resources>
     <Window.Styles>
 
