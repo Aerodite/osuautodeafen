@@ -6,7 +6,7 @@ using Velopack.Sources;
 
 public class UpdateChecker
 {
-    public const string CurrentVersion = "1.0.9";
+    public const string CurrentVersion = "1.1.0";
 
     private static readonly GithubSource updateSource = new("https://github.com/Aerodite/osuautodeafen",
         null, false);
