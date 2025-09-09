@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -7,6 +8,7 @@ using System.Windows.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using osuautodeafen.cs.Settings;
+using osuautodeafen.cs.Settings.Presets;
 
 namespace osuautodeafen.cs;
 
@@ -65,6 +67,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private int _updateProgress;
 
     private string _updateStatusMessage;
+    
+    public ObservableCollection<PresetInfo> Presets { get; } = new();
 
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
@@ -76,6 +80,13 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         Task.Run(InitializeAsync);
         _tosuApi = tosuApi;
         Task.Run(UpdateCompletionPercentageAsync);
+    }
+    
+    public void RefreshPresets()
+    {
+        Presets.Clear();
+        foreach (var preset in PresetManager.LoadAllPresets())
+            Presets.Add(preset);
     }
 
     public int BlurPercent => (int)Math.Round(BlurRadius / 20.0 * 100);

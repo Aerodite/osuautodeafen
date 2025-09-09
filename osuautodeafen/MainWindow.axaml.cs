@@ -28,6 +28,7 @@ using osuautodeafen.cs.Deafen;
 using osuautodeafen.cs.Log;
 using osuautodeafen.cs.Logo;
 using osuautodeafen.cs.Settings;
+using osuautodeafen.cs.Settings.Presets;
 using osuautodeafen.cs.StrainGraph;
 using osuautodeafen.cs.StrainGraph.ProgressIndicator;
 using osuautodeafen.cs.StrainGraph.Tooltips;
@@ -860,6 +861,11 @@ public partial class MainWindow : Window
         _settingsHandler?.SaveSetting("UI", "BlurRadius", roundedValue);
     }
     
+    /// <summary>
+    ///  Deletes the preset for the current beatmap if "Yes" is clicked
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private void PresetButtonDeleteYes_Click(object sender, RoutedEventArgs e)
     {
         DeletePresetButton.Flyout?.Hide();
@@ -869,13 +875,13 @@ public partial class MainWindow : Window
         if (File.Exists(presetFilePath))
             File.Delete(presetFilePath);
         _viewModel.PresetExistsForCurrentChecksum = false;
-        _settingsHandler.DeactivatePreset();
+        _settingsHandler?.DeactivatePreset();
         CreatePresetButton.Flyout?.Hide();
         UpdateViewModel();
         UpdateDeafenKeybindDisplay();
         try
         {
-            _chartManager.UpdateChart(_tosuApi.GetGraphData(), _viewModel.MinCompletionPercentage);
+            _ = _chartManager.UpdateChart(_tosuApi.GetGraphData(), _viewModel.MinCompletionPercentage);
         }
         catch (Exception ex)
         {
@@ -883,6 +889,12 @@ public partial class MainWindow : Window
         }
         DeletePresetData();
     }
+    
+    /// <summary>
+    ///   Creates a preset for the current beatmap if "Yes" is clicked
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private void PresetButtonYes_Click(object sender, RoutedEventArgs e)
     {
         CreatePresetButton.Flyout?.Hide();
@@ -892,27 +904,95 @@ public partial class MainWindow : Window
         string settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "settings.ini");
         File.Copy(settingsPath, presetFilePath, true);
         _viewModel.PresetExistsForCurrentChecksum = true;
-        _settingsHandler.ActivatePreset(presetFilePath);
+        _settingsHandler?.ActivatePreset(presetFilePath);
         CreatePresetData();
     }
+    
+    /// <summary>
+    ///  Closes the Create Preset flyout if the user clicked the button by mistake
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private void PresetButtonNo_Click(object sender, RoutedEventArgs e)
     {
         CreatePresetButton.Flyout?.Hide();
     }
     
+    /// <summary>
+    ///   Closes the Delete Preset flyout if the user clicked the button by mistake
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private void PresetButtonDeleteNo_Click(object sender, RoutedEventArgs e)
     {
         DeletePresetButton.Flyout?.Hide();
     }
+    
+    /// <summary>
+    ///    Applies the selected preset when a preset item is clicked
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
+    private void PresetItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.DataContext is PresetInfo preset)
+        {
+            string selectedPresetPath = preset.FilePath;
+            Console.WriteLine($"Selected Preset Path: {selectedPresetPath}");
+            string currentChecksum = _tosuApi.GetBeatmapChecksum();
+            string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "presets");
+            string currentPresetPath = Path.Combine(presetsPath, $"{currentChecksum}.preset");
+            
+            // selectedPresetPath ends with .data because that is what is being used to display the background,
+            // this just ensures we copy from the right file
+            string presetSourcePath = selectedPresetPath.EndsWith(".data")
+                ? selectedPresetPath.Substring(0, selectedPresetPath.Length - 5)
+                : selectedPresetPath;
 
+            File.Copy(presetSourcePath, currentPresetPath, true);
+            _settingsHandler?.ActivatePreset(currentPresetPath);
+            _viewModel.PresetExistsForCurrentChecksum = true;
+
+            CreatePresetData();
+            UpdateViewModel();
+            UpdateDeafenKeybindDisplay();
+            try
+            {
+                _ = _chartManager.UpdateChart(_tosuApi.GetGraphData(), _viewModel.MinCompletionPercentage);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Exception while updating chart after deleting preset: {ex}");
+            }
+            btn.Flyout?.Hide();
+        }
+    }
+    
+    /// <summary>
+    ///  Opens the preset selection flyout and refreshes the presets list
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
+    private void LoadPresetButton_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.RefreshPresets();
+        if (sender is Button btn)
+        {
+            btn.Flyout?.ShowAt(btn);
+        }
+    }
+
+    /// <summary>
+    /// Creates a .preset.data file that contains beatmap information for the current beatmap
+    /// </summary>
     private void CreatePresetData()
     {
         string checksum = _tosuApi.GetBeatmapChecksum();
         string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "presets");
         string presetDataFilePath = Path.Combine(presetsPath, $"{checksum}.preset.data");
 
-        string artist = _tosuApi.GetBeatmapArtist();
-        string beatmapName = _tosuApi.GetBeatmapTitle();
+        string? artist = _tosuApi.GetBeatmapArtist();
+        string? beatmapName = _tosuApi.GetBeatmapTitle();
         string fullBeatmapName = $"{artist} - {beatmapName}";
         string beatmapDifficulty = _tosuApi.GetBeatmapDifficulty();
         string backgroundPath = _tosuApi.GetBackgroundPath();
@@ -922,7 +1002,7 @@ public partial class MainWindow : Window
         string mapper = _tosuApi.GetBeatmapMapper();
         
 
-        var logoUpdater = _backgroundManager?._logoUpdater;
+        LogoUpdater? logoUpdater = _backgroundManager?._logoUpdater;
         string avgColor1 = logoUpdater?.AverageColor1.ToString() ?? "#000000";
         string avgColor2 = logoUpdater?.AverageColor2.ToString() ?? "#000000";
         string avgColor3 = logoUpdater?.AverageColor3.ToString() ?? "#000000";
@@ -938,6 +1018,7 @@ public partial class MainWindow : Window
             $"RankedStatus={rankedStatus}",
             $"BackgroundPath={backgroundPath}",
             $"Mapper={mapper}",
+            $"Checksum={checksum}",
             $"StarRating={starRating}",
             $"AverageColor1={avgColor1}",
             $"AverageColor2={avgColor2}",
@@ -947,6 +1028,9 @@ public partial class MainWindow : Window
         File.WriteAllLines(presetDataFilePath, lines);
     }
     
+    /// <summary>
+    /// Deletes the .preset.data file for the current beatmap if it exists
+    /// </summary>
     private void DeletePresetData()
     {
         string checksum = _tosuApi.GetBeatmapChecksum();

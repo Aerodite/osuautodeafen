@@ -8,6 +8,7 @@
         xmlns:settings="clr-namespace:osuautodeafen.cs.Settings"
         xmlns:strainGraph="clr-namespace:osuautodeafen.cs.StrainGraph"
         xmlns:global="clr-namespace:"
+        xmlns:presets="clr-namespace:osuautodeafen.cs.Settings.Presets"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osuautodeafen"
@@ -15,6 +16,8 @@
 
 
     <Window.Resources>
+        <global:AverageColorCycleConverter x:Key="AverageColorCycleConverter" />
+        <presets:BackgroundPathToBrushConverter x:Key="BackgroundPathToBrushConverter" />
         <global:InverseBooleanConverter x:Key="InverseBooleanConverter" />
         <local:UpdateNotificationMarginConverter x:Key="UpdateNotificationMarginConverter" />
         <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
@@ -29,6 +32,17 @@
         <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
     </Window.Resources>
     <Window.Styles>
+        <Style Selector="Button.preset-list-item:pointerover">
+            <Setter Property="BorderBrush" Value="#FFF" />
+            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="Background" Value="#22000000" />
+        </Style>
+        <Style Selector="Button.preset-list-item:pressed">
+            <Setter Property="BorderBrush" Value="#FF66CCFF" />
+            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="Background" Value="#44000000" />
+        </Style>
+        
         <Style Selector="Button:disabled">
             <Setter Property="Background" Value="#222" />
             <Setter Property="Foreground" Value="#444" />
@@ -346,7 +360,7 @@
                                 </StackPanel>
                             </Button.Content>
                             <Button.Flyout>
-                                <Flyout Placement="Bottom" ShowMode="Transient">
+                                <Flyout Placement="TopEdgeAlignedRight" ShowMode="Transient">
                                     <StackPanel>
                                         <TextBlock Text="Are you sure you want to make a map preset for"
                                                    Foreground="White"
@@ -416,7 +430,7 @@
                                 </StackPanel>
                             </Button.Content>
                             <Button.Flyout>
-                                <Flyout Placement="Bottom" ShowMode="Transient">
+                                <Flyout Placement="Top" ShowMode="Transient">
                                     <StackPanel>
                                         <TextBlock>
                                             <Run Text="Are you sure you want to" Foreground="White"/>
@@ -463,20 +477,65 @@
                         </Button>
                         </StackPanel>
                         <Button x:Name="LoadPresetButton"
-                                Width="135"
-                                HorizontalAlignment="Left"
-                                FontSize="11"
-                                Margin="0"
-                                HorizontalContentAlignment="Center"
-                                VerticalContentAlignment="Center">
-                            
-                            <Button.Content>
-                                <TextBlock Text="Load Preset" />
-                            </Button.Content>
-                            <ToolTip.Tip>
-                                <TextBlock Text="Load a preset onto your current beatmap" />
-                            </ToolTip.Tip>
-                        </Button>
+                            Width="135"
+                            HorizontalAlignment="Left"
+                            FontSize="11"
+                            Margin="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Click="LoadPresetButton_Click">
+                        <Button.Content>
+                            <TextBlock Text="Load Preset" />
+                        </Button.Content>
+                        <Button.Flyout>
+                            <Flyout Placement="TopEdgeAlignedRight" ShowMode="Transient">
+                                <ScrollViewer Height="200" Width="190" VerticalScrollBarVisibility="Visible">
+                                    <ItemsControl ItemsSource="{Binding Presets}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Margin="2"
+                                                        Width="185"
+                                                        Height="35"
+                                                        Click="PresetItem_Click"
+                                                        Classes="preset-list-item"
+                                                        Background="Transparent"
+                                                        BorderBrush="{x:Null}"
+                                                        BorderThickness="0"
+                                                        HorizontalContentAlignment="Center"
+                                                        HorizontalAlignment="Center">
+                                                    <Grid Width="180" Height="32">
+                                                        <Border Background="{Binding BackgroundPath, Converter={StaticResource BackgroundPathToBrushConverter}}"
+                                                                CornerRadius="6"
+                                                                HorizontalAlignment="Stretch"
+                                                                VerticalAlignment="Stretch"
+                                                                BorderThickness="1.5">
+                                                          <Border.BorderBrush>
+                                                <MultiBinding Converter="{StaticResource AverageColorCycleConverter}">
+                                                    <Binding Path="AverageColor1"/>
+                                                    <Binding Path="AverageColor2"/>
+                                                    <Binding Path="AverageColor3"/>
+                                                    <Binding Path="Index"/>
+                                                </MultiBinding>
+                                            </Border.BorderBrush>
+                                                        </Border>
+                                                        <TextBlock Text="{Binding FullBeatmapName}"
+                                                                   VerticalAlignment="Center"
+                                                                   HorizontalAlignment="Center"
+                                                                   TextAlignment="Center"
+                                                                   Foreground="White"
+                                                                   FontWeight="Bold"/>
+                                                    </Grid>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Flyout>
+                        </Button.Flyout>
+                        <ToolTip.Tip>
+                            <TextBlock Text="Load a preset onto your current beatmap" />
+                        </ToolTip.Tip>
+                    </Button>
                     </StackPanel>
                     <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
                     <!--title-->
