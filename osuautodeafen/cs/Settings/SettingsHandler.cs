@@ -25,6 +25,12 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     private double _windowHeight;
     private double _windowWidth;
+    
+    public int DeafenKeybindKey { get; private set; }
+    public int DeafenKeybindModifiers { get; private set; }
+    public int DeafenKeybindControlSide { get; private set; }
+    public int DeafenKeybindAltSide { get; private set; }
+    public int DeafenKeybindShiftSide { get; private set; }
 
     public IniData Data;
 
@@ -218,6 +224,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         data.Sections.AddSection("Hotkeys");
         data["Hotkeys"]["DeafenKeybindKey"] = "47"; // D
         data["Hotkeys"]["DeafenKeybindModifiers"] = "2"; // Ctrl
+        data["Hotkeys"]["DeafenKeybindControlSide"] = "0"; // None
+        data["Hotkeys"]["DeafenKeybindAltSide"] = "0"; // None
+        data["Hotkeys"]["DeafenKeybindShiftSide"] = "0"; // None
 
         data.Sections.AddSection("UI");
         data["UI"]["IsBackgroundEnabled"] = "True";
@@ -279,8 +288,12 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         IsFCRequired = bool.TryParse(Data["Behavior"]["IsFCRequired"], out bool fc) && fc;
         UndeafenAfterMiss = bool.TryParse(Data["Behavior"]["UndeafenAfterMiss"], out bool uam) && uam;
 
-        DeafenKeybind = $"{Data["Hotkeys"]["DeafenKeybindKey"]},{Data["Hotkeys"]["DeafenKeybindModifiers"]}";
-
+        DeafenKeybindKey = int.TryParse(Data["Hotkeys"]["DeafenKeybindKey"], out int keyVal) ? keyVal : 0;
+        DeafenKeybindModifiers = int.TryParse(Data["Hotkeys"]["DeafenKeybindModifiers"], out int modVal) ? modVal : 0;
+        DeafenKeybindControlSide = int.TryParse(Data["Hotkeys"]["DeafenKeybindControlSide"], out int ctrlSide) ? ctrlSide : 0;
+        DeafenKeybindAltSide = int.TryParse(Data["Hotkeys"]["DeafenKeybindAltSide"], out int altSide) ? altSide : 0;
+        DeafenKeybindShiftSide = int.TryParse(Data["Hotkeys"]["DeafenKeybindShiftSide"], out int shiftSide) ? shiftSide : 0;
+        
         IsBackgroundEnabled = bool.TryParse(Data["UI"]["IsBackgroundEnabled"], out bool bg) && bg;
         IsParallaxEnabled = bool.TryParse(Data["UI"]["IsParallaxEnabled"], out bool px) && px;
         IsKiaiEffectEnabled = bool.TryParse(Data["UI"]["IsKiaiEffectEnabled"], out bool kiai) && kiai;
@@ -303,6 +316,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsKiaiEffectEnabled)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(tosuApiIp)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(tosuApiPort)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindControlSide)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindAltSide)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindShiftSide)));
     }
 
     /// <summary>
@@ -321,6 +337,13 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         string path = IsPresetActive ? _activePresetPath! : _iniPath;
         Console.WriteLine($"Writing to: {path}");
         _parser.WriteFile(path, targetData);
+        
+        DeafenKeybindKey = int.TryParse(targetData["Hotkeys"]["DeafenKeybindKey"], out int keyVal) ? keyVal : 0;
+        DeafenKeybindModifiers = int.TryParse(targetData["Hotkeys"]["DeafenKeybindModifiers"], out int modVal) ? modVal : 0;
+        DeafenKeybindControlSide = int.TryParse(targetData["Hotkeys"]["DeafenKeybindControlSide"], out int ctrlSide) ? ctrlSide : 0;
+        DeafenKeybindAltSide = int.TryParse(targetData["Hotkeys"]["DeafenKeybindAltSide"], out int altSide) ? altSide : 0;
+        DeafenKeybindShiftSide = int.TryParse(targetData["Hotkeys"]["DeafenKeybindShiftSide"], out int shiftSide) ? shiftSide : 0;
+        
     }
 
     /// <summary>

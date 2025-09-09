@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Avalonia.Input;
+using DynamicData;
 using osuautodeafen.cs.Settings;
 using SharpHook;
 using SharpHook.Data;
@@ -54,58 +56,57 @@ public class Deafen : IDisposable
     /// <summary>
     ///     Attempts to simulate the press(ing) of keybinds to deafen/undeafen in Discord.
     /// </summary>
-    /// <remarks>
-    ///     The only reason theres a fallback to string parsing iirc is because im pretty certain theres still
-    ///     some dumbass dogshit somewhere that I forgot about that is still trying to use string parsing, just leaving
-    ///     that there here just in case i guess man
-    /// </remarks>
     private void SimulateDeafenKey()
     {
         try
         {
             KeyCode key;
-            List<KeyCode> modifiers = new();
+            List<ModifierWithSide> modifiers = new();
+            
+            key = MapAvaloniaKeyToSharpHook((Key)_settingsHandler.DeafenKeybindKey);
 
-            MainWindow.HotKey? keybindObj = _sharedViewModel.DeafenKeybind;
-            if (keybindObj == null)
+            int controlSide = _settingsHandler.DeafenKeybindControlSide;
+            int altSide = _settingsHandler.DeafenKeybindAltSide;
+            int shiftSide = _settingsHandler.DeafenKeybindShiftSide;
+                
+            Console.WriteLine($"[SimulateDeafenKey] Retrieved keybind from settings: Key={key}, ControlSide={controlSide}, AltSide={altSide}, ShiftSide={shiftSide}");
+                
+
+            if (controlSide != 0)
+                modifiers.Add(new ModifierWithSide {
+                    Modifier = controlSide == 2 ? KeyCode.VcRightControl : KeyCode.VcLeftControl,
+                    Side = controlSide == 2 ? ModifierSide.Right : ModifierSide.Left
+                });
+            if (altSide != 0)
+                modifiers.Add(new ModifierWithSide { 
+                    Modifier = altSide == 2 ? KeyCode.VcRightAlt : KeyCode.VcLeftAlt,
+                    Side = altSide == 2 ? ModifierSide.Right : ModifierSide.Left
+                });
+            if (shiftSide != 0)
+                modifiers.Add(new ModifierWithSide { 
+                    Modifier = shiftSide == 2 ? KeyCode.VcRightShift : KeyCode.VcLeftShift,
+                    Side = shiftSide == 2 ? ModifierSide.Right : ModifierSide.Left
+                });
+            
+            
+            Console.WriteLine($"[SimulateDeafenKey] Pressing modifiers: {string.Join(", ", modifiers.Select(m => m.Modifier + (m.Side != ModifierSide.None ? $"({m.Side})" : "")))}");
+            foreach (var mod in modifiers)
             {
-                string[]? keybindParts = _settingsHandler.DeafenKeybind?.Split(',');
-                if (keybindParts == null || keybindParts.Length < 2)
-                    throw new ArgumentException("Invalid DeafenKeybind format in settings.");
-
-                key = (KeyCode)ushort.Parse(keybindParts[0]);
-                ushort modValue = ushort.Parse(keybindParts[1]);
-                if (modValue != 0)
-                {
-                    if ((modValue & 1) != 0) modifiers.Add(KeyCode.VcLeftAlt);
-                    if ((modValue & 2) != 0) modifiers.Add(KeyCode.VcLeftControl);
-                    if ((modValue & 4) != 0) modifiers.Add(KeyCode.VcLeftShift);
-                    if ((modValue & 8) != 0) modifiers.Add(KeyCode.VcLeftMeta);
-                }
-
-                Console.WriteLine("[SimulateDeafenKey] DeafenKeybind null, using settings handler value.");
+                _eventSimulator.SimulateKeyPress(mod.Modifier);
             }
-            else
-            {
-                var keybinds = ConvertToInputSimulatorSyntax(keybindObj.ToString());
-                modifiers = keybinds[0].Modifiers.ToList();
-                key = keybinds[0].Key;
-            }
-
-            Console.WriteLine($"[SimulateDeafenKey] Pressing modifiers: {string.Join(", ", modifiers)}");
-            foreach (KeyCode mod in modifiers)
-                _eventSimulator.SimulateKeyPress(mod);
 
             Console.WriteLine($"[SimulateDeafenKey] Pressing main key: {key}");
             _eventSimulator.SimulateKeyPress(key);
-
+            
             _eventSimulator.SimulateKeyRelease(key);
             Console.WriteLine($"[SimulateDeafenKey] Released main key: {key}");
 
-            foreach (KeyCode mod in modifiers.AsEnumerable().Reverse())
-                _eventSimulator.SimulateKeyRelease(mod);
+            foreach (var mod in modifiers.AsEnumerable().Reverse())
+            {
+                _eventSimulator.SimulateKeyRelease(mod.Modifier);
+            }
             Console.WriteLine(
-                $"[SimulateDeafenKey] Released modifiers: {string.Join(", ", modifiers.AsEnumerable().Reverse())}");
+                $"[SimulateDeafenKey] Released modifiers: {string.Join(", ", modifiers.AsEnumerable().Reverse().Select(m => m.Modifier + (m.Side != ModifierSide.None ? $"({m.Side})" : "")))}");
         }
         catch (Exception ex)
         {
@@ -227,128 +228,146 @@ public class Deafen : IDisposable
             Console.WriteLine($"[ToggleDeafenState] New deafen state: {_deafened}");
         }
     }
-
-    /// <summary>
-    ///     Converts a keybind string into a format compatible with the InputSimulator library.
-    /// </summary>
-    /// <param name="keybind"></param>
-    /// <returns></returns>
-    /// <exception cref="ArgumentException"></exception>
-    private List<(IEnumerable<KeyCode> Modifiers, KeyCode Key)> ConvertToInputSimulatorSyntax(string? keybind)
+    
+    public enum ModifierSide
     {
-        Console.WriteLine($"[ConvertToInputSimulatorSyntax] Converting keybind: {keybind}");
-        string[]? parts = keybind?.Split(new[] { '+', ',' }, StringSplitOptions.RemoveEmptyEntries);
-        var keybinds = new List<(IEnumerable<KeyCode> Modifiers, KeyCode Key)>();
-        var modifiers = new List<KeyCode>();
-        KeyCode key = KeyCode.Vc0;
-
-        var specialKeys = new Dictionary<string, KeyCode>(StringComparer.OrdinalIgnoreCase)
-        {
-            { "Control", KeyCode.VcLeftControl }, { "Ctrl", KeyCode.VcLeftControl },
-            { "LeftControl", KeyCode.VcLeftControl }, { "RightControl", KeyCode.VcRightControl },
-            { "Alt", KeyCode.VcLeftAlt }, { "LeftAlt", KeyCode.VcLeftAlt }, { "RightAlt", KeyCode.VcRightAlt },
-            { "Shift", KeyCode.VcLeftShift }, { "LeftShift", KeyCode.VcLeftShift },
-            { "RightShift", KeyCode.VcRightShift },
-            { "Win", KeyCode.VcLeftMeta }, { "LeftWin", KeyCode.VcLeftMeta }, { "RightWin", KeyCode.VcRightMeta },
-            { "Meta", KeyCode.VcLeftMeta },
-
-            { "Tab", KeyCode.VcTab }, { "Enter", KeyCode.VcEnter }, { "Return", KeyCode.VcEnter },
-            { "Space", KeyCode.VcSpace }, { "Spacebar", KeyCode.VcSpace },
-            { "Backspace", KeyCode.VcBackspace }, { "Delete", KeyCode.VcDelete },
-            { "Insert", KeyCode.VcInsert }, { "Home", KeyCode.VcHome }, { "End", KeyCode.VcEnd },
-            { "PgUp", KeyCode.VcPageUp }, { "PageUp", KeyCode.VcPageUp },
-            { "PgDn", KeyCode.VcPageDown }, { "PageDown", KeyCode.VcPageDown },
-            { "Up", KeyCode.VcUp }, { "Down", KeyCode.VcDown }, { "Left", KeyCode.VcLeft },
-            { "Right", KeyCode.VcRight },
-
-            { "Minus", KeyCode.VcMinus }, { "-", KeyCode.VcMinus },
-            { "Plus", KeyCode.VcEquals }, { "Equals", KeyCode.VcEquals }, { "=", KeyCode.VcEquals },
-            { "Comma", KeyCode.VcComma }, { ",", KeyCode.VcComma },
-            { "Period", KeyCode.VcPeriod }, { ".", KeyCode.VcPeriod },
-            { "Slash", KeyCode.VcSlash }, { "/", KeyCode.VcSlash },
-            { "Backslash", KeyCode.VcBackslash }, { "\\", KeyCode.VcBackslash },
-            { "Semicolon", KeyCode.VcSemicolon }, { ";", KeyCode.VcSemicolon },
-            { "Quote", KeyCode.VcQuote }, { "'", KeyCode.VcQuote },
-            { "BackQuote", KeyCode.VcBackQuote }, { "`", KeyCode.VcBackQuote },
-            { "OpenBracket", KeyCode.VcOpenBracket }, { "[", KeyCode.VcOpenBracket },
-            { "CloseBracket", KeyCode.VcCloseBracket }, { "]", KeyCode.VcCloseBracket },
-
-            { "OemOpenBrackets", KeyCode.VcOpenBracket }, { "OemCloseBrackets", KeyCode.VcCloseBracket },
-            { "Oem1", KeyCode.VcSemicolon }, { "OemPlus", KeyCode.VcEquals }, { "OemComma", KeyCode.VcComma },
-            { "OemMinus", KeyCode.VcMinus }, { "OemPeriod", KeyCode.VcPeriod }, { "Oem2", KeyCode.VcSlash },
-            { "Oem3", KeyCode.VcBackQuote }, { "Oem4", KeyCode.VcOpenBracket }, { "Oem5", KeyCode.VcBackslash },
-            { "Oem6", KeyCode.VcCloseBracket }, { "Oem7", KeyCode.VcQuote },
-
-            { "CapsLock", KeyCode.VcCapsLock }, { "NumLock", KeyCode.VcNumLock },
-            { "ScrollLock", KeyCode.VcScrollLock },
-            { "PrintScreen", KeyCode.VcPrintScreen }, { "Pause", KeyCode.VcPause },
-
-            { "F1", KeyCode.VcF1 }, { "F2", KeyCode.VcF2 }, { "F3", KeyCode.VcF3 }, { "F4", KeyCode.VcF4 },
-            { "F5", KeyCode.VcF5 }, { "F6", KeyCode.VcF6 }, { "F7", KeyCode.VcF7 }, { "F8", KeyCode.VcF8 },
-            { "F9", KeyCode.VcF9 }, { "F10", KeyCode.VcF10 }, { "F11", KeyCode.VcF11 }, { "F12", KeyCode.VcF12 },
-            { "F13", KeyCode.VcF13 }, { "F14", KeyCode.VcF14 }, { "F15", KeyCode.VcF15 }, { "F16", KeyCode.VcF16 },
-            { "F17", KeyCode.VcF17 }, { "F18", KeyCode.VcF18 }, { "F19", KeyCode.VcF19 }, { "F20", KeyCode.VcF20 },
-            { "F21", KeyCode.VcF21 }, { "F22", KeyCode.VcF22 }, { "F23", KeyCode.VcF23 }, { "F24", KeyCode.VcF24 },
-
-            { "NumPad0", KeyCode.VcNumPad0 }, { "NumPad1", KeyCode.VcNumPad1 }, { "NumPad2", KeyCode.VcNumPad2 },
-            { "NumPad3", KeyCode.VcNumPad3 }, { "NumPad4", KeyCode.VcNumPad4 }, { "NumPad5", KeyCode.VcNumPad5 },
-            { "NumPad6", KeyCode.VcNumPad6 }, { "NumPad7", KeyCode.VcNumPad7 }, { "NumPad8", KeyCode.VcNumPad8 },
-            { "NumPad9", KeyCode.VcNumPad9 }, { "NumPadAdd", KeyCode.VcNumPadAdd },
-            { "NumPadSubtract", KeyCode.VcNumPadSubtract },
-            { "NumPadMultiply", KeyCode.VcNumPadMultiply }, { "NumPadDivide", KeyCode.VcNumPadDivide },
-            { "NumPadDecimal", KeyCode.VcNumPadDecimal }, { "NumPadEnter", KeyCode.VcNumPadEnter },
-
-            { "A", KeyCode.VcA }, { "B", KeyCode.VcB }, { "C", KeyCode.VcC }, { "D", KeyCode.VcD },
-            { "E", KeyCode.VcE },
-            { "F", KeyCode.VcF }, { "G", KeyCode.VcG }, { "H", KeyCode.VcH }, { "I", KeyCode.VcI },
-            { "J", KeyCode.VcJ },
-            { "K", KeyCode.VcK }, { "L", KeyCode.VcL }, { "M", KeyCode.VcM }, { "N", KeyCode.VcN },
-            { "O", KeyCode.VcO },
-            { "P", KeyCode.VcP }, { "Q", KeyCode.VcQ }, { "R", KeyCode.VcR }, { "S", KeyCode.VcS },
-            { "T", KeyCode.VcT },
-            { "U", KeyCode.VcU }, { "V", KeyCode.VcV }, { "W", KeyCode.VcW }, { "X", KeyCode.VcX },
-            { "Y", KeyCode.VcY },
-            { "Z", KeyCode.VcZ },
-            { "0", KeyCode.Vc0 }, { "1", KeyCode.Vc1 }, { "2", KeyCode.Vc2 }, { "3", KeyCode.Vc3 },
-            { "4", KeyCode.Vc4 },
-            { "5", KeyCode.Vc5 }, { "6", KeyCode.Vc6 }, { "7", KeyCode.Vc7 }, { "8", KeyCode.Vc8 }, { "9", KeyCode.Vc9 }
-        };
-
-        foreach (string t in parts!)
-        {
-            string trimmedPart = t.Trim();
-            if (specialKeys.TryGetValue(trimmedPart, out KeyCode foundKey))
-            {
-                if (trimmedPart is "Shift" or "Ctrl" or "Alt" or "Win" or "LeftShift" or "RightShift" or "LeftControl"
-                    or "RightControl" or "LeftAlt" or "RightAlt" or "LeftWin" or "RightWin" or "Control")
-                    modifiers.Add(foundKey);
-                else
-                    key = foundKey;
-            }
-            else
-            {
-                if (ushort.TryParse(trimmedPart, out ushort keyCodeValue) &&
-                    Enum.IsDefined(typeof(KeyCode), keyCodeValue))
-                {
-                    key = (KeyCode)keyCodeValue;
-                }
-                else
-                {
-                    Console.WriteLine($"[ConvertToInputSimulatorSyntax] Unknown key: {trimmedPart}");
-                    throw new ArgumentException($"Unknown key: {trimmedPart}");
-                }
-            }
-        }
-
-        if (key == KeyCode.Vc0)
-        {
-            Console.WriteLine("[ConvertToInputSimulatorSyntax] Invalid keybind: no key specified.");
-            throw new ArgumentException("Invalid keybind: no key specified.");
-        }
-
-        keybinds.Add((modifiers, key));
-        Console.WriteLine(
-            $"[ConvertToInputSimulatorSyntax] Converted keybind: {keybind} to {string.Join(", ", keybinds.Select(k => $"{string.Join("+", k.Modifiers)}+{k.Key}"))}");
-        return keybinds;
+        None,
+        Left,
+        Right
     }
+
+    public struct ModifierWithSide
+    {
+        public KeyCode Modifier;
+        public ModifierSide Side;
+    }
+    
+private KeyCode MapAvaloniaKeyToSharpHook(Key avaloniaKey)
+{
+    return avaloniaKey switch
+    {
+        Key.LeftCtrl => KeyCode.VcLeftControl,
+        Key.RightCtrl => KeyCode.VcRightControl,
+        Key.LeftAlt => KeyCode.VcLeftAlt,
+        Key.RightAlt => KeyCode.VcRightAlt,
+        Key.LeftShift => KeyCode.VcLeftShift,
+        Key.RightShift => KeyCode.VcRightShift,
+        
+        Key.Tab => KeyCode.VcTab,
+        Key.Enter => KeyCode.VcEnter,
+        Key.Space => KeyCode.VcSpace,
+        Key.Back => KeyCode.VcBackspace,
+        Key.Delete => KeyCode.VcDelete,
+        Key.Insert => KeyCode.VcInsert,
+        Key.Home => KeyCode.VcHome,
+        Key.End => KeyCode.VcEnd,
+        Key.PageUp => KeyCode.VcPageUp,
+        Key.PageDown => KeyCode.VcPageDown,
+        Key.Up => KeyCode.VcUp,
+        Key.Down => KeyCode.VcDown,
+        Key.Left => KeyCode.VcLeft,
+        Key.Right => KeyCode.VcRight,
+        Key.Escape => KeyCode.VcEscape,
+        
+        Key.OemMinus => KeyCode.VcMinus,
+        Key.OemPlus => KeyCode.VcEquals,
+        Key.OemComma => KeyCode.VcComma,
+        Key.OemPeriod => KeyCode.VcPeriod,
+        Key.Oem2 => KeyCode.VcSlash,
+        Key.Oem5 => KeyCode.VcBackslash,
+        Key.Oem1 => KeyCode.VcSemicolon,
+        Key.Oem7 => KeyCode.VcQuote,
+        Key.Oem3 => KeyCode.VcBackQuote,
+        Key.Oem4 => KeyCode.VcOpenBracket,
+        Key.Oem6 => KeyCode.VcCloseBracket,
+        
+        Key.CapsLock => KeyCode.VcCapsLock,
+        Key.NumLock => KeyCode.VcNumLock,
+        Key.Scroll => KeyCode.VcScrollLock,
+        
+        Key.PrintScreen => KeyCode.VcPrintScreen,
+        Key.Pause => KeyCode.VcPause,
+        
+        Key.F1 => KeyCode.VcF1,
+        Key.F2 => KeyCode.VcF2,
+        Key.F3 => KeyCode.VcF3,
+        Key.F4 => KeyCode.VcF4,
+        Key.F5 => KeyCode.VcF5,
+        Key.F6 => KeyCode.VcF6,
+        Key.F7 => KeyCode.VcF7,
+        Key.F8 => KeyCode.VcF8,
+        Key.F9 => KeyCode.VcF9,
+        Key.F10 => KeyCode.VcF10,
+        Key.F11 => KeyCode.VcF11,
+        Key.F12 => KeyCode.VcF12,
+        Key.F13 => KeyCode.VcF13,
+        Key.F14 => KeyCode.VcF14,
+        Key.F15 => KeyCode.VcF15,
+        Key.F16 => KeyCode.VcF16,
+        Key.F17 => KeyCode.VcF17,
+        Key.F18 => KeyCode.VcF18,
+        Key.F19 => KeyCode.VcF19,
+        Key.F20 => KeyCode.VcF20,
+        Key.F21 => KeyCode.VcF21,
+        Key.F22 => KeyCode.VcF22,
+        Key.F23 => KeyCode.VcF23,
+        Key.F24 => KeyCode.VcF24,
+        
+        Key.NumPad0 => KeyCode.VcNumPad0,
+        Key.NumPad1 => KeyCode.VcNumPad1,
+        Key.NumPad2 => KeyCode.VcNumPad2,
+        Key.NumPad3 => KeyCode.VcNumPad3,
+        Key.NumPad4 => KeyCode.VcNumPad4,
+        Key.NumPad5 => KeyCode.VcNumPad5,
+        Key.NumPad6 => KeyCode.VcNumPad6,
+        Key.NumPad7 => KeyCode.VcNumPad7,
+        Key.NumPad8 => KeyCode.VcNumPad8,
+        Key.NumPad9 => KeyCode.VcNumPad9,
+        Key.Add => KeyCode.VcNumPadAdd,
+        Key.Subtract => KeyCode.VcNumPadSubtract,
+        Key.Multiply => KeyCode.VcNumPadMultiply,
+        Key.Divide => KeyCode.VcNumPadDivide,
+        Key.Decimal => KeyCode.VcNumPadDecimal,
+        
+        Key.A => KeyCode.VcA,
+        Key.B => KeyCode.VcB,
+        Key.C => KeyCode.VcC,
+        Key.D => KeyCode.VcD,
+        Key.E => KeyCode.VcE,
+        Key.F => KeyCode.VcF,
+        Key.G => KeyCode.VcG,
+        Key.H => KeyCode.VcH,
+        Key.I => KeyCode.VcI,
+        Key.J => KeyCode.VcJ,
+        Key.K => KeyCode.VcK,
+        Key.L => KeyCode.VcL,
+        Key.M => KeyCode.VcM,
+        Key.N => KeyCode.VcN,
+        Key.O => KeyCode.VcO,
+        Key.P => KeyCode.VcP,
+        Key.Q => KeyCode.VcQ,
+        Key.R => KeyCode.VcR,
+        Key.S => KeyCode.VcS,
+        Key.T => KeyCode.VcT,
+        Key.U => KeyCode.VcU,
+        Key.V => KeyCode.VcV,
+        Key.W => KeyCode.VcW,
+        Key.X => KeyCode.VcX,
+        Key.Y => KeyCode.VcY,
+        Key.Z => KeyCode.VcZ,
+        
+        Key.D0 => KeyCode.Vc0,
+        Key.D1 => KeyCode.Vc1,
+        Key.D2 => KeyCode.Vc2,
+        Key.D3 => KeyCode.Vc3,
+        Key.D4 => KeyCode.Vc4,
+        Key.D5 => KeyCode.Vc5,
+        Key.D6 => KeyCode.Vc6,
+        Key.D7 => KeyCode.Vc7,
+        Key.D8 => KeyCode.Vc8,
+        Key.D9 => KeyCode.Vc9,
+
+        _ => KeyCode.VcUndefined
+    };
+}
 }
