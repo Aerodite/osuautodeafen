@@ -55,6 +55,7 @@ Linux was tested on Linux 6.16.4 CachyOS x86_64 (Hyprland) on osu!lazer with Tos
 * Custom settings for deafening
 * Undeafening during Break Periods
 * Custom IP and port support for Tosu
+* Per-map Settings
 
 > [!NOTE]
 > If you want osuautodeafen to work with osu!lazer you must be using v1.0.6 or newer and v4.0.0 of Tosu or newer.
