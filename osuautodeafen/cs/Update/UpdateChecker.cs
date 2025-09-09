@@ -16,7 +16,7 @@ public class UpdateChecker
     public UpdateInfo? UpdateInfo;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="UpdateChecker"/> class.
+    ///     Initializes a new instance of the <see cref="UpdateChecker" /> class.
     /// </summary>
     public async Task CheckForUpdatesAsync()
     {

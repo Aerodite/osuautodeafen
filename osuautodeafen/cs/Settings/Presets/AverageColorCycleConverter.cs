@@ -8,7 +8,7 @@ using Avalonia.Media;
 public class AverageColorCycleConverter : IMultiValueConverter
 {
     /// <summary>
-    /// Converts an array of three color strings and an index to a SolidColorBrush of the selected color
+    ///     Converts an array of three color strings and an index to a SolidColorBrush of the selected color
     /// </summary>
     /// <param name="values"></param>
     /// <param name="targetType"></param>
@@ -21,7 +21,7 @@ public class AverageColorCycleConverter : IMultiValueConverter
     }
 
     /// <summary>
-    /// Converts an array of three color strings and an index to a SolidColorBrush of the selected color
+    ///     Converts an array of three color strings and an index to a SolidColorBrush of the selected color
     /// </summary>
     /// <param name="values"></param>
     /// <param name="targetType"></param>
@@ -32,15 +32,15 @@ public class AverageColorCycleConverter : IMultiValueConverter
     {
         if (values.Length < 4) return Brushes.Transparent;
 
-        var colors = new[] { values[0]?.ToString(), values[1]?.ToString(), values[2]?.ToString() };
+        string?[] colors = new[] { values[0]?.ToString(), values[1]?.ToString(), values[2]?.ToString() };
         if (!int.TryParse(values[3]?.ToString(), out int index)) return Brushes.Transparent;
 
-        var colorStr = colors[index % 3];
+        string? colorStr = colors[index % 3];
         if (string.IsNullOrEmpty(colorStr)) return Brushes.Transparent;
 
         try
         {
-            var color = ParseColor(colorStr);
+            Color color = ParseColor(colorStr);
             return new SolidColorBrush(color);
         }
         catch
@@ -50,7 +50,7 @@ public class AverageColorCycleConverter : IMultiValueConverter
     }
 
     /// <summary>
-    /// Parses a hex color string to a Color object
+    ///     Parses a hex color string to a Color object
     /// </summary>
     /// <param name="colorStr"></param>
     /// <returns></returns>
@@ -67,7 +67,8 @@ public class AverageColorCycleConverter : IMultiValueConverter
                 byte b = byte.Parse(colorStr.Substring(4, 2), NumberStyles.HexNumber);
                 return Color.FromRgb(r, g, b);
             }
-            else if (colorStr.Length == 8)
+
+            if (colorStr.Length == 8)
             {
                 byte a = byte.Parse(colorStr.Substring(0, 2), NumberStyles.HexNumber);
                 byte r = byte.Parse(colorStr.Substring(2, 2), NumberStyles.HexNumber);
@@ -76,8 +77,12 @@ public class AverageColorCycleConverter : IMultiValueConverter
                 return Color.FromArgb(a, r, g, b);
             }
         }
+
         throw new FormatException("Invalid color format");
     }
 
-    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) => throw new NotImplementedException();
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
 }
