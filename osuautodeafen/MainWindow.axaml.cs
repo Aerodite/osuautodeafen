@@ -1558,7 +1558,7 @@ public partial class MainWindow : Window
 
             for (int i = 1; i <= steps; i++)
             {
-                _updateProgressBar.Value = start + (end - start) * i / steps;
+                _updateProgressBar.Value = start + ((end - start) * i / steps);
                 await Task.Delay(delayPerStep);
             }
         }
@@ -2143,7 +2143,7 @@ public partial class MainWindow : Window
             _cogSpinTimer.Tick += (s, ev) =>
             {
                 double elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
-                double angle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / BeatsPerRotation) % 360;
+                double angle = (_cogSpinStartAngle + (elapsed * _cogSpinBpm * 360 / BeatsPerRotation)) % 360;
                 _cogCurrentAngle = angle;
                 rotate.Angle = angle;
             };
@@ -2178,7 +2178,7 @@ public partial class MainWindow : Window
                 for (int i = 1; i <= steps; i++)
                 {
                     await Task.Delay(duration / steps);
-                    double angle = start + step * i;
+                    double angle = start + (step * i);
                     await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle).GetTask();
                 }
 
@@ -2196,7 +2196,7 @@ public partial class MainWindow : Window
         if (_cogSpinTimer != null && _cogSpinTimer.IsEnabled)
         {
             double elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
-            _cogSpinStartAngle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / BeatsPerRotation) % 360;
+            _cogSpinStartAngle = (_cogSpinStartAngle + (elapsed * _cogSpinBpm * 360 / BeatsPerRotation)) % 360;
             _cogSpinStartTime = DateTime.UtcNow;
             _cogSpinBpm = _tosuApi.GetCurrentBpm() > 0 ? _tosuApi.GetCurrentBpm() : 140;
 

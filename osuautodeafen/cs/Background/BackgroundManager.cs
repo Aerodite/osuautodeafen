@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -75,7 +75,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
 
         for (int i = 1; i <= steps; i++)
         {
-            _currentBackgroundOpacity = start + step * i;
+            _currentBackgroundOpacity = start + (step * i);
             UpdateBackgroundLayerOpacity();
             await Task.Delay(delay);
         }
@@ -425,8 +425,8 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
 
         for (int i = 1; i <= steps; i++)
         {
-            double newX = startX + stepX * i;
-            double newY = startY + stepY * i;
+            double newX = startX + (stepX * i);
+            double newY = startY + (stepY * i);
             _cachedGpuBackground.RenderTransform = new TranslateTransform(newX, newY);
             await Task.Delay(durationMs / steps);
         }
@@ -669,7 +669,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                     if (token.IsCancellationRequested) return;
                     double t = (double)i / steps;
                     brush.Color = LerpColor(startColor, endColor, t);
-                    brush.Opacity = startOpacity + (endOpacity - startOpacity) * t;
+                    brush.Opacity = startOpacity + ((endOpacity - startOpacity) * t);
                     await Task.Delay(durationMs / steps);
                 }
             }
@@ -693,10 +693,10 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     private static Color LerpColor(Color a, Color b, double t)
     {
         return Color.FromArgb(
-            (byte)(a.A + (b.A - a.A) * t),
-            (byte)(a.R + (b.R - a.R) * t),
-            (byte)(a.G + (b.G - a.G) * t),
-            (byte)(a.B + (b.B - a.B) * t)
+            (byte)(a.A + ((b.A - a.A) * t)),
+            (byte)(a.R + ((b.R - a.R) * t)),
+            (byte)(a.G + ((b.G - a.G) * t)),
+            (byte)(a.B + ((b.B - a.B) * t))
         );
     }
 

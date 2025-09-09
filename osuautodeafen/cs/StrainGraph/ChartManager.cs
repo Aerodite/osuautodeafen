@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -386,7 +386,7 @@ public class ChartManager
         int steps = 6;
         for (int i = 0; i <= steps; i++)
         {
-            float thickness = from + (to - from) * i / steps;
+            float thickness = from + ((to - from) * i / steps);
             rs.Stroke = new SolidColorPaint { Color = SKColors.DarkRed, StrokeThickness = thickness };
             PlotView.InvalidateVisual();
             await Task.Delay(durationMs / steps);
@@ -522,7 +522,7 @@ public class ChartManager
             for (int i = 1; i <= steps; i++)
             {
                 token.ThrowIfCancellationRequested();
-                deafenRect.Xi = oldXi + (newXi - oldXi) * i / steps;
+                deafenRect.Xi = oldXi + ((newXi - oldXi) * i / steps);
                 PlotView.InvalidateVisual();
                 await Task.Delay(durationMs / steps, token);
             }

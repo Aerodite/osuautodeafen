@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -562,18 +562,18 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             float d = max - min;
             s = l > 0.5f ? d / (2f - max - min) : d / (max + min);
 
-            if (max == r) h = (g - b) / d + (g < b ? 6f : 0f);
-            else if (max == g) h = (b - r) / d + 2f;
-            else h = (r - g) / d + 4f;
+            if (max == r) h = ((g - b) / d) + (g < b ? 6f : 0f);
+            else if (max == g) h = ((b - r) / d) + 2f;
+            else h = ((r - g) / d) + 4f;
             h /= 6f;
         }
 
         s *= saturationFactor;
         l = Math.Min(l * lightnessFactor, 1f);
 
-        float q = l < 0.5f ? l * (1f + s) : l + s - l * s;
-        float p = 2f * l - q;
-        float[] t = { h + 1f / 3f, h, h - 1f / 3f };
+        float q = l < 0.5f ? l * (1f + s) : l + s - (l * s);
+        float p = (2f * l) - q;
+        float[] t = { h + (1f / 3f), h, h - (1f / 3f) };
         float[] rgb = new float[3];
 
         for (int i = 0; i < 3; i++)
@@ -581,9 +581,9 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             float tc = t[i];
             if (tc < 0f) tc += 1f;
             if (tc > 1f) tc -= 1f;
-            if (tc < 1f / 6f) rgb[i] = p + (q - p) * 6f * tc;
+            if (tc < 1f / 6f) rgb[i] = p + ((q - p) * 6f * tc);
             else if (tc < 1f / 2f) rgb[i] = q;
-            else if (tc < 2f / 3f) rgb[i] = p + (q - p) * (2f / 3f - tc) * 6f;
+            else if (tc < 2f / 3f) rgb[i] = p + ((q - p) * ((2f / 3f) - tc) * 6f);
             else rgb[i] = p;
         }
 

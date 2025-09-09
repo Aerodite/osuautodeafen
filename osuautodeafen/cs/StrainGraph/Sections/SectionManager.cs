@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Avalonia.Threading;
 using LiveChartsCore;
@@ -50,10 +50,10 @@ public class SectionManager
             double t = Math.Min(1, elapsed / durationMs);
             t = EasingFunctions.ExponentialOut((float)t);
 
-            byte r = (byte)(startColor.Red + (endColor.Red - startColor.Red) * t);
-            byte g = (byte)(startColor.Green + (endColor.Green - startColor.Green) * t);
-            byte b = (byte)(startColor.Blue + (endColor.Blue - startColor.Blue) * t);
-            byte a = (byte)(startColor.Alpha + (endColor.Alpha - startColor.Alpha) * t);
+            byte r = (byte)(startColor.Red + ((endColor.Red - startColor.Red) * t));
+            byte g = (byte)(startColor.Green + ((endColor.Green - startColor.Green) * t));
+            byte b = (byte)(startColor.Blue + ((endColor.Blue - startColor.Blue) * t));
+            byte a = (byte)(startColor.Alpha + ((endColor.Alpha - startColor.Alpha) * t));
 
             Paint fill;
             if (useGradient)
