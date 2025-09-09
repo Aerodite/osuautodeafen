@@ -23,6 +23,7 @@ public class TosuApi : IDisposable
     private readonly Timer _timer;
     private string? _beatmapArtist;
     private string _beatmapChecksum;
+    private string _beatmapDifficulty;
     private int _beatmapId;
     private int _beatmapSetId;
     private string? _beatmapTitle;
@@ -65,6 +66,7 @@ public class TosuApi : IDisposable
     private string _server;
     private string? _settingsSongsDirectory;
     private string? _songFilePath;
+    private string? _beatmapMapper;
     private ClientWebSocket _webSocket;
 
     public TosuApi()
@@ -322,7 +324,12 @@ public class TosuApi : IDisposable
                             _beatmapTitle = title.GetString();
                         if (beatmap.TryGetProperty("artistUnicode", out JsonElement artist))
                             _beatmapArtist = artist.GetString();
-
+                        if (beatmap.TryGetProperty("version", out JsonElement beatmapDifficulty))
+                            _beatmapDifficulty = beatmapDifficulty.GetString() ?? throw new InvalidOperationException();
+                        if (beatmap.TryGetProperty("mapper", out var mapper))
+                        {
+                            _beatmapMapper = mapper.GetString();
+                        }
                         if (beatmap.TryGetProperty("stats", out JsonElement stats))
                             if (stats.TryGetProperty("maxCombo", out JsonElement maxCombo))
                                 _maxCombo = maxCombo.GetDouble();
@@ -577,6 +584,11 @@ public class TosuApi : IDisposable
     {
         return _beatmapArtist;
     }
+    
+    public string GetBeatmapDifficulty()
+    {
+        return (_beatmapDifficulty ?? "Unknown Difficulty").TrimEnd();
+    }
 
     /// <summary>
     ///     Obtains the osu! file path of the current beatmap
@@ -762,6 +774,15 @@ public class TosuApi : IDisposable
     public int GetBeatmapSetId()
     {
         return _beatmapSetId;
+    }
+    
+    /// <summary>
+    ///    Gets the beatmap mapper of the current beatmap
+    /// </summary>
+    /// <returns></returns>
+    public string GetBeatmapMapper()
+    {
+        return _beatmapMapper ?? "Unknown Mapper";
     }
 
     /// <summary>

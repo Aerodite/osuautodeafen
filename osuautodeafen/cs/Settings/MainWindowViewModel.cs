@@ -1,12 +1,16 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using osuautodeafen.cs.Settings;
+using osuautodeafen.cs.Settings.Presets;
 
 namespace osuautodeafen.cs;
 
@@ -17,10 +21,21 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private readonly SettingsHandler _settingsHandler;
 
     private readonly TosuApi _tosuApi;
-
+    
+    public bool CanCreatePreset => !PresetExistsForCurrentChecksum;
+    
     private SolidColorBrush _averageColorBrush = new(Colors.Gray);
+    
+    public bool HasAnyPresets => Presets != null && Presets.Any();
+    public bool HasAnyPresetsNotCurrent => Presets != null && Presets.Any(p => !p.IsCurrentPreset);
 
     private double _blurRadius;
+
+    private string _beatmapName;
+    
+    private string _fullBeatmapName;
+
+    private string _beatmapDifficulty;
 
     private double _completionPercentage;
     private MainWindow.HotKey? _deafenKeybind;
@@ -57,7 +72,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private int _updateProgress;
 
     private string _updateStatusMessage;
-
+    
+    public ObservableCollection<PresetInfo>? Presets { get; } = new ObservableCollection<PresetInfo>();
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
 
@@ -68,8 +84,33 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         Task.Run(InitializeAsync);
         _tosuApi = tosuApi;
         Task.Run(UpdateCompletionPercentageAsync);
-    }
 
+        Presets.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasAnyPresets));
+    }
+    
+    public void RefreshPresets()
+    {
+        Presets?.Clear();
+        foreach (PresetInfo preset in PresetManager.LoadAllPresets())
+        {
+            preset.PropertyChanged += Preset_PropertyChanged;
+            Presets?.Add(preset);
+        }
+        
+        foreach (PresetInfo preset in Presets ?? Enumerable.Empty<PresetInfo>())
+        {
+            preset.IsCurrentPreset = preset.Checksum == _tosuApi.GetBeatmapChecksum();
+            Console.WriteLine($"Preset {preset.BeatmapName} IsCurrentPreset: {preset.IsCurrentPreset}");
+        }
+    }
+    
+    private void Preset_PropertyChanged(object sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PresetInfo.IsCurrentPreset))
+            OnPropertyChanged(nameof(HasAnyPresetsNotCurrent));
+    }
+    
+    public IEnumerable<PresetInfo> VisiblePresets => Presets?.Where(p => !p.IsCurrentPreset) ?? Enumerable.Empty<PresetInfo>();
     public int BlurPercent => (int)Math.Round(BlurRadius / 20.0 * 100);
 
     public int UpdateProgress
@@ -84,6 +125,71 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 IsUpdateReady = _updateProgress >= 100;
                 UpdateBarBackground = IsUpdateReady ? Brushes.Green : Brushes.Gray;
             }
+        }
+    }
+    public string BeatmapName
+    {
+        get => _beatmapName;
+        set
+        {
+            if (_beatmapName != value)
+            {
+                _beatmapName = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+    
+    public string FullBeatmapName
+    {
+        get => _fullBeatmapName;
+        set
+        {
+            if (_fullBeatmapName != value)
+            {
+                _fullBeatmapName = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+    
+    public bool PresetExistsForCurrentChecksum
+    {
+        get => _presetExistsForCurrentChecksum;
+        set
+        {
+            if (_presetExistsForCurrentChecksum != value)
+            {
+                _presetExistsForCurrentChecksum = value;
+                OnPropertyChanged(nameof(PresetExistsForCurrentChecksum));
+                OnPropertyChanged(nameof(CanCreatePreset));
+            }
+        }
+    }
+    private bool _presetExistsForCurrentChecksum;
+    
+    public string BeatmapDifficulty
+    {
+        get => _beatmapDifficulty;
+        set
+        {
+            if (_beatmapDifficulty != value)
+            {
+                _beatmapDifficulty = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+    
+    public string BeatmapDifficultyBrackets
+    {
+        get
+        {
+            const int maxLength = 25;
+            string value = BeatmapDifficulty ?? string.Empty;
+            if (value.Length > maxLength)
+                value = value.Substring(0, maxLength) + "...";
+            return $"[{value}]";
         }
     }
 
@@ -115,11 +221,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
 
     public string CurrentAppVersion => $"Current Version: v{UpdateChecker.CurrentVersion}";
-
-    //<remarks>
-    // this file might be the worst organized file in this entire app but most of everything depends on it.
-    // TODO: rewrite basically this entire file
-    //</remarks>
 
     public bool IsKeybindCaptureFlyoutOpen
     {
@@ -156,8 +257,95 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _averageColorBrush = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(AverageColorBrushDim));
+                OnPropertyChanged(nameof(AverageColorBrushDimmer));
+                OnPropertyChanged(nameof(AverageColorBrushDark));
+                OnPropertyChanged(nameof(AverageColorBrushLight));
             }
         }
+    }
+    
+    public SolidColorBrush AverageColorBrushDim
+    {
+        get
+        {
+            var color = _averageColorBrush.Color;
+            var lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.75f, 0.85f);
+            return new SolidColorBrush(lessVibrantColor);
+        }
+    }
+    
+    public SolidColorBrush AverageColorBrushDimmer
+    {
+        get
+        {
+            var color = _averageColorBrush.Color;
+            var lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.25f, 0.5f);
+            return new SolidColorBrush(lessVibrantColor);
+        }
+    }
+    
+    public SolidColorBrush AverageColorBrushDark
+    {
+        get
+        {
+            var color = _averageColorBrush.Color;
+            var lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.75f, 0.25f);
+            return new SolidColorBrush(lessVibrantColor);
+        }
+    }
+    
+    public SolidColorBrush AverageColorBrushLight
+    {
+        get
+        {
+            var color = _averageColorBrush.Color;
+            var lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.50f, 0.60f);
+            return new SolidColorBrush(lessVibrantColor);
+        }
+    }
+
+    private static Color DesaturateAndLightenColorHsl(Color color, float saturationFactor, float lightnessFactor)
+    {
+        float r = color.R / 255f, g = color.G / 255f, b = color.B / 255f;
+        float max = Math.Max(r, Math.Max(g, b)), min = Math.Min(r, Math.Min(g, b));
+        float h = 0f, s, l = (max + min) / 2f;
+
+        if (max == min)
+        {
+            h = s = 0f;
+        }
+        else
+        {
+            float d = max - min;
+            s = l > 0.5f ? d / (2f - max - min) : d / (max + min);
+
+            if (max == r) h = (g - b) / d + (g < b ? 6f : 0f);
+            else if (max == g) h = (b - r) / d + 2f;
+            else h = (r - g) / d + 4f;
+            h /= 6f;
+        }
+
+        s *= saturationFactor;
+        l = Math.Min(l * lightnessFactor, 1f);
+
+        float q = l < 0.5f ? l * (1f + s) : l + s - l * s;
+        float p = 2f * l - q;
+        float[] t = { h + 1f / 3f, h, h - 1f / 3f };
+        float[] rgb = new float[3];
+
+        for (int i = 0; i < 3; i++)
+        {
+            float tc = t[i];
+            if (tc < 0f) tc += 1f;
+            if (tc > 1f) tc -= 1f;
+            if (tc < 1f / 6f) rgb[i] = p + (q - p) * 6f * tc;
+            else if (tc < 1f / 2f) rgb[i] = q;
+            else if (tc < 2f / 3f) rgb[i] = p + (q - p) * (2f / 3f - tc) * 6f;
+            else rgb[i] = p;
+        }
+
+        return Color.FromArgb(color.A, (byte)(rgb[0] * 255), (byte)(rgb[1] * 255), (byte)(rgb[2] * 255));
     }
 
     public bool IsBackgroundEnabled
@@ -170,7 +358,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 bool wasDisabled = !_isBackgroundEnabled;
                 _isBackgroundEnabled = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("UI", "IsBackgroundEnabled", value);
                 if (wasDisabled && value) _tosuApi.ForceBeatmapChange();
             }
         }
@@ -185,7 +372,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _isParallaxEnabled = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("UI", "IsParallaxEnabled", value);
             }
         }
     }
@@ -199,7 +385,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _IsBreakUndeafenToggleEnabled = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled", value);
             }
         }
     }
@@ -213,20 +398,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _IsKiaiEffectEnabled = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("UI", "IsKiaiEffectEnabled", value);
                 _tosuApi.RaiseKiaiChanged();
             }
-        }
-    }
-
-
-    public string StatusMessage
-    {
-        get => _statusMessage;
-        set
-        {
-            _statusMessage = value;
-            OnPropertyChanged();
         }
     }
 
@@ -239,7 +412,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _undeafenAfterMiss = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("Behavior", "UndeafenAfterMiss", value);
             }
         }
     }
@@ -253,8 +425,17 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _isFCRequired = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("Behavior", "IsFCRequired", value);
             }
+        }
+    }
+    
+    public string StatusMessage
+    {
+        get => _statusMessage;
+        set
+        {
+            _statusMessage = value;
+            OnPropertyChanged();
         }
     }
 
@@ -267,7 +448,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _deafenKeybind = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybind", value?.ToString());
             }
         }
     }
@@ -281,7 +461,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _minCompletionPercentage = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", value);
             }
         }
     }
@@ -295,7 +474,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _starRating = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("General", "StarRating", value);
             }
         }
     }
@@ -309,7 +487,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _performancePoints = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("General", "PerformancePoints", value);
             }
         }
     }
@@ -323,7 +500,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _blurRadius = value;
                 OnPropertyChanged();
-                _settingsHandler?.SaveSetting("UI", "BlurRadius", value);
             }
         }
     }
@@ -460,7 +636,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     }
 
 
-    private void OnPropertyChanged([CallerMemberName] string propertyName = null)
+    public void OnPropertyChanged([CallerMemberName] string propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }

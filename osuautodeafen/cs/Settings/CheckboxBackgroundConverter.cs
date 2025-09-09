@@ -16,10 +16,10 @@ public class CheckBoxBackgroundConverter : IMultiValueConverter
     /// <param name="parameter"></param>
     /// <param name="culture"></param>
     /// <returns></returns>
-    public object Convert(IList<object> values, Type targetType, object parameter, CultureInfo culture)
+    public object? Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture)
     {
-        var isChecked = values[0] as bool?;
-        var brush = values[1] as IBrush;
+        bool? isChecked = values[0] as bool?;
+        IBrush? brush = values[1] as IBrush;
         return isChecked == true ? brush : new SolidColorBrush(Color.Parse("#171717"));
     }
 }

@@ -58,7 +58,7 @@ public abstract class LogFileManager
     {
         FileStream fileStream = new(logFilePath, FileMode.Append, FileAccess.Write, FileShare.Read);
         StreamWriter writer = new(fileStream) { AutoFlush = true };
-        Console.SetOut(new TimestampTextWriter(writer));
+        //Console.SetOut(new TimestampTextWriter(writer));
         Console.WriteLine($"[INFO] osuautodeafen started at {DateTime.Now:MM-dd HH:mm:ss.fff}");
     }
 }

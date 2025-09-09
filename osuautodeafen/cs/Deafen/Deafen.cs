@@ -33,7 +33,7 @@ public class Deafen : IDisposable
         _settingsHandler = settingsHandler;
 
         // handled separately from maintimer just in case
-        _timer = new Timer(100);
+        _timer = new Timer(16);
         _timer.Elapsed += (_, _) => CheckAndDeafen();
         _timer.Start();
     }
@@ -130,7 +130,8 @@ public class Deafen : IDisposable
         bool isFCRequired = _sharedViewModel.IsFCRequired;
         bool isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
         bool notAlreadyDeafened = !_deafened;
-        bool completionMet = completionPercentage >= requiredCompletion;
+        // 100% will basically act as the deafening part disabled
+        bool completionMet = requiredCompletion < 100 && completionPercentage >= requiredCompletion;
         bool starRatingMet = currentStarRating >= requiredStarRating;
         bool performancePointsMet = currentPerformancePoints >= requiredPerformancePoints;
         bool hasHitObjects = _tosuAPI.GetMaxCombo() != 0;

@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using IniParser;
 using IniParser.Model;
+using IniParser.Parser;
 
 namespace osuautodeafen.cs.Settings;
 
@@ -12,17 +13,56 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 {
     private readonly string _appPath;
     private readonly string _iniPath;
+    private readonly string _presetsPath;
     private readonly FileIniDataParser _parser = new();
     private double _blurRadius;
 
     private double _minCompletionPercentage;
     private double _performancePoints;
     private double _starRating;
+    
+    private bool _isBreakUndeafenToggleEnabled;
 
     private double _windowHeight;
     private double _windowWidth;
 
     public IniData Data;
+
+    private IniData _mainData;
+    private IniData? _presetData;
+    private string? _activePresetPath;
+
+    private bool IsPresetActive => _activePresetPath != null;
+    private IniData CurrentData => IsPresetActive ? _presetData! : _mainData;
+    private string ActivePath => _activePresetPath ?? _iniPath;
+    
+    public void ActivatePreset(string presetFilePath)
+    {
+        if (!File.Exists(presetFilePath))
+        {
+            Console.WriteLine($"Preset file not found: {presetFilePath}");
+            return;
+        }
+        _activePresetPath = presetFilePath;
+        _presetData = _parser.ReadFile(presetFilePath);
+        Data = _presetData;
+        EnsureSectionsExist();
+        LoadSettings();
+    }
+
+    public void DeactivatePreset()
+    {
+        if (_activePresetPath == null)
+        {
+            Console.WriteLine("No preset is currently active.");
+            return;
+        }
+        _activePresetPath = null;
+        _presetData = null;
+        Data = _mainData;
+        EnsureSectionsExist();
+        LoadSettings();
+    }
 
     public SettingsHandler()
     {
@@ -30,16 +70,21 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         _iniPath = Path.Combine(_appPath, "settings.ini");
         Directory.CreateDirectory(_appPath);
 
+        _presetsPath = Path.Combine(_appPath, "presets");
+        Directory.CreateDirectory(_presetsPath);
+
         if (!File.Exists(_iniPath))
         {
-            Data = CreateDefaultIniData();
-            _parser.WriteFile(_iniPath, Data);
+            _mainData = CreateDefaultIniData();
+            _parser.WriteFile(_iniPath, _mainData);
         }
         else
         {
-            Data = _parser.ReadFile(_iniPath);
+            _mainData = _parser.ReadFile(_iniPath);
         }
 
+        _presetData = null;
+        Data = _mainData;
         EnsureSectionsExist();
         LoadSettings();
     }
@@ -49,7 +94,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         get => _minCompletionPercentage;
         set
         {
-            if (Set(ref _minCompletionPercentage, value)) SaveSetting("General", "MinCompletionPercentage", value);
+            if (Set(ref _minCompletionPercentage, value))
+                SaveSetting("General", "MinCompletionPercentage", value);
         }
     }
 
@@ -80,6 +126,16 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         }
     }
 
+    public bool IsBreakUndeafenToggleEnabled
+    {
+        get => _isBreakUndeafenToggleEnabled;
+        set
+        {
+            if (Set(ref _isBreakUndeafenToggleEnabled, value))
+                SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled", value);
+        }
+    }
+    
     public double WindowWidth
     {
         get => _windowWidth;
@@ -104,7 +160,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public bool IsParallaxEnabled { get; set; }
 
     public string? DeafenKeybind { get; set; }
-    public bool IsBreakUndeafenToggleEnabled { get; set; }
     public bool IsKiaiEffectEnabled { get; set; }
     public string? tosuApiIp { get; set; }
     public string? tosuApiPort { get; set; }
@@ -140,7 +195,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         }
 
         if (changed)
-            _parser.WriteFile(_iniPath, Data);
+            _parser.WriteFile(ActivePath, Data);
     }
 
     /// <summary>
@@ -251,26 +306,40 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     }
 
     /// <summary>
-    ///     Saves a setting to the INI file.
+    ///     Saves a setting to the INI file or preset.
     /// </summary>
     /// <param name="section"></param>
     /// <param name="key"></param>
     /// <param name="value"></param>
     public void SaveSetting(string section, string key, object? value)
     {
-        if (!Data.Sections.ContainsSection(section))
-            Data.Sections.AddSection(section);
-        Data[section][key] = value?.ToString();
-        _parser.WriteFile(_iniPath, Data);
+        var targetData = CurrentData;
+        if (!targetData.Sections.ContainsSection(section))
+            targetData.Sections.AddSection(section);
+        targetData[section][key] = value?.ToString();
+
+        string path = IsPresetActive ? _activePresetPath! : _iniPath;
+        Console.WriteLine($"Writing to: {path}");
+        _parser.WriteFile(path, targetData);
     }
 
     /// <summary>
-    ///     Resets all settings to their default values and saves them to the INI file.
+    ///     Resets all settings to their default values and saves them to the active file.
     /// </summary>
     public void ResetToDefaults()
     {
-        Data = CreateDefaultIniData();
-        _parser.WriteFile(_iniPath, Data);
+        if (IsPresetActive)
+        {
+            _presetData = CreateDefaultIniData();
+            Data = _presetData;
+            _parser.WriteFile(_activePresetPath!, _presetData);
+        }
+        else
+        {
+            _mainData = CreateDefaultIniData();
+            Data = _mainData;
+            _parser.WriteFile(_iniPath, _mainData);
+        }
         LoadSettings();
     }
 }
