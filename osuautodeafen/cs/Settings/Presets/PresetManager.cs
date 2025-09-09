@@ -21,7 +21,7 @@ public static class PresetManager
             foreach (string line in lines)
             {
                 string trimmedLine = line.Trim();
-                if (string.IsNullOrEmpty(trimmedLine) || !trimmedLine.Contains("=")) continue;
+                if (string.IsNullOrEmpty(trimmedLine) || !trimmedLine.Contains('=')) continue;
 
                 string[] parts = trimmedLine.Split('=', 2);
                 if (parts.Length != 2) continue;

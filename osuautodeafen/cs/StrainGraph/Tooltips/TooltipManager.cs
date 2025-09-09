@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -140,7 +140,7 @@ public class TooltipManager
         timer.Tick += (_, _) =>
         {
             elapsed += 10;
-            border.Opacity = Math.Max(0, startOpacity * (1 - elapsed / durationMs));
+            border.Opacity = Math.Max(0, startOpacity * (1 - (elapsed / durationMs)));
             if (elapsed >= durationMs)
             {
                 border.IsVisible = false;
@@ -225,8 +225,8 @@ public class TooltipManager
             elapsed += 10;
             double progress = Math.Min(1, elapsed / durationMs);
 
-            CustomTooltip.Width = oldWidth + widthDiff * progress;
-            CustomTooltip.Height = oldHeight + heightDiff * progress;
+            CustomTooltip.Width = oldWidth + (widthDiff * progress);
+            CustomTooltip.Height = oldHeight + (heightDiff * progress);
 
             _tooltipText.Opacity = 1 - progress;
             fadeBlock.Opacity = progress;

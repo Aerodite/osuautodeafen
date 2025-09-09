@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -245,7 +245,7 @@ public class LogoUpdater
             for (int y = yStart; y < yEnd; y++)
             for (int x = 0; x < width; x++)
             {
-                uint pixel = pixels[y * width + x];
+                uint pixel = pixels[(y * width) + x];
                 totalB += pixel & 0xFF;
                 totalG += (pixel >> 8) & 0xFF;
                 totalR += (pixel >> 16) & 0xFF;
@@ -425,7 +425,7 @@ public class LogoUpdater
     {
         byte InterpolateComponent(byte start, byte end, float factor)
         {
-            return (byte)(start + (end - start) * factor);
+            return (byte)(start + ((end - start) * factor));
         }
 
         byte r = InterpolateComponent(from.Red, to.Red, t);
