@@ -12,7 +12,6 @@
   <img src="https://img.shields.io/github/downloads/aerodite/osuautodeafen/total">
 </p>
 
-
 ##
 
 osuautodeafen is a tool that uses osu! memory data from [Tosu](https://github.com/KotRikD/tosu) to automatically Toggle
@@ -30,13 +29,16 @@ Deafen on Discord when certain criteria are reached
 ></details>
 
 ## Windows
-1. Download the [latest release](https://github.com/Aerodite/osuautodeafen/releases/latest) (osuautodeafen-win-Portable.zip)
+
+1. Download the [latest release](https://github.com/Aerodite/osuautodeafen/releases/latest) (
+   osuautodeafen-win-Portable.zip)
 2. Unzip the folder
 3. Launch "osuautodeafen.exe" and wait for it to start
 4. Set the Deafen Keybind in the app to your Discord "Toggle Deafen" keybind
 5. Modify the settings in the app to what you want!
 
 ## Linux
+
 1. Download the [latest release](https://github.com/Aerodite/osuautodeafen/releases/latest) (osuautodeafen.AppImage)
 3. Launch the AppImage
 4. Set the Deafen Keybind in the app to your Discord "Toggle Deafen" keybind
@@ -46,7 +48,6 @@ Deafen on Discord when certain criteria are reached
   <summary>Linux Info</summary>
 Linux was tested on Linux 6.16.4 CachyOS x86_64 (Hyprland) on osu!lazer with Tosu running from the latest GitHub Release being ran with sudo ./tosu
 </details>
-
 
 # Features
 

@@ -1,4 +1,4 @@
-﻿﻿using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -736,84 +736,84 @@ public class ChartManager
     /// </summary>
     /// <param name="graphData"></param>
     /// <param name="osuFilePath"></param>
-   private async Task UpdateSectionsAsync(GraphData graphData, string osuFilePath)
-{
-    double rate = _tosuApi.GetRateAdjustRate();
-    var xAxis = graphData.XAxis;
-    var seriesData = graphData.Series[0].Data;
-    int firstValidIdx = seriesData.FindIndex(y => y != -100);
-    if (firstValidIdx > 0)
+    private async Task UpdateSectionsAsync(GraphData graphData, string osuFilePath)
     {
-        xAxis = xAxis.Skip(firstValidIdx).ToList();
-        seriesData = seriesData.Skip(firstValidIdx).ToList();
-    }
-
-    var breaks = await GetBreakPeriodsAsync(osuFilePath, xAxis, seriesData);
-    _cachedBreakPeriods.Clear();
-    foreach (BreakPeriod breakPeriod in breaks)
-    {
-        double breakStart = _tosuApi.GetRawBanchoStatus() != 2
-            ? breakPeriod.Start / rate
-            : breakPeriod.Start;
-        double breakEnd = _tosuApi.GetRawBanchoStatus() != 2
-            ? breakPeriod.End / rate
-            : breakPeriod.End;
-
-        int startIdx = FindClosestIndex(xAxis, breakStart);
-        int endIdx = FindClosestIndex(xAxis, breakEnd);
-        AnnotatedSection breakSection = new()
+        double rate = _tosuApi.GetRateAdjustRate();
+        var xAxis = graphData.XAxis;
+        var seriesData = graphData.Series[0].Data;
+        int firstValidIdx = seriesData.FindIndex(y => y != -100);
+        if (firstValidIdx > 0)
         {
-            Xi = startIdx,
-            Xj = endIdx,
-            Yi = 0,
-            Yj = MaxYValue,
-            Fill = AudibleBreaksEnabled
-                ? new LinearGradientPaint(
-                    new[] { new SKColor(0x00, 0x80, 0xFF, 255) },
-                    new SKPoint(0, 0),
-                    new SKPoint(endIdx - startIdx, (float)MaxYValue)
-                )
-                : new SolidColorPaint { Color = BreakColor },
-            SectionType = "Break",
-            StartTime = breakPeriod.Start,
-            EndTime = breakPeriod.End,
-            Tooltip = true
-        };
-        _cachedBreakPeriods.Add(breakSection);
-    }
+            xAxis = xAxis.Skip(firstValidIdx).ToList();
+            seriesData = seriesData.Skip(firstValidIdx).ToList();
+        }
 
-    var kiaiList = await _kiaiTimes.ParseKiaiTimesAsync(osuFilePath);
-    _cachedKiaiPeriods.Clear();
-    foreach (KiaiTime kiai in kiaiList)
-    {
-        double kiaiStart = _tosuApi.GetRawBanchoStatus() != 2
-            ? kiai.Start / rate
-            : kiai.Start;
-        double kiaiEnd = _tosuApi.GetRawBanchoStatus() != 2
-            ? kiai.End / rate
-            : kiai.End;
-
-        int startIdx = FindClosestIndex(xAxis, kiaiStart);
-        int endIdx = FindClosestIndex(xAxis, kiaiEnd);
-        _cachedKiaiPeriods.Add(new AnnotatedSection
+        var breaks = await GetBreakPeriodsAsync(osuFilePath, xAxis, seriesData);
+        _cachedBreakPeriods.Clear();
+        foreach (BreakPeriod breakPeriod in breaks)
         {
-            Xi = startIdx,
-            Xj = endIdx,
-            Yi = 0,
-            Yj = MaxYValue,
-            Fill = new SolidColorPaint { Color = KiaiColor },
-            SectionType = "Kiai",
-            StartTime = kiai.Start,
-            EndTime = kiai.End,
-            Tooltip = true
-        });
+            double breakStart = _tosuApi.GetRawBanchoStatus() != 2
+                ? breakPeriod.Start / rate
+                : breakPeriod.Start;
+            double breakEnd = _tosuApi.GetRawBanchoStatus() != 2
+                ? breakPeriod.End / rate
+                : breakPeriod.End;
+
+            int startIdx = FindClosestIndex(xAxis, breakStart);
+            int endIdx = FindClosestIndex(xAxis, breakEnd);
+            AnnotatedSection breakSection = new()
+            {
+                Xi = startIdx,
+                Xj = endIdx,
+                Yi = 0,
+                Yj = MaxYValue,
+                Fill = AudibleBreaksEnabled
+                    ? new LinearGradientPaint(
+                        new[] { new SKColor(0x00, 0x80, 0xFF, 255) },
+                        new SKPoint(0, 0),
+                        new SKPoint(endIdx - startIdx, (float)MaxYValue)
+                    )
+                    : new SolidColorPaint { Color = BreakColor },
+                SectionType = "Break",
+                StartTime = breakPeriod.Start,
+                EndTime = breakPeriod.End,
+                Tooltip = true
+            };
+            _cachedBreakPeriods.Add(breakSection);
+        }
+
+        var kiaiList = await _kiaiTimes.ParseKiaiTimesAsync(osuFilePath);
+        _cachedKiaiPeriods.Clear();
+        foreach (KiaiTime kiai in kiaiList)
+        {
+            double kiaiStart = _tosuApi.GetRawBanchoStatus() != 2
+                ? kiai.Start / rate
+                : kiai.Start;
+            double kiaiEnd = _tosuApi.GetRawBanchoStatus() != 2
+                ? kiai.End / rate
+                : kiai.End;
+
+            int startIdx = FindClosestIndex(xAxis, kiaiStart);
+            int endIdx = FindClosestIndex(xAxis, kiaiEnd);
+            _cachedKiaiPeriods.Add(new AnnotatedSection
+            {
+                Xi = startIdx,
+                Xj = endIdx,
+                Yi = 0,
+                Yj = MaxYValue,
+                Fill = new SolidColorPaint { Color = KiaiColor },
+                SectionType = "Kiai",
+                StartTime = kiai.Start,
+                EndTime = kiai.End,
+                Tooltip = true
+            });
+        }
+
+        var combinedSections = _cachedBreakPeriods.Concat(_cachedKiaiPeriods).ToList();
+        AddDeafenOverlaySection(combinedSections, _viewModel.MinCompletionPercentage);
+        PlotView.Sections = combinedSections; // This replaces all previous sections
+        PlotView.InvalidateVisual();
     }
-    
-    var combinedSections = _cachedBreakPeriods.Concat(_cachedKiaiPeriods).ToList();
-    AddDeafenOverlaySection(combinedSections, _viewModel.MinCompletionPercentage);
-    PlotView.Sections = combinedSections; // This replaces all previous sections
-    PlotView.InvalidateVisual();
-}
 
     /// <summary>
     ///     Updates the deafen overlay section position based on the minimum completion percentage

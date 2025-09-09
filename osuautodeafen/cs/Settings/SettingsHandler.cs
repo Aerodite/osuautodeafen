@@ -5,7 +5,6 @@ using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using IniParser;
 using IniParser.Model;
-using IniParser.Parser;
 
 namespace osuautodeafen.cs.Settings;
 
@@ -13,56 +12,24 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 {
     private readonly string _appPath;
     private readonly string _iniPath;
-    private readonly string _presetsPath;
     private readonly FileIniDataParser _parser = new();
+    private readonly string _presetsPath;
+    private string? _activePresetPath;
     private double _blurRadius;
+
+    private bool _isBreakUndeafenToggleEnabled;
+
+    private IniData _mainData;
 
     private double _minCompletionPercentage;
     private double _performancePoints;
+    private IniData? _presetData;
     private double _starRating;
-    
-    private bool _isBreakUndeafenToggleEnabled;
 
     private double _windowHeight;
     private double _windowWidth;
 
     public IniData Data;
-
-    private IniData _mainData;
-    private IniData? _presetData;
-    private string? _activePresetPath;
-
-    private bool IsPresetActive => _activePresetPath != null;
-    private IniData CurrentData => IsPresetActive ? _presetData! : _mainData;
-    private string ActivePath => _activePresetPath ?? _iniPath;
-    
-    public void ActivatePreset(string presetFilePath)
-    {
-        if (!File.Exists(presetFilePath))
-        {
-            Console.WriteLine($"Preset file not found: {presetFilePath}");
-            return;
-        }
-        _activePresetPath = presetFilePath;
-        _presetData = _parser.ReadFile(presetFilePath);
-        Data = _presetData;
-        EnsureSectionsExist();
-        LoadSettings();
-    }
-
-    public void DeactivatePreset()
-    {
-        if (_activePresetPath == null)
-        {
-            Console.WriteLine("No preset is currently active.");
-            return;
-        }
-        _activePresetPath = null;
-        _presetData = null;
-        Data = _mainData;
-        EnsureSectionsExist();
-        LoadSettings();
-    }
 
     public SettingsHandler()
     {
@@ -88,6 +55,15 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         EnsureSectionsExist();
         LoadSettings();
     }
+
+    public int DeafenKeybindKey { get; private set; }
+    public int DeafenKeybindControlSide { get; private set; }
+    public int DeafenKeybindAltSide { get; private set; }
+    public int DeafenKeybindShiftSide { get; private set; }
+
+    private bool IsPresetActive => _activePresetPath != null;
+    private IniData CurrentData => IsPresetActive ? _presetData! : _mainData;
+    private string ActivePath => _activePresetPath ?? _iniPath;
 
     public double MinCompletionPercentage
     {
@@ -135,7 +111,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
                 SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled", value);
         }
     }
-    
+
     public double WindowWidth
     {
         get => _windowWidth;
@@ -165,6 +141,36 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public string? tosuApiPort { get; set; }
 
     public new event PropertyChangedEventHandler? PropertyChanged;
+
+    public void ActivatePreset(string presetFilePath)
+    {
+        if (!File.Exists(presetFilePath))
+        {
+            Console.WriteLine($"Preset file not found: {presetFilePath}");
+            return;
+        }
+
+        _activePresetPath = presetFilePath;
+        _presetData = _parser.ReadFile(presetFilePath);
+        Data = _presetData;
+        EnsureSectionsExist();
+        LoadSettings();
+    }
+
+    public void DeactivatePreset()
+    {
+        if (_activePresetPath == null)
+        {
+            Console.WriteLine("No preset is currently active.");
+            return;
+        }
+
+        _activePresetPath = null;
+        _presetData = null;
+        Data = _mainData;
+        EnsureSectionsExist();
+        LoadSettings();
+    }
 
     /// <summary>
     ///     Ensures that all required sections and keys exist in the INI data.
@@ -217,7 +223,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
         data.Sections.AddSection("Hotkeys");
         data["Hotkeys"]["DeafenKeybindKey"] = "47"; // D
-        data["Hotkeys"]["DeafenKeybindModifiers"] = "2"; // Ctrl
+        data["Hotkeys"]["DeafenKeybindControlSide"] = "1"; // Left Control
+        data["Hotkeys"]["DeafenKeybindAltSide"] = "0";
+        data["Hotkeys"]["DeafenKeybindShiftSide"] = "0";
 
         data.Sections.AddSection("UI");
         data["UI"]["IsBackgroundEnabled"] = "True";
@@ -279,7 +287,12 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         IsFCRequired = bool.TryParse(Data["Behavior"]["IsFCRequired"], out bool fc) && fc;
         UndeafenAfterMiss = bool.TryParse(Data["Behavior"]["UndeafenAfterMiss"], out bool uam) && uam;
 
-        DeafenKeybind = $"{Data["Hotkeys"]["DeafenKeybindKey"]},{Data["Hotkeys"]["DeafenKeybindModifiers"]}";
+        DeafenKeybindKey = int.TryParse(Data["Hotkeys"]["DeafenKeybindKey"], out int keyVal) ? keyVal : 0;
+        DeafenKeybindControlSide =
+            int.TryParse(Data["Hotkeys"]["DeafenKeybindControlSide"], out int ctrlSide) ? ctrlSide : 0;
+        DeafenKeybindAltSide = int.TryParse(Data["Hotkeys"]["DeafenKeybindAltSide"], out int altSide) ? altSide : 0;
+        DeafenKeybindShiftSide =
+            int.TryParse(Data["Hotkeys"]["DeafenKeybindShiftSide"], out int shiftSide) ? shiftSide : 0;
 
         IsBackgroundEnabled = bool.TryParse(Data["UI"]["IsBackgroundEnabled"], out bool bg) && bg;
         IsParallaxEnabled = bool.TryParse(Data["UI"]["IsParallaxEnabled"], out bool px) && px;
@@ -303,6 +316,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsKiaiEffectEnabled)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(tosuApiIp)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(tosuApiPort)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindControlSide)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindAltSide)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindShiftSide)));
     }
 
     /// <summary>
@@ -313,7 +329,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     /// <param name="value"></param>
     public void SaveSetting(string section, string key, object? value)
     {
-        var targetData = CurrentData;
+        IniData targetData = CurrentData;
         if (!targetData.Sections.ContainsSection(section))
             targetData.Sections.AddSection(section);
         targetData[section][key] = value?.ToString();
@@ -321,6 +337,16 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         string path = IsPresetActive ? _activePresetPath! : _iniPath;
         Console.WriteLine($"Writing to: {path}");
         _parser.WriteFile(path, targetData);
+
+        DeafenKeybindKey = int.TryParse(targetData["Hotkeys"]["DeafenKeybindKey"], out int keyVal) ? keyVal : 0;
+        DeafenKeybindControlSide = int.TryParse(targetData["Hotkeys"]["DeafenKeybindControlSide"], out int ctrlSide)
+            ? ctrlSide
+            : 0;
+        DeafenKeybindAltSide =
+            int.TryParse(targetData["Hotkeys"]["DeafenKeybindAltSide"], out int altSide) ? altSide : 0;
+        DeafenKeybindShiftSide = int.TryParse(targetData["Hotkeys"]["DeafenKeybindShiftSide"], out int shiftSide)
+            ? shiftSide
+            : 0;
     }
 
     /// <summary>
@@ -340,6 +366,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
             Data = _mainData;
             _parser.WriteFile(_iniPath, _mainData);
         }
+
         LoadSettings();
     }
 }
