@@ -23,15 +23,35 @@
         <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
         <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
-        <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrushDim.Color}" x:DataType="cs:SharedViewModel" />
         <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
         <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
-        <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrushDim.Color}" x:DataType="cs:SharedViewModel"/>
         <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
         <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
-        <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        
+        <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="ButtonBackgroundBrushPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="ButtonBackgroundBrushPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="ButtonBackgroundBrushDisabled" Color="{Binding AverageColorBrushDark.Color}" x:DataType="cs:SharedViewModel"/>
+        <SolidColorBrush x:Key="ButtonBorderBrush" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="ButtonForegroundBrush" Color="{Binding AverageColorBrushDim.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="ButtonHighlightBrush" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="CheckBoxBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}" x:DataType="cs:SharedViewModel" />
+        
     </Window.Resources>
     <Window.Styles>
+        
+        <Style Selector="Button">
+            <Setter Property="Background" Value="{StaticResource ButtonBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource ButtonBackgroundBrush}" />
+        </Style>
+        
+        <Style Selector="CheckBox.custom">
+            <Setter Property="Background" Value="{StaticResource CheckBoxBackgroundBrush}" />
+            <!-- For checkmark, set Path.Stroke or Foreground in your template to use CheckBoxCheckmarkBrush -->
+        </Style>
+        
         <Style Selector="Button.preset-list-item:pointerover">
             <Setter Property="BorderBrush" Value="#FFF" />
             <Setter Property="BorderThickness" Value="2" />
@@ -42,13 +62,9 @@
             <Setter Property="BorderThickness" Value="2" />
             <Setter Property="Background" Value="#44000000" />
         </Style>
-        
         <Style Selector="Button:disabled">
-            <Setter Property="Background" Value="#222" />
-            <Setter Property="Foreground" Value="#444" />
-        </Style>
-        <Style Selector="Button:disabled TextBlock.beatmap-name">
-            <Setter Property="Opacity" Value="0.5" />
+            <Setter Property="Background" Value="{StaticResource ButtonBackgroundBrushDisabled}" />
+            <Setter Property="Foreground" Value="{StaticResource ButtonForegroundBrush}" />
         </Style>
         <Style Selector="CheckBox.custom">
             <Setter Property="Template">
@@ -174,21 +190,23 @@
                     <Binding Path="AverageColorBrush.Color" />
                 </MultiBinding>
             </DockPanel.Background>
-            <ScrollViewer VerticalScrollBarVisibility="Visible" Margin="0,20,0,0">
+            <ScrollViewer VerticalScrollBarVisibility="Visible" Margin="0,0,0,0">
                 <StackPanel HorizontalAlignment="Center">
-                    <TextBlock Text="Deafen Settings"
-                               HorizontalAlignment="Center"
-                               Margin="0,0,0,8"
-                               Foreground="White"
-                               FontSize="16" />
-                    <StackPanel Orientation="Vertical" IsVisible="{Binding CanCreatePreset, Converter={StaticResource InverseBooleanConverter}}">
-                    <TextBlock Text="Editing Preset Settings"
-                               HorizontalAlignment="Center"
-                               Margin="0,0,0,0"
-                               Foreground="Red"
-                               FontSize="16" 
-                               FontWeight="Bold"/>
-                    <Separator Margin="0,0,0,10" Background="Red" />
+                    <StackPanel Margin="0,5,0,0">
+                        <Border Height="20" Background="Transparent">
+                            <TextBlock Text="Editing Preset Settings"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Foreground="#ff3333"
+                                       FontSize="12"
+                                       FontWeight="Bold"
+                                       IsVisible="{Binding CanCreatePreset, Converter={StaticResource InverseBooleanConverter}}"/>
+                        </Border>
+                        <TextBlock Text="Deafen Settings"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,8"
+                                   Foreground="White"
+                                   FontSize="16" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/clock-solid.png" Width="25" Height="25"
@@ -219,8 +237,8 @@
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
-                        <Image Source="avares://osuautodeafen/Icons/star-solid.png" Width="25" Height="25"
-                               Margin="0,5,5,0">
+                        <Image Source="avares://osuautodeafen/Icons/star-solid.png" Width="30" Height="30"
+                               Margin="0,0,5,3">
                             <ToolTip.Tip>
                                 <TextBlock
                                     Text="{Binding MinSRValue, StringFormat='Min Star Rating for deafen ({0}* for current map)'}" />
@@ -248,7 +266,7 @@
 
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/medal-solid.png" Width="25" Height="25"
-                               Margin="0,7,5,0">
+                               Margin="0,0,5,0">
                             <ToolTip.Tip>
                                 <TextBlock
                                     Text="{Binding MinPPValue, StringFormat='Min SS pp for deafen ({0}pp for current map)'}" />
@@ -288,14 +306,14 @@
                             </ToolTip.Tip>
                         </CheckBox>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,0" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Margin="5,0,0,0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/shooting-star-solid.png" Width="25" Height="25"
                                Margin="0,0,5,0">
                             <ToolTip.Tip>
                                 <TextBlock Text="Do you get undeafened after a miss?" />
                             </ToolTip.Tip>
                         </Image>
-                        <CheckBox x:Name="UndeafenOnMissToggle" Content="Undeafen on miss" Foreground="White"
+                        <CheckBox x:Name="UndeafenOnMissToggle" Content="Miss Undeafen" Foreground="White"
                                   IsChecked="{Binding UndeafenAfterMiss, Mode=TwoWay}"
                                   IsEnabled="{Binding ElementName=FCToggle, Path=IsChecked}"
                                   HorizontalAlignment="Left" Margin="0" Width="120" Classes="custom">
@@ -368,7 +386,7 @@
                                         <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                                                       VerticalScrollBarVisibility="Disabled">
                                             <TextBlock TextAlignment="Center">
-                                                <Run Text="{Binding FullBeatmapName}" Foreground="{Binding AverageColorBrush}" />
+                                                <Run Text="{Binding BeatmapName}" Foreground="{Binding AverageColorBrush}" />
                                                 <Run Text="{Binding BeatmapDifficultyBrackets}" Foreground="{Binding AverageColorBrush}" />
                                             </TextBlock>
                                         </ScrollViewer>
@@ -378,7 +396,7 @@
                                                     Height="32"
                                                     Margin="8,0"
                                                     FontSize="14"
-                                                    Background="{StaticResource ButtonBackgroundBrush}"
+                                                    Background="#444"
                                                     Foreground="White"
                                                     CornerRadius="6"
                                                     HorizontalContentAlignment="Center"
@@ -405,17 +423,17 @@
                         </Button>
                             <Button x:Name="DeletePresetButton"
                                     Width="135"
+                                    Classes="DeletePresetButton"
                                     HorizontalAlignment="Left"
                                     FontSize="11"
                                     Margin="0"
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
                                     IsVisible="{Binding CanCreatePreset, Converter={StaticResource InverseBooleanConverter}}"
-                                    Background="DarkRed" 
                                     Foreground="White"
-                                    BorderBrush="IndianRed"
-                            >
-                            <Button.Content>
+                                    Background="#705959"
+                                    BorderBrush="#996363">
+                                <Button.Content>
                                 <StackPanel>
                                     <TextBlock Text="Delete Map Preset for"
                                                TextAlignment="Center"/>
@@ -434,13 +452,13 @@
                                     <StackPanel>
                                         <TextBlock>
                                             <Run Text="Are you sure you want to" Foreground="White"/>
-                                            <Run Text="delete" Foreground="Red" FontWeight="Bold"/>
+                                            <Run Text="delete" Foreground="#ff3333" FontWeight="Bold"/>
                                             <Run Text="your map preset for" Foreground="White"/>
                                         </TextBlock>
                                         <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                                                       VerticalScrollBarVisibility="Disabled">
                                             <TextBlock TextAlignment="Center">
-                                                <Run Text="{Binding FullBeatmapName}" Foreground="{Binding AverageColorBrush}" />
+                                                <Run Text="{Binding BeatmapName}" Foreground="{Binding AverageColorBrush}" />
                                                 <Run Text="{Binding BeatmapDifficultyBrackets}" Foreground="{Binding AverageColorBrush}" />
                                             </TextBlock>
                                         </ScrollViewer>
@@ -450,7 +468,7 @@
                                                     Height="32"
                                                     Margin="8,0"
                                                     FontSize="14"
-                                                    Background="{StaticResource ButtonBackgroundBrush}"
+                                                    Background="#996363"
                                                     Foreground="White"
                                                     CornerRadius="6"
                                                     HorizontalContentAlignment="Center"
@@ -480,49 +498,52 @@
                             Width="135"
                             HorizontalAlignment="Left"
                             FontSize="11"
-                            Margin="0"
+                            Margin="0,3,0,0"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
+                            IsEnabled="{Binding HasAnyPresetsNotCurrent}"
                             Click="LoadPresetButton_Click">
                         <Button.Content>
-                            <TextBlock Text="Load Preset" />
+                            <TextBlock Text="Load Preset"/>
                         </Button.Content>
                         <Button.Flyout>
                             <Flyout Placement="TopEdgeAlignedRight" ShowMode="Transient">
                                 <ScrollViewer Height="200" Width="190" VerticalScrollBarVisibility="Visible">
-                                    <ItemsControl ItemsSource="{Binding Presets}">
+                                    <ItemsControl ItemsSource="{Binding VisiblePresets}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Button Margin="2"
-                                                        Width="185"
-                                                        Height="35"
+                                                        Width="200"
+                                                        Height="40"
                                                         Click="PresetItem_Click"
                                                         Classes="preset-list-item"
                                                         Background="Transparent"
                                                         BorderBrush="{x:Null}"
                                                         BorderThickness="0"
                                                         HorizontalContentAlignment="Center"
-                                                        HorizontalAlignment="Center">
-                                                    <Grid Width="180" Height="32">
+                                                        HorizontalAlignment="Center"
+                                                        IsEnabled="{Binding IsCurrentPreset, Converter={StaticResource InverseBooleanConverter}}">
+                                                    <Grid Width="190" Height="35">
                                                         <Border Background="{Binding BackgroundPath, Converter={StaticResource BackgroundPathToBrushConverter}}"
                                                                 CornerRadius="6"
                                                                 HorizontalAlignment="Stretch"
                                                                 VerticalAlignment="Stretch"
                                                                 BorderThickness="1.5">
-                                                          <Border.BorderBrush>
-                                                <MultiBinding Converter="{StaticResource AverageColorCycleConverter}">
-                                                    <Binding Path="AverageColor1"/>
-                                                    <Binding Path="AverageColor2"/>
-                                                    <Binding Path="AverageColor3"/>
-                                                    <Binding Path="Index"/>
-                                                </MultiBinding>
-                                            </Border.BorderBrush>
+                                                            <Border.BorderBrush>
+                                                                <MultiBinding Converter="{StaticResource AverageColorCycleConverter}">
+                                                                  <!--saving for later we can do cool stuff here-->
+                                                                    <Binding Path="AverageColor1"/>
+                                                                    <Binding Path="AverageColor2"/>
+                                                                    <Binding Path="AverageColor3"/>
+                                                                    <Binding Path="Index"/>
+                                                                </MultiBinding>
+                                                            </Border.BorderBrush>
                                                         </Border>
-                                                        <TextBlock Text="{Binding FullBeatmapName}"
+                                                        <TextBlock Text="{Binding BeatmapName}"
                                                                    VerticalAlignment="Center"
                                                                    HorizontalAlignment="Center"
                                                                    TextAlignment="Center"
-                                                                   Foreground="White"
+                                                                   Foreground="{Binding IsCurrentPreset}"
                                                                    FontWeight="Bold"/>
                                                     </Grid>
                                                 </Button>
@@ -535,7 +556,68 @@
                         <ToolTip.Tip>
                             <TextBlock Text="Load a preset onto your current beatmap" />
                         </ToolTip.Tip>
-                    </Button>
+                        </Button>
+                        
+                        <Button x:Name="DeleteAllPresetsButton"
+                                Width="135"
+                                HorizontalAlignment="Left"
+                                FontSize="12"
+                                Margin="0,3,0,0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                IsVisible="{Binding HasAnyPresets}"
+                                Foreground="White"
+                                Background="#705959"
+                                BorderBrush="#996363">
+                            <Button.Content>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <Image Source="avares://osuautodeafen/Icons/trash-can-solid.png"
+                                           Width="15" Height="15"
+                                           Margin="0,0,3,0"
+                                           VerticalAlignment="Center"/>
+                                    <TextBlock Text="Delete All Presets" VerticalAlignment="Center"
+                                               Margin="0,0,10,0"/>
+                                </StackPanel>
+                            </Button.Content>
+                            <Button.Flyout>
+                                <Flyout Placement="Top" ShowMode="Transient">
+                                    <StackPanel>
+                                        <TextBlock>
+                                            <Run Text="Are you sure you want to" Foreground="White"/>
+                                            <Run Text="delete" Foreground="#ff3333" FontWeight="Bold"/>
+                                            <Run Text="all of your presets?" Foreground="White"/>
+                                        </TextBlock>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
+                                            <Button Content="Yes"
+                                                    Width="60"
+                                                    Height="32"
+                                                    Margin="8,0"
+                                                    FontSize="14"
+                                                    Background="#996363"
+                                                    Foreground="White"
+                                                    CornerRadius="6"
+                                                    HorizontalContentAlignment="Center"
+                                                    VerticalContentAlignment="Center"
+                                                    Click="DeleteAllPresetsButtonYes_Click"/>
+                                            <Button Content="No"
+                                                    Width="60"
+                                                    Height="32"
+                                                    Margin="8,0"
+                                                    FontSize="14"
+                                                    Background="#444"
+                                                    Foreground="White"
+                                                    CornerRadius="6"
+                                                    HorizontalContentAlignment="Center"
+                                                    VerticalContentAlignment="Center"
+                                                    Click="DeleteAllPresetsButtonNo_Click"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                            <ToolTip.Tip>
+                                <TextBlock Text="Delete all of your presets" />
+                            </ToolTip.Tip>
+                        </Button>
                     </StackPanel>
                     <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
                     <!--title-->
@@ -563,7 +645,7 @@
                                 </ToolTip.Tip>
                                 <Button.Flyout>
                                     <Flyout>
-                                        <TextBlock Text="Press any key for the keybind..." />
+                                        <TextBlock Text="Press any key(s) for the keybind..." />
                                     </Flyout>
                                 </Button.Flyout>
                             </Button>
@@ -751,7 +833,7 @@
             </Grid.RowDefinitions>
 
             <TextBlock Text="{Binding StatusMessage}" HorizontalAlignment="Center" VerticalAlignment="Top"
-                       x:DataType="cs:SharedViewModel" Margin="0,0,0,0" Foreground="Red" FontSize="14" />
+                       x:DataType="cs:SharedViewModel" Margin="0,0,0,0" Foreground="#ff3333" FontSize="14" />
             <Grid>
                 <avalonia1:CartesianChart
                     x:Name="PlotView"

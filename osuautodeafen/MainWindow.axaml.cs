@@ -39,7 +39,6 @@ namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
-    private const double beatsPerRotation = 4;
     private readonly AnimationManager _animationManager = new();
     private readonly BackgroundManager? _backgroundManager;
 
@@ -59,32 +58,42 @@ public partial class MainWindow : Window
     private readonly UpdateChecker _updateChecker = new();
     private readonly SemaphoreSlim _updateCheckLock = new(1, 1);
     private readonly SharedViewModel _viewModel;
-    private readonly Action settingsButtonClicked;
+    private readonly Action _settingsButtonClicked;
     private CancellationTokenSource? _blurCts;
-    private double _cogCurrentAngle;
-    private double _cogSpinBpm = 140;
-    private double _cogSpinStartAngle;
-    private DateTime _cogSpinStartTime;
-    private DispatcherTimer? _cogSpinTimer;
 
     private CancellationTokenSource? _frameCts;
     private bool _isCogSpinning;
     private bool _isKiaiPulseHigh;
-    public bool _isSettingsPanelOpen;
+    private bool _isSettingsPanelOpen;
     private DispatcherTimer? _kiaiBrightnessTimer;
     private List<string> _lastDisplayedLogs = [];
-    private double _lastFrameTimestamp;
     private GraphData? _lastGraphData;
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
     private LogoControl? _logoControl;
     private DispatcherTimer? _logUpdateTimer;
-    public Image? _normalBackground;
-    private bool _previousDeafenState = false;
-    private CancellationTokenSource _timerCts = null!;
+ 
     private Button? _updateNotificationBarButton;
     private ProgressBar? _updateProgressBar;
-    private double opacity = 1.00;
+    private double _opacity = 1.00;
+    
+    private DispatcherTimer? _completionPercentageSaveTimer;
+    private double _pendingCompletionPercentage;
+
+    private DispatcherTimer? _starRatingSaveTimer;
+    private double _pendingStarRating;
+
+    private DispatcherTimer? _ppSaveTimer;
+    private int _pendingPP;
+    
+    public Image? NormalBackground;
+    
+    private const double BeatsPerRotation = 4;
+    private double _cogCurrentAngle;
+    private double _cogSpinBpm = 140;
+    private double _cogSpinStartAngle;
+    private DateTime _cogSpinStartTime;
+    private DispatcherTimer? _cogSpinTimer;
 
     /// <summary>
     ///     Primary Constructor for MainWindow
@@ -114,6 +123,8 @@ public partial class MainWindow : Window
         _settingsHandler.LoadSettings();
         InitializeSettings();
 
+        PresetInfo presetInfo = new PresetInfo();
+
         InitializeLogo();
 
         Opened += async (_, __) =>
@@ -121,8 +132,6 @@ public partial class MainWindow : Window
             await _updateChecker.CheckForUpdatesAsync();
             if (_updateChecker.UpdateInfo != null) ShowUpdateNotification();
         };
-        
-        InitializeSettings();
 
         string resourceName = "osuautodeafen.Resources.favicon.ico";
         string deafenResourceName = "osuautodeafen.Resources.favicon_d.ico";
@@ -206,13 +215,19 @@ public partial class MainWindow : Window
 
         ProgressOverlay.Points =
             _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage());
-
+        _viewModel.RefreshPresets();
         _tosuApi.BeatmapChanged += async () =>
         {
             string checksum = _tosuApi.GetBeatmapChecksum();
             string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "presets");
             string presetFilePath = Path.Combine(presetsPath, $"{checksum}.preset");
             _viewModel.PresetExistsForCurrentChecksum = File.Exists(presetFilePath);
+            foreach (PresetInfo preset in _viewModel.Presets ?? Enumerable.Empty<PresetInfo>())
+            {
+                preset.IsCurrentPreset = preset.Checksum == _tosuApi.GetBeatmapChecksum();
+                Console.WriteLine($"Preset {preset.BeatmapName} IsCurrentPreset: {preset.IsCurrentPreset}");
+            }
+            
             if (_viewModel.PresetExistsForCurrentChecksum)
             {
                 _settingsHandler.ActivatePreset(presetFilePath);
@@ -220,6 +235,7 @@ public partial class MainWindow : Window
             else
             {
                 _settingsHandler.DeactivatePreset();
+                _settingsHandler.LoadSettings();
             }
             UpdateDeafenKeybindDisplay();
             UpdateViewModel();
@@ -330,7 +346,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            opacity = _isSettingsPanelOpen ? 0.50 : 0;
+            _opacity = _isSettingsPanelOpen ? 0.50 : 0;
 
             if (_tosuApi._isKiai)
             {
@@ -346,10 +362,10 @@ public partial class MainWindow : Window
                 {
                     _isKiaiPulseHigh = !_isKiaiPulseHigh;
                     if (_isKiaiPulseHigh)
-                        await _backgroundManager.RequestBackgroundOpacity("kiai", 1.0 - opacity, 10000,
+                        await _backgroundManager.RequestBackgroundOpacity("kiai", 1.0 - _opacity, 10000,
                             (int)(intervalMs / 4));
                     else
-                        await _backgroundManager.RequestBackgroundOpacity("kiai", 0.95 - opacity, 10000,
+                        await _backgroundManager.RequestBackgroundOpacity("kiai", 0.95 - _opacity, 10000,
                             (int)(intervalMs / 4));
                 };
                 _kiaiBrightnessTimer.Start();
@@ -369,16 +385,16 @@ public partial class MainWindow : Window
         _kiaiTimes.KiaiPeriodEntered += async () => { _logImportant.logImportant("Kiai: True", false, "Kiai"); };
         _kiaiTimes.KiaiPeriodExited += async () => { _logImportant.logImportant("Kiai: False", false, "Kiai"); };
 
-        settingsButtonClicked = async () =>
+        _settingsButtonClicked = async () =>
         {
             if (_isSettingsPanelOpen)
             {
-                opacity = 0;
+                _opacity = 0;
                 _backgroundManager?.RemoveBackgroundOpacityRequest("settings");
             }
             else
             {
-                opacity = 0.5;
+                _opacity = 0.5;
                 if (!_tosuApi._isKiai || !_viewModel.IsKiaiEffectEnabled)
                     await _backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150);
             }
@@ -543,72 +559,16 @@ public partial class MainWindow : Window
     /// <param name="e"></param>
     private async void ResetButton_Click(object sender, RoutedEventArgs e)
     {
+        _settingsHandler?.ResetToDefaults();
+        UpdateViewModel();
+        UpdateDeafenKeybindDisplay();
         try
         {
-            _settingsHandler?.ResetToDefaults();
-
-            if (_settingsHandler == null) return;
-
-            _viewModel.MinCompletionPercentage = _settingsHandler.MinCompletionPercentage;
-            _viewModel.StarRating = _settingsHandler.StarRating;
-            _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
-            _viewModel.BlurRadius = _settingsHandler.BlurRadius;
-
-            _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
-            _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
-            _viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
-
-            _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
-            _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
-            _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
-
-            CompletionPercentageSlider.ValueChanged -= CompletionPercentageSlider_ValueChanged;
-            StarRatingSlider.ValueChanged -= StarRatingSlider_ValueChanged;
-            PPSlider.ValueChanged -= PPSlider_ValueChanged;
-            BlurEffectSlider.ValueChanged -= BlurEffectSlider_ValueChanged;
-
-            CompletionPercentageSlider.Value = _viewModel.MinCompletionPercentage;
-            StarRatingSlider.Value = _viewModel.StarRating;
-            PPSlider.Value = _viewModel.PerformancePoints;
-
-            CompletionPercentageSlider.ValueChanged += CompletionPercentageSlider_ValueChanged;
-            StarRatingSlider.ValueChanged += StarRatingSlider_ValueChanged;
-            PPSlider.ValueChanged += PPSlider_ValueChanged;
-            BlurEffectSlider.ValueChanged += BlurEffectSlider_ValueChanged;
-
-            FCToggle.IsChecked = _viewModel.IsFCRequired;
-            UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
-            BreakUndeafenToggle.IsChecked = _viewModel.IsBreakUndeafenToggleEnabled;
-
-            BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
-            ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
-            BlurEffectSlider.Value = _viewModel.BlurRadius;
-            KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
-
-            string? keyStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindKey"];
-            string? modStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindModifiers"];
-            if (int.TryParse(keyStr, out int keyVal) && int.TryParse(modStr, out int modVal))
-            {
-                Key key = (Key)keyVal;
-                KeyModifiers modifiers = (KeyModifiers)modVal;
-                _viewModel.DeafenKeybind = new HotKey
-                {
-                    Key = key,
-                    ModifierKeys = modifiers,
-                    FriendlyName = GetFriendlyKeyName(key)
-                };
-            }
-            else
-            {
-                _viewModel.DeafenKeybind = new HotKey
-                    { Key = Key.None, ModifierKeys = KeyModifiers.None, FriendlyName = "None" };
-            }
-
-            await _chartManager.UpdateChart(_tosuApi.GetGraphData(), _viewModel.MinCompletionPercentage);
+            _chartManager.UpdateDeafenOverlaySection(_viewModel.MinCompletionPercentage);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Exception in ResetButton_Click: {ex}");
+            Console.WriteLine("[ERROR] Exception when updating Deafen Section after reset: " + ex.Message);
         }
     }
 
@@ -812,13 +772,23 @@ public partial class MainWindow : Window
         if (sender is Slider slider)
             ToolTip.SetIsOpen(slider, false);
     }
-
+    
     public async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (DataContext is not SharedViewModel vm) return;
         double roundedValue = Math.Round(e.NewValue, 2);
         vm.MinCompletionPercentage = roundedValue;
-        _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", roundedValue);
+        _pendingCompletionPercentage = roundedValue;
+
+        _completionPercentageSaveTimer?.Stop();
+        _completionPercentageSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        _completionPercentageSaveTimer.Tick += (s, args) =>
+        {
+            _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", _pendingCompletionPercentage);
+            _completionPercentageSaveTimer?.Stop();
+        };
+        _completionPercentageSaveTimer.Start();
+
         try
         {
             await _chartManager.UpdateDeafenOverlayAsync(roundedValue);
@@ -832,16 +802,25 @@ public partial class MainWindow : Window
             Console.WriteLine($"[ERROR] Exception in CompletionPercentageSlider_ValueChanged: {ex}");
         }
     }
-
-    private void StarRatingSlider_ValueChanged(object? sender,
-        RangeBaseValueChangedEventArgs rangeBaseValueChangedEventArgs)
+    
+    private void StarRatingSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
         double roundedValue = Math.Round(slider.Value, 1);
         Console.WriteLine($"Min SR Value: {roundedValue:F1}");
         vm.StarRating = roundedValue;
-        _settingsHandler?.SaveSetting("General", "StarRating", roundedValue);
+        _pendingStarRating = roundedValue;
+
+        _starRatingSaveTimer?.Stop();
+        _starRatingSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        _starRatingSaveTimer.Tick += (s, args) =>
+        {
+            _settingsHandler?.SaveSetting("General", "StarRating", _pendingStarRating);
+            _starRatingSaveTimer?.Stop();
+        };
+        _starRatingSaveTimer.Start();
     }
+
 
     private void PPSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
@@ -849,7 +828,16 @@ public partial class MainWindow : Window
         int roundedValue = (int)Math.Round(slider.Value);
         Console.WriteLine($"Min PP Value: {roundedValue}");
         vm.PerformancePoints = roundedValue;
-        _settingsHandler?.SaveSetting("General", "PerformancePoints", roundedValue);
+        _pendingPP = roundedValue;
+
+        _ppSaveTimer?.Stop();
+        _ppSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        _ppSaveTimer.Tick += (s, args) =>
+        {
+            _settingsHandler?.SaveSetting("General", "PerformancePoints", _pendingPP);
+            _ppSaveTimer?.Stop();
+        };
+        _ppSaveTimer.Start();
     }
 
     private void BlurEffectSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
@@ -880,14 +868,15 @@ public partial class MainWindow : Window
         UpdateViewModel();
         UpdateDeafenKeybindDisplay();
         try
-        {
-            _ = _chartManager.UpdateChart(_tosuApi.GetGraphData(), _viewModel.MinCompletionPercentage);
+        { 
+            _chartManager.UpdateDeafenOverlaySection(_viewModel.MinCompletionPercentage);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Exception while updating chart after deleting preset: {ex}");
+            Console.WriteLine($"[ERROR] Exception while updating Deafen Section after deleting preset: {ex}");
         }
         DeletePresetData();
+        _viewModel.RefreshPresets();
     }
     
     /// <summary>
@@ -906,6 +895,7 @@ public partial class MainWindow : Window
         _viewModel.PresetExistsForCurrentChecksum = true;
         _settingsHandler?.ActivatePreset(presetFilePath);
         CreatePresetData();
+        _viewModel.RefreshPresets();
     }
     
     /// <summary>
@@ -958,11 +948,11 @@ public partial class MainWindow : Window
             UpdateDeafenKeybindDisplay();
             try
             {
-                _ = _chartManager.UpdateChart(_tosuApi.GetGraphData(), _viewModel.MinCompletionPercentage);
+                _chartManager.UpdateDeafenOverlaySection(_viewModel.MinCompletionPercentage);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ERROR] Exception while updating chart after deleting preset: {ex}");
+                Console.WriteLine($"[ERROR] Exception while updating Deafen Section after applying preset: {ex}");
             }
             btn.Flyout?.Hide();
         }
@@ -1039,6 +1029,65 @@ public partial class MainWindow : Window
 
         if (File.Exists(presetDataFilePath))
             File.Delete(presetDataFilePath);
+    }    
+    private void DeleteAllPresetData()
+    {
+        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "presets");
+        if (Directory.Exists(presetsPath))
+        {
+            var presetDataFiles = Directory.GetFiles(presetsPath, "*.preset.data");
+            foreach (var file in presetDataFiles)
+            {
+                try
+                {
+                    File.Delete(file);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ERROR] Could not delete preset data file {file}: {ex}");
+                }
+            }
+        }
+        _viewModel.RefreshPresets();
+    }
+    
+    private void DeleteAllPresetsButtonYes_Click(object sender, RoutedEventArgs e)
+    {
+        DeleteAllPresetsButton.Flyout?.Hide();
+        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "presets");
+        if (Directory.Exists(presetsPath))
+        {
+            var presetFiles = Directory.GetFiles(presetsPath, "*.preset");
+            foreach (var file in presetFiles)
+            {
+                try
+                {
+                    File.Delete(file);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ERROR] Could not delete preset file {file}: {ex}");
+                }
+            }
+        }
+        DeleteAllPresetData();
+        _settingsHandler?.DeactivatePreset();
+        _viewModel.PresetExistsForCurrentChecksum = false;
+        UpdateViewModel();
+        UpdateDeafenKeybindDisplay();
+        try
+        {
+            _chartManager.UpdateDeafenOverlaySection(_viewModel.MinCompletionPercentage);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Exception while updating Deafen Section after deleting all presets: {ex}");
+        }
+    }
+    
+    private void DeleteAllPresetsButtonNo_Click(object sender, RoutedEventArgs e)
+    {
+        DeleteAllPresetsButton.Flyout?.Hide();
     }
 
     private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -1100,7 +1149,7 @@ public partial class MainWindow : Window
                     _kiaiBrightnessTimer.Tick += async (_, _) =>
                     {
                         _isKiaiPulseHigh = !_isKiaiPulseHigh;
-                        double opacityValue = _isKiaiPulseHigh ? 1.0 - opacity : 0.95 - opacity;
+                        double opacityValue = _isKiaiPulseHigh ? 1.0 - _opacity : 0.95 - _opacity;
                         await _backgroundManager.RequestBackgroundOpacity("kiai", opacityValue, 10000,
                             (int)(intervalMs / 4));
                     };
@@ -1687,7 +1736,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            settingsButtonClicked?.Invoke();
+            _settingsButtonClicked?.Invoke();
             DockPanel? settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
             Border? buttonContainer = this.FindControl<Border>("SettingsButtonContainer");
             Image? cogImage = this.FindControl<Image>("SettingsCogImage");
@@ -1972,7 +2021,7 @@ public partial class MainWindow : Window
             _cogSpinTimer.Tick += (s, ev) =>
             {
                 double elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
-                double angle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / beatsPerRotation) % 360;
+                double angle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / BeatsPerRotation) % 360;
                 _cogCurrentAngle = angle;
                 rotate.Angle = angle;
             };
@@ -2025,7 +2074,7 @@ public partial class MainWindow : Window
         if (_cogSpinTimer != null && _cogSpinTimer.IsEnabled)
         {
             double elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
-            _cogSpinStartAngle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / beatsPerRotation) % 360;
+            _cogSpinStartAngle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / BeatsPerRotation) % 360;
             _cogSpinStartTime = DateTime.UtcNow;
             _cogSpinBpm = _tosuApi.GetCurrentBpm() > 0 ? _tosuApi.GetCurrentBpm() : 140;
 

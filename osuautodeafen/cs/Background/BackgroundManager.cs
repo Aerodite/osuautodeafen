@@ -108,7 +108,7 @@ public async Task UpdateBackground(object? sender, EventArgs? e)
     {
         if (!viewModel.IsBackgroundEnabled)
         {
-            window._normalBackground?.SetValueSafe(x => x.IsVisible = false);
+            window.NormalBackground?.SetValueSafe(x => x.IsVisible = false);
             return;
         }
 

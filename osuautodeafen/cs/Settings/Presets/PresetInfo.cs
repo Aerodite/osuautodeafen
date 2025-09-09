@@ -1,7 +1,30 @@
+using System;
+using System.ComponentModel;
+
 namespace osuautodeafen.cs.Settings.Presets;
 
 public class PresetInfo
 {
+    private bool _isCurrentPreset;
+    public bool IsCurrentPreset
+    {
+        get => _isCurrentPreset;
+        set
+        {
+            if (_isCurrentPreset != value)
+            {
+                _isCurrentPreset = value;
+                OnPropertyChanged(nameof(IsCurrentPreset));
+            }
+        }
+    }
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged(string propertyName)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+    
     public int Index { get; set; }
     public string FullBeatmapName { get; set; } = "";
     public string Artist { get; set; } = "";

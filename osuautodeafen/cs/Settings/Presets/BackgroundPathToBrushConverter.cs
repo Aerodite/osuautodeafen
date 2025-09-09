@@ -16,6 +16,14 @@ public class BackgroundPathToBrushConverter : IValueConverter
     private const int CropWidth = 185;
     private const int CropHeight = 35;
 
+    /// <summary>
+    /// Converts a file path to an ImageBrush then crops and scales it.
+    /// </summary>
+    /// <param name="value"></param>
+    /// <param name="targetType"></param>
+    /// <param name="parameter"></param>
+    /// <param name="culture"></param>
+    /// <returns></returns>
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         string? path = value as string;

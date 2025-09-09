@@ -819,7 +819,7 @@ public class ChartManager
     ///     Updates the deafen overlay section position based on the minimum completion percentage
     /// </summary>
     /// <param name="minCompletionPercentage"></param>
-    private void UpdateDeafenOverlaySection(double minCompletionPercentage)
+    public void UpdateDeafenOverlaySection(double minCompletionPercentage)
     {
         double newXi = minCompletionPercentage * MaxLimit / 100.0;
         var sections = PlotView.Sections.ToList();

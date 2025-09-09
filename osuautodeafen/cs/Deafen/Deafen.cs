@@ -33,7 +33,7 @@ public class Deafen : IDisposable
         _settingsHandler = settingsHandler;
 
         // handled separately from maintimer just in case
-        _timer = new Timer(100);
+        _timer = new Timer(16);
         _timer.Elapsed += (_, _) => CheckAndDeafen();
         _timer.Start();
     }
