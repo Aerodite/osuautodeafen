@@ -27,7 +27,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private double _windowWidth;
     
     public int DeafenKeybindKey { get; private set; }
-    public int DeafenKeybindModifiers { get; private set; }
     public int DeafenKeybindControlSide { get; private set; }
     public int DeafenKeybindAltSide { get; private set; }
     public int DeafenKeybindShiftSide { get; private set; }
@@ -223,10 +222,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
         data.Sections.AddSection("Hotkeys");
         data["Hotkeys"]["DeafenKeybindKey"] = "47"; // D
-        data["Hotkeys"]["DeafenKeybindModifiers"] = "2"; // Ctrl
-        data["Hotkeys"]["DeafenKeybindControlSide"] = "0"; // None
-        data["Hotkeys"]["DeafenKeybindAltSide"] = "0"; // None
-        data["Hotkeys"]["DeafenKeybindShiftSide"] = "0"; // None
+        data["Hotkeys"]["DeafenKeybindControlSide"] = "1"; // Left Control
+        data["Hotkeys"]["DeafenKeybindAltSide"] = "0";
+        data["Hotkeys"]["DeafenKeybindShiftSide"] = "0";
 
         data.Sections.AddSection("UI");
         data["UI"]["IsBackgroundEnabled"] = "True";
@@ -289,7 +287,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         UndeafenAfterMiss = bool.TryParse(Data["Behavior"]["UndeafenAfterMiss"], out bool uam) && uam;
 
         DeafenKeybindKey = int.TryParse(Data["Hotkeys"]["DeafenKeybindKey"], out int keyVal) ? keyVal : 0;
-        DeafenKeybindModifiers = int.TryParse(Data["Hotkeys"]["DeafenKeybindModifiers"], out int modVal) ? modVal : 0;
         DeafenKeybindControlSide = int.TryParse(Data["Hotkeys"]["DeafenKeybindControlSide"], out int ctrlSide) ? ctrlSide : 0;
         DeafenKeybindAltSide = int.TryParse(Data["Hotkeys"]["DeafenKeybindAltSide"], out int altSide) ? altSide : 0;
         DeafenKeybindShiftSide = int.TryParse(Data["Hotkeys"]["DeafenKeybindShiftSide"], out int shiftSide) ? shiftSide : 0;
@@ -339,7 +336,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         _parser.WriteFile(path, targetData);
         
         DeafenKeybindKey = int.TryParse(targetData["Hotkeys"]["DeafenKeybindKey"], out int keyVal) ? keyVal : 0;
-        DeafenKeybindModifiers = int.TryParse(targetData["Hotkeys"]["DeafenKeybindModifiers"], out int modVal) ? modVal : 0;
         DeafenKeybindControlSide = int.TryParse(targetData["Hotkeys"]["DeafenKeybindControlSide"], out int ctrlSide) ? ctrlSide : 0;
         DeafenKeybindAltSide = int.TryParse(targetData["Hotkeys"]["DeafenKeybindAltSide"], out int altSide) ? altSide : 0;
         DeafenKeybindShiftSide = int.TryParse(targetData["Hotkeys"]["DeafenKeybindShiftSide"], out int shiftSide) ? shiftSide : 0;

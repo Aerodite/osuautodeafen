@@ -1355,22 +1355,31 @@ public partial class MainWindow : Window
     /// <returns></returns>
     private string RetrieveKeybindFromSettings()
     {
-        string? keyStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindKey"];
-        string? modStr = _settingsHandler?.Data["Hotkeys"]["DeafenKeybindModifiers"];
-        if (string.IsNullOrEmpty(keyStr) || string.IsNullOrEmpty(modStr))
+        var hotkeys = _settingsHandler?.Data["Hotkeys"];
+        if (hotkeys == null)
             return "Set Keybind";
 
-        if (!int.TryParse(keyStr, out int keyVal) || !int.TryParse(modStr, out int modVal))
+        string? keyStr = hotkeys["DeafenKeybindKey"];
+        string? controlSideStr = hotkeys["DeafenKeybindControlSide"];
+        string? altSideStr = hotkeys["DeafenKeybindAltSide"];
+        string? shiftSideStr = hotkeys["DeafenKeybindShiftSide"];
+
+        if (string.IsNullOrEmpty(keyStr))
             return "Set Keybind";
 
-        Key key = (Key)keyVal;
-        KeyModifiers modifiers = (KeyModifiers)modVal;
+        if (!int.TryParse(keyStr, out int keyVal))
+            return "Set Keybind";
 
         string display = "";
-        if (modifiers.HasFlag(KeyModifiers.Control)) display += "Ctrl+";
-        if (modifiers.HasFlag(KeyModifiers.Alt)) display += "Alt+";
-        if (modifiers.HasFlag(KeyModifiers.Shift)) display += "Shift+";
-        display += GetFriendlyKeyName(key);
+
+        if (int.TryParse(controlSideStr, out int controlSide) && controlSide != 0)
+            display += controlSide == 2 ? "RCtrl+" : "LCtrl+";
+        if (int.TryParse(altSideStr, out int altSide) && altSide != 0)
+            display += altSide == 2 ? "RAlt+" : "LAlt+";
+        if (int.TryParse(shiftSideStr, out int shiftSide) && shiftSide != 0)
+            display += shiftSide == 2 ? "RShift+" : "LShift+";
+
+        display += GetFriendlyKeyName((Key)keyVal);
         return display;
     }
 

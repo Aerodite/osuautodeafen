@@ -627,14 +627,14 @@
                                Foreground="White"
                                FontSize="16" />
                     <StackPanel HorizontalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,10,10,0">
                             <Image Source="avares://osuautodeafen/Icons/keyboard-solid.png" Width="27"
                                    Height="27" Margin="0,0,5,0">
                                 <ToolTip.Tip>
                                     <TextBlock Text="Click to set your Discord Toggle Deafen keybind" />
                                 </ToolTip.Tip>
                             </Image>
-                            <Button x:Name="DeafenKeybindButton" Width="91" Height="40"
+                            <Button x:Name="DeafenKeybindButton" Width="100" Height="40"
                                     HorizontalAlignment="Left" FontSize="11" Margin="0"
                                     Content="{Binding DeafenKeybindDisplay}"
                                     HorizontalContentAlignment="Center"
