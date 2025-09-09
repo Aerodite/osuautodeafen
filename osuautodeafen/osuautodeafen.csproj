@@ -89,9 +89,9 @@
         <AvaloniaResource Include="Icons\star-half-stroke-solid.png"/>
         <None Remove="Icons\code-solid.png"/>
         <AvaloniaResource Include="Icons\code-solid.png"/>
-        <None Remove="Icons\trash-can-solid-full.png" />
-        <None Remove="Icons\trash-can-solid.png" />
-        <AvaloniaResource Include="Icons\trash-can-solid.png" />
+        <None Remove="Icons\trash-can-solid-full.png"/>
+        <None Remove="Icons\trash-can-solid.png"/>
+        <AvaloniaResource Include="Icons\trash-can-solid.png"/>
     </ItemGroup>
 
     <ItemGroup>

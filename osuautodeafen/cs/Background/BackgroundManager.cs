@@ -102,86 +102,89 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
-public async Task UpdateBackground(object? sender, EventArgs? e)
-{
-    try
+    public async Task UpdateBackground(object? sender, EventArgs? e)
     {
-        if (!viewModel.IsBackgroundEnabled)
+        try
         {
-            window.NormalBackground?.SetValueSafe(x => x.IsVisible = false);
-            return;
-        }
-
-        string backgroundPath = tosuApi.GetBackgroundPath();
-        if (_currentBitmap == null || backgroundPath != _currentBackgroundDirectory)
-        {
-            _currentBackgroundDirectory = backgroundPath;
-            Bitmap? newBitmap = await LoadBitmapAsync(backgroundPath);
-            if (newBitmap == null || newBitmap.PixelSize.Width == 0 || newBitmap.PixelSize.Height == 0)
+            if (!viewModel.IsBackgroundEnabled)
             {
-                Console.WriteLine($"Failed to load valid background: {backgroundPath}");
+                window.NormalBackground?.SetValueSafe(x => x.IsVisible = false);
                 return;
             }
 
-            _currentBitmap?.Dispose();
-            _currentBitmap = newBitmap;
-
-            await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
-            if (_logoUpdater != null) await Dispatcher.UIThread.InvokeAsync(_logoUpdater.UpdateLogoAsync);
-            _isBlackBackgroundDisplayed = false;
-        }
-        else
-        {
-            if (_currentBitmap == null || _currentBitmap.PixelSize.Width == 0 || _currentBitmap.PixelSize.Height == 0)
+            string backgroundPath = tosuApi.GetBackgroundPath();
+            if (_currentBitmap == null || backgroundPath != _currentBackgroundDirectory)
             {
-                Console.WriteLine("Current bitmap is null or invalid.");
-                return;
-            }
-            await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
-        }
-
-        if (_backgroundPropertyChangedHandler == null)
-        {
-            _backgroundPropertyChangedHandler = async void (s, args) =>
-            {
-                try
+                _currentBackgroundDirectory = backgroundPath;
+                Bitmap? newBitmap = await LoadBitmapAsync(backgroundPath);
+                if (newBitmap == null || newBitmap.PixelSize.Width == 0 || newBitmap.PixelSize.Height == 0)
                 {
-                    switch (args.PropertyName)
+                    Console.WriteLine($"Failed to load valid background: {backgroundPath}");
+                    return;
+                }
+
+                _currentBitmap?.Dispose();
+                _currentBitmap = newBitmap;
+
+                await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
+                if (_logoUpdater != null) await Dispatcher.UIThread.InvokeAsync(_logoUpdater.UpdateLogoAsync);
+                _isBlackBackgroundDisplayed = false;
+            }
+            else
+            {
+                if (_currentBitmap == null || _currentBitmap.PixelSize.Width == 0 ||
+                    _currentBitmap.PixelSize.Height == 0)
+                {
+                    Console.WriteLine("Current bitmap is null or invalid.");
+                    return;
+                }
+
+                await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
+            }
+
+            if (_backgroundPropertyChangedHandler == null)
+            {
+                _backgroundPropertyChangedHandler = async void (s, args) =>
+                {
+                    try
                     {
-                        case nameof(viewModel.IsBackgroundEnabled) when !viewModel.IsBackgroundEnabled:
-                            if (!_isBlackBackgroundDisplayed)
-                            {
-                                await RequestBackgroundOpacity("noBackground", 0.0, 100);
-                                _isBlackBackgroundDisplayed = true;
-                            }
-                            break;
-                        case nameof(viewModel.IsBackgroundEnabled):
-                            if (_isBlackBackgroundDisplayed)
-                            {
-                                RemoveBackgroundOpacityRequest("noBackground");
-                                if (_currentBitmap != null && _currentBitmap.PixelSize.Width > 0 && _currentBitmap.PixelSize.Height > 0)
+                        switch (args.PropertyName)
+                        {
+                            case nameof(viewModel.IsBackgroundEnabled) when !viewModel.IsBackgroundEnabled:
+                                if (!_isBlackBackgroundDisplayed)
                                 {
-                                    await Dispatcher.UIThread.InvokeAsync(() =>
-                                        UpdateUIWithNewBackgroundAsync(_currentBitmap));
+                                    await RequestBackgroundOpacity("noBackground", 0.0, 100);
+                                    _isBlackBackgroundDisplayed = true;
                                 }
-                                _isBlackBackgroundDisplayed = false;
-                            }
-                            break;
+
+                                break;
+                            case nameof(viewModel.IsBackgroundEnabled):
+                                if (_isBlackBackgroundDisplayed)
+                                {
+                                    RemoveBackgroundOpacityRequest("noBackground");
+                                    if (_currentBitmap != null && _currentBitmap.PixelSize.Width > 0 &&
+                                        _currentBitmap.PixelSize.Height > 0)
+                                        await Dispatcher.UIThread.InvokeAsync(() =>
+                                            UpdateUIWithNewBackgroundAsync(_currentBitmap));
+                                    _isBlackBackgroundDisplayed = false;
+                                }
+
+                                break;
+                        }
                     }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("[ERROR] Exception in background property changed handler: " + ex);
-                }
-            };
-            viewModel.PropertyChanged += _backgroundPropertyChangedHandler;
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("[ERROR] Exception in background property changed handler: " + ex);
+                    }
+                };
+                viewModel.PropertyChanged += _backgroundPropertyChangedHandler;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("[ERROR] Exception in UpdateBackground: " + ex);
         }
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine("[ERROR] Exception in UpdateBackground: " + ex);
-    }
-}
 
     /// <summary>
     ///     Loads a bitmap from the specified file path asynchronously
@@ -536,10 +539,7 @@ public async Task UpdateBackground(object? sender, EventArgs? e)
     /// <param name="key"></param>
     public void RemoveBackgroundOpacityRequest(string key)
     {
-        if (_opacityRequests.Remove(key))
-        {
-            _ = ApplyHighestPriorityOpacity(200);
-        }
+        if (_opacityRequests.Remove(key)) _ = ApplyHighestPriorityOpacity(200);
     }
 
     /// <summary>

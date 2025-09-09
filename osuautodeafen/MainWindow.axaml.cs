@@ -21,6 +21,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using IniParser.Model;
 using LiveChartsCore.Defaults;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Background;
@@ -39,6 +40,14 @@ namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
+    public enum ModifierSide
+    {
+        None,
+        Left,
+        Right
+    }
+
+    private const double BeatsPerRotation = 4;
     private readonly AnimationManager _animationManager = new();
     private readonly BackgroundManager? _backgroundManager;
 
@@ -51,15 +60,24 @@ public partial class MainWindow : Window
     private readonly LogImportant _logImportant = new();
     private readonly DispatcherTimer _mainTimer;
     private readonly SemaphoreSlim _panelAnimationLock = new(1, 1);
+
+    private readonly HashSet<Key> _pressedKeys = new();
     private readonly ProgressIndicatorHelper _progressIndicatorHelper;
+    private readonly Action _settingsButtonClicked;
     private readonly SettingsHandler? _settingsHandler;
     private readonly TooltipManager _tooltipManager = new();
     private readonly TosuApi _tosuApi;
     private readonly UpdateChecker _updateChecker = new();
     private readonly SemaphoreSlim _updateCheckLock = new(1, 1);
     private readonly SharedViewModel _viewModel;
-    private readonly Action _settingsButtonClicked;
     private CancellationTokenSource? _blurCts;
+    private double _cogCurrentAngle;
+    private double _cogSpinBpm = 140;
+    private double _cogSpinStartAngle;
+    private DateTime _cogSpinStartTime;
+    private DispatcherTimer? _cogSpinTimer;
+
+    private DispatcherTimer? _completionPercentageSaveTimer;
 
     private CancellationTokenSource? _frameCts;
     private bool _isCogSpinning;
@@ -72,28 +90,19 @@ public partial class MainWindow : Window
     private DateTime _lastKeyPressTime = DateTime.MinValue;
     private LogoControl? _logoControl;
     private DispatcherTimer? _logUpdateTimer;
- 
-    private Button? _updateNotificationBarButton;
-    private ProgressBar? _updateProgressBar;
     private double _opacity = 1.00;
-    
-    private DispatcherTimer? _completionPercentageSaveTimer;
     private double _pendingCompletionPercentage;
-
-    private DispatcherTimer? _starRatingSaveTimer;
+    private int _pendingPP;
     private double _pendingStarRating;
 
     private DispatcherTimer? _ppSaveTimer;
-    private int _pendingPP;
-    
+
+    private DispatcherTimer? _starRatingSaveTimer;
+
+    private Button? _updateNotificationBarButton;
+    private ProgressBar? _updateProgressBar;
+
     public Image? NormalBackground;
-    
-    private const double BeatsPerRotation = 4;
-    private double _cogCurrentAngle;
-    private double _cogSpinBpm = 140;
-    private double _cogSpinStartAngle;
-    private DateTime _cogSpinStartTime;
-    private DispatcherTimer? _cogSpinTimer;
 
     /// <summary>
     ///     Primary Constructor for MainWindow
@@ -118,12 +127,12 @@ public partial class MainWindow : Window
         _viewModel = new SharedViewModel(_tosuApi);
         ViewModel = _viewModel;
         DataContext = _viewModel;
-        
+
         _settingsHandler = new SettingsHandler();
         _settingsHandler.LoadSettings();
         InitializeSettings();
 
-        PresetInfo presetInfo = new PresetInfo();
+        PresetInfo presetInfo = new();
 
         InitializeLogo();
 
@@ -219,7 +228,8 @@ public partial class MainWindow : Window
         _tosuApi.BeatmapChanged += async () =>
         {
             string checksum = _tosuApi.GetBeatmapChecksum();
-            string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "presets");
+            string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "osuautodeafen", "presets");
             string presetFilePath = Path.Combine(presetsPath, $"{checksum}.preset");
             _viewModel.PresetExistsForCurrentChecksum = File.Exists(presetFilePath);
             foreach (PresetInfo preset in _viewModel.Presets ?? Enumerable.Empty<PresetInfo>())
@@ -227,7 +237,7 @@ public partial class MainWindow : Window
                 preset.IsCurrentPreset = preset.Checksum == _tosuApi.GetBeatmapChecksum();
                 Console.WriteLine($"Preset {preset.BeatmapName} IsCurrentPreset: {preset.IsCurrentPreset}");
             }
-            
+
             if (_viewModel.PresetExistsForCurrentChecksum)
             {
                 _settingsHandler.ActivatePreset(presetFilePath);
@@ -237,9 +247,10 @@ public partial class MainWindow : Window
                 _settingsHandler.DeactivatePreset();
                 _settingsHandler.LoadSettings();
             }
+
             UpdateDeafenKeybindDisplay();
             UpdateViewModel();
-            
+
             _logImportant.logImportant("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false,
                 "Client");
             // thanks a lot take a hint for letting me figure this one out 😔
@@ -399,7 +410,7 @@ public partial class MainWindow : Window
                     await _backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150);
             }
         };
-        var settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
+        DockPanel? settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
         settingsPanel.Transitions = new Transitions
         {
             new DoubleTransition
@@ -454,45 +465,48 @@ public partial class MainWindow : Window
         BlurEffectSlider.Value = ViewModel.BlurRadius;
     }
 
+
+    private SharedViewModel ViewModel { get; }
+
     private void UpdateViewModel()
     {
         _viewModel.MinCompletionPercentage = _settingsHandler.MinCompletionPercentage;
-            _viewModel.StarRating = _settingsHandler.StarRating;
-            _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
-            _viewModel.BlurRadius = _settingsHandler.BlurRadius;
+        _viewModel.StarRating = _settingsHandler.StarRating;
+        _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
+        _viewModel.BlurRadius = _settingsHandler.BlurRadius;
 
-            _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
-            _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
-            //_viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
+        _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
+        _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
+        //_viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
 
-            _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
-            _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
-            _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
+        _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
+        _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
+        _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
 
-            CompletionPercentageSlider.ValueChanged -= CompletionPercentageSlider_ValueChanged;
-            StarRatingSlider.ValueChanged -= StarRatingSlider_ValueChanged;
-            PPSlider.ValueChanged -= PPSlider_ValueChanged;
-            BlurEffectSlider.ValueChanged -= BlurEffectSlider_ValueChanged;
+        CompletionPercentageSlider.ValueChanged -= CompletionPercentageSlider_ValueChanged;
+        StarRatingSlider.ValueChanged -= StarRatingSlider_ValueChanged;
+        PPSlider.ValueChanged -= PPSlider_ValueChanged;
+        BlurEffectSlider.ValueChanged -= BlurEffectSlider_ValueChanged;
 
-            CompletionPercentageSlider.Value = _viewModel.MinCompletionPercentage;
-            StarRatingSlider.Value = _viewModel.StarRating;
-            PPSlider.Value = _viewModel.PerformancePoints;
-            BlurEffectSlider.Value = _viewModel.BlurRadius;
+        CompletionPercentageSlider.Value = _viewModel.MinCompletionPercentage;
+        StarRatingSlider.Value = _viewModel.StarRating;
+        PPSlider.Value = _viewModel.PerformancePoints;
+        BlurEffectSlider.Value = _viewModel.BlurRadius;
 
-            CompletionPercentageSlider.ValueChanged += CompletionPercentageSlider_ValueChanged;
-            StarRatingSlider.ValueChanged += StarRatingSlider_ValueChanged;
-            PPSlider.ValueChanged += PPSlider_ValueChanged;
-            BlurEffectSlider.ValueChanged += BlurEffectSlider_ValueChanged;
+        CompletionPercentageSlider.ValueChanged += CompletionPercentageSlider_ValueChanged;
+        StarRatingSlider.ValueChanged += StarRatingSlider_ValueChanged;
+        PPSlider.ValueChanged += PPSlider_ValueChanged;
+        BlurEffectSlider.ValueChanged += BlurEffectSlider_ValueChanged;
 
-            FCToggle.IsChecked = _viewModel.IsFCRequired;
-            UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
-            //BreakUndeafenToggle.IsChecked = _viewModel.IsBreakUndeafenToggleEnabled;
+        FCToggle.IsChecked = _viewModel.IsFCRequired;
+        UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
+        //BreakUndeafenToggle.IsChecked = _viewModel.IsBreakUndeafenToggleEnabled;
 
-            BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
-            ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
-            KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
+        BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
+        ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
+        KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
     }
-    
+
     private void InitializeSettings()
     {
         _viewModel.MinCompletionPercentage = _settingsHandler.MinCompletionPercentage;
@@ -530,7 +544,7 @@ public partial class MainWindow : Window
         BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
         ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
         KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
-        
+
         _viewModel.DeafenKeybind = new HotKey
         {
             Key = _settingsHandler.Data["Hotkeys"]["DeafenKeybindKey"] is { } keyStr &&
@@ -548,9 +562,6 @@ public partial class MainWindow : Window
                     : Key.None)
         };
     }
-    
-
-    private SharedViewModel ViewModel { get; }
 
     /// <summary>
     ///     Resets all settings to their default values on click
@@ -772,7 +783,7 @@ public partial class MainWindow : Window
         if (sender is Slider slider)
             ToolTip.SetIsOpen(slider, false);
     }
-    
+
     public async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (DataContext is not SharedViewModel vm) return;
@@ -802,7 +813,7 @@ public partial class MainWindow : Window
             Console.WriteLine($"[ERROR] Exception in CompletionPercentageSlider_ValueChanged: {ex}");
         }
     }
-    
+
     private void StarRatingSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
@@ -848,9 +859,9 @@ public partial class MainWindow : Window
         vm.BlurRadius = roundedValue;
         _settingsHandler?.SaveSetting("UI", "BlurRadius", roundedValue);
     }
-    
+
     /// <summary>
-    ///  Deletes the preset for the current beatmap if "Yes" is clicked
+    ///     Deletes the preset for the current beatmap if "Yes" is clicked
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
@@ -858,7 +869,8 @@ public partial class MainWindow : Window
     {
         DeletePresetButton.Flyout?.Hide();
         string checksum = _tosuApi.GetBeatmapChecksum();
-        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "presets");
+        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "presets");
         string presetFilePath = Path.Combine(presetsPath, $"{checksum}.preset");
         if (File.Exists(presetFilePath))
             File.Delete(presetFilePath);
@@ -868,19 +880,20 @@ public partial class MainWindow : Window
         UpdateViewModel();
         UpdateDeafenKeybindDisplay();
         try
-        { 
+        {
             _chartManager.UpdateDeafenOverlaySection(_viewModel.MinCompletionPercentage);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[ERROR] Exception while updating Deafen Section after deleting preset: {ex}");
         }
+
         DeletePresetData();
         _viewModel.RefreshPresets();
     }
-    
+
     /// <summary>
-    ///   Creates a preset for the current beatmap if "Yes" is clicked
+    ///     Creates a preset for the current beatmap if "Yes" is clicked
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
@@ -888,18 +901,20 @@ public partial class MainWindow : Window
     {
         CreatePresetButton.Flyout?.Hide();
         string checksum = _tosuApi.GetBeatmapChecksum();
-        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "presets");
+        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "presets");
         string presetFilePath = Path.Combine(presetsPath, $"{checksum}.preset");
-        string settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "settings.ini");
+        string settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "settings.ini");
         File.Copy(settingsPath, presetFilePath, true);
         _viewModel.PresetExistsForCurrentChecksum = true;
         _settingsHandler?.ActivatePreset(presetFilePath);
         CreatePresetData();
         _viewModel.RefreshPresets();
     }
-    
+
     /// <summary>
-    ///  Closes the Create Preset flyout if the user clicked the button by mistake
+    ///     Closes the Create Preset flyout if the user clicked the button by mistake
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
@@ -907,9 +922,9 @@ public partial class MainWindow : Window
     {
         CreatePresetButton.Flyout?.Hide();
     }
-    
+
     /// <summary>
-    ///   Closes the Delete Preset flyout if the user clicked the button by mistake
+    ///     Closes the Delete Preset flyout if the user clicked the button by mistake
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
@@ -917,9 +932,9 @@ public partial class MainWindow : Window
     {
         DeletePresetButton.Flyout?.Hide();
     }
-    
+
     /// <summary>
-    ///    Applies the selected preset when a preset item is clicked
+    ///     Applies the selected preset when a preset item is clicked
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
@@ -930,9 +945,10 @@ public partial class MainWindow : Window
             string selectedPresetPath = preset.FilePath;
             Console.WriteLine($"Selected Preset Path: {selectedPresetPath}");
             string currentChecksum = _tosuApi.GetBeatmapChecksum();
-            string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "presets");
+            string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "osuautodeafen", "presets");
             string currentPresetPath = Path.Combine(presetsPath, $"{currentChecksum}.preset");
-            
+
             // selectedPresetPath ends with .data because that is what is being used to display the background,
             // this just ensures we copy from the right file
             string presetSourcePath = selectedPresetPath.EndsWith(".data")
@@ -954,31 +970,30 @@ public partial class MainWindow : Window
             {
                 Console.WriteLine($"[ERROR] Exception while updating Deafen Section after applying preset: {ex}");
             }
+
             btn.Flyout?.Hide();
         }
     }
-    
+
     /// <summary>
-    ///  Opens the preset selection flyout and refreshes the presets list
+    ///     Opens the preset selection flyout and refreshes the presets list
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
     private void LoadPresetButton_Click(object sender, RoutedEventArgs e)
     {
         _viewModel.RefreshPresets();
-        if (sender is Button btn)
-        {
-            btn.Flyout?.ShowAt(btn);
-        }
+        if (sender is Button btn) btn.Flyout?.ShowAt(btn);
     }
 
     /// <summary>
-    /// Creates a .preset.data file that contains beatmap information for the current beatmap
+    ///     Creates a .preset.data file that contains beatmap information for the current beatmap
     /// </summary>
     private void CreatePresetData()
     {
         string checksum = _tosuApi.GetBeatmapChecksum();
-        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "presets");
+        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "presets");
         string presetDataFilePath = Path.Combine(presetsPath, $"{checksum}.preset.data");
 
         string? artist = _tosuApi.GetBeatmapArtist();
@@ -990,7 +1005,7 @@ public partial class MainWindow : Window
         string rankedStatus = _tosuApi.GetRankedStatus().ToString(CultureInfo.InvariantCulture);
         string starRating = _tosuApi.GetFullSR().ToString("F1", CultureInfo.InvariantCulture);
         string mapper = _tosuApi.GetBeatmapMapper();
-        
+
 
         LogoUpdater? logoUpdater = _backgroundManager?._logoUpdater;
         string avgColor1 = logoUpdater?.AverageColor1.ToString() ?? "#000000";
@@ -1017,27 +1032,29 @@ public partial class MainWindow : Window
 
         File.WriteAllLines(presetDataFilePath, lines);
     }
-    
+
     /// <summary>
-    /// Deletes the .preset.data file for the current beatmap if it exists
+    ///     Deletes the .preset.data file for the current beatmap if it exists
     /// </summary>
     private void DeletePresetData()
     {
         string checksum = _tosuApi.GetBeatmapChecksum();
-        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "presets");
+        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "presets");
         string presetDataFilePath = Path.Combine(presetsPath, $"{checksum}.preset.data");
 
         if (File.Exists(presetDataFilePath))
             File.Delete(presetDataFilePath);
-    }    
+    }
+
     private void DeleteAllPresetData()
     {
-        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "presets");
+        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "presets");
         if (Directory.Exists(presetsPath))
         {
-            var presetDataFiles = Directory.GetFiles(presetsPath, "*.preset.data");
-            foreach (var file in presetDataFiles)
-            {
+            string[] presetDataFiles = Directory.GetFiles(presetsPath, "*.preset.data");
+            foreach (string file in presetDataFiles)
                 try
                 {
                     File.Delete(file);
@@ -1046,20 +1063,20 @@ public partial class MainWindow : Window
                 {
                     Console.WriteLine($"[ERROR] Could not delete preset data file {file}: {ex}");
                 }
-            }
         }
+
         _viewModel.RefreshPresets();
     }
-    
+
     private void DeleteAllPresetsButtonYes_Click(object sender, RoutedEventArgs e)
     {
         DeleteAllPresetsButton.Flyout?.Hide();
-        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "osuautodeafen", "presets");
+        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen", "presets");
         if (Directory.Exists(presetsPath))
         {
-            var presetFiles = Directory.GetFiles(presetsPath, "*.preset");
-            foreach (var file in presetFiles)
-            {
+            string[] presetFiles = Directory.GetFiles(presetsPath, "*.preset");
+            foreach (string file in presetFiles)
                 try
                 {
                     File.Delete(file);
@@ -1068,8 +1085,8 @@ public partial class MainWindow : Window
                 {
                     Console.WriteLine($"[ERROR] Could not delete preset file {file}: {ex}");
                 }
-            }
         }
+
         DeleteAllPresetData();
         _settingsHandler?.DeactivatePreset();
         _viewModel.PresetExistsForCurrentChecksum = false;
@@ -1084,7 +1101,7 @@ public partial class MainWindow : Window
             Console.WriteLine($"[ERROR] Exception while updating Deafen Section after deleting all presets: {ex}");
         }
     }
-    
+
     private void DeleteAllPresetsButtonNo_Click(object sender, RoutedEventArgs e)
     {
         DeleteAllPresetsButton.Flyout?.Hide();
@@ -1157,27 +1174,22 @@ public partial class MainWindow : Window
                 }
             }
         }
+
         if (e.PropertyName == nameof(SharedViewModel.IsParallaxEnabled))
-        {
             _settingsHandler?.SaveSetting("UI", "IsParallaxEnabled", _viewModel.IsParallaxEnabled);
-        }
         if (e.PropertyName == nameof(SharedViewModel.IsKiaiEffectEnabled))
         {
             _settingsHandler?.SaveSetting("UI", "IsKiaiEffectEnabled", _viewModel.IsKiaiEffectEnabled);
             _tosuApi.RaiseKiaiChanged();
         }
+
         if (e.PropertyName == nameof(SharedViewModel.IsBreakUndeafenToggleEnabled))
-        {
-            _settingsHandler?.SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled", _viewModel.IsBreakUndeafenToggleEnabled);
-        }
+            _settingsHandler?.SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled",
+                _viewModel.IsBreakUndeafenToggleEnabled);
         if (e.PropertyName == nameof(SharedViewModel.UndeafenAfterMiss))
-        {
             _settingsHandler?.SaveSetting("Behavior", "UndeafenAfterMiss", _viewModel.UndeafenAfterMiss);
-        }
         if (e.PropertyName == nameof(SharedViewModel.IsFCRequired))
-        {
             _settingsHandler?.SaveSetting("Behavior", "IsFCRequired", _viewModel.IsFCRequired);
-        }
     }
 
     /// <summary>
@@ -1251,7 +1263,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private readonly HashSet<Key> _pressedKeys = new();
     /// <summary>
     ///     Captures key presses when the keybind capture flyout is open
     /// </summary>
@@ -1343,19 +1354,20 @@ public partial class MainWindow : Window
                 break;
         }
     }
-    
+
     protected override void OnKeyUp(KeyEventArgs e)
     {
         base.OnKeyUp(e);
         _pressedKeys.Remove(e.Key);
     }
+
     /// <summary>
     ///     Retrieves the currently set keybind from settings and formats it for display
     /// </summary>
     /// <returns></returns>
     private string RetrieveKeybindFromSettings()
     {
-        var hotkeys = _settingsHandler?.Data["Hotkeys"];
+        KeyDataCollection? hotkeys = _settingsHandler?.Data["Hotkeys"];
         if (hotkeys == null)
             return "Set Keybind";
 
@@ -2327,13 +2339,7 @@ public partial class MainWindow : Window
         Match match = urlRegex.Match(logText);
         return match.Success ? match.Value : null;
     }
-    
-    public enum ModifierSide
-    {
-        None,
-        Left,
-        Right
-    }
+
     public class HotKey
     {
         public Key Key { get; set; }
@@ -2342,6 +2348,7 @@ public partial class MainWindow : Window
         public ModifierSide AltSide { get; set; }
         public ModifierSide ShiftSide { get; set; }
         public string FriendlyName { get; set; } = "";
+
         public override string? ToString()
         {
             List<string> parts = new();

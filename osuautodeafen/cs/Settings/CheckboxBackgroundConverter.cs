@@ -9,7 +9,7 @@ namespace osuautodeafen.cs.Settings;
 public class CheckBoxBackgroundConverter : IMultiValueConverter
 {
     /// <summary>
-    ///  Converts the checkbox state and brush to determine the background color
+    ///     Converts the checkbox state and brush to determine the background color
     /// </summary>
     /// <param name="values"></param>
     /// <param name="targetType"></param>
