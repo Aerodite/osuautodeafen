@@ -281,7 +281,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         get
         {
             Color color = _averageColorBrush.Color;
-            Color lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.50f, 0.60f);
+            Color lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.15f, 0.60f);
             return new SolidColorBrush(lessVibrantColor);
         }
     }

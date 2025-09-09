@@ -94,6 +94,8 @@ public partial class MainWindow : Window
     private double _pendingCompletionPercentage;
     private int _pendingPP;
     private double _pendingStarRating;
+    
+    private DispatcherTimer? _modifierOnlyTimer;
 
     private DispatcherTimer? _ppSaveTimer;
 
@@ -551,10 +553,6 @@ public partial class MainWindow : Window
                   int.TryParse(keyStr, out int keyVal)
                 ? (Key)keyVal
                 : Key.None,
-            ModifierKeys = _settingsHandler.Data["Hotkeys"]["DeafenKeybindModifiers"] is { } modStr &&
-                           int.TryParse(modStr, out int modVal)
-                ? (KeyModifiers)modVal
-                : KeyModifiers.None,
             FriendlyName = GetFriendlyKeyName(
                 _settingsHandler.Data["Hotkeys"]["DeafenKeybindKey"] is { } keyStr2 &&
                 int.TryParse(keyStr2, out int keyVal2)
@@ -1262,7 +1260,7 @@ public partial class MainWindow : Window
                 flyout.Hide();
         }
     }
-
+    
     /// <summary>
     ///     Captures key presses when the keybind capture flyout is open
     /// </summary>
@@ -1281,21 +1279,32 @@ public partial class MainWindow : Window
                 flyout?.Hide();
                 return;
             }
-
-            if (e.Key == Key.NumLock || IsModifierKey(e.Key))
+            
+            if (_pressedKeys.All(IsModifierKey))
             {
+                if (_modifierOnlyTimer == null || !_modifierOnlyTimer.IsEnabled)
+                {
+                    _modifierOnlyTimer?.Stop();
+                    _modifierOnlyTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+                    _modifierOnlyTimer.Start();
+                }
                 e.Handled = true;
                 return;
             }
-
+            else
+            {
+                _modifierOnlyTimer?.Stop();
+            }
+            
             DateTime currentTime = DateTime.Now;
             if (e.Key == _lastKeyPressed && (currentTime - _lastKeyPressTime).TotalMilliseconds < 2500)
                 return;
             _lastKeyPressed = e.Key;
             _lastKeyPressTime = currentTime;
+            
+            if (IsModifierKey(e.Key))
+                return;
 
-            // This just ensures we can differentiate between left and right modifiers
-            // Solves https://github.com/Aerodite/osuautodeafen/issues/35
             KeyModifiers modifiers = KeyModifiers.None;
             if (_pressedKeys.Contains(Key.LeftCtrl)) modifiers |= KeyModifiers.Control;
             if (_pressedKeys.Contains(Key.RightCtrl)) modifiers |= KeyModifiers.Control;
@@ -1329,7 +1338,6 @@ public partial class MainWindow : Window
             ViewModel.DeafenKeybind = hotKey;
 
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindKey", (int)e.Key);
-            _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindModifiers", (int)modifiers);
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindControlSide", (int)controlSide);
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindAltSide", (int)altSide);
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindShiftSide", (int)shiftSide);
@@ -1355,10 +1363,64 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    ///    Captures key releases when the keybind capture flyout is open
+    /// </summary>
+    /// <param name="e"></param>
     protected override void OnKeyUp(KeyEventArgs e)
     {
         base.OnKeyUp(e);
         _pressedKeys.Remove(e.Key);
+        
+        if (ViewModel.IsKeybindCaptureFlyoutOpen && _modifierOnlyTimer?.IsEnabled == true && IsModifierKey(e.Key))
+        {
+            _modifierOnlyTimer.Stop();
+
+            Flyout? flyout = DeafenKeybindButton.Flyout as Flyout;
+            
+            var allModifiers = new HashSet<Key>(_pressedKeys) { e.Key };
+
+            KeyModifiers modifiers = KeyModifiers.None;
+            if (allModifiers.Contains(Key.LeftCtrl)) modifiers |= KeyModifiers.Control;
+            if (allModifiers.Contains(Key.RightCtrl)) modifiers |= KeyModifiers.Control;
+            if (allModifiers.Contains(Key.LeftAlt)) modifiers |= KeyModifiers.Alt;
+            if (allModifiers.Contains(Key.RightAlt)) modifiers |= KeyModifiers.Alt;
+            if (allModifiers.Contains(Key.LeftShift)) modifiers |= KeyModifiers.Shift;
+            if (allModifiers.Contains(Key.RightShift)) modifiers |= KeyModifiers.Shift;
+
+            ModifierSide controlSide = ModifierSide.None;
+            if (allModifiers.Contains(Key.LeftCtrl)) controlSide = ModifierSide.Left;
+            else if (allModifiers.Contains(Key.RightCtrl)) controlSide = ModifierSide.Right;
+
+            ModifierSide altSide = ModifierSide.None;
+            if (allModifiers.Contains(Key.LeftAlt)) altSide = ModifierSide.Left;
+            else if (allModifiers.Contains(Key.RightAlt)) altSide = ModifierSide.Right;
+
+            ModifierSide shiftSide = ModifierSide.None;
+            if (allModifiers.Contains(Key.LeftShift)) shiftSide = ModifierSide.Left;
+            else if (allModifiers.Contains(Key.RightShift)) shiftSide = ModifierSide.Right;
+
+            HotKey hotKey = new()
+            {
+                Key = Key.None,
+                ModifierKeys = modifiers,
+                ControlSide = controlSide,
+                AltSide = altSide,
+                ShiftSide = shiftSide,
+                FriendlyName = modifiers.ToString()
+            };
+            ViewModel.DeafenKeybind = hotKey;
+
+            _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindKey", (int)Key.None);
+            _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindControlSide", (int)controlSide);
+            _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindAltSide", (int)altSide);
+            _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindShiftSide", (int)shiftSide);
+
+            ViewModel.IsKeybindCaptureFlyoutOpen = false;
+            UpdateDeafenKeybindDisplay();
+
+            flyout?.Hide();
+        }
     }
 
     /// <summary>
@@ -1390,6 +1452,12 @@ public partial class MainWindow : Window
             display += altSide == 2 ? "RAlt+" : "LAlt+";
         if (int.TryParse(shiftSideStr, out int shiftSide) && shiftSide != 0)
             display += shiftSide == 2 ? "RShift+" : "LShift+";
+
+        if (keyVal == (int)Key.None)
+        {
+            // signifies that only modifiers are used, remove trailing +
+            return display.EndsWith("+") ? display[..^1] : (display.Length > 0 ? display : "Set Keybind");
+        }
 
         display += GetFriendlyKeyName((Key)keyVal);
         return display;
