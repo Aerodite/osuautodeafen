@@ -1455,8 +1455,8 @@ public partial class MainWindow : Window
 
         if (keyVal == (int)Key.None)
         {
-            // signifies that only modifiers are used, remove trailing +
-            return display.EndsWith("+") ? display[..^1] : (display.Length > 0 ? display : "Set Keybind");
+            // signifies that only modifiers are used, so we should remove the trailing +
+            return display.EndsWith('+') ? display[..^1] : (display.Length > 0 ? display : "Set Keybind");
         }
 
         display += GetFriendlyKeyName((Key)keyVal);
@@ -2432,13 +2432,5 @@ public partial class MainWindow : Window
 
             return string.Join("+", parts).Replace("==", "=");
         }
-    }
-}
-
-public static class Extensions
-{
-    public static void SetValueSafe<T>(this T? obj, Action<T> setter) where T : class
-    {
-        if (obj != null) setter(obj);
     }
 }
