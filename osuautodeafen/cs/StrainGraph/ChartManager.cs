@@ -19,6 +19,7 @@ using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs.StrainGraph.Sections;
 using osuautodeafen.cs.StrainGraph.Tooltips;
 using SkiaSharp;
+// ReSharper disable CompareOfFloatsByEqualityOperator
 
 namespace osuautodeafen.cs.StrainGraph;
 
@@ -32,8 +33,8 @@ public class ChartManager
     private static readonly SKColor DeafenOverlayColor = new(0xFF, 0x00, 0x00, 64);
 
     private readonly BreakPeriodCalculator _breakPeriod = new();
-    private readonly List<AnnotatedSection> _cachedBreakPeriods = new();
-    private readonly List<AnnotatedSection> _cachedKiaiPeriods = new();
+    private readonly List<AnnotatedSection> _cachedBreakPeriods = [];
+    private readonly List<AnnotatedSection> _cachedKiaiPeriods = [];
 
     private readonly KiaiTimes _kiaiTimes;
 
@@ -57,7 +58,6 @@ public class ChartManager
     private AnnotatedSection? _lastTooltipSection;
     private string? _lastTooltipText;
     private List<double>? _lastXAxis;
-    private double breakStart, breakEnd;
 
     public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel, KiaiTimes kiaiTimes,
         TooltipManager tooltipManager)
@@ -73,7 +73,7 @@ public class ChartManager
             GeometryFill = null,
             GeometryStroke = null,
             LineSmoothness = 0,
-            Values = Array.Empty<ObservablePoint>(),
+            Values = [],
             Name = "ProgressIndicator"
         };
         // for some reason we need this to initialize break color correctly -_-
@@ -88,17 +88,17 @@ public class ChartManager
     public Axis[] YAxes { get; private set; } = Array.Empty<Axis>();
     private double MaxYValue { get; set; }
 
-    public double MaxLimit { get; private set; }
+    private double MaxLimit { get; set; }
 
-    public CartesianChart PlotView { get; }
+    private CartesianChart PlotView { get; }
 
     /// <summary>
     ///     Initializes the chart with default settings and series.
     /// </summary>
     private void InitializeChart()
     {
-        Series = new ISeries[]
-        {
+        Series =
+        [
             new StackedAreaSeries<ObservablePoint>
             {
                 Values = ChartData.Series1Values,
@@ -114,7 +114,7 @@ public class ChartManager
                 Name = "Speed"
             },
             _progressIndicator
-        };
+        ];
         MaxYValue = 1;
         MaxLimit = 1;
         PlotView.Series = Series;
@@ -133,11 +133,11 @@ public class ChartManager
     /// <param name="tooltipManager"></param>
     private void SetupPlotViewEvents(TooltipManager tooltipManager)
     {
-        PlotView.PointerMoved += (s, e) => PlotView_PointerMoved(s, e, tooltipManager);
+        PlotView.PointerMoved += (s, e) => _ = PlotView_PointerMoved(e, tooltipManager);
         PlotView.PointerPressed += PlotView_PointerPressed;
         PlotView.PointerReleased += PlotView_PointerReleased;
-        PlotView.PointerMoved += async (s, e) => await PlotView_PointerMovedAsync(s, e, tooltipManager);
-        PlotView.PointerExited += (s, e) => PlotView_PointerExited(s, e, tooltipManager);
+        PlotView.PointerMoved += async (_, e) => await PlotView_PointerMovedAsync(e, tooltipManager);
+        PlotView.PointerExited += (_, _) => PlotView_PointerExited(tooltipManager);
 
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
     }
@@ -159,7 +159,7 @@ public class ChartManager
                         AudibleBreaksEnabled ? BreakColor : SKColors.LightSkyBlue,
                         AudibleBreaksEnabled ? SKColors.LightSkyBlue : BreakColor,
                         AudibleBreaksEnabled, 0, 0,
-                        (s, fill) => section.Fill = fill,
+                        (_, fill) => section.Fill = fill,
                         PlotView.InvalidateVisual
                     );
         }
@@ -168,10 +168,9 @@ public class ChartManager
     /// <summary>
     ///     Handles pointer movement over the chart, updating tooltips and drag interactions.
     /// </summary>
-    /// <param name="sender"></param>
     /// <param name="e"></param>
     /// <param name="tooltipManager"></param>
-    private async Task PlotView_PointerMoved(object? sender, PointerEventArgs e, TooltipManager tooltipManager)
+    private async Task PlotView_PointerMoved(PointerEventArgs e, TooltipManager tooltipManager)
     {
         if (_isDraggingDeafenEdge)
             return;
@@ -251,8 +250,7 @@ public class ChartManager
             _viewModel.MinCompletionPercentage = (int)newPercentage;
 
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
-                desktop.MainWindow is MainWindow mainWindow &&
-                mainWindow.CompletionPercentageSlider != null)
+                desktop.MainWindow is MainWindow { CompletionPercentageSlider: not null } mainWindow)
             {
                 mainWindow.CompletionPercentageSlider.Value = newPercentage;
                 double oldValue = _viewModel.MinCompletionPercentage;
@@ -311,10 +309,9 @@ public class ChartManager
     /// <summary>
     ///     Handles chart pointer movement, allowing for tooltip updates and drag interactions
     /// </summary>
-    /// <param name="sender"></param>
     /// <param name="e"></param>
     /// <param name="tooltipManager"></param>
-    private async Task PlotView_PointerMovedAsync(object? sender, PointerEventArgs e, TooltipManager tooltipManager)
+    private async Task PlotView_PointerMovedAsync(PointerEventArgs e, TooltipManager tooltipManager)
     {
         Point pixelPoint = e.GetPosition(PlotView);
         LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
@@ -417,7 +414,7 @@ public class ChartManager
         foreach (CoreSection section in PlotView.Sections)
             if (section is RectangularSection rs && rs.Fill is SolidColorPaint paint &&
                 paint.Color == DeafenOverlayColor)
-                if (Math.Abs((double)(dataPoint.X - rs.Xi)) < 5)
+                if (rs.Xi != null && Math.Abs(dataPoint.X - rs.Xi.Value) < 5)
                 {
                     _isDraggingDeafenEdge = true;
                     _draggedDeafenSection = rs;
@@ -447,10 +444,8 @@ public class ChartManager
     /// <summary>
     ///     Handles pointer exit events to reset hover states and hide tooltips
     /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
     /// <param name="tooltipManager"></param>
-    private void PlotView_PointerExited(object? sender, PointerEventArgs e, TooltipManager tooltipManager)
+    private void PlotView_PointerExited(TooltipManager tooltipManager)
     {
         tooltipManager.HideCustomTooltip();
         if (_isHoveringDeafenEdge)
@@ -652,7 +647,8 @@ public class ChartManager
 
         var existingSeriesDict = seriesArr
             .OfType<LineSeries<ObservablePoint>>()
-            .ToDictionary(ls => ls.Name, ls => ls);
+            .Where(ls => ls.Name != null)
+            .ToDictionary(ls => ls.Name!, ls => ls);
 
         foreach (Series series in graphData.Series)
         {
@@ -716,7 +712,8 @@ public class ChartManager
             PlotView.Series = Series;
             PlotView.DrawMargin = new Margin(0, 0, 0, 0);
             UpdateAxes();
-            await UpdateSectionsAsync(graphData, _lastOsuFilePath);
+            if (_lastOsuFilePath != null) 
+                await UpdateSectionsAsync(graphData, _lastOsuFilePath);
         }
         catch (Exception ex)
         {
@@ -736,84 +733,86 @@ public class ChartManager
     /// </summary>
     /// <param name="graphData"></param>
     /// <param name="osuFilePath"></param>
-    private async Task UpdateSectionsAsync(GraphData graphData, string osuFilePath)
+    // Only use indices, avoid copying large lists
+private async Task UpdateSectionsAsync(GraphData graphData, string osuFilePath)
+{
+    double rate = _tosuApi.GetRateAdjustRate();
+    var xAxis = graphData.XAxis;
+    var seriesData = graphData.Series[0].Data;
+    int firstValidIdx = seriesData.FindIndex(y => y != -100);
+
+    int dataStart = Math.Max(0, firstValidIdx);
+    int dataCount = seriesData.Count - dataStart;
+
+    // Use indices for break/kiai calculations
+    var breaks = await GetBreakPeriodsAsync(osuFilePath, xAxis, seriesData); // If possible, refactor GetBreakPeriodsAsync to accept start/count
+
+    _cachedBreakPeriods.Clear();
+    foreach (BreakPeriod breakPeriod in breaks)
     {
-        double rate = _tosuApi.GetRateAdjustRate();
-        var xAxis = graphData.XAxis;
-        var seriesData = graphData.Series[0].Data;
-        int firstValidIdx = seriesData.FindIndex(y => y != -100);
-        if (firstValidIdx > 0)
+        double breakStart = _tosuApi.GetRawBanchoStatus() != 2
+            ? breakPeriod.Start / rate
+            : breakPeriod.Start;
+        double breakEnd = _tosuApi.GetRawBanchoStatus() != 2
+            ? breakPeriod.End / rate
+            : breakPeriod.End;
+
+        int startIdx = FindClosestIndex(xAxis, breakStart, dataStart, dataCount);
+        int endIdx = FindClosestIndex(xAxis, breakEnd, dataStart, dataCount);
+        AnnotatedSection breakSection = new()
         {
-            xAxis = xAxis.Skip(firstValidIdx).ToList();
-            seriesData = seriesData.Skip(firstValidIdx).ToList();
-        }
-
-        var breaks = await GetBreakPeriodsAsync(osuFilePath, xAxis, seriesData);
-        _cachedBreakPeriods.Clear();
-        foreach (BreakPeriod breakPeriod in breaks)
-        {
-            double breakStart = _tosuApi.GetRawBanchoStatus() != 2
-                ? breakPeriod.Start / rate
-                : breakPeriod.Start;
-            double breakEnd = _tosuApi.GetRawBanchoStatus() != 2
-                ? breakPeriod.End / rate
-                : breakPeriod.End;
-
-            int startIdx = FindClosestIndex(xAxis, breakStart);
-            int endIdx = FindClosestIndex(xAxis, breakEnd);
-            AnnotatedSection breakSection = new()
-            {
-                Xi = startIdx,
-                Xj = endIdx,
-                Yi = 0,
-                Yj = MaxYValue,
-                Fill = AudibleBreaksEnabled
-                    ? new LinearGradientPaint(
-                        new[] { new SKColor(0x00, 0x80, 0xFF, 255) },
-                        new SKPoint(0, 0),
-                        new SKPoint(endIdx - startIdx, (float)MaxYValue)
-                    )
-                    : new SolidColorPaint { Color = BreakColor },
-                SectionType = "Break",
-                StartTime = breakPeriod.Start,
-                EndTime = breakPeriod.End,
-                Tooltip = true
-            };
-            _cachedBreakPeriods.Add(breakSection);
-        }
-
-        var kiaiList = await _kiaiTimes.ParseKiaiTimesAsync(osuFilePath);
-        _cachedKiaiPeriods.Clear();
-        foreach (KiaiTime kiai in kiaiList)
-        {
-            double kiaiStart = _tosuApi.GetRawBanchoStatus() != 2
-                ? kiai.Start / rate
-                : kiai.Start;
-            double kiaiEnd = _tosuApi.GetRawBanchoStatus() != 2
-                ? kiai.End / rate
-                : kiai.End;
-
-            int startIdx = FindClosestIndex(xAxis, kiaiStart);
-            int endIdx = FindClosestIndex(xAxis, kiaiEnd);
-            _cachedKiaiPeriods.Add(new AnnotatedSection
-            {
-                Xi = startIdx,
-                Xj = endIdx,
-                Yi = 0,
-                Yj = MaxYValue,
-                Fill = new SolidColorPaint { Color = KiaiColor },
-                SectionType = "Kiai",
-                StartTime = kiai.Start,
-                EndTime = kiai.End,
-                Tooltip = true
-            });
-        }
-
-        var combinedSections = _cachedBreakPeriods.Concat(_cachedKiaiPeriods).ToList();
-        AddDeafenOverlaySection(combinedSections, _viewModel.MinCompletionPercentage);
-        PlotView.Sections = combinedSections; // This replaces all previous sections
-        PlotView.InvalidateVisual();
+            Xi = startIdx,
+            Xj = endIdx,
+            Yi = 0,
+            Yj = MaxYValue,
+            Fill = AudibleBreaksEnabled
+                ? new LinearGradientPaint(
+                    new[] { new SKColor(0x00, 0x80, 0xFF, 255) },
+                    new SKPoint(0, 0),
+                    new SKPoint(endIdx - startIdx, (float)MaxYValue)
+                )
+                : new SolidColorPaint { Color = BreakColor },
+            SectionType = "Break",
+            StartTime = breakPeriod.Start,
+            EndTime = breakPeriod.End,
+            Tooltip = true
+        };
+        _cachedBreakPeriods.Add(breakSection);
     }
+
+    var kiaiList = await _kiaiTimes.ParseKiaiTimesAsync(osuFilePath);
+    _cachedKiaiPeriods.Clear();
+    foreach (KiaiTime kiai in kiaiList)
+    {
+        double kiaiStart = _tosuApi.GetRawBanchoStatus() != 2
+            ? kiai.Start / rate
+            : kiai.Start;
+        double kiaiEnd = _tosuApi.GetRawBanchoStatus() != 2
+            ? kiai.End / rate
+            : kiai.End;
+
+        int startIdx = FindClosestIndex(xAxis, kiaiStart, dataStart, dataCount);
+        int endIdx = FindClosestIndex(xAxis, kiaiEnd, dataStart, dataCount);
+        _cachedKiaiPeriods.Add(new AnnotatedSection
+        {
+            Xi = startIdx,
+            Xj = endIdx,
+            Yi = 0,
+            Yj = MaxYValue,
+            Fill = new SolidColorPaint { Color = KiaiColor },
+            SectionType = "Kiai",
+            StartTime = kiai.Start,
+            EndTime = kiai.End,
+            Tooltip = true
+        });
+    }
+
+    var combinedSections = _cachedBreakPeriods.Concat(_cachedKiaiPeriods).ToList();
+    AddDeafenOverlaySection(combinedSections, _viewModel.MinCompletionPercentage);
+    PlotView.Sections = combinedSections;
+    PlotView.InvalidateVisual();
+}
+
 
     /// <summary>
     ///     Updates the deafen overlay section position based on the minimum completion percentage
@@ -888,12 +887,14 @@ public class ChartManager
     /// </summary>
     /// <param name="xAxis"></param>
     /// <param name="value"></param>
+    /// <param name="start"></param>
+    /// <param name="count"></param>
     /// <returns></returns>
-    private int FindClosestIndex(List<double>? xAxis, double value)
+    private int FindClosestIndex(List<double>? xAxis, double value, int start, int count)
     {
-        if (xAxis == null || xAxis.Count == 0) return 0;
+        if (xAxis == null || count == 0) return 0;
 
-        int left = 0, right = xAxis.Count - 1;
+        int left = start, right = start + count - 1;
         while (left < right)
         {
             int mid = (left + right) / 2;
@@ -903,8 +904,8 @@ public class ChartManager
                 right = mid;
         }
 
-        if (left == 0) return 0;
-        if (left == xAxis.Count) return xAxis.Count - 1;
+        if (left == start) return start;
+        if (left == start + count) return start + count - 1;
 
         double diffLeft = Math.Abs(xAxis[left] - value);
         double diffPrev = Math.Abs(xAxis[left - 1] - value);
@@ -986,7 +987,7 @@ public class ChartManager
     /// <param name="seriesData"></param>
     /// <returns></returns>
     public async Task<List<BreakPeriod>> GetBreakPeriodsAsync(
-        string? osuFilePath, List<double> xAxis, List<double> seriesData)
+        string? osuFilePath, List<double>? xAxis, List<double> seriesData)
     {
         if (osuFilePath == _lastOsuFilePath &&
             AreListsEqual(xAxis, _lastXAxis) &&
@@ -995,7 +996,7 @@ public class ChartManager
 
         var breaks = await _breakPeriod.ParseBreakPeriodsAsync(osuFilePath, xAxis, seriesData);
         _lastOsuFilePath = osuFilePath;
-        _lastXAxis = new List<double>(xAxis);
+        _lastXAxis = xAxis != null ? [..xAxis] : [];
         _lastSeriesData = new List<double>(seriesData);
         _lastBreaks = breaks;
         return breaks;

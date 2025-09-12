@@ -168,7 +168,7 @@ public class BreakPeriodCalculator
     /// <param name="xAxis"></param>
     /// <param name="yAxis"></param>
     /// <returns></returns>
-    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string? osuFilePath, List<double> xAxis,
+    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string? osuFilePath, List<double>? xAxis,
         List<double> yAxis)
     {
         BreakPeriods.Clear();
@@ -246,7 +246,7 @@ public class BreakPeriodCalculator
     /// <param name="xAxis"></param>
     /// <param name="value"></param>
     /// <returns></returns>
-    private static int FindClosestIndex(List<double> xAxis, double value)
+    private static int FindClosestIndex(List<double>? xAxis, double value)
     {
         int closestIndex = 0;
         double smallestDifference = double.MaxValue;

@@ -9,6 +9,7 @@
         xmlns:strainGraph="clr-namespace:osuautodeafen.cs.StrainGraph"
         xmlns:global="clr-namespace:"
         xmlns:presets="clr-namespace:osuautodeafen.cs.Settings.Presets"
+        xmlns:progressIndicator="clr-namespace:osuautodeafen.cs.StrainGraph.ProgressIndicator"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osuautodeafen"
@@ -847,7 +848,7 @@
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch"
                     Height="120" />
-                <strainGraph:ProgressIndicatorOverlay
+                <progressIndicator:ProgressIndicatorOverlay
                     x:Name="ProgressOverlay"
                     IsHitTestVisible="False" />
                 <Canvas x:Name="IconOverlay" IsHitTestVisible="False" x:DataType="cs:SharedViewModel" />

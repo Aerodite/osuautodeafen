@@ -5,7 +5,9 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using LiveChartsCore.Defaults;
 
-namespace osuautodeafen.cs.StrainGraph;
+// ReSharper disable CompareOfFloatsByEqualityOperator
+
+namespace osuautodeafen.cs.StrainGraph.ProgressIndicator;
 
 public class ProgressIndicatorOverlay : Control
 {
