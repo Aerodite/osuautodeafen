@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using Avalonia.Input;
 using osuautodeafen.cs.Settings;
+using osuautodeafen.cs.Tosu;
 using SharpHook;
 using SharpHook.Data;
 using Timer = System.Timers.Timer;

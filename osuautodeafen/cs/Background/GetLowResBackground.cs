@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using osuautodeafen.cs.Tosu;
 
 namespace osuautodeafen.cs;
 

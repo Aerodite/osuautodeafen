@@ -11,7 +11,7 @@ using Newtonsoft.Json;
 using osuautodeafen.cs.Settings;
 using osuautodeafen.cs.StrainGraph;
 
-namespace osuautodeafen.cs;
+namespace osuautodeafen.cs.Tosu;
 
 public class TosuApi : IDisposable
 {

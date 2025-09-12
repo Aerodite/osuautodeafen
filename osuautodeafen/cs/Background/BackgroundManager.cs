@@ -13,6 +13,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using osuautodeafen.cs.Logo;
+using osuautodeafen.cs.Tosu;
 
 namespace osuautodeafen.cs.Background;
 

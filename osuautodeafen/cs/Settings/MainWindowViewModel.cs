@@ -11,6 +11,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using osuautodeafen.cs.Settings;
 using osuautodeafen.cs.Settings.Presets;
+using osuautodeafen.cs.Tosu;
 using osuautodeafen.cs.Update;
 
 namespace osuautodeafen.cs;

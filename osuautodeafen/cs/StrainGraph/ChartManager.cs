@@ -18,6 +18,7 @@ using LiveChartsCore.SkiaSharpView.Avalonia;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs.StrainGraph.Sections;
 using osuautodeafen.cs.StrainGraph.Tooltips;
+using osuautodeafen.cs.Tosu;
 using SkiaSharp;
 // ReSharper disable CompareOfFloatsByEqualityOperator
 
@@ -855,8 +856,8 @@ private async Task UpdateSectionsAsync(GraphData graphData, string osuFilePath)
     /// </summary>
     private void UpdateAxes()
     {
-        XAxes = new[]
-        {
+        XAxes =
+        [
             new Axis
             {
                 LabelsPaint = new SolidColorPaint(SKColors.Transparent),
@@ -865,9 +866,9 @@ private async Task UpdateSectionsAsync(GraphData graphData, string osuFilePath)
                 Padding = new Padding(2),
                 TextSize = 12
             }
-        };
-        YAxes = new[]
-        {
+        ];
+        YAxes =
+        [
             new Axis
             {
                 LabelsPaint = new SolidColorPaint(SKColors.Transparent),
@@ -876,7 +877,7 @@ private async Task UpdateSectionsAsync(GraphData graphData, string osuFilePath)
                 Padding = new Padding(2),
                 SeparatorsPaint = new SolidColorPaint(SKColors.Transparent)
             }
-        };
+        ];
 
         PlotView.XAxes = XAxes;
         PlotView.YAxes = YAxes;
@@ -972,7 +973,7 @@ private async Task UpdateSectionsAsync(GraphData graphData, string osuFilePath)
     /// <param name="b"></param>
     /// <typeparam name="T"></typeparam>
     /// <returns></returns>
-    private bool AreListsEqual<T>(List<T>? a, List<T>? b)
+    private static bool AreListsEqual<T>(List<T>? a, List<T>? b)
     {
         if (ReferenceEquals(a, b)) return true;
         if (a == null || b == null || a.Count != b.Count) return false;
@@ -986,13 +987,12 @@ private async Task UpdateSectionsAsync(GraphData graphData, string osuFilePath)
     /// <param name="xAxis"></param>
     /// <param name="seriesData"></param>
     /// <returns></returns>
-    public async Task<List<BreakPeriod>> GetBreakPeriodsAsync(
-        string? osuFilePath, List<double>? xAxis, List<double> seriesData)
+    private async Task<List<BreakPeriod>> GetBreakPeriodsAsync(string? osuFilePath, List<double>? xAxis, List<double> seriesData)
     {
         if (osuFilePath == _lastOsuFilePath &&
             AreListsEqual(xAxis, _lastXAxis) &&
             AreListsEqual(seriesData, _lastSeriesData))
-            return _lastBreaks ?? new List<BreakPeriod>();
+            return _lastBreaks ?? [];
 
         var breaks = await _breakPeriod.ParseBreakPeriodsAsync(osuFilePath, xAxis, seriesData);
         _lastOsuFilePath = osuFilePath;
