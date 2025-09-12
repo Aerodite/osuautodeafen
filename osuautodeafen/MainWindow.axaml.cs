@@ -1107,87 +1107,103 @@ public partial class MainWindow : Window
 
     private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(SharedViewModel.CompletionPercentage))
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (ProgressOverlay == null)
-                    return;
-
-                ProgressOverlay.ChartXMin = _progressIndicatorHelper.ChartXMin;
-                ProgressOverlay.ChartXMax = _progressIndicatorHelper.ChartXMax;
-                ProgressOverlay.ChartYMin = _progressIndicatorHelper.ChartYMin;
-                ProgressOverlay.ChartYMax = _progressIndicatorHelper.ChartYMax;
-
-                var points =
-                    _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage(),
-                        force: true);
-                ProgressOverlay.Points = points;
-            });
-        if (e.PropertyName == nameof(_viewModel.BlurRadius))
+        try
         {
-            BlurEffect? blurEffect = _backgroundManager?.BackgroundBlurEffect;
-            if (blurEffect != null)
+            switch (e.PropertyName)
             {
-                _blurCts?.Cancel();
-                _blurCts = new CancellationTokenSource();
+                case nameof(SharedViewModel.CompletionPercentage):
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        if (ProgressOverlay == null)
+                            return;
 
-                double radius = _viewModel.BlurRadius;
-                CancellationToken token = _blurCts.Token;
-                await _backgroundManager.BlurBackgroundAsync(blurEffect, radius, token);
-            }
-        }
+                        ProgressOverlay.ChartXMin = _progressIndicatorHelper.ChartXMin;
+                        ProgressOverlay.ChartXMax = _progressIndicatorHelper.ChartXMax;
+                        ProgressOverlay.ChartYMin = _progressIndicatorHelper.ChartYMin;
+                        ProgressOverlay.ChartYMax = _progressIndicatorHelper.ChartYMax;
 
-        if (e.PropertyName == nameof(SharedViewModel.IsBackgroundEnabled))
-        {
-            _settingsHandler?.SaveSetting("UI", "IsBackgroundEnabled", _viewModel.IsBackgroundEnabled);
-
-            if (!_viewModel.IsBackgroundEnabled)
-            {
-                _kiaiBrightnessTimer?.Stop();
-                _kiaiBrightnessTimer = null;
-                _backgroundManager?.RemoveBackgroundOpacityRequest("kiai");
-            }
-            else
-            {
-                await _backgroundManager?.UpdateBackground(null, null);
-
-                if (_tosuApi._isKiai && _viewModel.IsKiaiEffectEnabled)
+                        var points =
+                            _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage(),
+                                force: true);
+                        ProgressOverlay.Points = points;
+                    });
+                    break;
+                case nameof(_viewModel.BlurRadius):
                 {
-                    double bpm = _tosuApi.GetCurrentBpm();
-                    double intervalMs = 60000.0 / bpm;
+                    BlurEffect? blurEffect = _backgroundManager?.BackgroundBlurEffect;
+                    if (blurEffect != null && _backgroundManager != null)
+                    {
+                        if (_blurCts != null)
+                            await _blurCts.CancelAsync();
+                        _blurCts = new CancellationTokenSource();
 
-                    _kiaiBrightnessTimer?.Stop();
-                    _kiaiBrightnessTimer = new DispatcherTimer
-                    {
-                        Interval = TimeSpan.FromMilliseconds(intervalMs)
-                    };
-                    _kiaiBrightnessTimer.Tick += async (_, _) =>
-                    {
-                        _isKiaiPulseHigh = !_isKiaiPulseHigh;
-                        double opacityValue = _isKiaiPulseHigh ? 1.0 - _opacity : 0.95 - _opacity;
-                        await _backgroundManager.RequestBackgroundOpacity("kiai", opacityValue, 10000,
-                            (int)(intervalMs / 4));
-                    };
-                    _kiaiBrightnessTimer.Start();
+                        double radius = _viewModel.BlurRadius;
+                        CancellationToken token = _blurCts.Token;
+                        await _backgroundManager.BlurBackgroundAsync(blurEffect, radius, token);
+                    }
+
+                    break;
                 }
+                case nameof(SharedViewModel.IsBackgroundEnabled):
+                {
+                    _settingsHandler?.SaveSetting("UI", "IsBackgroundEnabled", _viewModel.IsBackgroundEnabled);
+
+                    if (!_viewModel.IsBackgroundEnabled)
+                    {
+                        _kiaiBrightnessTimer?.Stop();
+                        _kiaiBrightnessTimer = null;
+                        _backgroundManager?.RemoveBackgroundOpacityRequest("kiai");
+                    }
+                    else
+                    {
+                        await _backgroundManager?.UpdateBackground(null, null)!;
+
+                        if (_tosuApi._isKiai && _viewModel.IsKiaiEffectEnabled)
+                        {
+                            double bpm = _tosuApi.GetCurrentBpm();
+                            double intervalMs = 60000.0 / bpm;
+
+                            _kiaiBrightnessTimer?.Stop();
+                            _kiaiBrightnessTimer = new DispatcherTimer
+                            {
+                                Interval = TimeSpan.FromMilliseconds(intervalMs)
+                            };
+                            _kiaiBrightnessTimer.Tick += async (_, _) =>
+                            {
+                                _isKiaiPulseHigh = !_isKiaiPulseHigh;
+                                double opacityValue = _isKiaiPulseHigh ? 1.0 - _opacity : 0.95 - _opacity;
+                                await _backgroundManager.RequestBackgroundOpacity("kiai", opacityValue, 10000,
+                                    (int)(intervalMs / 4));
+                            };
+                            _kiaiBrightnessTimer.Start();
+                        }
+                    }
+
+                    break;
+                }
+                case nameof(SharedViewModel.IsParallaxEnabled):
+                    _settingsHandler?.SaveSetting("UI", "IsParallaxEnabled", _viewModel.IsParallaxEnabled);
+                    break;
+                case nameof(SharedViewModel.IsKiaiEffectEnabled):
+                    _settingsHandler?.SaveSetting("UI", "IsKiaiEffectEnabled", _viewModel.IsKiaiEffectEnabled);
+                    _tosuApi.RaiseKiaiChanged();
+                    break;
+                case nameof(SharedViewModel.IsBreakUndeafenToggleEnabled):
+                    _settingsHandler?.SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled",
+                        _viewModel.IsBreakUndeafenToggleEnabled);
+                    break;
+                case nameof(SharedViewModel.UndeafenAfterMiss):
+                    _settingsHandler?.SaveSetting("Behavior", "UndeafenAfterMiss", _viewModel.UndeafenAfterMiss);
+                    break;
+                case nameof(SharedViewModel.IsFCRequired):
+                    _settingsHandler?.SaveSetting("Behavior", "IsFCRequired", _viewModel.IsFCRequired);
+                    break;
             }
         }
-
-        if (e.PropertyName == nameof(SharedViewModel.IsParallaxEnabled))
-            _settingsHandler?.SaveSetting("UI", "IsParallaxEnabled", _viewModel.IsParallaxEnabled);
-        if (e.PropertyName == nameof(SharedViewModel.IsKiaiEffectEnabled))
+        catch (Exception ex)
         {
-            _settingsHandler?.SaveSetting("UI", "IsKiaiEffectEnabled", _viewModel.IsKiaiEffectEnabled);
-            _tosuApi.RaiseKiaiChanged();
+            Console.WriteLine($"[ERROR] Exception in ViewModel_PropertyChanged: {ex}");
         }
-
-        if (e.PropertyName == nameof(SharedViewModel.IsBreakUndeafenToggleEnabled))
-            _settingsHandler?.SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled",
-                _viewModel.IsBreakUndeafenToggleEnabled);
-        if (e.PropertyName == nameof(SharedViewModel.UndeafenAfterMiss))
-            _settingsHandler?.SaveSetting("Behavior", "UndeafenAfterMiss", _viewModel.UndeafenAfterMiss);
-        if (e.PropertyName == nameof(SharedViewModel.IsFCRequired))
-            _settingsHandler?.SaveSetting("Behavior", "IsFCRequired", _viewModel.IsFCRequired);
     }
 
     /// <summary>
@@ -1208,7 +1224,7 @@ public partial class MainWindow : Window
         series0.Name = "aim";
         series1.Name = "speed";
 
-        if (!ReferenceEquals(ChartData.Series1Values, series0.Data))
+        if (ChartData.Series1Values.Count != series0.Data.Count)
         {
             var list0 = new List<ObservablePoint>(series0.Data.Count);
             for (int i = 0; i < series0.Data.Count; i++)
@@ -1216,7 +1232,7 @@ public partial class MainWindow : Window
             ChartData.Series1Values = list0;
         }
 
-        if (!ReferenceEquals(ChartData.Series2Values, series1.Data))
+        if (ChartData.Series2Values.Count != series1.Data.Count)
         {
             var list1 = new List<ObservablePoint>(series1.Data.Count);
             for (int i = 0; i < series1.Data.Count; i++)
@@ -1424,7 +1440,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///     Retrieves the currently set keybind from settings and formats it for display
+    ///     Retrieves the currently set keybind from settings
     /// </summary>
     /// <returns></returns>
     private string RetrieveKeybindFromSettings()

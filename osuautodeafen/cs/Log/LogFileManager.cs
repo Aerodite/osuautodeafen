@@ -52,13 +52,14 @@ public abstract class LogFileManager
     }
 
     /// <summary>
-    ///     Initializes logging to the specified file.
+    ///     Initializes logging to the specified file and to Console using DualTextWriter
     /// </summary>
     public static void InitializeLogging(string logFilePath)
     {
         FileStream fileStream = new(logFilePath, FileMode.Append, FileAccess.Write, FileShare.Read);
-        StreamWriter writer = new(fileStream) { AutoFlush = true };
-        //Console.SetOut(new TimestampTextWriter(writer));
+        StreamWriter fileWriter = new(fileStream) { AutoFlush = true };
+        DualTextWriter dualWriter = new(Console.Out, new TimestampTextWriter(fileWriter));
+        Console.SetOut(dualWriter);
         Console.WriteLine($"[INFO] osuautodeafen started at {DateTime.Now:MM-dd HH:mm:ss.fff}");
     }
 }
