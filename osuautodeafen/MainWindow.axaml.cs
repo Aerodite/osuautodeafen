@@ -1723,14 +1723,7 @@ public partial class MainWindow : Window
             if (logoHost != null)
                 logoHost.Content = _logoControl;
 
-            _backgroundManager!._logoUpdater = new LogoUpdater(
-                _getLowResBackground!,
-                _logoControl,
-                _animationManager,
-                ViewModel,
-                LoadHighResolutionLogo,
-                _logImportant
-            );
+            _backgroundManager!._logoUpdater = new LogoUpdater(_getLowResBackground, _logoControl, ViewModel, LoadHighResolutionLogo);
 
             Console.WriteLine("SVG loaded successfully.");
         }
