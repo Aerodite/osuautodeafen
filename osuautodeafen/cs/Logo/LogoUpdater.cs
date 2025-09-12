@@ -129,7 +129,8 @@ public class LogoUpdater
                 AverageColor1 = AverageColor2 = AverageColor3 = new SKColor(0, 0, 0);
             }
 
-            _colorTransitionCts?.Cancel();
+            if (_colorTransitionCts != null)
+                await _colorTransitionCts.CancelAsync();
             _colorTransitionCts = new CancellationTokenSource();
 
             int closestIndex = FindClosestColorIndex(_lastRenderedColor, newSectionColors);

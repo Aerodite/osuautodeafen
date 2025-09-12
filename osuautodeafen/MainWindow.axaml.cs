@@ -33,6 +33,7 @@ using osuautodeafen.cs.Settings.Presets;
 using osuautodeafen.cs.StrainGraph;
 using osuautodeafen.cs.StrainGraph.ProgressIndicator;
 using osuautodeafen.cs.StrainGraph.Tooltips;
+using osuautodeafen.cs.Update;
 using SkiaSharp;
 using Svg.Skia;
 

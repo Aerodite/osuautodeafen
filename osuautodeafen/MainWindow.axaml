@@ -47,7 +47,6 @@
 
         <Style Selector="CheckBox.custom">
             <Setter Property="Background" Value="{StaticResource CheckBoxBackgroundBrush}" />
-            <!-- For checkmark, set Path.Stroke or Foreground in your template to use CheckBoxCheckmarkBrush -->
         </Style>
 
         <Style Selector="Button.preset-list-item:pointerover">
@@ -123,7 +122,7 @@
         </StackPanel>
 
         <!-- Main content -->
-        <Grid>
+        <Grid Grid.Column="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
