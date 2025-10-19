@@ -524,7 +524,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     public object MinSRValue => _tosuApi.GetFullSR();
 
-    public event PropertyChangedEventHandler PropertyChanged;
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     public void RefreshPresets()
     {
@@ -542,7 +542,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    private void Preset_PropertyChanged(object sender, PropertyChangedEventArgs e)
+    private void Preset_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(PresetInfo.IsCurrentPreset))
             OnPropertyChanged(nameof(HasAnyPresetsNotCurrent));
@@ -648,8 +648,9 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    public async Task InitializeAsync()
+    private Task InitializeAsync()
     {
+        return Task.CompletedTask;
     }
 
     private void UpdateChecker_UpdateCheckCompleted(bool updateFound)
@@ -677,7 +678,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     }
 
 
-    public void OnPropertyChanged([CallerMemberName] string propertyName = null)
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
