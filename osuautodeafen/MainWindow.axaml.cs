@@ -29,6 +29,7 @@ using osuautodeafen.cs.Deafen;
 using osuautodeafen.cs.Log;
 using osuautodeafen.cs.Logo;
 using osuautodeafen.cs.Settings;
+using osuautodeafen.cs.Settings.Keybinds;
 using osuautodeafen.cs.Settings.Presets;
 using osuautodeafen.cs.StrainGraph;
 using osuautodeafen.cs.StrainGraph.ProgressIndicator;
@@ -42,13 +43,6 @@ namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
-    public enum ModifierSide
-    {
-        None,
-        Left,
-        Right
-    }
-
     private const double BeatsPerRotation = 4;
     private readonly AnimationManager _animationManager = new();
     private readonly BackgroundManager? _backgroundManager;
@@ -1331,17 +1325,17 @@ public partial class MainWindow : Window
             if (_pressedKeys.Contains(Key.LeftShift)) modifiers |= KeyModifiers.Shift;
             if (_pressedKeys.Contains(Key.RightShift)) modifiers |= KeyModifiers.Shift;
 
-            ModifierSide controlSide = ModifierSide.None;
-            if (_pressedKeys.Contains(Key.LeftCtrl)) controlSide = ModifierSide.Left;
-            else if (_pressedKeys.Contains(Key.RightCtrl)) controlSide = ModifierSide.Right;
+            Modifiers.ModifierSide controlSide = Modifiers.ModifierSide.None;
+            if (_pressedKeys.Contains(Key.LeftCtrl)) controlSide = Modifiers.ModifierSide.Left;
+            else if (_pressedKeys.Contains(Key.RightCtrl)) controlSide = Modifiers.ModifierSide.Right;
 
-            ModifierSide altSide = ModifierSide.None;
-            if (_pressedKeys.Contains(Key.LeftAlt)) altSide = ModifierSide.Left;
-            else if (_pressedKeys.Contains(Key.RightAlt)) altSide = ModifierSide.Right;
+            Modifiers.ModifierSide altSide = Modifiers.ModifierSide.None;
+            if (_pressedKeys.Contains(Key.LeftAlt)) altSide = Modifiers.ModifierSide.Left;
+            else if (_pressedKeys.Contains(Key.RightAlt)) altSide = Modifiers.ModifierSide.Right;
 
-            ModifierSide shiftSide = ModifierSide.None;
-            if (_pressedKeys.Contains(Key.LeftShift)) shiftSide = ModifierSide.Left;
-            else if (_pressedKeys.Contains(Key.RightShift)) shiftSide = ModifierSide.Right;
+            Modifiers.ModifierSide shiftSide = Modifiers.ModifierSide.None;
+            if (_pressedKeys.Contains(Key.LeftShift)) shiftSide = Modifiers.ModifierSide.Left;
+            else if (_pressedKeys.Contains(Key.RightShift)) shiftSide = Modifiers.ModifierSide.Right;
 
             string friendlyKeyName = GetFriendlyKeyName(e.Key);
             HotKey hotKey = new()
@@ -1406,17 +1400,17 @@ public partial class MainWindow : Window
             if (allModifiers.Contains(Key.LeftShift)) modifiers |= KeyModifiers.Shift;
             if (allModifiers.Contains(Key.RightShift)) modifiers |= KeyModifiers.Shift;
 
-            ModifierSide controlSide = ModifierSide.None;
-            if (allModifiers.Contains(Key.LeftCtrl)) controlSide = ModifierSide.Left;
-            else if (allModifiers.Contains(Key.RightCtrl)) controlSide = ModifierSide.Right;
+            Modifiers.ModifierSide controlSide = Modifiers.ModifierSide.None;
+            if (allModifiers.Contains(Key.LeftCtrl)) controlSide = Modifiers.ModifierSide.Left;
+            else if (allModifiers.Contains(Key.RightCtrl)) controlSide = Modifiers.ModifierSide.Right;
 
-            ModifierSide altSide = ModifierSide.None;
-            if (allModifiers.Contains(Key.LeftAlt)) altSide = ModifierSide.Left;
-            else if (allModifiers.Contains(Key.RightAlt)) altSide = ModifierSide.Right;
+            Modifiers.ModifierSide altSide = Modifiers.ModifierSide.None;
+            if (allModifiers.Contains(Key.LeftAlt)) altSide = Modifiers.ModifierSide.Left;
+            else if (allModifiers.Contains(Key.RightAlt)) altSide = Modifiers.ModifierSide.Right;
 
-            ModifierSide shiftSide = ModifierSide.None;
-            if (allModifiers.Contains(Key.LeftShift)) shiftSide = ModifierSide.Left;
-            else if (allModifiers.Contains(Key.RightShift)) shiftSide = ModifierSide.Right;
+            Modifiers.ModifierSide shiftSide = Modifiers.ModifierSide.None;
+            if (allModifiers.Contains(Key.LeftShift)) shiftSide = Modifiers.ModifierSide.Left;
+            else if (allModifiers.Contains(Key.RightShift)) shiftSide = Modifiers.ModifierSide.Right;
 
             HotKey hotKey = new()
             {
@@ -2389,9 +2383,9 @@ public partial class MainWindow : Window
     {
         public Key Key { get; set; }
         public KeyModifiers ModifierKeys { get; set; }
-        public ModifierSide ControlSide { get; set; }
-        public ModifierSide AltSide { get; set; }
-        public ModifierSide ShiftSide { get; set; }
+        public Modifiers.ModifierSide ControlSide { get; set; }
+        public Modifiers.ModifierSide AltSide { get; set; }
+        public Modifiers.ModifierSide ShiftSide { get; set; }
         public string FriendlyName { get; set; } = "";
 
         public override string? ToString()

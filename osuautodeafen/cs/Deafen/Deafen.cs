@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading;
 using Avalonia.Input;
 using osuautodeafen.cs.Settings;
+using osuautodeafen.cs.Settings.Keybinds;
+using osuautodeafen.cs.Settings.Presets;
 using osuautodeafen.cs.Tosu;
 using SharpHook;
 using SharpHook.Data;
@@ -13,13 +15,6 @@ namespace osuautodeafen.cs.Deafen;
 
 public class Deafen : IDisposable
 {
-    public enum ModifierSide
-    {
-        None,
-        Left,
-        Right
-    }
-
     private readonly Lock _deafenLock = new();
     private readonly EventSimulator _eventSimulator = new();
     private readonly SimpleGlobalHook _hook;
@@ -84,24 +79,24 @@ public class Deafen : IDisposable
                 modifiers.Add(new ModifierWithSide
                 {
                     Modifier = controlSide == 2 ? KeyCode.VcRightControl : KeyCode.VcLeftControl,
-                    Side = controlSide == 2 ? ModifierSide.Right : ModifierSide.Left
+                    Side = controlSide == 2 ? Modifiers.ModifierSide.Right : Modifiers.ModifierSide.Left
                 });
             if (altSide != 0)
                 modifiers.Add(new ModifierWithSide
                 {
                     Modifier = altSide == 2 ? KeyCode.VcRightAlt : KeyCode.VcLeftAlt,
-                    Side = altSide == 2 ? ModifierSide.Right : ModifierSide.Left
+                    Side = altSide == 2 ? Modifiers.ModifierSide.Right : Modifiers.ModifierSide.Left
                 });
             if (shiftSide != 0)
                 modifiers.Add(new ModifierWithSide
                 {
                     Modifier = shiftSide == 2 ? KeyCode.VcRightShift : KeyCode.VcLeftShift,
-                    Side = shiftSide == 2 ? ModifierSide.Right : ModifierSide.Left
+                    Side = shiftSide == 2 ? Modifiers.ModifierSide.Right : Modifiers.ModifierSide.Left
                 });
 
 
             Console.WriteLine(
-                $"[SimulateDeafenKey] Pressing modifiers: {string.Join(", ", modifiers.Select(m => m.Modifier + (m.Side != ModifierSide.None ? $"({m.Side})" : "")))}");
+                $"[SimulateDeafenKey] Pressing modifiers: {string.Join(", ", modifiers.Select(m => m.Modifier + (m.Side != Modifiers.ModifierSide.None ? $"({m.Side})" : "")))}");
             foreach (ModifierWithSide mod in modifiers) _eventSimulator.SimulateKeyPress(mod.Modifier);
 
             Console.WriteLine($"[SimulateDeafenKey] Pressing main key: {key}");
@@ -113,7 +108,7 @@ public class Deafen : IDisposable
             foreach (ModifierWithSide mod in modifiers.AsEnumerable().Reverse())
                 _eventSimulator.SimulateKeyRelease(mod.Modifier);
             Console.WriteLine(
-                $"[SimulateDeafenKey] Released modifiers: {string.Join(", ", modifiers.AsEnumerable().Reverse().Select(m => m.Modifier + (m.Side != ModifierSide.None ? $"({m.Side})" : "")))}");
+                $"[SimulateDeafenKey] Released modifiers: {string.Join(", ", modifiers.AsEnumerable().Reverse().Select(m => m.Modifier + (m.Side != Modifiers.ModifierSide.None ? $"({m.Side})" : "")))}");
         }
         catch (Exception ex)
         {
@@ -376,6 +371,6 @@ public class Deafen : IDisposable
     private struct ModifierWithSide
     {
         public KeyCode Modifier;
-        public ModifierSide Side;
+        public Modifiers.ModifierSide Side;
     }
 }
