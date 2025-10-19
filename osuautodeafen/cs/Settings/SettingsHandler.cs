@@ -13,7 +13,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private readonly string _appPath;
     private readonly string _iniPath;
     private readonly FileIniDataParser _parser = new();
-    private readonly string _presetsPath;
     private string? _activePresetPath;
     private double _blurRadius;
 
@@ -37,8 +36,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         _iniPath = Path.Combine(_appPath, "settings.ini");
         Directory.CreateDirectory(_appPath);
 
-        _presetsPath = Path.Combine(_appPath, "presets");
-        Directory.CreateDirectory(_presetsPath);
+        string presetsPath = Path.Combine(_appPath, "presets");
+        Directory.CreateDirectory(presetsPath);
 
         if (!File.Exists(_iniPath))
         {

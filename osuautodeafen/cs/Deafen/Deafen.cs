@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using Avalonia.Input;
 using osuautodeafen.cs.Settings;
+using osuautodeafen.cs.Tosu;
 using SharpHook;
 using SharpHook.Data;
 using Timer = System.Timers.Timer;
@@ -40,7 +41,7 @@ public class Deafen : IDisposable
         _sharedViewModel = sharedViewModel;
         _settingsHandler = settingsHandler;
 
-        // handled separately from maintimer just in case
+        // handled seperately from the main timer due to importance
         _timer = new Timer(16);
         _timer.Elapsed += (_, _) => CheckAndDeafen();
         _timer.Start();
@@ -54,7 +55,7 @@ public class Deafen : IDisposable
     /// </summary>
     public void Dispose()
     {
-        Console.WriteLine("[Dispose] Disposing Deafen resources.");
+        Console.WriteLine("Disposing Deafen resources.");
         _hook.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -149,19 +150,22 @@ public class Deafen : IDisposable
         bool fcRequirementMet = !isFCRequired || isFullCombo;
         bool breakConditionMet = !IsBreakUndeafenToggleEnabled || !_isInBreakPeriod;
         bool missConditionMet = !IsUndeafenAfterMissEnabled || isFullCombo;
-
-        //Console.WriteLine($"[ShouldDeafen] isPlaying={isPlaying}, notAlreadyDeafened={notAlreadyDeafened}, completionMet={completionMet}, starRatingMet={starRatingMet}, performancePointsMet={performancePointsMet}, hasHitObjects={hasHitObjects}, notPracticeDifficulty={notPracticeDifficulty}, fcRequirementMet={fcRequirementMet}, breakConditionMet={breakConditionMet}, missConditionMet={missConditionMet}");
-
-        return isPlaying
-               && notAlreadyDeafened
-               && completionMet
-               && starRatingMet
-               && performancePointsMet
-               && hasHitObjects
-               && notPracticeDifficulty
-               && fcRequirementMet
-               && breakConditionMet
-               && missConditionMet;
+        
+        // i prefer this condition boolean compared to that nightmare return statement we had before personally
+        bool[] conditions = [
+            isPlaying,
+            notAlreadyDeafened,
+            completionMet,
+            starRatingMet,
+            performancePointsMet,
+            hasHitObjects,
+            notPracticeDifficulty,
+            fcRequirementMet,
+            breakConditionMet,
+            missConditionMet
+        ];
+        
+        return conditions.All(x => x);
     }
 
     /// <summary>
@@ -176,9 +180,7 @@ public class Deafen : IDisposable
         bool isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
         bool isFullCombo = _tosuAPI.IsFullCombo();
         bool isFCRequired = _sharedViewModel.IsFCRequired;
-
-        //Console.WriteLine($"[ShouldUndeafen] isPlaying={isPlaying}, completionPercentage={completionPercentage}, isFullCombo={isFullCombo}, _deafened={_deafened}, IsUndeafenAfterMissEnabled={IsUndeafenAfterMissEnabled}, IsBreakUndeafenToggleEnabled={IsBreakUndeafenToggleEnabled}, _isInBreakPeriod={_isInBreakPeriod}");
-
+        
         if ((!isPlaying && _deafened) || (completionPercentage <= 0 && _deafened))
         {
             Console.WriteLine("[ShouldUndeafen] Undeafen: not playing or retried");
@@ -206,8 +208,15 @@ public class Deafen : IDisposable
     /// </summary>
     private void CheckAndDeafen()
     {
-        //this should seal any edge debounce cases
+
+        //this should seal any edge debounce cases, hopefully.
         bool hasHitObjects = _tosuAPI.GetMaxPlayCombo() != 0;
+         /*
+         so tldr basically without that boolean, if you start a map and the preview time is further than your deafen point,
+         then you would be deafened then immediately undeafened.
+         this just prevents ANYTHING from happening until at least one circle is hit.
+         */
+        
 
         if (ShouldDeafen() && !_deafened && hasHitObjects)
         {

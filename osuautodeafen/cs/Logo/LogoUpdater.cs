@@ -8,53 +8,29 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using osuautodeafen.cs.Log;
 using SkiaSharp;
 using Svg.Skia;
 
 namespace osuautodeafen.cs.Logo;
 
-public class LogoUpdater
+public class LogoUpdater(
+    GetLowResBackground getLowResBackground,
+    LogoControl logoControl,
+    SharedViewModel viewModel,
+    Func<string, SKSvg> loadHighResLogo)
 {
-    private readonly AnimationManager _animationManager;
-    private readonly GetLowResBackground _getLowResBackground;
-    private readonly Func<string, SKSvg> _loadHighResLogo;
-    private readonly LogImportant _logImportant;
-    private readonly LogoControl _logoControl;
-    private readonly SharedViewModel _viewModel;
     private string? _cachedBitmapPath;
-    private SKSvg? _cachedLogoSvg;
     private SKBitmap? _cachedSKBitmap;
     private CancellationTokenSource? _colorTransitionCts;
-
-    private SKColor _currentColor;
+    
     private int _currentSectionIndex;
     private SKColor _lastRenderedColor = new(255, 255, 255, 255);
-    private Bitmap? _lowResBitmap;
-    private SKColor _oldAverageColor;
 
     private List<SKColor> _sectionColors = new();
-
-    public LogoUpdater(
-        GetLowResBackground getLowResBackground,
-        LogoControl logoControl,
-        AnimationManager animationManager,
-        SharedViewModel viewModel,
-        Func<string, SKSvg> loadHighResLogo, LogImportant logImportant)
-    {
-        _getLowResBackground = getLowResBackground;
-        _logoControl = logoControl;
-        _animationManager = animationManager;
-        _viewModel = viewModel;
-        _loadHighResLogo = loadHighResLogo;
-        _logImportant = logImportant;
-    }
 
     public SKColor AverageColor1 { get; private set; }
     public SKColor AverageColor2 { get; private set; }
     public SKColor AverageColor3 { get; private set; }
-
-    public SKColor AverageColor { get; private set; }
 
     /// <summary>
     ///     Smoothly interpolates from one color to another over a set duration
@@ -73,13 +49,13 @@ public class LogoUpdater
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (_logoControl is { } skiaLogo)
+                if (logoControl is { } skiaLogo)
                 {
                     skiaLogo.ModulateColor = interpolatedColor;
                     skiaLogo.InvalidateVisual();
                 }
 
-                _viewModel.AverageColorBrush = new SolidColorBrush(
+                viewModel.AverageColorBrush = new SolidColorBrush(
                     Color.FromArgb(interpolatedColor.Alpha, interpolatedColor.Red, interpolatedColor.Green,
                         interpolatedColor.Blue));
                 _lastRenderedColor = interpolatedColor;
@@ -90,14 +66,14 @@ public class LogoUpdater
     }
 
     /// <summary>
-    ///     Updates the logo based on the current low-res background image
+    ///     Updates the logo color based on the current low-res background image
     /// </summary>
     public async Task UpdateLogoAsync()
     {
         try
         {
             var lowResBitmapPathTask = GetLowResBitmapPathAsync();
-            var highResLogoTask = LoadHighResLogoAsync();
+            var highResLogoTask = LoadLogoSvgAsync();
 
             string? lowResBitmapPath = await lowResBitmapPathTask.ConfigureAwait(false);
             if (lowResBitmapPath == null) return;
@@ -114,7 +90,6 @@ public class LogoUpdater
 
             SKSvg? highResLogoSvg = await highResLogoTask.ConfigureAwait(false);
             if (highResLogoSvg == null) return;
-            _cachedLogoSvg = highResLogoSvg;
 
             var newSectionColors = CalculateSectionColors(_cachedSKBitmap);
 
@@ -129,7 +104,8 @@ public class LogoUpdater
                 AverageColor1 = AverageColor2 = AverageColor3 = new SKColor(0, 0, 0);
             }
 
-            _colorTransitionCts?.Cancel();
+            if (_colorTransitionCts != null)
+                await _colorTransitionCts.CancelAsync();
             _colorTransitionCts = new CancellationTokenSource();
 
             int closestIndex = FindClosestColorIndex(_lastRenderedColor, newSectionColors);
@@ -170,13 +146,13 @@ public class LogoUpdater
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    if (_logoControl is { } skiaLogo)
+                    if (logoControl is { } skiaLogo)
                     {
                         skiaLogo.ModulateColor = interpolatedColor;
                         skiaLogo.InvalidateVisual();
                     }
 
-                    _viewModel.AverageColorBrush = new SolidColorBrush(
+                    viewModel.AverageColorBrush = new SolidColorBrush(
                         Color.FromArgb(interpolatedColor.Alpha, interpolatedColor.Red, interpolatedColor.Green,
                             interpolatedColor.Blue));
                     _lastRenderedColor = interpolatedColor;
@@ -196,7 +172,7 @@ public class LogoUpdater
     /// <returns></returns>
     private List<SKColor> CalculateSectionColors(SKBitmap bitmap)
     {
-        int width = bitmap.Width, height = bitmap.Height;
+        int height = bitmap.Height;
         int sectionHeight = height / 3;
         var colors = new List<SKColor>();
         for (int section = 0; section < 3; section++)
@@ -301,11 +277,11 @@ public class LogoUpdater
     /// </summary>
     /// <param name="path"></param>
     /// <returns></returns>
-    private async Task<Bitmap?> LoadLowResBitmapAsync(string path)
+    private static async Task<Bitmap?> LoadLowResBitmapAsync(string path)
     {
         try
         {
-            using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 4096,
+            await using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 4096,
                 FileOptions.Asynchronous);
             return await Task.Run(() => new Bitmap(stream)).ConfigureAwait(false);
         }
@@ -316,16 +292,16 @@ public class LogoUpdater
     }
 
     /// <summary>
-    ///     Loads the high-resolution SVG logo
+    ///     Loads the logo as an SVG
     /// </summary>
     /// <returns></returns>
-    private async Task<SKSvg?> LoadHighResLogoAsync()
+    private async Task<SKSvg?> LoadLogoSvgAsync()
     {
         return await Task.Run(() =>
         {
             try
             {
-                return _loadHighResLogo("osuautodeafen.Resources.autodeafen.svg");
+                return loadHighResLogo("osuautodeafen.Resources.autodeafen.svg");
             }
             catch
             {
@@ -346,13 +322,13 @@ public class LogoUpdater
         {
             try
             {
-                string? lowResBitmapPath = _getLowResBackground?.GetLowResBitmapPath();
+                string? lowResBitmapPath = getLowResBackground?.GetLowResBitmapPath();
                 if (!string.IsNullOrEmpty(lowResBitmapPath))
                     return lowResBitmapPath;
             }
             catch
             {
-                // ignored
+                // map probably doesnt have the thumbnail, we can ignore
             }
 
             await Task.Delay(delayMilliseconds).ConfigureAwait(false);
@@ -366,7 +342,7 @@ public class LogoUpdater
     /// </summary>
     /// <param name="avaloniaBitmap"></param>
     /// <returns></returns>
-    public SKBitmap? ConvertToSKBitmap(Bitmap? avaloniaBitmap)
+    private static SKBitmap? ConvertToSKBitmap(Bitmap? avaloniaBitmap)
     {
         if (avaloniaBitmap == null) return null;
         int width = avaloniaBitmap.PixelSize.Width;
@@ -379,26 +355,24 @@ public class LogoUpdater
         try
         {
             skBitmap = new SKBitmap(width, height);
-            using (RenderTargetBitmap renderTargetBitmap = new(new PixelSize(width, height), new Vector(96, 96)))
+            using RenderTargetBitmap renderTargetBitmap = new(new PixelSize(width, height), new Vector(96, 96));
+            using (DrawingContext drawingContext = renderTargetBitmap.CreateDrawingContext())
             {
-                using (DrawingContext drawingContext = renderTargetBitmap.CreateDrawingContext())
-                {
-                    drawingContext.DrawImage(avaloniaBitmap, new Rect(0, 0, width, height),
-                        new Rect(0, 0, width, height));
-                }
-
-                int pixelDataSize = width * height * 4;
-                pixelDataPtr = Marshal.AllocHGlobal(pixelDataSize);
-
-                PixelRect rect = new(0, 0, width, height);
-                renderTargetBitmap.CopyPixels(rect, pixelDataPtr, pixelDataSize, width * 4);
-
-                byte[] pixelData = new byte[pixelDataSize];
-                Marshal.Copy(pixelDataPtr, pixelData, 0, pixelDataSize);
-
-                IntPtr destPtr = skBitmap.GetPixels();
-                Marshal.Copy(pixelData, 0, destPtr, pixelDataSize);
+                drawingContext.DrawImage(avaloniaBitmap, new Rect(0, 0, width, height),
+                    new Rect(0, 0, width, height));
             }
+
+            int pixelDataSize = width * height * 4;
+            pixelDataPtr = Marshal.AllocHGlobal(pixelDataSize);
+
+            PixelRect rect = new(0, 0, width, height);
+            renderTargetBitmap.CopyPixels(rect, pixelDataPtr, pixelDataSize, width * 4);
+
+            byte[] pixelData = new byte[pixelDataSize];
+            Marshal.Copy(pixelDataPtr, pixelData, 0, pixelDataSize);
+
+            IntPtr destPtr = skBitmap.GetPixels();
+            Marshal.Copy(pixelData, 0, destPtr, pixelDataSize);
 
             return skBitmap;
         }
@@ -421,17 +395,17 @@ public class LogoUpdater
     /// <param name="to"></param>
     /// <param name="t"></param>
     /// <returns></returns>
-    private SKColor InterpolateColor(SKColor from, SKColor to, float t)
+    private static SKColor InterpolateColor(SKColor from, SKColor to, float t)
     {
-        byte InterpolateComponent(byte start, byte end, float factor)
-        {
-            return (byte)(start + ((end - start) * factor));
-        }
-
         byte r = InterpolateComponent(from.Red, to.Red, t);
         byte g = InterpolateComponent(from.Green, to.Green, t);
         byte b = InterpolateComponent(from.Blue, to.Blue, t);
         byte a = InterpolateComponent(from.Alpha, to.Alpha, t);
         return new SKColor(r, g, b, a);
+
+        byte InterpolateComponent(byte start, byte end, float factor)
+        {
+            return (byte)(start + ((end - start) * factor));
+        }
     }
 }

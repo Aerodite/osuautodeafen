@@ -9,6 +9,7 @@
         xmlns:strainGraph="clr-namespace:osuautodeafen.cs.StrainGraph"
         xmlns:global="clr-namespace:"
         xmlns:presets="clr-namespace:osuautodeafen.cs.Settings.Presets"
+        xmlns:progressIndicator="clr-namespace:osuautodeafen.cs.StrainGraph.ProgressIndicator"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osuautodeafen"
@@ -47,7 +48,6 @@
 
         <Style Selector="CheckBox.custom">
             <Setter Property="Background" Value="{StaticResource CheckBoxBackgroundBrush}" />
-            <!-- For checkmark, set Path.Stroke or Foreground in your template to use CheckBoxCheckmarkBrush -->
         </Style>
 
         <Style Selector="Button.preset-list-item:pointerover">
@@ -123,7 +123,7 @@
         </StackPanel>
 
         <!-- Main content -->
-        <Grid>
+        <Grid Grid.Column="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -805,7 +805,7 @@
                                 BorderThickness="0"
                                 CornerRadius="0"
                                 HorizontalContentAlignment="Center"
-                                Click="DebugConsoleButton_Click"
+                                Click="ToggleDebugConsole"
                                 HorizontalAlignment="Center"
                                 Margin="0,0,0,10"
                                 FontSize="7"
@@ -848,7 +848,7 @@
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch"
                     Height="120" />
-                <strainGraph:ProgressIndicatorOverlay
+                <progressIndicator:ProgressIndicatorOverlay
                     x:Name="ProgressOverlay"
                     IsHitTestVisible="False" />
                 <Canvas x:Name="IconOverlay" IsHitTestVisible="False" x:DataType="cs:SharedViewModel" />

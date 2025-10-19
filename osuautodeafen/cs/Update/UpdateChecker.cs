@@ -1,22 +1,25 @@
 ﻿using System;
 using System.Threading.Tasks;
-using osuautodeafen;
 using Velopack;
 using Velopack.Sources;
 
+namespace osuautodeafen.cs.Update;
+
 public class UpdateChecker
 {
-    public const string CurrentVersion = "1.1.0";
+    /// <summary>
+    ///    The current version of osuautodeafen
+    /// </summary>
+    public const string CurrentVersion = "1.1.1";
 
-    private static readonly GithubSource updateSource = new("https://github.com/Aerodite/osuautodeafen",
+    private static readonly GithubSource UpdateSource = new("https://github.com/Aerodite/osuautodeafen",
         null, false);
 
-    private MainWindow _mainWindow;
-    public UpdateManager Mgr = new(updateSource);
+    public readonly UpdateManager Mgr = new(UpdateSource);
     public UpdateInfo? UpdateInfo;
 
     /// <summary>
-    ///     Initializes a new instance of the <see cref="UpdateChecker" /> class.
+    ///     Checks for updates and downloads them if a new version is available
     /// </summary>
     public async Task CheckForUpdatesAsync()
     {

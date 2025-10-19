@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "aPKK/fdkC/M=",
+  "dgSpecHash": "yIsA+4jwDaA=",
   "success": true,
   "projectFilePath": "/home/anthony/RiderProjects/osuautodeafen/osuautodeafen/osuautodeafen.csproj",
   "expectedPackageFiles": [
@@ -54,7 +54,7 @@
     "/home/anthony/.nuget/packages/tmds.dbus.protocol/0.21.2/tmds.dbus.protocol.0.21.2.nupkg.sha512",
     "/home/anthony/.nuget/packages/velopack/0.0.1362-gfa48e3c/velopack.0.0.1362-gfa48e3c.nupkg.sha512",
     "/home/anthony/.nuget/packages/websocketsharp/1.0.3-rc11/websocketsharp.1.0.3-rc11.nupkg.sha512",
-    "/home/anthony/.nuget/packages/microsoft.aspnetcore.app.ref/9.0.8/microsoft.aspnetcore.app.ref.9.0.8.nupkg.sha512"
+    "/home/anthony/.nuget/packages/microsoft.aspnetcore.app.ref/9.0.9/microsoft.aspnetcore.app.ref.9.0.9.nupkg.sha512"
   ],
   "logs": [
     {

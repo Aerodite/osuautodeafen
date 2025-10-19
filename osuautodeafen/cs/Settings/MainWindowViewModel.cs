@@ -11,6 +11,8 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using osuautodeafen.cs.Settings;
 using osuautodeafen.cs.Settings.Presets;
+using osuautodeafen.cs.Tosu;
+using osuautodeafen.cs.Update;
 
 namespace osuautodeafen.cs;
 
@@ -79,7 +81,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         _tosuApi = tosuApi;
         Task.Run(UpdateCompletionPercentageAsync);
 
-        Presets.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasAnyPresets));
+        if (Presets != null) 
+            Presets.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasAnyPresets));
     }
 
     public bool CanCreatePreset => !PresetExistsForCurrentChecksum;
@@ -87,12 +90,10 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     public bool HasAnyPresets => Presets != null && Presets.Any();
     public bool HasAnyPresetsNotCurrent => Presets != null && Presets.Any(p => !p.IsCurrentPreset);
 
-    public ObservableCollection<PresetInfo>? Presets { get; } = new();
+    public ObservableCollection<PresetInfo>? Presets { get; } = [];
 
     public IEnumerable<PresetInfo> VisiblePresets =>
-        Presets?.Where(p => !p.IsCurrentPreset) ?? Enumerable.Empty<PresetInfo>();
-
-    public int BlurPercent => (int)Math.Round(BlurRadius / 20.0 * 100);
+        Presets?.Where(p => !p.IsCurrentPreset) ?? [];
 
     public int UpdateProgress
     {
@@ -523,7 +524,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     public object MinSRValue => _tosuApi.GetFullSR();
 
-    public event PropertyChangedEventHandler PropertyChanged;
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     public void RefreshPresets()
     {
@@ -541,53 +542,90 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    private void Preset_PropertyChanged(object sender, PropertyChangedEventArgs e)
+    private void Preset_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(PresetInfo.IsCurrentPreset))
             OnPropertyChanged(nameof(HasAnyPresetsNotCurrent));
     }
 
-    private static Color DesaturateAndLightenColorHsl(Color color, float saturationFactor, float lightnessFactor)
+  private static Color DesaturateAndLightenColorHsl(Color color, float saturationFactor, float lightnessFactor)
     {
-        float r = color.R / 255f, g = color.G / 255f, b = color.B / 255f;
-        float max = Math.Max(r, Math.Max(g, b)), min = Math.Min(r, Math.Min(g, b));
-        float h = 0f, s, l = (max + min) / 2f;
-
-        if (max == min)
+        // convert rgb to hsl
+        float red = color.R / 255f;
+        float green = color.G / 255f;
+        float blue = color.B / 255f;
+        
+        float maxComponent = Math.Max(red, Math.Max(green, blue));
+        float minComponent = Math.Min(red, Math.Min(green, blue));
+        float hue, saturation;
+        
+        float lightness = (maxComponent + minComponent) / 2f;
+        
+        if (maxComponent == minComponent)
         {
-            h = s = 0f;
+            hue = 0f;
+            saturation = 0f;
         }
         else
         {
-            float d = max - min;
-            s = l > 0.5f ? d / (2f - max - min) : d / (max + min);
+            float delta = maxComponent - minComponent;
+            
+            saturation = lightness > 0.5f
+                ? delta / (2f - maxComponent - minComponent)
+                : delta / (maxComponent + minComponent);
+            
+            if (maxComponent == red)
+                hue = ((green - blue) / delta) + (green < blue ? 6f : 0f);
+            else if (maxComponent == green)
+                hue = ((blue - red) / delta) + 2f;
+            else
+                hue = ((red - green) / delta) + 4f;
 
-            if (max == r) h = ((g - b) / d) + (g < b ? 6f : 0f);
-            else if (max == g) h = ((b - r) / d) + 2f;
-            else h = ((r - g) / d) + 4f;
-            h /= 6f;
+            hue /= 6f;
         }
 
-        s *= saturationFactor;
-        l = Math.Min(l * lightnessFactor, 1f);
+        // desaturate and lighten
+        saturation *= saturationFactor;
+        lightness = Math.Min(lightness * lightnessFactor, 1f);
 
-        float q = l < 0.5f ? l * (1f + s) : l + s - (l * s);
-        float p = (2f * l) - q;
-        float[] t = { h + (1f / 3f), h, h - (1f / 3f) };
-        float[] rgb = new float[3];
+        // convert the hsl back to rgb
+        float q = lightness < 0.5f
+            ? lightness * (1f + saturation)
+            : lightness + saturation - (lightness * saturation);
+        float p = 2f * lightness - q;
+
+        float[] tempHues = [hue + 1f / 3f, hue, hue - 1f / 3f];
+        float[] rgbComponents = new float[3];
 
         for (int i = 0; i < 3; i++)
         {
-            float tc = t[i];
-            if (tc < 0f) tc += 1f;
-            if (tc > 1f) tc -= 1f;
-            if (tc < 1f / 6f) rgb[i] = p + ((q - p) * 6f * tc);
-            else if (tc < 1f / 2f) rgb[i] = q;
-            else if (tc < 2f / 3f) rgb[i] = p + ((q - p) * ((2f / 3f) - tc) * 6f);
-            else rgb[i] = p;
-        }
+            float tempHue = tempHues[i];
+            if (tempHue < 0f) tempHue += 1f;
+            if (tempHue > 1f) tempHue -= 1f;
 
-        return Color.FromArgb(color.A, (byte)(rgb[0] * 255), (byte)(rgb[1] * 255), (byte)(rgb[2] * 255));
+            switch (tempHue)
+            {
+                case < 1f / 6f:
+                    rgbComponents[i] = p + (q - p) * 6f * tempHue;
+                    break;
+                case < 1f / 2f:
+                    rgbComponents[i] = q;
+                    break;
+                case < 2f / 3f:
+                    rgbComponents[i] = p + (q - p) * (2f / 3f - tempHue) * 6f;
+                    break;
+                default:
+                    rgbComponents[i] = p;
+                    break;
+            }
+        }
+        
+        return Color.FromArgb(
+            color.A,
+            (byte)(rgbComponents[0] * 255),
+            (byte)(rgbComponents[1] * 255),
+            (byte)(rgbComponents[2] * 255)
+        );
     }
 
     public void UpdateMinPPValue()
@@ -610,8 +648,9 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    public async Task InitializeAsync()
+    private Task InitializeAsync()
     {
+        return Task.CompletedTask;
     }
 
     private void UpdateChecker_UpdateCheckCompleted(bool updateFound)
@@ -639,7 +678,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     }
 
 
-    public void OnPropertyChanged([CallerMemberName] string propertyName = null)
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }

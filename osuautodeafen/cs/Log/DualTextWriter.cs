@@ -3,18 +3,9 @@ using System.Text;
 
 namespace osuautodeafen.cs.Log;
 
-public class DualTextWriter : TextWriter
+public class DualTextWriter(TextWriter consoleWriter, TextWriter fileWriter) : TextWriter
 {
-    private readonly TextWriter _consoleWriter;
-    private readonly TextWriter _fileWriter;
-
-    public DualTextWriter(TextWriter consoleWriter, TextWriter fileWriter)
-    {
-        _consoleWriter = consoleWriter;
-        _fileWriter = fileWriter;
-    }
-
-    public override Encoding Encoding => _consoleWriter.Encoding;
+    public override Encoding Encoding => consoleWriter.Encoding;
 
     /// <summary>
     /// Writes Console.Write output to both the console and a file (as a char)
@@ -22,8 +13,8 @@ public class DualTextWriter : TextWriter
     /// <param name="value"></param>
     public override void Write(char value)
     {
-        _consoleWriter.Write(value);
-        _fileWriter.Write(value);
+        consoleWriter.Write(value);
+        fileWriter.Write(value);
     }
     
     /// <summary>
@@ -32,8 +23,8 @@ public class DualTextWriter : TextWriter
     /// <param name="value"></param>
     public override void Write(string? value)
     {
-        _consoleWriter.Write(value);
-        _fileWriter.Write(value);
+        consoleWriter.Write(value);
+        fileWriter.Write(value);
     }
     
     /// <summary>
@@ -42,8 +33,8 @@ public class DualTextWriter : TextWriter
     /// <param name="value"></param>
     public override void WriteLine(string? value)
     {
-        _consoleWriter.WriteLine(value);
-        _fileWriter.WriteLine(value);
+        consoleWriter.WriteLine(value);
+        fileWriter.WriteLine(value);
     }
 
     /// <summary>
@@ -51,7 +42,7 @@ public class DualTextWriter : TextWriter
     /// </summary>
     public override void Flush()
     {
-        _consoleWriter.Flush();
-        _fileWriter.Flush();
+        consoleWriter.Flush();
+        fileWriter.Flush();
     }
 }

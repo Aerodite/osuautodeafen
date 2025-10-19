@@ -33,6 +33,8 @@ using osuautodeafen.cs.Settings.Presets;
 using osuautodeafen.cs.StrainGraph;
 using osuautodeafen.cs.StrainGraph.ProgressIndicator;
 using osuautodeafen.cs.StrainGraph.Tooltips;
+using osuautodeafen.cs.Tosu;
+using osuautodeafen.cs.Update;
 using SkiaSharp;
 using Svg.Skia;
 
@@ -178,7 +180,7 @@ public partial class MainWindow : Window
 
         _backgroundManager = new BackgroundManager(this, _viewModel, _tosuApi)
         {
-            _logoUpdater = null
+            LogoUpdater = null
         };
 
         object? oldContent = Content;
@@ -1005,7 +1007,7 @@ public partial class MainWindow : Window
         string mapper = _tosuApi.GetBeatmapMapper();
 
 
-        LogoUpdater? logoUpdater = _backgroundManager?._logoUpdater;
+        LogoUpdater? logoUpdater = _backgroundManager?.LogoUpdater;
         string avgColor1 = logoUpdater?.AverageColor1.ToString() ?? "#000000";
         string avgColor2 = logoUpdater?.AverageColor2.ToString() ?? "#000000";
         string avgColor3 = logoUpdater?.AverageColor3.ToString() ?? "#000000";
@@ -1368,8 +1370,8 @@ public partial class MainWindow : Window
 
         switch (e.Key)
         {
-            case Key.D when e.KeyModifiers.HasFlag(KeyModifiers.Control):
-                Dispatcher.UIThread.InvokeAsync(() => DebugConsoleButton_Click_NoAnim(null, null!));
+            case Key.D when e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+                Dispatcher.UIThread.InvokeAsync(() => ToggleDebugConsole(null, null!));
                 e.Handled = true;
                 return;
             case Key.O when e.KeyModifiers.HasFlag(KeyModifiers.Control):
@@ -1510,7 +1512,7 @@ public partial class MainWindow : Window
             Key.OemBackslash => "\\",
             Key.OemPipe => "|",
             Key.OemTilde => "`",
-            Key.Oem8 => "Oem8",
+            Key.Oem8 => "`",
             _ => key.ToString()
         };
     }
@@ -1684,12 +1686,12 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///     Loads a high-resolution SVG logo from embedded resources
+    ///     Loads an SVG resource as an SKSvg object
     /// </summary>
     /// <param name="resourceName"></param>
     /// <returns></returns>
     /// <exception cref="FileNotFoundException"></exception>
-    public SKSvg LoadHighResolutionLogo(string resourceName)
+    public SKSvg LoadSkSvgResource(string resourceName)
     {
         using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
                               ?? throw new FileNotFoundException("Resource not found: " + resourceName);
@@ -1699,14 +1701,14 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///     Initializes the logo control and loads the SVG logo asynchronously
+    ///     Initializes the logo control
     /// </summary>
     private async void InitializeLogo()
     {
         const string resourceName = "osuautodeafen.Resources.autodeafen.svg";
         try
         {
-            SKSvg svg = await Task.Run(() => LoadHighResolutionLogo(resourceName));
+            SKSvg svg = await Task.Run(() => LoadSkSvgResource(resourceName));
 
             if (_logoControl == null)
                 _logoControl = new LogoControl
@@ -1722,14 +1724,7 @@ public partial class MainWindow : Window
             if (logoHost != null)
                 logoHost.Content = _logoControl;
 
-            _backgroundManager!._logoUpdater = new LogoUpdater(
-                _getLowResBackground!,
-                _logoControl,
-                _animationManager,
-                ViewModel,
-                LoadHighResolutionLogo,
-                _logImportant
-            );
+            _backgroundManager!.LogoUpdater = new LogoUpdater(_getLowResBackground, _logoControl, ViewModel, LoadSkSvgResource);
 
             Console.WriteLine("SVG loaded successfully.");
         }
@@ -2070,7 +2065,7 @@ public partial class MainWindow : Window
     ///     Sets up the initial state and transitions for the debug console panel
     /// </summary>
     /// <param name="debugConsolePanel"></param>
-    private async Task SetupDebugConsoleTransitionsAsync(StackPanel debugConsolePanel)
+    private static async Task SetupDebugConsoleTransitionsAsync(StackPanel debugConsolePanel)
     {
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -2087,12 +2082,12 @@ public partial class MainWindow : Window
         });
     }
 
-    private async Task AnimateDebugConsoleInAsync(StackPanel debugConsolePanel)
+    private static async Task AnimateDebugConsoleInAsync(StackPanel debugConsolePanel)
     {
         await Dispatcher.UIThread.InvokeAsync(() => { debugConsolePanel.Margin = new Thickness(0, 0, 0, 0); });
     }
 
-    private async Task AnimateDebugConsoleOutAsync(StackPanel debugConsolePanel)
+    private static async Task AnimateDebugConsoleOutAsync(StackPanel debugConsolePanel)
     {
         await Dispatcher.UIThread.InvokeAsync(() => { debugConsolePanel.Margin = new Thickness(-727, 0, 0, 0); });
         await Task.Delay(400);
@@ -2168,7 +2163,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///     Stops the cog spinning animation and smoothly returns it to the original position
+    ///     Stops the cog spinning animation and returns it to the original position
     /// </summary>
     /// <param name="cogImage"></param>
     private async Task StopCogSpinAsync(Image cogImage)
@@ -2205,7 +2200,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///     Updates the cog spinning BPM and adjusts the timer interval accordingly
+    ///     Update the cog spin BPM with the current beatmap BPM
     /// </summary>
     private void UpdateCogSpinBpm()
     {
@@ -2229,7 +2224,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///     Opens the file location of AppData in either File Explorer or the terminal on click
+    ///     Opens the file location of the osuautodeafen appdata folder
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
@@ -2270,80 +2265,48 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///     Shows or hides the debug console panel if the button is clicked
+    ///     Shows or hides the debug console panel
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
-    private async void DebugConsoleButton_Click(object? sender, RoutedEventArgs e)
+    private async void ToggleDebugConsole(object? sender, RoutedEventArgs e)
     {
-        StackPanel? debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
-        if (debugConsolePanel != null && !debugConsolePanel.IsVisible)
+        try
         {
-            StartStableFrameTimer();
-
-            await SetupDebugConsoleTransitionsAsync(debugConsolePanel);
-            debugConsolePanel.IsVisible = true;
-            await AnimateDebugConsoleInAsync(debugConsolePanel);
-
-            _logUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-            _logUpdateTimer.Tick += (_, __) =>
+            StackPanel? debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
+            if (debugConsolePanel != null && !debugConsolePanel.IsVisible)
             {
-                var currentLogs = _logImportant._importantLogs.Values.ToList();
-                UpdateDebugConsolePanel(debugConsolePanel, currentLogs);
-            };
-            _logUpdateTimer.Start();
-        }
-        else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
-        {
-            StopStableFrameTimer();
+                StartStableFrameTimer();
 
-            await AnimateDebugConsoleOutAsync(debugConsolePanel);
-            debugConsolePanel.IsVisible = false;
-            _logUpdateTimer?.Stop();
-            _logUpdateTimer = null;
-        }
-        else
-        {
-            Console.WriteLine("[ERROR] Debug console not found.");
-        }
-    }
+                await SetupDebugConsoleTransitionsAsync(debugConsolePanel);
+                debugConsolePanel.IsVisible = true;
+                await AnimateDebugConsoleInAsync(debugConsolePanel);
 
-    /// <summary>
-    ///     Shows or hides the debug console panel if the button is clicked, without animations
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    private async void DebugConsoleButton_Click_NoAnim(object? sender, RoutedEventArgs e)
-    {
-        StackPanel? debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
-        if (debugConsolePanel != null && !debugConsolePanel.IsVisible)
-        {
-            StartStableFrameTimer();
-
-            await SetupDebugConsoleTransitionsAsync(debugConsolePanel);
-            debugConsolePanel.IsVisible = true;
-            await AnimateDebugConsoleInAsync(debugConsolePanel);
-
-            _logUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-            _logUpdateTimer.Tick += (_, __) =>
+                _logUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+                _logUpdateTimer.Tick += (_, __) =>
+                {
+                    var currentLogs = _logImportant._importantLogs.Values.ToList();
+                    UpdateDebugConsolePanel(debugConsolePanel, currentLogs);
+                };
+                _logUpdateTimer.Start();
+            }
+            else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
             {
-                var currentLogs = _logImportant._importantLogs.Values.ToList();
-                UpdateDebugConsolePanel(debugConsolePanel, currentLogs);
-            };
-            _logUpdateTimer.Start();
-        }
-        else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
-        {
-            StopStableFrameTimer();
+                StopStableFrameTimer();
 
-            await AnimateDebugConsoleOutAsync(debugConsolePanel);
-            debugConsolePanel.IsVisible = false;
-            _logUpdateTimer?.Stop();
-            _logUpdateTimer = null;
+                await AnimateDebugConsoleOutAsync(debugConsolePanel);
+                debugConsolePanel.IsVisible = false;
+                _logUpdateTimer?.Stop();
+                _logUpdateTimer = null;
+            }
+            else
+            {
+                Console.WriteLine("[ERROR] Debug console not found.");
+            }
         }
-        else
+        catch (Exception ex)
         {
-            Console.WriteLine("[ERROR] Debug console not found.");
+            Console.WriteLine($"[ERROR] Exception in ToggleDebugConsole: {ex.Message}");
         }
     }
 
@@ -2371,9 +2334,12 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///     Creates a log element, converting hyperlinks into clickable buttons
+    ///    Creates a log textblock for the debug panel
     /// </summary>
     /// <param name="logText"></param>
+    /// <remarks>
+    /// This contains hyperlink support if the text contains a URL
+    /// </remarks>
     /// <returns></returns>
     private Control CreateLogElement(string logText)
     {
@@ -2411,12 +2377,7 @@ public partial class MainWindow : Window
 
         return new TextBlock { Text = logText, Foreground = Brushes.White };
     }
-
-    /// <summary>
-    ///     Extracts the hyperlink from a log text if present
-    /// </summary>
-    /// <param name="logText"></param>
-    /// <returns></returns>
+    
     public static string? ExtractHyperlink(string logText)
     {
         Regex urlRegex = new(@"https?://\S+");
