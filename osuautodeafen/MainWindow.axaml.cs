@@ -180,7 +180,7 @@ public partial class MainWindow : Window
 
         _backgroundManager = new BackgroundManager(this, _viewModel, _tosuApi)
         {
-            _logoUpdater = null
+            LogoUpdater = null
         };
 
         object? oldContent = Content;
@@ -1007,7 +1007,7 @@ public partial class MainWindow : Window
         string mapper = _tosuApi.GetBeatmapMapper();
 
 
-        LogoUpdater? logoUpdater = _backgroundManager?._logoUpdater;
+        LogoUpdater? logoUpdater = _backgroundManager?.LogoUpdater;
         string avgColor1 = logoUpdater?.AverageColor1.ToString() ?? "#000000";
         string avgColor2 = logoUpdater?.AverageColor2.ToString() ?? "#000000";
         string avgColor3 = logoUpdater?.AverageColor3.ToString() ?? "#000000";
@@ -1512,7 +1512,7 @@ public partial class MainWindow : Window
             Key.OemBackslash => "\\",
             Key.OemPipe => "|",
             Key.OemTilde => "`",
-            Key.Oem8 => "Oem8",
+            Key.Oem8 => "`",
             _ => key.ToString()
         };
     }
@@ -1724,7 +1724,7 @@ public partial class MainWindow : Window
             if (logoHost != null)
                 logoHost.Content = _logoControl;
 
-            _backgroundManager!._logoUpdater = new LogoUpdater(_getLowResBackground, _logoControl, ViewModel, LoadSkSvgResource);
+            _backgroundManager!.LogoUpdater = new LogoUpdater(_getLowResBackground, _logoControl, ViewModel, LoadSkSvgResource);
 
             Console.WriteLine("SVG loaded successfully.");
         }

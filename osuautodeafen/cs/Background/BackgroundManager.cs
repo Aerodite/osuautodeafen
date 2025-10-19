@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -20,10 +19,8 @@ namespace osuautodeafen.cs.Background;
 public class BackgroundManager(MainWindow window, SharedViewModel viewModel, TosuApi tosuApi)
 {
     private readonly Dictionary<string, OpacityRequest> _opacityRequests = new();
-    private readonly Dictionary<string, BackgroundOverlayRequest> _overlayRequests = new();
     private readonly TimeSpan _parallaxInterval = TimeSpan.FromMilliseconds(16);
-
-    private Rectangle? _backgroundOverlayRect;
+    
     private PropertyChangedEventHandler? _backgroundPropertyChangedHandler;
     private double _cachedDownscale = 1.0;
 
@@ -35,22 +32,14 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     private string? _currentBackgroundDirectory;
     private double _currentBackgroundOpacity = 1.0;
     private Bitmap? _currentBitmap;
-
-    private string? _currentOverlayKey;
     private bool _isBlackBackgroundDisplayed;
     private double _lastMovementX, _lastMovementY;
     private DateTime _lastUpdate = DateTime.MinValue;
     private Bitmap? _lastValidBitmap;
-    public required LogoUpdater? _logoUpdater;
+    public required LogoUpdater? LogoUpdater;
     private double _mouseX;
     private double _mouseY;
-    private CancellationTokenSource? _overlayAnimationCts;
     public BlurEffect? BackgroundBlurEffect;
-
-    public double GetBackgroundOpacity()
-    {
-        return _currentBackgroundOpacity;
-    }
 
     /// <summary>
     ///     Sets the background opacity, optionally animating the transition over a specified duration
@@ -128,7 +117,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 _currentBitmap = newBitmap;
 
                 await Dispatcher.UIThread.InvokeAsync(() => UpdateUIWithNewBackgroundAsync(_currentBitmap));
-                if (_logoUpdater != null) await Dispatcher.UIThread.InvokeAsync(_logoUpdater.UpdateLogoAsync);
+                if (LogoUpdater != null) await Dispatcher.UIThread.InvokeAsync(LogoUpdater.UpdateLogoAsync);
                 _isBlackBackgroundDisplayed = false;
             }
             else
@@ -145,7 +134,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
 
             if (_backgroundPropertyChangedHandler == null)
             {
-                _backgroundPropertyChangedHandler = async void (s, args) =>
+                _backgroundPropertyChangedHandler = async void (_, args) =>
                 {
                     try
                     {
@@ -251,25 +240,21 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     private double CalculateBlurDownscale(double sigma)
     {
         if (sigma <= 1)
-            //Console.WriteLine($"CalculateBlurDownscale elapsed: {sw.ElapsedMilliseconds} ms");
             return 1;
 
         double scale = -0.18 * Math.Log(0.004 * sigma);
         double result = Math.Max(0.1, Math.Round(scale / 0.2, MidpointRounding.AwayFromZero) * 0.2);
-        //Console.WriteLine($"CalculateBlurDownscale elapsed: {sw.ElapsedMilliseconds} ms");
         return result;
     }
 
     private async Task<Bitmap> CreateDownscaledBitmapAsync(Bitmap source, double scale)
     {
         if (scale >= 1.0)
-            //Console.WriteLine($"CreateDownscaledBitmapAsync elapsed: {sw.ElapsedMilliseconds} ms");
             return source;
 
         if (_cachedDownscaledBitmap != null &&
             _cachedSourceBitmap == source &&
             Math.Abs(_cachedDownscale - scale) < 0.01)
-            //Console.WriteLine($"CreateDownscaledBitmapAsync elapsed: {sw.ElapsedMilliseconds} ms (cached)");
             return _cachedDownscaledBitmap;
 
         _cachedDownscaledBitmap?.Dispose();
@@ -292,7 +277,6 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         _cachedDownscaledBitmap = target;
         _cachedDownscale = scale;
         _cachedSourceBitmap = source;
-        //Console.WriteLine($"CreateDownscaledBitmapAsync elapsed: {sw.ElapsedMilliseconds} ms");
         return target;
     }
 
@@ -313,9 +297,9 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             _lastValidBitmap = bitmap;
         }
 
-        CancellationTokenSource?
+        CancellationTokenSource
             cts = Interlocked.Exchange(ref _cancellationTokenSource, new CancellationTokenSource());
-        await cts?.CancelAsync()!;
+        await cts.CancelAsync();
         CancellationToken token = _cancellationTokenSource.Token;
 
         if (Dispatcher.UIThread.CheckAccess())
@@ -323,34 +307,6 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         else
             await Dispatcher.UIThread.InvokeAsync(UpdateUI);
         return;
-
-        Task<Bitmap> ResizeBitmapCoverAsync(Bitmap source, int targetWidth, int targetHeight)
-        {
-            if (source.PixelSize.Width == targetWidth && source.PixelSize.Height == targetHeight)
-                return Task.FromResult(source);
-
-            double scale = Math.Max(
-                (double)targetWidth / source.PixelSize.Width,
-                (double)targetHeight / source.PixelSize.Height);
-
-            int drawWidth = (int)(source.PixelSize.Width * scale);
-            int drawHeight = (int)(source.PixelSize.Height * scale);
-
-            int offsetX = (targetWidth - drawWidth) / 2;
-            int offsetY = (targetHeight - drawHeight) / 2;
-
-            RenderTargetBitmap resized = new(new PixelSize(targetWidth, targetHeight));
-            using (DrawingContext ctx = resized.CreateDrawingContext(false))
-            {
-                ctx.DrawImage(
-                    source,
-                    new Rect(0, 0, source.PixelSize.Width, source.PixelSize.Height),
-                    new Rect(offsetX, offsetY, drawWidth, drawHeight)
-                );
-            }
-
-            return Task.FromResult<Bitmap>(resized);
-        }
 
         async Task UpdateUI()
         {
@@ -362,7 +318,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 window.Content = mainGrid;
             }
 
-            double blurRadius = viewModel?.BlurRadius ?? 0;
+            double blurRadius = viewModel.BlurRadius;
             double downscale = CalculateBlurDownscale(blurRadius);
             Bitmap displayBitmap = await CreateDownscaledBitmapAsync(bitmap, downscale);
             BackgroundBlurEffect ??= new BlurEffect();
@@ -393,7 +349,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             backgroundLayer.Children.Add(gpuBackground);
             backgroundLayer.Opacity = _currentBackgroundOpacity;
 
-            if (viewModel?.IsParallaxEnabled == true && viewModel?.IsBackgroundEnabled == true)
+            if (viewModel.IsParallaxEnabled && viewModel.IsBackgroundEnabled)
                 try
                 {
                     ApplyParallax(_mouseX, _mouseY);
@@ -530,7 +486,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     /// <param name="durationMs"></param>
     public async Task RequestBackgroundOpacity(string key, double opacity, int priority, int durationMs = 200)
     {
-        _opacityRequests[key] = new OpacityRequest(key, opacity, priority);
+        _opacityRequests[key] = new OpacityRequest(opacity, priority);
         await ApplyHighestPriorityOpacity(durationMs);
     }
 
@@ -559,168 +515,9 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         await SetBackgroundOpacity(highest.Opacity, durationMs);
     }
 
-    /// <summary>
-    ///     Requests a background overlay with specified color, opacity, and priority
-    /// </summary>
-    /// <param name="key"></param>
-    /// <param name="overlayColor"></param>
-    /// <param name="opacity"></param>
-    /// <param name="priority"></param>
-    /// <param name="durationMs"></param>
-    [Obsolete]
-    public async Task RequestBackgroundOverlay(string key, Color overlayColor, double opacity, int priority,
-        int durationMs = 200)
+    private class OpacityRequest(double opacity, int priority)
     {
-        _overlayRequests[key] = new BackgroundOverlayRequest(key, overlayColor, opacity, priority);
-        await ApplyHighestPriorityOverlay(durationMs);
-    }
-
-
-    /// <summary>
-    ///     Removes a previously made background overlay request
-    /// </summary>
-    /// <param name="key"></param>
-    [Obsolete]
-    public void RemoveBackgroundOverlayRequest(string key)
-    {
-        if (_overlayRequests.Remove(key))
-        {
-            Console.WriteLine($"[Overlay] Remove request: key={key}");
-            _ = ApplyHighestPriorityOverlay(200);
-        }
-        else
-        {
-            Console.WriteLine($"[Overlay] Remove request: key={key} (not found)");
-        }
-    }
-
-    /// <summary>
-    ///     Applies the highest priority background overlay request
-    /// </summary>
-    /// <param name="durationMs"></param>
-    private async Task ApplyHighestPriorityOverlay(int durationMs)
-    {
-        if (_overlayRequests.Count == 0)
-        {
-            await SetBackgroundOverlay(Colors.Transparent, 0.0, durationMs);
-            return;
-        }
-
-        BackgroundOverlayRequest highest = _overlayRequests.Values.OrderByDescending(r => r.Priority).First();
-        await SetBackgroundOverlay(highest.OverlayColor, highest.Opacity, durationMs, highest.Key);
-    }
-
-    /// <summary>
-    ///     Sets the background overlay color and opacity, optionally animating the transition
-    /// </summary>
-    /// <param name="color"></param>
-    /// <param name="opacity"></param>
-    /// <param name="durationMs"></param>
-    /// <param name="key"></param>
-    private async Task SetBackgroundOverlay(Color color, double opacity, int durationMs, string? key = null)
-    {
-        if (key != null && _currentOverlayKey == key)
-            _overlayAnimationCts?.Cancel();
-
-        _overlayAnimationCts = new CancellationTokenSource();
-        _currentOverlayKey = key;
-        CancellationToken token = _overlayAnimationCts.Token;
-
-
-        await Dispatcher.UIThread.InvokeAsync(async () =>
-        {
-            if (window.Content is not Grid mainGrid)
-                return;
-
-            Grid? backgroundLayer = mainGrid.Children.OfType<Grid>().FirstOrDefault(g => g.Name == "BackgroundLayer");
-            if (backgroundLayer == null)
-                return;
-
-            if (_backgroundOverlayRect == null)
-            {
-                _backgroundOverlayRect = new Rectangle
-                {
-                    Fill = new SolidColorBrush(color, opacity),
-                    IsHitTestVisible = false,
-                    ZIndex = 1000
-                };
-                backgroundLayer.Children.Add(_backgroundOverlayRect);
-            }
-
-            _backgroundOverlayRect.Width = backgroundLayer.Bounds.Width;
-            _backgroundOverlayRect.Height = backgroundLayer.Bounds.Height;
-
-            SolidColorBrush? brush = _backgroundOverlayRect.Fill as SolidColorBrush;
-            if (brush == null)
-            {
-                brush = new SolidColorBrush(color, opacity);
-                _backgroundOverlayRect.Fill = brush;
-            }
-
-            Color startColor = brush.Color;
-            double startOpacity = brush.Opacity;
-            Color endColor = color;
-            double endOpacity = opacity;
-
-            if (durationMs > 0)
-            {
-                int steps = Math.Max(1, durationMs / 16);
-                for (int i = 1; i <= steps; i++)
-                {
-                    if (token.IsCancellationRequested) return;
-                    double t = (double)i / steps;
-                    brush.Color = LerpColor(startColor, endColor, t);
-                    brush.Opacity = startOpacity + ((endOpacity - startOpacity) * t);
-                    await Task.Delay(durationMs / steps);
-                }
-            }
-            else
-            {
-                brush.Color = color;
-                brush.Opacity = opacity;
-            }
-
-            _backgroundOverlayRect.IsVisible = opacity > 0.01;
-        });
-    }
-
-    /// <summary>
-    ///     Linearly interpolates between two colors based on a parameter t (0.0 to 1.0)
-    /// </summary>
-    /// <param name="a"></param>
-    /// <param name="b"></param>
-    /// <param name="t"></param>
-    /// <returns></returns>
-    private static Color LerpColor(Color a, Color b, double t)
-    {
-        return Color.FromArgb(
-            (byte)(a.A + ((b.A - a.A) * t)),
-            (byte)(a.R + ((b.R - a.R) * t)),
-            (byte)(a.G + ((b.G - a.G) * t)),
-            (byte)(a.B + ((b.B - a.B) * t))
-        );
-    }
-
-    private class OpacityRequest(string key, double opacity, int priority)
-    {
-        public string Key { get; } = key;
         public double Opacity { get; } = opacity;
         public int Priority { get; } = priority;
-    }
-
-    private class BackgroundOverlayRequest
-    {
-        public BackgroundOverlayRequest(string key, Color overlayColor, double opacity, int priority)
-        {
-            Key = key;
-            OverlayColor = overlayColor;
-            Opacity = opacity;
-            Priority = priority;
-        }
-
-        public string Key { get; }
-        public Color OverlayColor { get; }
-        public double Opacity { get; }
-        public int Priority { get; }
     }
 }

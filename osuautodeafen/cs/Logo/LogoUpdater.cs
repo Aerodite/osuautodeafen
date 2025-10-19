@@ -73,7 +73,7 @@ public class LogoUpdater(
         try
         {
             var lowResBitmapPathTask = GetLowResBitmapPathAsync();
-            var highResLogoTask = LoadHighResLogoAsync();
+            var highResLogoTask = LoadLogoSvgAsync();
 
             string? lowResBitmapPath = await lowResBitmapPathTask.ConfigureAwait(false);
             if (lowResBitmapPath == null) return;
@@ -292,10 +292,10 @@ public class LogoUpdater(
     }
 
     /// <summary>
-    ///     Loads the high-resolution SVG logo
+    ///     Loads the logo as an SVG
     /// </summary>
     /// <returns></returns>
-    private async Task<SKSvg?> LoadHighResLogoAsync()
+    private async Task<SKSvg?> LoadLogoSvgAsync()
     {
         return await Task.Run(() =>
         {
@@ -328,7 +328,7 @@ public class LogoUpdater(
             }
             catch
             {
-                // ignored
+                // map probably doesnt have the thumbnail, we can ignore
             }
 
             await Task.Delay(delayMilliseconds).ConfigureAwait(false);
