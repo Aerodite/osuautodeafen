@@ -137,7 +137,7 @@ public class ChartManager
         PlotView.PointerMoved += (s, e) => _ = PlotView_PointerMoved(e, tooltipManager);
         PlotView.PointerPressed += PlotView_PointerPressed;
         PlotView.PointerReleased += PlotView_PointerReleased;
-        PlotView.PointerMoved += async (_, e) => await PlotView_PointerMovedAsync(e, tooltipManager);
+        PlotView.PointerMoved += async (_, e) => await PlotView_PointerMovedDeafen(e, tooltipManager);
         PlotView.PointerExited += (_, _) => PlotView_PointerExited(tooltipManager);
 
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
@@ -308,11 +308,11 @@ public class ChartManager
     }
 
     /// <summary>
-    ///     Handles chart pointer movement, allowing for tooltip updates and drag interactions
+    ///     Handles chart pointer movement for the deafen section
     /// </summary>
     /// <param name="e"></param>
     /// <param name="tooltipManager"></param>
-    private async Task PlotView_PointerMovedAsync(PointerEventArgs e, TooltipManager tooltipManager)
+    private async Task PlotView_PointerMovedDeafen(PointerEventArgs e, TooltipManager tooltipManager)
     {
         Point pixelPoint = e.GetPosition(PlotView);
         LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
@@ -437,21 +437,25 @@ public class ChartManager
             _draggedDeafenSection = null;
             _isHoveringDeafenEdge = false;
             UpdateCursor(new Cursor(StandardCursorType.Arrow));
-            // tooltipManager.HideCustomTooltip();
             e.Handled = true;
         }
     }
 
     /// <summary>
-    ///     Handles pointer exit events to reset hover states and hide tooltips
+    /// Handles pointer exit events to reset hover states and hide tooltips with a short delay
     /// </summary>
     /// <param name="tooltipManager"></param>
-    private void PlotView_PointerExited(TooltipManager tooltipManager)
+    private async void PlotView_PointerExited(TooltipManager tooltipManager)
     {
+        // wait a short bit to prevent flicker when moving between tooltips
+        await Task.Delay(100);
+
         tooltipManager.HideCustomTooltip();
+
         if (_isHoveringDeafenEdge)
         {
             foreach (CoreSection section in PlotView.Sections)
+            {
                 if (section is RectangularSection rs && rs.Fill is SolidColorPaint paint &&
                     paint.Color == DeafenOverlayColor)
                 {
@@ -459,11 +463,13 @@ public class ChartManager
                     rs.Yj = MaxYValue;
                     rs.Stroke = new SolidColorPaint { Color = DeafenOverlayColor, StrokeThickness = 2 };
                 }
+            }
 
             _isHoveringDeafenEdge = false;
             PlotView.InvalidateVisual();
         }
     }
+
 
     /// <summary>
     ///     Updates the deafen overlay section to reflect the current minimum completion percentage.
