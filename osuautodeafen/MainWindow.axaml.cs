@@ -581,11 +581,11 @@ public partial class MainWindow : Window
     ///     Starts the frame timer for debug panel to measure frametimes and framerate
     /// </summary>
     /// <param name="targetFps"></param>
-    private void StartStableFrameTimer(int targetFps = 999)
+    private void StartStableFrameTimer(int targetFps = 1000)
     {
         StopStableFrameTimer();
 
-        targetFps = Math.Clamp(targetFps, 1, 999);
+        targetFps = Math.Clamp(targetFps, 1, 2000);
         double intervalMs = 1000.0 / targetFps;
 
         _frameCts = new CancellationTokenSource();
@@ -605,9 +605,8 @@ public partial class MainWindow : Window
                     long frameStartTicks = _frameStopwatch.ElapsedTicks;
                     double frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
                     lastFrameTicks = frameStartTicks;
-
-                    frameInterval = Math.Max(frameInterval, 1.0);
-
+                    
+                    frameInterval = Math.Max(frameInterval, 0.01);
                     minFrame = Math.Min(minFrame, frameInterval);
                     maxFrame = Math.Max(maxFrame, frameInterval);
                     sumFrame += frameInterval;
@@ -619,22 +618,40 @@ public partial class MainWindow : Window
                         await Dispatcher.UIThread.InvokeAsync(() =>
                         {
                             _logImportant.logImportant(
-                                $"Frame: {frameInterval:F2}ms/{1000.0 / avgFrame:F0}fps",
+                                $"Frame: {frameInterval:F3}ms/{1000.0 / avgFrame:F0}fps",
                                 false, "FrameLatency");
-                            _logImportant.logImportant($"Min/Max/Avg: {minFrame:F2}/{maxFrame:F2}/{avgFrame:F2}ms",
+                            _logImportant.logImportant(
+                                $"Min/Max/Avg: {minFrame:F3}/{maxFrame:F3}/{avgFrame:F3}ms",
                                 false, "FrameStats");
                         });
+
                         minFrame = double.MaxValue;
                         maxFrame = double.MinValue;
                         sumFrame = 0;
                         frameCount = 0;
                     }
+                    
+                    while (true)
+                    {
+                        double elapsedMs = (_frameStopwatch.ElapsedTicks - frameStartTicks) * tickMs;
+                        double remaining = intervalMs - elapsedMs;
 
-                    double elapsedMs = (_frameStopwatch.ElapsedTicks - frameStartTicks) * tickMs;
-                    double sleep = intervalMs - elapsedMs;
-                    if (sleep > 0)
-                        await Task.Delay((int)sleep);
+                        if (remaining <= 0)
+                            break;
+                        
+                        if (remaining > 2.0)
+                        {
+                            await Task.Delay(1, _frameCts.Token);
+                        }
+                        else
+                        {
+                            Thread.SpinWait(100);
+                        }
+                    }
                 }
+            }
+            catch (OperationCanceledException)
+            {
             }
             finally
             {
@@ -642,6 +659,7 @@ public partial class MainWindow : Window
             }
         }, _frameCts.Token);
     }
+
 
     /// <summary>
     ///     Stops the frame timer for debug panel
@@ -756,19 +774,17 @@ public partial class MainWindow : Window
 
     private void BlurEffectSlider_PointerMoved(object? sender, PointerEventArgs e)
     {
-        if (sender is Slider slider)
+        if (sender is not Slider slider) return;
+        if (e.GetCurrentPoint(slider).Properties.IsLeftButtonPressed)
         {
-            if (e.GetCurrentPoint(slider).Properties.IsLeftButtonPressed)
-            {
-                ToolTip.SetTip(slider, $"Blur: {slider.Value * 5:0}%");
-                ToolTip.SetPlacement(slider, PlacementMode.Pointer);
-                ToolTip.SetVerticalOffset(slider, -30);
-                ToolTip.SetIsOpen(slider, true);
-            }
-            else
-            {
-                ToolTip.SetIsOpen(slider, false);
-            }
+            ToolTip.SetTip(slider, $"Blur: {slider.Value * 5:0}%");
+            ToolTip.SetPlacement(slider, PlacementMode.Pointer);
+            ToolTip.SetVerticalOffset(slider, -30);
+            ToolTip.SetIsOpen(slider, true);
+        }
+        else
+        {
+            ToolTip.SetIsOpen(slider, false);
         }
     }
 
@@ -780,31 +796,38 @@ public partial class MainWindow : Window
 
     public async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
-        if (DataContext is not SharedViewModel vm) return;
-        double roundedValue = Math.Round(e.NewValue, 2);
-        vm.MinCompletionPercentage = roundedValue;
-        _pendingCompletionPercentage = roundedValue;
-
-        _completionPercentageSaveTimer?.Stop();
-        _completionPercentageSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-        _completionPercentageSaveTimer.Tick += (s, args) =>
-        {
-            _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", _pendingCompletionPercentage);
-            _completionPercentageSaveTimer?.Stop();
-        };
-        _completionPercentageSaveTimer.Start();
-
         try
         {
-            await _chartManager.UpdateDeafenOverlayAsync(roundedValue);
-        }
-        catch (TaskCanceledException)
-        {
-            Console.WriteLine("Task was canceled while updating deafen overlay.");
+            if (DataContext is not SharedViewModel vm) return;
+            double roundedValue = Math.Round(e.NewValue, 2);
+            vm.MinCompletionPercentage = roundedValue;
+            _pendingCompletionPercentage = roundedValue;
+
+            _completionPercentageSaveTimer?.Stop();
+            _completionPercentageSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _completionPercentageSaveTimer.Tick += (s, args) =>
+            {
+                _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", _pendingCompletionPercentage);
+                _completionPercentageSaveTimer?.Stop();
+            };
+            _completionPercentageSaveTimer.Start();
+
+            try
+            {
+                await _chartManager.UpdateDeafenOverlayAsync(roundedValue);
+            }
+            catch (TaskCanceledException)
+            {
+                Console.WriteLine("Task was canceled while updating deafen overlay.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Exception in CompletionPercentageSlider_ValueChanged: {ex}");
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Exception in CompletionPercentageSlider_ValueChanged: {ex}");
+            throw new Exception($"Error in CompletionPercentageSlider_ValueChanged: {ex.Message}", ex);
         }
     }
 
