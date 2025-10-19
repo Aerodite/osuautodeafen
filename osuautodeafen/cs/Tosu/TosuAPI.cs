@@ -15,7 +15,7 @@ namespace osuautodeafen.cs.Tosu;
 
 public class TosuApi : IDisposable
 {
-    private static readonly object ConnectionLock = new();
+    private static readonly Lock ConnectionLock = new();
     private readonly List<byte> _dynamicBuffer;
     private readonly string _errorMessage = "";
     private readonly StringBuilder _messageAccumulator = new();
@@ -28,7 +28,6 @@ public class TosuApi : IDisposable
     private string? _beatmapMapper;
     private int _beatmapSetId;
     private string? _beatmapTitle;
-    private BreakPeriod _breakPeriod = null!;
     private string _client;
     private double _combo;
     private double _completionPercentage;
@@ -44,12 +43,10 @@ public class TosuApi : IDisposable
     private bool _isBreakPeriod;
     public bool _isKiai;
     private string? _lastBeatmapChecksum = "abcdefghijklmnop";
-    private int _lastBeatmapId = -1;
     private double? _lastBpm;
     private double? _lastCompletionPercentage;
     private bool _lastKiaiValue;
     private string _lastModNames = "";
-    private double _lastModNumber = -1;
     private double _maxCombo;
     private double _maxPlayCombo;
     private double _maxPP;
@@ -61,17 +58,25 @@ public class TosuApi : IDisposable
     private int _previousState = -10;
     private double _rankedStatus;
     private int _rawBanchoStatus = -1;
-    private double _rawCompletionPercentage;
     private double? _realtimeBpm;
     private double _sbCount;
     private string _server;
     private string? _settingsSongsDirectory;
-    private string? _songFilePath;
     private ClientWebSocket _webSocket;
 
     public TosuApi()
     {
-        _timer = new Timer(async _ => await ConnectAsync(), null, Timeout.Infinite, Timeout.Infinite);
+        _timer = new Timer(async void (_) =>
+        {
+            try
+            {
+                await ConnectAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Failed to connect to Tosu WebSocket: ", ex);
+            }
+        }, null, Timeout.Infinite, Timeout.Infinite);
         _webSocket = new ClientWebSocket();
         _dynamicBuffer = new List<byte>();
         _reconnectTimer = new Timer(ReconnectTimerCallback, null, Timeout.Infinite, 300000);
@@ -144,11 +149,6 @@ public class TosuApi : IDisposable
     ///     Event triggered when the map progress percentage changes
     /// </summary>
     public event Action? HasPercentageChanged;
-
-    /// <summary>
-    ///     Event triggered when the graph data is updated in the API (usually on beatmap change)
-    /// </summary>
-    public event Action<GraphData>? GraphDataUpdated;
 
     /// <summary>
     ///     Event triggered when the raw bancho status changes
