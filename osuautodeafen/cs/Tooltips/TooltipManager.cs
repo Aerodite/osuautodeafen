@@ -18,9 +18,16 @@ namespace osuautodeafen.cs.Tooltips
         private Border? CustomTooltip { get; set; }
 
         private CancellationTokenSource? _hideCts;
-
+        private CancellationTokenSource? _fadeCts;
+        
+        private Task? _fadeTask;
+        
         private double _windowWidth;
         private double _windowHeight;
+        
+        public Tooltips.TooltipType CurrentTooltipType;
+        
+        public bool IsTooltipVisible => _isTooltipShowing;
 
         /// <summary>
         ///  Used in app setup to get tooltips ready to be used
@@ -48,7 +55,6 @@ namespace osuautodeafen.cs.Tooltips
         /// <param name="position">The position where the tooltip will appear.</param>
         /// <param name="text">The text to display in the tooltip.</param>
         public void ShowTooltip(Point position, string text)
-
         {
             if (CustomTooltip == null || _tooltipText == null) return;
 
@@ -75,7 +81,7 @@ namespace osuautodeafen.cs.Tooltips
             {
                 CustomTooltip.Opacity = 0;
                 CustomTooltip.IsVisible = true;
-                FadeIn(CustomTooltip);
+                _ = FadeIn(CustomTooltip);
             }
 
             _isTooltipShowing = true;
@@ -88,8 +94,10 @@ namespace osuautodeafen.cs.Tooltips
         public void HideTooltip(double delayMs = 200)
         {
             if (CustomTooltip == null || !_isTooltipShowing) return;
+            
+            if (_hideCts != null && !_hideCts.IsCancellationRequested)
+                _hideCts.Cancel();
 
-            _hideCts?.Cancel();
             _hideCts = new CancellationTokenSource();
             var token = _hideCts.Token;
 
@@ -101,12 +109,13 @@ namespace osuautodeafen.cs.Tooltips
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     if (!_isTooltipShowing) return;
-                    FadeOut(CustomTooltip);
+                    _ = FadeOut(CustomTooltip);
                     _isTooltipShowing = false;
                     _lastTooltipText = null;
                 });
             });
         }
+
 
         private void CancelHide() => _hideCts?.Cancel();
 
@@ -116,10 +125,10 @@ namespace osuautodeafen.cs.Tooltips
         /// <param name="position">The position where the tooltip will move to.</param>
         /// <param name="tooltipWidth">The current width of the tooltip</param>
         /// <param name="tooltipHeight">The current height of the tooltip</param>
-        private void UpdateTooltipPosition(Point position, double? tooltipWidth = null, double? tooltipHeight = null)
+        public void UpdateTooltipPosition(Point position, double? tooltipWidth = null, double? tooltipHeight = null)
         {
-            if (CustomTooltip == null || !_isTooltipShowing) return;
-            
+            if (CustomTooltip == null) return;
+
             double width, height;
 
             if (tooltipWidth.HasValue && tooltipHeight.HasValue)
@@ -133,22 +142,17 @@ namespace osuautodeafen.cs.Tooltips
                 width = CustomTooltip.DesiredSize.Width;
                 height = CustomTooltip.DesiredSize.Height;
             }
-            
+
             double left = position.X - width / 2;
             double top = position.Y - height - TooltipOffset;
-            
+
             left = Math.Max(0, Math.Min(left, _windowWidth - width));
-            
-            // only reason i'm keeping this here is because atm the straingraph doesnt really have an end height
-            // to it's sections (which means the tooltips don't end if cursor > maxheight),
-            // so just in case i'll leave this here if I can't find a better solution in time.
-            //top = Math.Max(0, Math.Min(top, _windowHeight - height));
 
             Canvas.SetLeft(CustomTooltip, left);
             Canvas.SetTop(CustomTooltip, top);
         }
         
-        private async void FadeIn(Border border, double durationMs = 120)
+        private async Task FadeIn(Border border, double durationMs = 120, CancellationToken? token = null)
         {
             double startOpacity = border.Opacity;
             border.IsVisible = true;
@@ -159,6 +163,8 @@ namespace osuautodeafen.cs.Tooltips
             {
                 while (elapsed < durationMs)
                 {
+                    if (token?.IsCancellationRequested ?? false) return;
+
                     await Task.Delay(interval);
                     elapsed += interval;
                     double progress = elapsed / durationMs;
@@ -172,7 +178,7 @@ namespace osuautodeafen.cs.Tooltips
             }
         }
 
-        private async void FadeOut(Border border, double durationMs = 120)
+        private async Task FadeOut(Border border, double durationMs = 120, CancellationToken? token = null)
         {
             double startOpacity = border.Opacity;
             double elapsed = 0;
@@ -182,6 +188,8 @@ namespace osuautodeafen.cs.Tooltips
             {
                 while (elapsed < durationMs)
                 {
+                    if (token?.IsCancellationRequested ?? false) return;
+
                     await Task.Delay(interval);
                     elapsed += interval;
                     double progress = elapsed / durationMs;

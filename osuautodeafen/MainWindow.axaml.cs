@@ -24,6 +24,7 @@ using Avalonia.Threading;
 using IniParser.Model;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
+using LiveChartsCore.Measure;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Background;
 using osuautodeafen.cs.Deafen;
@@ -75,6 +76,8 @@ public partial class MainWindow : Window
     private DispatcherTimer? _cogSpinTimer;
 
     private DispatcherTimer? _completionPercentageSaveTimer;
+    
+    private bool _tooltipOutsideBounds = false;
 
     private CancellationTokenSource? _frameCts;
     private bool _isCogSpinning;
@@ -470,15 +473,31 @@ public partial class MainWindow : Window
 
         Point pixelPoint = e.GetPosition(PlotView);
         LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
-
-        Tooltips.TooltipType tooltipType = _chartManager.TryShowTooltip(dataPoint, pixelPoint, _tooltipManager);
-
-        if (tooltipType == Tooltips.TooltipType.Deafen)
+    
+        Tooltips.TooltipType currentTooltipType = _tooltipManager.CurrentTooltipType;
+          
+        if (currentTooltipType == Tooltips.TooltipType.Deafen)
         {
             _ = _chartManager.UpdateDeafenOverlayAsync(_viewModel.MinCompletionPercentage);
-            e.Handled = true;
+            e.Handled = true; 
         }
+
+        if (pixelPoint.Y < PlotView.Bounds.Height - 120)
+        {
+            if (!_tooltipOutsideBounds)
+            {
+                _tooltipManager.HideTooltip();
+                _tooltipOutsideBounds = true;
+            }
+
+            _tooltipManager.UpdateTooltipPosition(pixelPoint);
+            return;
+        }
+
+        _tooltipOutsideBounds = false;
+        _chartManager.TryShowTooltip(dataPoint, pixelPoint, _tooltipManager);
     }
+
 
 
 

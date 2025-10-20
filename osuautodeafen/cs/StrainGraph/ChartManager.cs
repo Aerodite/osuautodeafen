@@ -175,7 +175,7 @@ public class ChartManager
     /// <param name="pixelPoint"></param>
     /// <param name="tooltipManager"></param>
     /// <returns></returns>
-    public Tooltips.Tooltips.TooltipType TryShowTooltip(LvcPointD dataPoint, Point pixelPoint, TooltipManager tooltipManager)
+    public void TryShowTooltip(LvcPointD dataPoint, Point pixelPoint, TooltipManager tooltipManager)
     {
         if (_isDraggingDeafenEdge && _draggedDeafenSection != null)
         {
@@ -193,9 +193,10 @@ public class ChartManager
 
             tooltipManager.ShowTooltip(pixelPoint, $"Deafen Min %:\n{newPercentage:F2}%");
             PlotView.InvalidateVisual();
-            return Tooltips.Tooltips.TooltipType.Deafen;
+            _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.Deafen;
+            return;
         }
-        
+
         double? currentTime = null;
         if (PlotView.Bounds.Width > 0 && _currentXAxis != null)
         {
@@ -204,7 +205,7 @@ public class ChartManager
             index = Math.Max(0, Math.Min(index, _currentXAxis.Count - 1));
             currentTime = _currentXAxis.ElementAtOrDefault(index);
         }
-    
+
         AnnotatedSection? activeSection = null;
         string? tooltipText = null;
         foreach (AnnotatedSection section in PlotView.Sections.OfType<AnnotatedSection>())
@@ -222,31 +223,28 @@ public class ChartManager
         if (activeSection != null && tooltipText != null)
         {
             tooltipManager.ShowTooltip(pixelPoint, tooltipText);
-
             _lastTooltipSection = activeSection;
             _lastTooltipText = tooltipText;
-
-            return Tooltips.Tooltips.TooltipType.Section;
+            _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.Section;
+            return;
         }
 
         if (currentTime.HasValue)
         {
             TimeSpan ts = TimeSpan.FromMilliseconds(currentTime.Value);
             string timeText = $"{ts.Minutes:D2}:{ts.Seconds:D2}";
-
             tooltipManager.ShowTooltip(pixelPoint, timeText);
-        
             _lastTooltipSection = null;
             _lastTooltipText = null;
-
-            return Tooltips.Tooltips.TooltipType.Time;
+            _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.Time;
+            return;
         }
-    
-        tooltipManager.HideTooltip(0);
+
         _lastTooltipSection = null;
         _lastTooltipText = null;
-        return Tooltips.Tooltips.TooltipType.None;
+        _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.None;
     }
+
 
     /// <summary>
     ///     Formats the tooltip text for a given section.
