@@ -206,7 +206,7 @@ public partial class MainWindow : Window
 
         // ideally we could use no timers whatsoever but for now this works fine
         // because it really only checks if events should be triggered
-        // updated to 16ms from 100ms since apparently it takes 1ms to run anyways, might as well have it be responsive
+        // updated to 16ms from 100ms since apparently it takes 1ms to run anyways
         _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
@@ -233,7 +233,7 @@ public partial class MainWindow : Window
             foreach (PresetInfo preset in _viewModel.Presets ?? Enumerable.Empty<PresetInfo>())
             {
                 preset.IsCurrentPreset = preset.Checksum == _tosuApi.GetBeatmapChecksum();
-                Console.WriteLine($"Preset {preset.BeatmapName} IsCurrentPreset: {preset.IsCurrentPreset}");
+                //Console.WriteLine($"Preset {preset.BeatmapName} IsCurrentPreset: {preset.IsCurrentPreset}");
             }
 
             if (_viewModel.PresetExistsForCurrentChecksum)
@@ -580,6 +580,10 @@ public partial class MainWindow : Window
     /// <summary>
     ///     Starts the frame timer for debug panel to measure frametimes and framerate
     /// </summary>
+    /// <remarks>
+    ///  ideally this shouldn't be used elsewhere because this might be a bit more resource-intensive than necessary,
+    ///  but for debugging purposes its good enough
+    /// </remarks>
     /// <param name="targetFps"></param>
     private void StartStableFrameTimer(int targetFps = 1000)
     {

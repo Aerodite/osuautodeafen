@@ -84,7 +84,7 @@ public class TooltipManager
         else if (!isSameText)
         {
             if (!isSameSize && !_isAnimating)
-                AnimateTooltipSizeChange(text);
+                AnimateTooltipSizeChange(text, 0);
             else
                 _tooltipText.Text = text;
 
@@ -215,7 +215,7 @@ public class TooltipManager
     /// </summary>
     /// <param name="newText"></param>
     /// <param name="durationMs"></param>
-    private void AnimateTooltipSizeChange(string newText, double durationMs = 25)
+    private void AnimateTooltipSizeChange(string newText, double durationMs = 50)
     {
         if (CustomTooltip == null || _tooltipText == null) return;
         if (_isAnimating) return;
