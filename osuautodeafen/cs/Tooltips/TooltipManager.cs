@@ -226,8 +226,15 @@ namespace osuautodeafen.cs.Tooltips
             if (left + width > _windowWidth)
                 left = _windowWidth - width;
 
+            if (left < 0)
+                left = 0;
+
             if (top < 0)
                 top = position.Y + TooltipOffset;
+
+            if (top + height > _windowHeight)
+                top = _windowHeight - height;
+            
 
             Canvas.SetLeft(CustomTooltip, Math.Round(left));
             Canvas.SetTop(CustomTooltip, Math.Round(top));

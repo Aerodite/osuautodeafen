@@ -113,14 +113,20 @@
         
         <Canvas ZIndex="99" IsHitTestVisible="False">
             <Border x:Name="CustomTooltip"
-                    Background="#CC000000"
-                    CornerRadius="4"
-                    Padding="6"
-                    ClipToBounds="True">
+                    Background="#DD222222"
+                    CornerRadius="8"
+                    Padding="8"
+                    ClipToBounds="True"
+                    Opacity="0"
+                    IsVisible="False">
                 <Grid>
                     <TextBlock x:Name="TooltipText"
                                TextWrapping="Wrap"
-                               HorizontalAlignment="Left"/>
+                               Foreground="White"
+                               FontSize="13"
+                               FontWeight="Regular"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"/>
                 </Grid>
             </Border>
         </Canvas>
@@ -222,10 +228,9 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/clock-solid.png" Width="25" Height="25"
-                               Margin="0,0,5,0">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Min Percentage to deafen" />
-                            </ToolTip.Tip>
+                               Margin="0,0,5,0"
+                               PointerEntered="CompletionPercentageImage_PointerEnter"
+                               PointerExited="CompletionPercentageImage_PointerLeave">
                         </Image>
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="CompletionPercentageSlider"
@@ -237,24 +242,19 @@
                                     Width="100"
                                     HorizontalAlignment="Center"
                                     ValueChanged="CompletionPercentageSlider_ValueChanged"
-                                    PointerMoved="CompletionPercentageSlider_PointerMoved"
-                                    PointerPressed="CompletionPercentageSlider_PointerPressed"
-                                    PointerReleased="CompletionPercentageSlider_PointerReleased">
-                                <ToolTip.Tip>
-                                    <TextBlock
-                                        Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F1}'}" />
-                                </ToolTip.Tip>
+                                    PointerEntered="CompletionPercentageSlider_PointerEnter"
+                                    PointerMoved="CompletionPercentageSlider_PointerMove"
+                                    PointerExited="CompletionPercentageSlider_PointerLeave"
+                                    PointerPressed="CompletionPercentageSlider_PointerPressed">
                             </Slider>
                         </StackPanel>
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/star-solid.png" Width="30" Height="30"
-                               Margin="0,0,5,3">
-                            <ToolTip.Tip>
-                                <TextBlock
-                                    Text="{Binding MinSRValue, StringFormat='Min Star Rating for deafen ({0}* for current map)'}" />
-                            </ToolTip.Tip>
+                               Margin="0,0,5,3"
+                               PointerEntered="StarRatingImage_PointerEnter"
+                               PointerExited="StarRatingImage_PointerLeave">
                         </Image>
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="StarRatingSlider"
@@ -265,9 +265,10 @@
                                     Value="{Binding StarRating, Mode=OneWayToSource}"
                                     Width="100" HorizontalAlignment="Center"
                                     ValueChanged="StarRatingSlider_ValueChanged"
-                                    PointerMoved="StarRatingSlider_PointerMoved"
-                                    PointerPressed="StarRatingSlider_PointerPressed"
-                                    PointerReleased="StarRatingSlider_PointerReleased">
+                                    PointerMoved="StarRatingSlider_PointerMove"
+                                    PointerEntered="StarRatingSlider_PointerEnter"
+                                    PointerExited="StarRatingSlider_PointerLeave"
+                                    PointerPressed="StarRatingSlider_PointerPressed">
                                 <ToolTip.Tip>
                                     <TextBlock
                                         Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F1}*'}" />
@@ -278,11 +279,10 @@
 
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/medal-solid.png" Width="25" Height="25"
-                               Margin="0,0,5,0">
-                            <ToolTip.Tip>
-                                <TextBlock
-                                    Text="{Binding MinPPValue, StringFormat='Min SS pp for deafen ({0}pp for current map)'}" />
-                            </ToolTip.Tip>
+                               Margin="0,0,5,0"
+                               PointerEntered="PPImage_PointerEnter"
+                               PointerExited="PPImage_PointerLeave">
+                            
                         </Image>
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="PPSlider"
@@ -293,9 +293,10 @@
                                     Value="{Binding PerformancePoints, Mode=OneWayToSource}"
                                     Width="100" HorizontalAlignment="Center"
                                     ValueChanged="PPSlider_ValueChanged"
-                                    PointerMoved="PPSlider_PointerMoved"
+                                    PointerMoved="PPSlider_PointerMove"
+                                    PointerEntered="PPSlider_PointerEnter"
                                     PointerPressed="PPSlider_PointerPressed"
-                                    PointerReleased="PPSlider_PointerReleased">
+                                    PointerExited="PPSlider_PointerLeave">
                                 <ToolTip.Tip>
                                     <TextBlock
                                         Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F0}pp'}" />

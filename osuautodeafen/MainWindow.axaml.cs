@@ -725,91 +725,165 @@ public partial class MainWindow : Window
         but honestly i feel like that entire system might need to be expanded upon because those tooltips are pretty barebones
     */
 
-    private void CompletionPercentageSlider_PointerPressed(object sender, PointerPressedEventArgs e)
+    private void CompletionPercentageImage_PointerEnter(object sender, PointerEventArgs e)
     {
-        ToolTip.SetIsOpen(CompletionPercentageSlider, true);
+        if (sender is Image image)
+        {
+            var point = e.GetPosition(image);
+            _tooltipManager.ShowTooltip(point, "Minimum Map \nProgress to Deafen");
+        }
     }
-
-    private void CompletionPercentageSlider_PointerMoved(object? sender, PointerEventArgs e)
+    
+    private void CompletionPercentageImage_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+    private void CompletionPercentageSlider_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is Slider slider)
         {
+            var point = e.GetPosition(slider);
+            _tooltipManager.ShowTooltip(point, $"{slider.Value:0.00}%");
+        }
+    }
+    
+    private void CompletionPercentageSlider_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Slider slider)
+        {
+            var point = e.GetPosition(slider);
+            _tooltipManager.ShowTooltip(point, $"{slider.Value:0.00}%");
+        }
+    }
+
+    private void CompletionPercentageSlider_PointerMove(object? sender, PointerEventArgs e)
+    {
+        if (sender is Slider slider)
+        {
+            var point = e.GetPosition(slider);
+
             if (e.GetCurrentPoint(slider).Properties.IsLeftButtonPressed)
             {
-                ToolTip.SetTip(slider, $"{slider.Value:0.00}%");
-                ToolTip.SetPlacement(slider, PlacementMode.Pointer);
-                ToolTip.SetVerticalOffset(slider, -30);
-                ToolTip.SetIsOpen(slider, true);
+                _tooltipManager.ShowTooltip(point, $"{slider.Value:0.00}%");
             }
             else
             {
-                ToolTip.SetIsOpen(slider, false);
+                _tooltipManager.ShowTooltip(point, $"{slider.Value:0.00}%");
             }
         }
     }
 
-    private void CompletionPercentageSlider_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    private void CompletionPercentageSlider_PointerLeave(object sender, PointerEventArgs e)
     {
-        if (sender is Slider slider)
-            ToolTip.SetIsOpen(slider, false);
+        _tooltipManager.HideTooltip();
     }
-
-    private void PPSlider_PointerPressed(object sender, PointerPressedEventArgs e)
-    {
-        ToolTip.SetIsOpen(PPSlider, true);
-    }
-
-    private void PPSlider_PointerMoved(object? sender, PointerEventArgs e)
+    
+    private void PPSlider_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is Slider slider)
         {
+            var point = e.GetPosition(slider);
+            _tooltipManager.ShowTooltip(point, $"{slider.Value:0}pp");
+        }
+    }
+    
+    private void PPSlider_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is Slider slider)
+        {
+            var point = e.GetPosition(slider);
+            _tooltipManager.ShowTooltip(point, $"{slider.Value:0}pp");
+        }
+    }
+
+    private void PPSlider_PointerMove(object? sender, PointerEventArgs e)
+    {
+        if (sender is Slider slider)
+        {
+            var point = e.GetPosition(slider);
+
             if (e.GetCurrentPoint(slider).Properties.IsLeftButtonPressed)
             {
-                ToolTip.SetTip(slider, $"{slider.Value:0}pp");
-                ToolTip.SetPlacement(slider, PlacementMode.Pointer);
-                ToolTip.SetVerticalOffset(slider, -30);
-                ToolTip.SetIsOpen(slider, true);
+                _tooltipManager.ShowTooltip(point, $"{slider.Value:0}pp");
             }
             else
             {
-                ToolTip.SetIsOpen(slider, false);
+                _tooltipManager.ShowTooltip(point, $"{slider.Value:0}pp");
             }
         }
     }
 
-    private void PPSlider_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    private void PPSlider_PointerLeave(object sender, PointerEventArgs e)
     {
-        if (sender is Slider slider)
-            ToolTip.SetIsOpen(slider, false);
+        _tooltipManager.HideTooltip();
+    }
+    
+    private void PPImage_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is Image image)
+        {
+            var point = e.GetPosition(image);
+            _tooltipManager.ShowTooltip(point, "Minimum SS PP to Deafen\n (" + _tosuApi.GetMaxPP() + "pp for this map)");
+        }
+    }
+    
+    private void PPImage_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
     }
 
-    private void StarRatingSlider_PointerPressed(object sender, PointerPressedEventArgs e)
-    {
-        ToolTip.SetIsOpen(StarRatingSlider, true);
-    }
 
-    private void StarRatingSlider_PointerMoved(object? sender, PointerEventArgs e)
+    private void StarRatingSlider_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is Slider slider)
         {
+            var point = e.GetPosition(slider);
+            _tooltipManager.ShowTooltip(point, $"{slider.Value:F1}*");
+        }
+    }
+
+    private void StarRatingSlider_PointerMove(object? sender, PointerEventArgs e)
+    {
+        if (sender is Slider slider)
+        {
+            var point = e.GetPosition(slider);
+
             if (e.GetCurrentPoint(slider).Properties.IsLeftButtonPressed)
             {
-                ToolTip.SetTip(slider, $"{slider.Value:F1}*");
-                ToolTip.SetPlacement(slider, PlacementMode.Pointer);
-                ToolTip.SetVerticalOffset(slider, -30);
-                ToolTip.SetIsOpen(slider, true);
+                _tooltipManager.ShowTooltip(point, $"{slider.Value:F1}*");
             }
             else
             {
-                ToolTip.SetIsOpen(slider, false);
+                _tooltipManager.ShowTooltip(point, $"{slider.Value:F1}*");
             }
         }
     }
 
-    private void StarRatingSlider_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    private void StarRatingSlider_PointerEnter(object? sender, PointerEventArgs e)
     {
         if (sender is Slider slider)
-            ToolTip.SetIsOpen(slider, false);
+        {
+            var point = e.GetPosition(slider);
+            _tooltipManager.ShowTooltip(point, $"{slider.Value:F1}*");
+        }
+    }
+
+    private void StarRatingSlider_PointerLeave(object? sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+
+    private void StarRatingImage_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is Image image)
+        {
+            var point = e.GetPosition(image);
+            _tooltipManager.ShowTooltip(point, "Minimum SR to Deafen\n(" + _tosuApi.GetFullSR() + "* for this map)");
+        }
+    }
+    private void StarRatingImage_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
     }
 
     private void BlurEffectSlider_PointerPressed(object sender, PointerPressedEventArgs e)
