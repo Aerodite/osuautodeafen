@@ -110,8 +110,22 @@
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="0" />
         </Grid.ColumnDefinitions>
+        
+        <Canvas ZIndex="99" IsHitTestVisible="False">
+            <Border x:Name="CustomTooltip"
+                    Background="#CC000000"
+                    CornerRadius="4"
+                    Padding="6"
+                    ClipToBounds="True">
+                <Grid>
+                    <TextBlock x:Name="TooltipText"
+                               TextWrapping="Wrap"
+                               HorizontalAlignment="Left"/>
+                </Grid>
+            </Border>
+        </Canvas>
 
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" x:Name="TextBlockPanel" Margin="0,82,0,0">
+        <StackPanel Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Top" x:Name="TextBlockPanel" Margin="0,82,0,0">
             <StackPanel Orientation="Horizontal" Margin="0,0,0,0" x:Name="osuautodeafenLogoPanel">
                 <Image Name="osuLogo" Source="avares://osuautodeafen/Resources/osu_whitestroke.png" Height="60"
                        Margin="0,0,0,0" />
@@ -851,16 +865,6 @@
                     x:Name="ProgressOverlay"
                     IsHitTestVisible="False" />
                 <Canvas x:Name="IconOverlay" IsHitTestVisible="False" x:DataType="cs:SharedViewModel" />
-                <Canvas>
-                    <Border x:Name="CustomTooltip"
-                            Background="#AA222222"
-                            Padding="6"
-                            CornerRadius="6"
-                            IsVisible="True"
-                            ZIndex="1000">
-                        <TextBlock x:Name="TooltipText" Foreground="White" />
-                    </Border>
-                </Canvas>
             </Grid>
             <Grid HorizontalAlignment="Stretch" x:Name="UpdateNotificationGrid" VerticalAlignment="Bottom"
                   Grid.Row="2" IsVisible="{Binding IsVisible, ElementName=UpdateNotificationBar}">

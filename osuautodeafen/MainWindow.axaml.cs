@@ -466,21 +466,25 @@ public partial class MainWindow : Window
         PPSlider.Value = ViewModel.PerformancePoints;
         BlurEffectSlider.Value = ViewModel.BlurRadius;
     }
-    
+
     private void MainWindow_PointerMoved(object? sender, PointerEventArgs e)
     {
         _backgroundManager?.OnMouseMove(sender, e);
 
         Point pixelPoint = e.GetPosition(PlotView);
         LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
-    
+
         Tooltips.TooltipType currentTooltipType = _tooltipManager.CurrentTooltipType;
-          
+
         if (currentTooltipType == Tooltips.TooltipType.Deafen)
         {
             _ = _chartManager.UpdateDeafenOverlayAsync(_viewModel.MinCompletionPercentage);
-            e.Handled = true; 
+            e.Handled = true;
         }
+        
+        var window = this;
+        var screenPoint = PlotView.PointToScreen(pixelPoint);
+        var windowPoint = new Point(screenPoint.X - window.Position.X, screenPoint.Y - window.Position.Y);
 
         if (pixelPoint.Y < PlotView.Bounds.Height - 120)
         {
@@ -490,16 +494,13 @@ public partial class MainWindow : Window
                 _tooltipOutsideBounds = true;
             }
 
-            _tooltipManager.UpdateTooltipPosition(pixelPoint);
+            _tooltipManager.UpdateTooltipPosition(windowPoint);
             return;
         }
 
         _tooltipOutsideBounds = false;
-        _chartManager.TryShowTooltip(dataPoint, pixelPoint, _tooltipManager);
+        _chartManager.TryShowTooltip(dataPoint, windowPoint, _tooltipManager);
     }
-
-
-
 
     private SharedViewModel ViewModel { get; }
 

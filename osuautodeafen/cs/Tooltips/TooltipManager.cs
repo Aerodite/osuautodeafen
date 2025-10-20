@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.Threading;
 
 namespace osuautodeafen.cs.Tooltips
@@ -10,23 +11,23 @@ namespace osuautodeafen.cs.Tooltips
     public class TooltipManager
     {
         private const double TooltipOffset = 4;
-        
+
         private bool _isTooltipShowing;
         private string? _lastTooltipText;
-        
+
         private TextBlock? _tooltipText;
         private Border? CustomTooltip { get; set; }
 
         private CancellationTokenSource? _hideCts;
-        private CancellationTokenSource? _fadeCts;
-        
-        private Task? _fadeTask;
-        
+        private CancellationTokenSource? _sizeAnimationCts;
+
         private double _windowWidth;
         private double _windowHeight;
-        
+
         public Tooltips.TooltipType CurrentTooltipType;
-        
+
+        private (double width, double height)? _animationTarget;
+
         public bool IsTooltipVisible => _isTooltipShowing;
 
         /// <summary>
@@ -45,10 +46,14 @@ namespace osuautodeafen.cs.Tooltips
 
             // giant pita to figure out this is why tooltips would randomly stop...
             CustomTooltip.IsHitTestVisible = false;
-            
+
             CustomTooltip.Opacity = 0;
             CustomTooltip.IsVisible = false;
+
+            CustomTooltip.ClipToBounds = true;
+            _tooltipText.Width = double.NaN;
         }
+
         /// <summary>
         /// Shows a tooltip at a specified position with specified text
         /// </summary>
@@ -59,32 +64,116 @@ namespace osuautodeafen.cs.Tooltips
             if (CustomTooltip == null || _tooltipText == null) return;
 
             CancelHide();
-            
-            if (_isTooltipShowing && _lastTooltipText == text)
-            {
-                UpdateTooltipPosition(position);
-                return;
-            }
 
-            _lastTooltipText = text;
-            
-            TextBlock measure = new() { Text = text, FontSize = _tooltipText.FontSize, FontFamily = _tooltipText.FontFamily };
-            measure.Measure(Size.Infinity);
-            double tooltipWidth = measure.DesiredSize.Width + CustomTooltip.Padding.Left + CustomTooltip.Padding.Right;
-            double tooltipHeight = measure.DesiredSize.Height + CustomTooltip.Padding.Top + CustomTooltip.Padding.Bottom;
-            
-            UpdateTooltipPosition(position, tooltipWidth, tooltipHeight);
-            
+            _lastTooltipText ??= "";
             _tooltipText.Text = text;
             
+            TextBlock measure = new()
+            {
+                Text = text,
+                FontSize = _tooltipText.FontSize,
+                FontFamily = _tooltipText.FontFamily,
+                TextWrapping = TextWrapping.Wrap
+            };
+            measure.Measure(new Size(_windowWidth * 0.5, double.PositiveInfinity));
+
+            double tooltipWidth = measure.DesiredSize.Width + CustomTooltip.Padding.Left + CustomTooltip.Padding.Right;
+            double tooltipHeight = measure.DesiredSize.Height + CustomTooltip.Padding.Top + CustomTooltip.Padding.Bottom;
+
+            const double minPixelDifference = 5;
+            bool widthChanged = Math.Abs(CustomTooltip.Width - tooltipWidth) > minPixelDifference;
+            bool heightChanged = Math.Abs(CustomTooltip.Height - tooltipHeight) > minPixelDifference;
+            bool significantSizeChange = widthChanged || heightChanged;
+
             if (!_isTooltipShowing)
             {
-                CustomTooltip.Opacity = 0;
+                CustomTooltip.Width = tooltipWidth;
+                CustomTooltip.Height = tooltipHeight;
                 CustomTooltip.IsVisible = true;
+                CustomTooltip.Opacity = 0;
                 _ = FadeIn(CustomTooltip);
+
+                _animationTarget = (tooltipWidth, tooltipHeight);
+                _ = AnimateTooltipSize(CustomTooltip, tooltipWidth, tooltipHeight, position);
+            }
+            else
+            {
+                UpdateTooltipPosition(position);
+                
+                if (significantSizeChange &&
+                    (_animationTarget == null ||
+                     _animationTarget.Value.width != tooltipWidth ||
+                     _animationTarget.Value.height != tooltipHeight))
+                {
+                    _sizeAnimationCts?.Cancel();
+                    _animationTarget = (tooltipWidth, tooltipHeight);
+                    _ = AnimateTooltipSize(CustomTooltip, tooltipWidth, tooltipHeight, position);
+                }
             }
 
             _isTooltipShowing = true;
+        }
+
+        private async Task AnimateTooltipSize(Border border, double targetWidth, double targetHeight, Point position, double durationMs = 120)
+        {
+            _sizeAnimationCts?.Cancel();
+            _sizeAnimationCts = new CancellationTokenSource();
+            CancellationToken token = _sizeAnimationCts.Token;
+
+            if (_tooltipText == null) return;
+
+            double startWidth = border.Width;
+            
+            _tooltipText.Width = targetWidth;
+            _tooltipText.Measure(new Size(targetWidth, double.PositiveInfinity));
+            double fixedHeight = _tooltipText.DesiredSize.Height + border.Padding.Top + border.Padding.Bottom;
+
+            bool widthChanged = Math.Abs(targetWidth - startWidth) > 0.5;
+
+            _tooltipText.Clip ??= new RectangleGeometry(new Rect(0, 0, targetWidth, 0));
+
+            double left = position.X + TooltipOffset;
+            double top = position.Y - fixedHeight;
+
+            if (left + targetWidth > _windowWidth) left = _windowWidth - targetWidth;
+            if (top < 0) top = position.Y + TooltipOffset;
+
+            Canvas.SetLeft(border, Math.Round(left));
+            Canvas.SetTop(border, Math.Round(top));
+
+            double elapsed = 0;
+            const int interval = 10;
+
+            try
+            {
+                while (elapsed < durationMs)
+                {
+                    if (token.IsCancellationRequested) return;
+
+                    await Task.Delay(interval, token);
+                    elapsed += interval;
+
+                    double progress = Math.Min(elapsed / durationMs, 1);
+                    double easedProgress = 1 - Math.Pow(1 - progress, 3);
+
+                    if (widthChanged)
+                        border.Width = startWidth + (targetWidth - startWidth) * easedProgress;
+                    
+                    border.Height = fixedHeight;
+
+                    _tooltipText.Clip = new RectangleGeometry(new Rect(0, 0, border.Width, fixedHeight));
+                }
+
+                border.Width = targetWidth;
+                border.Height = fixedHeight;
+                _tooltipText.Clip = null;
+
+                _animationTarget = null;
+            }
+            catch
+            {
+                // ignored
+            }
         }
 
         /// <summary>
@@ -94,12 +183,12 @@ namespace osuautodeafen.cs.Tooltips
         public void HideTooltip(double delayMs = 200)
         {
             if (CustomTooltip == null || !_isTooltipShowing) return;
-            
+
             if (_hideCts != null && !_hideCts.IsCancellationRequested)
                 _hideCts.Cancel();
 
             _hideCts = new CancellationTokenSource();
-            var token = _hideCts.Token;
+            CancellationToken token = _hideCts.Token;
 
             _ = Task.Run(async () =>
             {
@@ -113,9 +202,8 @@ namespace osuautodeafen.cs.Tooltips
                     _isTooltipShowing = false;
                     _lastTooltipText = null;
                 });
-            });
+            }, token);
         }
-
 
         private void CancelHide() => _hideCts?.Cancel();
 
@@ -129,30 +217,23 @@ namespace osuautodeafen.cs.Tooltips
         {
             if (CustomTooltip == null) return;
 
-            double width, height;
+            double width = tooltipWidth ?? CustomTooltip.DesiredSize.Width;
+            double height = tooltipHeight ?? CustomTooltip.DesiredSize.Height;
+            
+            double left = position.X + TooltipOffset;
+            double top = position.Y - height;
+            
+            if (left + width > _windowWidth)
+                left = _windowWidth - width;
 
-            if (tooltipWidth.HasValue && tooltipHeight.HasValue)
-            {
-                width = tooltipWidth.Value;
-                height = tooltipHeight.Value;
-            }
-            else
-            {
-                CustomTooltip.Measure(Size.Infinity);
-                width = CustomTooltip.DesiredSize.Width;
-                height = CustomTooltip.DesiredSize.Height;
-            }
+            if (top < 0)
+                top = position.Y + TooltipOffset;
 
-            double left = position.X - width / 2;
-            double top = position.Y - height - TooltipOffset;
-
-            left = Math.Max(0, Math.Min(left, _windowWidth - width));
-
-            Canvas.SetLeft(CustomTooltip, left);
-            Canvas.SetTop(CustomTooltip, top);
+            Canvas.SetLeft(CustomTooltip, Math.Round(left));
+            Canvas.SetTop(CustomTooltip, Math.Round(top));
         }
-        
-        private async Task FadeIn(Border border, double durationMs = 120, CancellationToken? token = null)
+
+        private static async Task FadeIn(Border border, double durationMs = 120, CancellationToken? token = null)
         {
             double startOpacity = border.Opacity;
             border.IsVisible = true;
@@ -170,6 +251,7 @@ namespace osuautodeafen.cs.Tooltips
                     double progress = elapsed / durationMs;
                     border.Opacity = startOpacity + (1 - startOpacity) * progress;
                 }
+
                 border.Opacity = 1;
             }
             catch
@@ -178,7 +260,7 @@ namespace osuautodeafen.cs.Tooltips
             }
         }
 
-        private async Task FadeOut(Border border, double durationMs = 120, CancellationToken? token = null)
+        private static async Task FadeOut(Border border, double durationMs = 120, CancellationToken? token = null)
         {
             double startOpacity = border.Opacity;
             double elapsed = 0;
