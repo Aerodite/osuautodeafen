@@ -23,6 +23,7 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using IniParser.Model;
 using LiveChartsCore.Defaults;
+using LiveChartsCore.Drawing;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Background;
 using osuautodeafen.cs.Deafen;
@@ -33,7 +34,7 @@ using osuautodeafen.cs.Settings.Keybinds;
 using osuautodeafen.cs.Settings.Presets;
 using osuautodeafen.cs.StrainGraph;
 using osuautodeafen.cs.StrainGraph.ProgressIndicator;
-using osuautodeafen.cs.StrainGraph.Tooltips;
+using osuautodeafen.cs.Tooltips;
 using osuautodeafen.cs.Tosu;
 using osuautodeafen.cs.Update;
 using SkiaSharp;
@@ -444,7 +445,7 @@ public partial class MainWindow : Window
         CanResize = false;
         Closing += MainWindow_Closing;
 
-        _tooltipManager.SetTooltipControls(CustomTooltip, TooltipText);
+        _tooltipManager.SetTooltipControls(CustomTooltip, TooltipText, _settingsHandler.WindowWidth, _settingsHandler.WindowHeight);
 
         PointerPressed += (sender, e) =>
         {
@@ -452,8 +453,8 @@ public partial class MainWindow : Window
             const int titleBarHeight = 34;
             if (point.Y <= titleBarHeight) BeginMoveDrag(e);
         };
-
-        PointerMoved += _backgroundManager.OnMouseMove;
+        
+        PointerMoved += MainWindow_PointerMoved;
 
         InitializeKeybindButtonText();
         UpdateDeafenKeybindDisplay();
@@ -462,24 +463,44 @@ public partial class MainWindow : Window
         PPSlider.Value = ViewModel.PerformancePoints;
         BlurEffectSlider.Value = ViewModel.BlurRadius;
     }
+    
+    private void MainWindow_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        _backgroundManager?.OnMouseMove(sender, e);
+
+        Point pixelPoint = e.GetPosition(PlotView);
+        LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
+
+        Tooltips.TooltipType tooltipType = _chartManager.TryShowTooltip(dataPoint, pixelPoint, _tooltipManager);
+
+        if (tooltipType == Tooltips.TooltipType.Deafen)
+        {
+            _ = _chartManager.UpdateDeafenOverlayAsync(_viewModel.MinCompletionPercentage);
+            e.Handled = true;
+        }
+    }
+
 
 
     private SharedViewModel ViewModel { get; }
 
     private void UpdateViewModel()
     {
-        _viewModel.MinCompletionPercentage = _settingsHandler.MinCompletionPercentage;
-        _viewModel.StarRating = _settingsHandler.StarRating;
-        _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
-        _viewModel.BlurRadius = _settingsHandler.BlurRadius;
+        if (_settingsHandler != null)
+        {
+            _viewModel.MinCompletionPercentage = _settingsHandler.MinCompletionPercentage;
+            _viewModel.StarRating = _settingsHandler.StarRating;
+            _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
+            _viewModel.BlurRadius = _settingsHandler.BlurRadius;
 
-        _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
-        _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
-        //_viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
+            _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
+            _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
+            //_viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
 
-        _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
-        _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
-        _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
+            _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
+            _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
+            _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
+        }
 
         CompletionPercentageSlider.ValueChanged -= CompletionPercentageSlider_ValueChanged;
         StarRatingSlider.ValueChanged -= StarRatingSlider_ValueChanged;

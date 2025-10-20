@@ -829,7 +829,6 @@
 
 
         <Grid x:Name="MainContainer">
-            <!-- Existing content -->
         </Grid>
 
 
