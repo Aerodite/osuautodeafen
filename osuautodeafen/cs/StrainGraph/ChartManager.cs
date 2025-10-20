@@ -177,6 +177,15 @@ public class ChartManager
     /// <returns></returns>
     public void TryShowTooltip(LvcPointD dataPoint, Point pixelPoint, TooltipManager tooltipManager)
     {
+        double? currentTime = null;
+        if (PlotView.Bounds.Width > 0 && _currentXAxis != null)
+        {
+            LvcPointD mapped = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
+            int index = (int)Math.Round(mapped.X);
+            index = Math.Max(0, Math.Min(index, _currentXAxis.Count - 1));
+            currentTime = _currentXAxis.ElementAtOrDefault(index);
+        }
+        
         if (_isDraggingDeafenEdge && _draggedDeafenSection != null)
         {
             double newXi = Math.Max(0, Math.Min(dataPoint.X, Math.Min((_draggedDeafenSection.Xj ?? 0) - 1, MaxLimit)));
@@ -191,19 +200,13 @@ public class ChartManager
                 mainWindow.CompletionPercentageSlider_ValueChanged(null, new RangeBaseValueChangedEventArgs(newPercentage, newPercentage, null));
             }
 
-            tooltipManager.ShowTooltip(pixelPoint, $"Deafen Min %:\n{newPercentage:F2}%");
+            TimeSpan ts = currentTime.HasValue ? TimeSpan.FromMilliseconds(currentTime.Value) : TimeSpan.Zero;
+            string timeText = ts.ToString(@"mm\:ss");
+            tooltipManager.ShowTooltip(pixelPoint, $"Deafen Min %:\n{newPercentage:F2}% ({timeText})");
+
             PlotView.InvalidateVisual();
             _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.Deafen;
             return;
-        }
-
-        double? currentTime = null;
-        if (PlotView.Bounds.Width > 0 && _currentXAxis != null)
-        {
-            LvcPointD mapped = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
-            int index = (int)Math.Round(mapped.X);
-            index = Math.Max(0, Math.Min(index, _currentXAxis.Count - 1));
-            currentTime = _currentXAxis.ElementAtOrDefault(index);
         }
 
         AnnotatedSection? activeSection = null;
@@ -254,7 +257,6 @@ public class ChartManager
     /// <returns></returns>
     private string FormatSectionTooltip(AnnotatedSection section, double? currentTimeMs = null)
     {
-        // Compact adaptive format: minutes:seconds with tenths of a second
         string start = TimeSpan.FromMilliseconds(section.StartTime).ToString(@"mm\:ss\:ff");
         string end = TimeSpan.FromMilliseconds(section.EndTime).ToString(@"mm\:ss\:ff");
 
