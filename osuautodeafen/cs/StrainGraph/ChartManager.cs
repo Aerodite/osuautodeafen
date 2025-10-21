@@ -9,7 +9,6 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using Avalonia.Threading;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
@@ -17,7 +16,6 @@ using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Avalonia;
 using LiveChartsCore.SkiaSharpView.Painting;
-using osuautodeafen.cs.StrainGraph.Sections;
 using osuautodeafen.cs.Tooltips;
 using osuautodeafen.cs.Tosu;
 using SkiaSharp;
@@ -41,7 +39,6 @@ public class ChartManager
     private readonly KiaiTimes _kiaiTimes;
 
     private readonly LineSeries<ObservablePoint> _progressIndicator;
-    private readonly SectionManager _sectionManager = new();
     private readonly TosuApi _tosuApi;
     private readonly SharedViewModel _viewModel;
 
