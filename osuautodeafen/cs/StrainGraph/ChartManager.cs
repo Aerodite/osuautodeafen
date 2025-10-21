@@ -178,12 +178,16 @@ public class ChartManager
     public void TryShowTooltip(LvcPointD dataPoint, Point pixelPoint, TooltipManager tooltipManager)
     {
         double? currentTime = null;
-        if (PlotView.Bounds.Width > 0 && _currentXAxis != null)
+        if (PlotView.Bounds.Width > 0 && _currentXAxis != null && _seriesIndexMap.TryGetValue("aim", out var indexMap) && indexMap.Count > 0)
         {
             LvcPointD mapped = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
-            int index = (int)Math.Round(mapped.X);
-            index = Math.Max(0, Math.Min(index, _currentXAxis.Count - 1));
-            currentTime = _currentXAxis.ElementAtOrDefault(index);
+            int normIdx = (int)Math.Round(mapped.X);
+            normIdx = Math.Clamp(normIdx, 0, indexMap.Count - 1);
+
+            int absIdx = indexMap[normIdx];
+            absIdx = Math.Clamp(absIdx, 0, _currentXAxis.Count - 1);
+
+            currentTime = _currentXAxis[absIdx];
         }
         
         if (_isDraggingDeafenEdge && _draggedDeafenSection != null)
