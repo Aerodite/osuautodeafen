@@ -202,7 +202,7 @@ public class ChartManager
 
             TimeSpan ts = currentTime.HasValue ? TimeSpan.FromMilliseconds(currentTime.Value) : TimeSpan.Zero;
             string timeText = ts.ToString(@"mm\:ss");
-            tooltipManager.ShowTooltip(pixelPoint, $"Deafen Min %:\n{newPercentage:F2}% ({timeText})");
+            tooltipManager.ShowTooltip(PlotView, pixelPoint, $"Deafen Min %:\n{newPercentage:F2}% ({timeText})");
 
             PlotView.InvalidateVisual();
             _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.Deafen;
@@ -225,7 +225,7 @@ public class ChartManager
 
         if (activeSection != null && tooltipText != null)
         {
-            tooltipManager.ShowTooltip(pixelPoint, tooltipText);
+            tooltipManager.ShowTooltip(PlotView, pixelPoint, tooltipText);
             _lastTooltipSection = activeSection;
             _lastTooltipText = tooltipText;
             _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.Section;
@@ -236,7 +236,7 @@ public class ChartManager
         {
             TimeSpan ts = TimeSpan.FromMilliseconds(currentTime.Value);
             string timeText = $"{ts.Minutes:D2}:{ts.Seconds:D2}";
-            tooltipManager.ShowTooltip(pixelPoint, timeText);
+            tooltipManager.ShowTooltip(PlotView, pixelPoint, timeText);
             _lastTooltipSection = null;
             _lastTooltipText = null;
             _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.Time;

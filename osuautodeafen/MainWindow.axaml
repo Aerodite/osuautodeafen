@@ -269,10 +269,6 @@
                                     PointerEntered="StarRatingSlider_PointerEnter"
                                     PointerExited="StarRatingSlider_PointerLeave"
                                     PointerPressed="StarRatingSlider_PointerPressed">
-                                <ToolTip.Tip>
-                                    <TextBlock
-                                        Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F1}*'}" />
-                                </ToolTip.Tip>
                             </Slider>
                         </StackPanel>
                     </StackPanel>
@@ -297,64 +293,46 @@
                                     PointerEntered="PPSlider_PointerEnter"
                                     PointerPressed="PPSlider_PointerPressed"
                                     PointerExited="PPSlider_PointerLeave">
-                                <ToolTip.Tip>
-                                    <TextBlock
-                                        Text="{Binding Value, RelativeSource={RelativeSource AncestorType=Slider}, StringFormat='{}{0:F0}pp'}" />
-                                </ToolTip.Tip>
                             </Slider>
                         </StackPanel>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center"
+                                PointerEntered="FCToggle_PointerEnter"
+                                PointerExited="FCToggle_PointerLeave">
                         <Image Source="avares://osuautodeafen/Icons/crown-solid.png" Width="25" Height="25"
                                Margin="0,0,5,0">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Toggle if an FC is required to deafen" />
-                            </ToolTip.Tip>
                         </Image>
                         <CheckBox x:Name="FCToggle" Content="FC Required?" Foreground="White"
                                   IsChecked="{Binding IsFCRequired, Mode=TwoWay}"
                                   HorizontalAlignment="Left" Margin="0" Width="120" Classes="custom">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Toggle if an FC is required to deafen" />
-                            </ToolTip.Tip>
                         </CheckBox>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="5,0,0,0" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Margin="5,0,0,0" HorizontalAlignment="Center"
+                                PointerEntered="UndeafenOnMissToggle_PointerEnter"
+                                PointerExited="UndeafenOnMissToggle_PointerLeave">
                         <Image Source="avares://osuautodeafen/Icons/shooting-star-solid.png" Width="25" Height="25"
                                Margin="0,0,5,0">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Do you get undeafened after a miss?" />
-                            </ToolTip.Tip>
                         </Image>
                         <CheckBox x:Name="UndeafenOnMissToggle" Content="Miss Undeafen" Foreground="White"
                                   IsChecked="{Binding UndeafenAfterMiss, Mode=TwoWay}"
                                   IsEnabled="{Binding ElementName=FCToggle, Path=IsChecked}"
                                   HorizontalAlignment="Left" Margin="0" Width="120" Classes="custom">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Do you get undeafened after a miss?" />
-                            </ToolTip.Tip>
                         </CheckBox>
                     </StackPanel>
                     <!--
                     5px shift right because it isn't lined up for some reason 🤔
                     (which now that I think about it is probably due to image width)
                     -->
-                    <StackPanel Orientation="Horizontal" Margin="5,0,0,0" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Margin="5,0,0,0" HorizontalAlignment="Center"
+                                PointerEntered="BreakUndeafenToggle_PointerEnter"
+                                PointerExited="BreakUndeafenToggle_PointerLeave">
                         <Image Source="avares://osuautodeafen/Icons/map-location-dot-solid.png" Width="25"
                                Height="25"
                                Margin="0,0,5,0">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Toggle whether or not breaks should be undeafened" />
-                            </ToolTip.Tip>
                         </Image>
                         <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
                                   IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
                                   HorizontalAlignment="Left" Margin="0" Classes="custom">
-                            <ToolTip.Tip>
-                                <TextBlock>
-                                    <Run Text="Toggle whether or not breaks should be undeafened" />
-                                </TextBlock>
-                            </ToolTip.Tip>
                         </CheckBox>
                     </StackPanel>
                     <Button Content="Reset to Default" Click="ResetButton_Click" Margin="0,7,0,0" FontSize="12"
@@ -433,9 +411,6 @@
                                         </StackPanel>
                                     </Flyout>
                                 </Button.Flyout>
-                                <ToolTip.Tip>
-                                    <TextBlock Text="Create a map preset from your current settings" />
-                                </ToolTip.Tip>
                             </Button>
                             <Button x:Name="DeletePresetButton"
                                     Width="135"
@@ -508,9 +483,6 @@
                                         </StackPanel>
                                     </Flyout>
                                 </Button.Flyout>
-                                <ToolTip.Tip>
-                                    <TextBlock Text="Delete a map preset from your current settings" />
-                                </ToolTip.Tip>
                             </Button>
                         </StackPanel>
                         <Button x:Name="LoadPresetButton"
@@ -574,9 +546,6 @@
                                     </ScrollViewer>
                                 </Flyout>
                             </Button.Flyout>
-                            <ToolTip.Tip>
-                                <TextBlock Text="Load a preset onto your current beatmap" />
-                            </ToolTip.Tip>
                         </Button>
 
                         <Button x:Name="DeleteAllPresetsButton"
@@ -637,9 +606,6 @@
                                     </StackPanel>
                                 </Flyout>
                             </Button.Flyout>
-                            <ToolTip.Tip>
-                                <TextBlock Text="Delete all of your presets" />
-                            </ToolTip.Tip>
                         </Button>
                     </StackPanel>
                     <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
