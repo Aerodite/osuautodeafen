@@ -752,8 +752,8 @@ public partial class MainWindow : Window
 
     private void CompletionPercentageImage_PointerEnter(object sender, PointerEventArgs e)
     {
-        if (sender is not Image image) return;
-        Point point = Tooltips.GetWindowRelativePointer(image, e);
+        if (sender is not Avalonia.Svg.Svg) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Minimum Map \nProgress to Deafen");
     }
     
@@ -815,8 +815,8 @@ public partial class MainWindow : Window
     
     private void PPImage_PointerEnter(object sender, PointerEventArgs e)
     {
-        if (sender is not Image image) return;
-        Point point = Tooltips.GetWindowRelativePointer(image, e);
+        if (sender is not Avalonia.Svg.Svg) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Minimum SS PP to Deafen\n (" + _tosuApi.GetMaxPP() + "pp for this map)");
     }
     
@@ -853,8 +853,8 @@ public partial class MainWindow : Window
     
     private void StarRatingImage_PointerEnter(object sender, PointerEventArgs e)
     {
-        if (sender is not Image image) return;
-        Point point = Tooltips.GetWindowRelativePointer(image, e);
+        if (sender is not Avalonia.Svg.Svg) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Minimum SR to Deafen\n(" + _tosuApi.GetFullSR() + "* for this map)");
     }
     
@@ -865,8 +865,8 @@ public partial class MainWindow : Window
     
     private void BlurEffectImage_PointerEnter(object sender, PointerEventArgs e)
     {
-        if (sender is not Image image) return;
-        Point point = Tooltips.GetWindowRelativePointer(image, e);
+        if (sender is not Avalonia.Svg.Svg) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Background Blur Radius\n(0-20 multiplied by 5)");
     }
     
@@ -1073,14 +1073,16 @@ public partial class MainWindow : Window
     {
         if (sender is not Button) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Open AppData File Location\n(" + _settingsHandler!.GetPath() +")");
+        _tooltipManager.ShowTooltip(this, point, "Open AppData File Location\n(" + _settingsHandler!.GetPath() + ")");
+        OpenFileLocationImage.Path = "Icons/folder-open.svg";
     }
-    
+
     private void FileLocationButton_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
+        OpenFileLocationImage.Path = "Icons/folder.svg";
     }
-    
+
     private void ReportIssueButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
@@ -2200,7 +2202,7 @@ public partial class MainWindow : Window
             _settingsButtonClicked?.Invoke();
             DockPanel? settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
             Border? buttonContainer = this.FindControl<Border>("SettingsButtonContainer");
-            Image? cogImage = this.FindControl<Image>("SettingsCogImage");
+            Avalonia.Svg.Svg? cogImage = this.FindControl<Avalonia.Svg.Svg>("SettingsCogImage");
             StackPanel? textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
             TextBlock? versionPanel = textBlockPanel?.FindControl<TextBlock>("VersionPanel");
             TextBlock? debugConsoleTextBlock = this.FindControl<TextBlock>("DebugConsoleTextBlock");
@@ -2427,7 +2429,7 @@ public partial class MainWindow : Window
     /// </summary>
     /// <param name="cogImage"></param>
     /// <returns></returns>
-    private Task EnsureCogCenterAsync(Image cogImage)
+    private Task EnsureCogCenterAsync(Avalonia.Svg.Svg cogImage)
     {
         return Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -2457,7 +2459,7 @@ public partial class MainWindow : Window
     ///     Starts the cog spinning animation based on the current BPM
     /// </summary>
     /// <param name="cogImage"></param>
-    private void StartCogSpin(Image cogImage)
+    private void StartCogSpin(Avalonia.Svg.Svg cogImage)
     {
         lock (_cogSpinLock)
         {
@@ -2494,7 +2496,7 @@ public partial class MainWindow : Window
     ///     Stops the cog spinning animation and returns it to the original position
     /// </summary>
     /// <param name="cogImage"></param>
-    private async Task StopCogSpinAsync(Image cogImage)
+    private async Task StopCogSpinAsync(Avalonia.Svg.Svg cogImage)
     {
         lock (_cogSpinLock)
         {
