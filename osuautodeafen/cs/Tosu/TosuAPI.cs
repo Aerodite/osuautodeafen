@@ -79,7 +79,11 @@ public class TosuApi : IDisposable
         }, null, Timeout.Infinite, Timeout.Infinite);
         _webSocket = new ClientWebSocket();
         _dynamicBuffer = new List<byte>();
-        _reconnectTimer = new Timer(ReconnectTimerCallback, null, Timeout.Infinite, 300000);
+        _reconnectTimer = new Timer(_ =>
+        {
+            _ = Task.Run(() => ReconnectTimerCallback());
+        }, null, Timeout.Infinite, 300000);
+
         TosuLauncher.EnsureTosuRunning();
         lock (ConnectionLock)
         {
@@ -88,6 +92,7 @@ public class TosuApi : IDisposable
     }
 
     public bool? isWebsocketConnected => _webSocket.State == WebSocketState.Open;
+    private readonly SemaphoreSlim _connectLock = new(1, 1);
 
     private GraphData Graph { get; } = null!;
 
@@ -159,12 +164,12 @@ public class TosuApi : IDisposable
     ///     Called every 5 minutes to attempt to reconnect if the connection is lost / to refresh the connection in the case
     ///     Tosu stops reporting data
     /// </summary>
-    /// <param name="state"></param>
-    private async void ReconnectTimerCallback(object? state)
+    private async Task ReconnectTimerCallback()
     {
         if (_rawBanchoStatus != 2)
         {
             if (_webSocket.State == WebSocketState.Open)
+            {
                 try
                 {
                     await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Reconnecting",
@@ -174,6 +179,7 @@ public class TosuApi : IDisposable
                 {
                     Console.WriteLine($@"Error closing WebSocket: {ex.Message}");
                 }
+            }
 
             _webSocket?.Dispose();
             _webSocket = new ClientWebSocket();
@@ -205,38 +211,60 @@ public class TosuApi : IDisposable
     /// <param name="cancellationToken"></param>
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
-        SettingsHandler settings = new();
-
-        string? ip = settings.tosuApiIp;
-        string? port = settings.tosuApiPort;
-        string counterPath = "osuautodeafen";
-        string uriWithParam = $"ws://{ip}:{port}/websocket/v2?l={Uri.EscapeDataString(counterPath)}";
-        Console.WriteLine($"WebSocket URI: {uriWithParam}");
-        Console.WriteLine($"WebSocket State: {_webSocket.State}");
-
-        while (!cancellationToken.IsCancellationRequested)
+        await _connectLock.WaitAsync(cancellationToken);
+        try
         {
-            if (_webSocket != null && _webSocket.State == WebSocketState.Open)
-                return;
+            SettingsHandler settings = new();
 
-            try
+            string? ip = settings.tosuApiIp;
+            string? port = settings.tosuApiPort;
+            string counterPath = "osuautodeafen";
+            string uriWithParam = $"ws://{ip}:{port}/websocket/v2?l={Uri.EscapeDataString(counterPath)}";
+
+            Console.WriteLine($"WebSocket URI: {uriWithParam}");
+            Console.WriteLine($"WebSocket State: {_webSocket.State}");
+
+            while (!cancellationToken.IsCancellationRequested)
             {
-                _webSocket?.Dispose();
-                _webSocket = new ClientWebSocket();
-                await _webSocket.ConnectAsync(new Uri(uriWithParam), cancellationToken);
-                Console.WriteLine("Connected to WebSocket.");
-                _reconnectTimer.Change(300000, Timeout.Infinite);
-                await ReceiveAsync();
-                return;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to connect: {ex.Message}. Retrying in 2 seconds...");
-                TosuLauncher.EnsureTosuRunning();
-                await Task.Delay(2000, cancellationToken);
+                if (_webSocket != null && _webSocket.State == WebSocketState.Open)
+                    return;
+
+                try
+                {
+                    _webSocket?.Dispose();
+                    _webSocket = new ClientWebSocket();
+                    
+                    await _webSocket.ConnectAsync(new Uri(uriWithParam), cancellationToken);
+                    Console.WriteLine("Connected to WebSocket.");
+                    
+                    _reconnectTimer.Change(300000, Timeout.Infinite);
+                    
+                    await ReceiveAsync();
+
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to connect: {ex.Message}. Retrying in 2 seconds...");
+                    TosuLauncher.EnsureTosuRunning();
+
+                    try
+                    {
+                        await Task.Delay(2000, cancellationToken);
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        return;
+                    }
+                }
             }
         }
+        finally
+        {
+            _connectLock.Release();
+        }
     }
+
 
     /// <summary>
     ///     Receives messages from the WebSocket and processes them into variables that can be used anywhere
