@@ -321,7 +321,7 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,0" HorizontalAlignment="Center"
+                    <StackPanel Orientation="Horizontal" Margin="10,0,0,0" HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
                                 PointerEntered="FCToggle_PointerEnter"
                                 PointerExited="FCToggle_PointerLeave">
@@ -331,7 +331,7 @@
                                   HorizontalAlignment="Left" VerticalAlignment="Center"
                                   Margin="0" Width="125" Classes="custom" />
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,0" HorizontalAlignment="Center"
+                    <StackPanel Orientation="Horizontal" Margin="10,0,0,0" HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
                                 PointerEntered="UndeafenOnMissToggle_PointerEnter"
                                 PointerExited="UndeafenOnMissToggle_PointerLeave">
@@ -342,7 +342,7 @@
                                   HorizontalAlignment="Left" VerticalAlignment="Center"
                                   Margin="0" Width="125" Classes="custom" />
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,0" HorizontalAlignment="Center"
+                    <StackPanel Orientation="Horizontal" Margin="10,0,0,0" HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
                                 PointerEntered="BreakUndeafenToggle_PointerEnter"
                                 PointerExited="BreakUndeafenToggle_PointerLeave">

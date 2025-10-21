@@ -1073,7 +1073,7 @@ public partial class MainWindow : Window
     {
         if (sender is not Button) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Open AppData File Location\n(" + _settingsHandler!.GetPath() + ")");
+        _tooltipManager.ShowTooltip(this, point, "Open AppData File Location\n(" + _settingsHandler!.GetPath(true) + ")");
         OpenFileLocationImage.Path = "Icons/folder-open.svg";
     }
 

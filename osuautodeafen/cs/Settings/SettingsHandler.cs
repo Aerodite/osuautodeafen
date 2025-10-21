@@ -29,7 +29,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private double _windowWidth;
     
     public IniData Data;
-    
 
     public SettingsHandler()
     {
@@ -134,7 +133,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public bool UndeafenAfterMiss { get; set; }
     public bool IsBackgroundEnabled { get; set; }
     public bool IsParallaxEnabled { get; set; }
-
     public string? DeafenKeybind { get; set; }
     public bool IsKiaiEffectEnabled { get; set; }
     public string? tosuApiIp { get; set; }
@@ -176,8 +174,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     ///     Ensures that all required sections and keys exist in the INI data.
     /// </summary>
     /// <remarks>
-    ///     Very useful in the case that a user updates the application and new settings are added,
-    ///     should be called on every start up
+    ///     Very useful in the case that a user updates the application and new settings are added
     /// </remarks>
     private void EnsureSectionsExist()
     {
@@ -248,9 +245,19 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     /// <returns>
     ///     The application data path as a string
     /// </returns>
-    public string GetPath()
+    public string GetPath(bool? simple = false)
     {
-        return _appPath;
+        if (simple != true) return _appPath;
+        if (Environment.OSVersion.Platform == PlatformID.Unix ||
+            Environment.OSVersion.Platform == PlatformID.MacOSX)
+        {
+            return "~/.config/osuautodeafen";
+        }
+        else
+        {
+            return "%APPDATA%\\osuautodeafen";
+        }
+
     }
 
     /// <summary>
