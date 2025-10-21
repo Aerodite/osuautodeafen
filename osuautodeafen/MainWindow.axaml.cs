@@ -226,7 +226,7 @@ public partial class MainWindow : Window
 
         ProgressOverlay.Points =
             _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage());
-        _viewModel.RefreshPresets();
+        
         _tosuApi.BeatmapChanged += async () =>
         {
             string checksum = _tosuApi.GetBeatmapChecksum();
@@ -465,6 +465,7 @@ public partial class MainWindow : Window
         StarRatingSlider.Value = ViewModel.StarRating;
         PPSlider.Value = ViewModel.PerformancePoints;
         BlurEffectSlider.Value = ViewModel.BlurRadius;
+        _viewModel.RefreshPresets();
     }
 
     private void MainWindow_PointerMoved(object? sender, PointerEventArgs e)

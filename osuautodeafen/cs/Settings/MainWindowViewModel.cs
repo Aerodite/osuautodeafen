@@ -93,7 +93,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     public bool HasAnyPresets => Presets != null && Presets.Any();
     public bool HasAnyPresetsNotCurrent => Presets != null && Presets.Any(p => !p.IsCurrentPreset);
-
     public ObservableCollection<PresetInfo>? Presets { get; } = [];
 
     public IEnumerable<PresetInfo> VisiblePresets =>
@@ -560,6 +559,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             preset.IsCurrentPreset = preset.Checksum == _tosuApi.GetBeatmapChecksum();
             Console.WriteLine($"Preset {preset.BeatmapName} IsCurrentPreset: {preset.IsCurrentPreset}");
         }
+        
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasAnyPresetsNotCurrent)));
     }
 
     private void Preset_PropertyChanged(object? sender, PropertyChangedEventArgs e)
