@@ -150,22 +150,21 @@ public class ChartManager
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
-    private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(_viewModel.IsBreakUndeafenToggleEnabled))
-        {
-            AudibleBreaksEnabled = _viewModel.IsBreakUndeafenToggleEnabled;
-            foreach (CoreSection viewSection in PlotView.Sections)
-                if (viewSection is AnnotatedSection section && section.SectionType == "Break")
-                    _sectionManager.AnimateSectionFill(
-                        section,
-                        AudibleBreaksEnabled ? BreakColor : SKColors.LightSkyBlue,
-                        AudibleBreaksEnabled ? SKColors.LightSkyBlue : BreakColor,
-                        AudibleBreaksEnabled, 0, 0,
-                        (_, fill) => section.Fill = fill,
-                        PlotView.InvalidateVisual
-                    );
-        }
+        if (e.PropertyName != nameof(_viewModel.IsBreakUndeafenToggleEnabled))
+            return;
+
+        AudibleBreaksEnabled = _viewModel.IsBreakUndeafenToggleEnabled;
+        await RegenerateBreakSectionsAsync();
+    }
+    
+    // this function is just to finally fix that stupid ass fucking issue with presets breaking the chart section updates
+    // amen
+    private async Task RegenerateBreakSectionsAsync()
+    {
+        if (_lastOsuFilePath == null || _lastGraphData == null) return;
+        await UpdateSectionsAsync(_lastGraphData, _lastOsuFilePath);
     }
 
     /// <summary>

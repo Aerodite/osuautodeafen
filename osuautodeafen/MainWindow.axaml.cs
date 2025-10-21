@@ -537,7 +537,7 @@ public partial class MainWindow : Window
 
             _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
             _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
-            //_viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
+            _viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
 
             _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
             _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
@@ -561,7 +561,7 @@ public partial class MainWindow : Window
 
         FCToggle.IsChecked = _viewModel.IsFCRequired;
         UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
-        //BreakUndeafenToggle.IsChecked = _viewModel.IsBreakUndeafenToggleEnabled;
+        BreakUndeafenToggle.IsChecked = _viewModel.IsBreakUndeafenToggleEnabled;
 
         BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
         ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
