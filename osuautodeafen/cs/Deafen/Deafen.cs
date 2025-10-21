@@ -22,15 +22,17 @@ public class Deafen : IDisposable
     private readonly SharedViewModel _sharedViewModel;
     private readonly Timer _timer;
     private readonly TosuApi _tosuAPI;
-    public bool _deafened;
+    public bool _deafened = false;
     private bool _isInBreakPeriod;
 
     public Action? Deafened;
     public Action? Undeafened;
-
-
+    
+    private DateTime _lastToggle = DateTime.MinValue;
+    
     public Deafen(TosuApi tosuAPI, SettingsHandler settingsHandler, SharedViewModel sharedViewModel)
     {
+        _deafened = false;
         _tosuAPI = tosuAPI;
         _hook = new SimpleGlobalHook();
         _sharedViewModel = sharedViewModel;
@@ -232,10 +234,10 @@ public class Deafen : IDisposable
     {
         lock (_deafenLock)
         {
-            Console.WriteLine($"[ToggleDeafenState] Toggling deafen state. Current: {_deafened}");
+            if ((DateTime.Now - _lastToggle).TotalMilliseconds < 50) return; 
+            _lastToggle = DateTime.Now;
             SimulateDeafenKey();
             _deafened = !_deafened;
-            Console.WriteLine($"[ToggleDeafenState] New deafen state: {_deafened}");
         }
     }
 

@@ -629,14 +629,38 @@ public class TosuApi : IDisposable
     ///     Obtains the full file path of the current beatmap
     /// </summary>
     /// <returns></returns>
-// C#
     public string? GetFullFilePath()
     {
-        if (_settingsSongsDirectory == null || _osuFilePath == null)
+        if (_osuFilePath == null)
             return null;
 
-        char separator = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? '\\' : '/';
-        return _settingsSongsDirectory.TrimEnd('\\', '/') + separator + _osuFilePath.TrimStart('\\', '/');
+        string osuSongsFolder;
+
+        if ((OperatingSystem.IsLinux() || OperatingSystem.IsMacOS()) &&
+            _client == "stable") // basically just wine linux
+        {
+            string home = Environment.GetEnvironmentVariable("HOME") ?? "";
+            osuSongsFolder = Path.Combine(home, ".local", "share", "osu-wine", "osu!", "Songs");
+        }
+        else
+        {
+            osuSongsFolder = _settingsSongsDirectory ?? "";
+        }
+        
+        string normalizedFilePath = _osuFilePath.TrimStart('\\', '/')
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar);
+
+        string fullPath = Path.Combine(osuSongsFolder, normalizedFilePath);
+
+        if (!File.Exists(fullPath))
+        {
+            Console.WriteLine($"Songs folder: {osuSongsFolder}");
+            Console.WriteLine($"File not found: {fullPath}");
+            return null;
+        }
+
+        return Path.GetFullPath(fullPath);
     }
 
     /// <summary>
