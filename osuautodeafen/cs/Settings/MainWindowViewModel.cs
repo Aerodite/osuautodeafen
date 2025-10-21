@@ -266,7 +266,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         get
         {
             Color color = _averageColorBrush.Color;
-            Color lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.25f, 0.5f);
+            Color lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.8f, 0.5f);
             return new SolidColorBrush(lessVibrantColor);
         }
     }
@@ -277,6 +277,16 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         {
             Color color = _averageColorBrush.Color;
             Color lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.75f, 0.25f);
+            return new SolidColorBrush(lessVibrantColor);
+        }
+    }
+    
+    public SolidColorBrush AverageColorBrushDarker
+    {
+        get
+        {
+            Color color = _averageColorBrush.Color;
+            Color lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.85f, 0.12f);
             return new SolidColorBrush(lessVibrantColor);
         }
     }

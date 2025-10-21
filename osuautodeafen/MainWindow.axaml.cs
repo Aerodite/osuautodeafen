@@ -962,7 +962,7 @@ public partial class MainWindow : Window
     {
         if (sender is not Button) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Create Preset for " + _viewModel.FullBeatmapName);
+        _tooltipManager.ShowTooltip(this, point, "Create Preset for\n" + _viewModel.FullBeatmapName);
     }
     
     private void PresetCreate_PointerLeave(object sender, PointerEventArgs e)
@@ -1060,7 +1060,7 @@ public partial class MainWindow : Window
     {
         if (sender is not Button) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Check for Updates");
+        _tooltipManager.ShowTooltip(this, point, "Check for New Updates");
     }
     
     private void CheckForUpdatesButton_PointerLeave(object sender, PointerEventArgs e)
