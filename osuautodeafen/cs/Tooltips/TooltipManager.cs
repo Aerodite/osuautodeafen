@@ -137,12 +137,29 @@ namespace osuautodeafen.cs.Tooltips
         {
             if (CustomTooltip == null) return;
 
-            double left = position.X + TooltipOffset;
-            double top = position.Y + TooltipOffset;
-
-            if (left + width > _windowWidth) left = position.X - width - TooltipOffset;
-            if (top + height > _windowHeight) top = position.Y - height - TooltipOffset;
-
+            double left, top;
+            
+            double distanceToRight = _windowWidth - (position.X + width + TooltipOffset);
+            
+            // tldr we're moving the cursor from bottom right to top left if we're too close to the right edge
+            // so we don't obfuscate text
+            double factor = Math.Clamp(- distanceToRight / (width + TooltipOffset), 0, 1);
+            if (position.X + width + TooltipOffset > _windowWidth)
+            {
+                left = position.X - width - TooltipOffset;
+                top = position.Y - height - TooltipOffset;
+            }
+            else if (factor > 0)
+            {
+                left = (position.X + TooltipOffset) * (1 - factor) + (position.X - width - TooltipOffset) * factor;
+                top = (position.Y + TooltipOffset) * (1 - factor) + (position.Y - height - TooltipOffset) * factor;
+            }
+            else
+            {
+                left = position.X + TooltipOffset;
+                top = position.Y + TooltipOffset;
+            }
+            
             left = Math.Clamp(left, 0, _windowWidth - width);
             top = Math.Clamp(top, 0, _windowHeight - height);
 
@@ -151,7 +168,7 @@ namespace osuautodeafen.cs.Tooltips
 
             double currentTop = Canvas.GetTop(CustomTooltip);
             if (double.IsNaN(currentTop)) currentTop = 0;
-
+            
             double smoothedLeft = currentLeft + (left - currentLeft) * 0.18;
             double smoothedTop = currentTop + (top - currentTop) * 0.18;
 
@@ -203,8 +220,7 @@ namespace osuautodeafen.cs.Tooltips
             
             MoveTooltipToPosition(_targetPosition);
         }
-
-
+        
         /// <summary>
         /// Hides the currently showing Tooltip
         /// </summary>
