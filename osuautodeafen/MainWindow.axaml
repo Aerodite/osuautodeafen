@@ -334,11 +334,11 @@
                     <StackPanel Orientation="Horizontal" Margin="10,0,0,0" HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
                                 PointerEntered="UndeafenOnMissToggle_PointerEnter"
-                                PointerExited="UndeafenOnMissToggle_PointerLeave">
+                                PointerExited="UndeafenOnMissToggle_PointerLeave"
+                                x:Name="UndeafenOnMissPanel">
                         <Svg Path="Icons/meteor.svg" Width="26" Height="26" Margin="0,0,5,0" VerticalAlignment="Center" />
                         <CheckBox x:Name="UndeafenOnMissToggle" Content="Miss Undeafen" Foreground="White"
                                   IsChecked="{Binding UndeafenAfterMiss, Mode=TwoWay}"
-                                  IsEnabled="{Binding ElementName=FCToggle, Path=IsChecked}"
                                   HorizontalAlignment="Left" VerticalAlignment="Center"
                                   Margin="0" Width="125" Classes="custom" />
                     </StackPanel>

@@ -20,6 +20,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using IniParser.Model;
 using LiveChartsCore.Defaults;
@@ -40,6 +41,8 @@ using osuautodeafen.cs.Tosu;
 using osuautodeafen.cs.Update;
 using SkiaSharp;
 using Svg.Skia;
+using Animation = Avalonia.Animation.Animation;
+using KeyFrame = Avalonia.Animation.KeyFrame;
 
 namespace osuautodeafen;
 
@@ -457,6 +460,41 @@ public partial class MainWindow : Window
             if (point.Y <= titleBarHeight) BeginMoveDrag(e);
         };
         
+        var FCToggle = this.FindControl<CheckBox>("FCToggle");
+        var undeafenPanel = this.FindControl<StackPanel>("UndeafenOnMissPanel");
+
+        if (FCToggle != null && undeafenPanel != null)
+        {
+            if (FCToggle.IsChecked == true)
+            {
+                undeafenPanel.IsVisible = true;
+                undeafenPanel.Opacity = 1;
+                undeafenPanel.RenderTransform ??= new TranslateTransform();
+                ((TranslateTransform)undeafenPanel.RenderTransform).Y = 0;
+            }
+
+            FCToggle.IsCheckedChanged += async (sender, _) =>
+            {
+                CheckBox? check = sender as CheckBox;
+                bool isChecked = check?.IsChecked == true;
+                await ShowSubToggle(undeafenPanel, isChecked);
+            };
+        }
+        else
+        {
+            Console.WriteLine("FCToggle or UndeafenOnMissPanel not found in XAML");
+        }
+        
+        this.FindControl<StackPanel>("UndeafenOnMissPanel")!.IsVisible = false;
+        this.FindControl<StackPanel>("UndeafenOnMissPanel")!.Opacity = 0;
+        
+        if (_settingsHandler.IsFCRequired)
+        {
+            UndeafenOnMissPanel.IsVisible = true;
+            UndeafenOnMissPanel.Opacity = 1;
+            (((TranslateTransform)UndeafenOnMissPanel.RenderTransform)!).Y = 0;
+        }
+        
         PointerMoved += MainWindow_PointerMoved;
 
         InitializeKeybindButtonText();
@@ -639,7 +677,66 @@ public partial class MainWindow : Window
             Console.WriteLine("[ERROR] Exception when updating Deafen Section after reset: " + ex.Message);
         }
     }
+    
+    /// <summary>
+    /// Slides the sub-toggle control in or out of view
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="show"></param>
+    private async Task ShowSubToggle(Control? target, bool show)
+    {
+        if (target == null) return;
 
+        if (target.RenderTransform == null || target.RenderTransform is not TranslateTransform)
+            target.RenderTransform = new TranslateTransform();
+
+        TranslateTransform? transform = (TranslateTransform)target.RenderTransform;
+        
+        if (show)
+        {
+            target.IsVisible = true;
+            target.Opacity = 0;
+            transform.Y = -20;
+        }
+
+        Animation animation = new Animation
+        {
+            Duration = TimeSpan.FromMilliseconds(250),
+            Easing = new CubicEaseInOut(),
+            FillMode = FillMode.Forward,
+            Children =
+            {
+                new KeyFrame
+                {
+                    Cue = new Cue(0),
+                    Setters =
+                    {
+                        new Setter(OpacityProperty, show ? 0.0 : 1.0),
+                        new Setter(TranslateTransform.YProperty, show ? -20.0 : 0.0)
+                    }
+                },
+                new KeyFrame
+                {
+                    Cue = new Cue(1),
+                    Setters =
+                    {
+                        new Setter(OpacityProperty, show ? 1.0 : 0.0),
+                        new Setter(TranslateTransform.YProperty, show ? 0.0 : -20.0)
+                    }
+                }
+            }
+        };
+
+        await animation.RunAsync(target, CancellationToken.None);
+
+        if (!show)
+        {
+            target.IsVisible = false;
+            target.Opacity = 1;
+            transform.Y = 0;
+        }
+    }
+    
     /// <summary>
     ///     Starts the frame timer for debug panel to measure frametimes and framerate
     /// </summary>
