@@ -63,6 +63,7 @@ public class ChartManager
     private string? _lastTooltipText;
     private List<double>? _lastXAxis;
     private List<double>? _currentXAxis;
+    private readonly Dictionary<string, List<int>> _seriesIndexMap = new();
 
     public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel, KiaiTimes kiaiTimes,
         TooltipManager tooltipManager)
@@ -545,15 +546,27 @@ public class ChartManager
             int end = series.Data.FindLastIndex(v => v != -100);
             if (start == -1 || end == -1 || end < start) continue;
 
-            int updatedCount = end - start + 1;
-            var updatedValues = new ObservablePoint[updatedCount];
-            int idx = 0;
-            for (int i = start; i <= end; i++)
-                if (series.Data[i] != -100)
-                    updatedValues[idx++] = new ObservablePoint(i - start, series.Data[i]);
-            maxLimit = Math.Max(maxLimit, idx);
+            var updatedValues = new List<ObservablePoint>();
+            var indexMap = new List<int>();
 
-            var downsampled = Downsample(updatedValues, maxPoints);
+            for (int i = start; i <= end; i++)
+            {
+                if (series.Data[i] == -100) continue;
+                // having both just ensures we can map the graph to not have gaps at the start/end while still
+                // retaining the absolute indices for section mapping
+                // (because why would this straingraph ever be easy?? istfg)
+                int absoluteIndex = i;
+                double normalizedX = i - start;
+
+                updatedValues.Add(new ObservablePoint(normalizedX, series.Data[i]));
+                indexMap.Add(absoluteIndex);
+            }
+
+            if (series.Name == null) continue;
+            _seriesIndexMap[series.Name] = indexMap;
+            maxLimit = Math.Max(maxLimit, updatedValues.Count);
+        
+            var downsampled = Downsample(updatedValues.ToArray(), maxPoints);
             var smoothed = SmoothData(downsampled, 10, 0.2);
 
             SKColor color = series.Name == "aim" ? AimColor : SpeedColor;
@@ -601,7 +614,7 @@ public class ChartManager
             PlotView.Series = Series;
             PlotView.DrawMargin = new Margin(0, 0, 0, 0);
             UpdateAxes();
-            if (_lastOsuFilePath != null) 
+            if (_lastOsuFilePath != null)
                 await UpdateSectionsAsync(graphData, _lastOsuFilePath);
         }
         catch (Exception ex)
@@ -622,19 +635,12 @@ public class ChartManager
     /// </summary>
     /// <param name="graphData"></param>
     /// <param name="osuFilePath"></param>
-    // Only use indices, avoid copying large lists
     private async Task UpdateSectionsAsync(GraphData graphData, string osuFilePath)
     {
         double rate = _tosuApi.GetRateAdjustRate();
         var xAxis = graphData.XAxis;
         _currentXAxis = xAxis;
         var seriesData = graphData.Series[0].Data;
-        int firstValidIdx = seriesData.FindIndex(y => y != -100);
-
-        int dataStart = Math.Max(0, firstValidIdx);
-        int dataCount = seriesData.Count - dataStart;
-
-        // Use indices for break/kiai calculations
         var breaks = await GetBreakPeriodsAsync(osuFilePath, xAxis, seriesData);
 
         _cachedBreakPeriods.Clear();
@@ -647,8 +653,13 @@ public class ChartManager
                 ? breakPeriod.End / rate
                 : breakPeriod.End;
 
-            int startIdx = FindClosestIndex(xAxis, breakStart, dataStart, dataCount);
-            int endIdx = FindClosestIndex(xAxis, breakEnd, dataStart, dataCount);
+            var indexMap = _seriesIndexMap.TryGetValue("aim", out var value)
+                ? value
+                : _seriesIndexMap.Values.FirstOrDefault() ?? [];
+
+            if (xAxis == null) continue;
+            int startIdx = FindClosestMappedIndex(indexMap, xAxis, breakStart);
+            int endIdx = FindClosestMappedIndex(indexMap, xAxis, breakEnd);
             AnnotatedSection breakSection = new()
             {
                 Xi = startIdx,
@@ -657,7 +668,7 @@ public class ChartManager
                 Yj = MaxYValue,
                 Fill = AudibleBreaksEnabled
                     ? new LinearGradientPaint(
-                        new[] { new SKColor(0x00, 0x80, 0xFF, 255) },
+                        [new SKColor(0x00, 0x80, 0xFF, 255)],
                         new SKPoint(0, 0),
                         new SKPoint(endIdx - startIdx, (float)MaxYValue)
                     )
@@ -681,8 +692,13 @@ public class ChartManager
                 ? kiai.End / rate
                 : kiai.End;
 
-            int startIdx = FindClosestIndex(xAxis, kiaiStart, dataStart, dataCount);
-            int endIdx = FindClosestIndex(xAxis, kiaiEnd, dataStart, dataCount);
+            var indexMap = _seriesIndexMap.TryGetValue("aim", out var value)
+                ? value
+                : _seriesIndexMap.Values.FirstOrDefault() ?? [];
+
+            if (xAxis == null) continue;
+            int startIdx = FindClosestMappedIndex(indexMap, xAxis, kiaiStart);
+            int endIdx = FindClosestMappedIndex(indexMap, xAxis, kiaiEnd);
             _cachedKiaiPeriods.Add(new AnnotatedSection
             {
                 Xi = startIdx,
@@ -702,7 +718,15 @@ public class ChartManager
         PlotView.Sections = combinedSections;
         PlotView.InvalidateVisual();
     }
-
+    
+    private int FindClosestMappedIndex(List<int> indexMap, List<double> xAxis, double time)
+    {
+        int rawIdx = FindClosestIndex(xAxis, time, 0, xAxis.Count);
+        int mapped = indexMap.BinarySearch(rawIdx);
+        if (mapped < 0) mapped = ~mapped;
+        return Math.Clamp(mapped, 0, indexMap.Count - 1); 
+    }
+    
 
     /// <summary>
     ///     Updates the deafen overlay section position based on the minimum completion percentage
