@@ -23,22 +23,37 @@
         <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
         <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
-        <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrushDim.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
-        <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrushDim.Color}" x:DataType="cs:SharedViewModel"/>
-        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
-        
-        <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="ButtonBackgroundBrushPointerOver" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="ButtonBackgroundBrushPressed" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel"/>
-        <SolidColorBrush x:Key="ButtonBackgroundBrushDisabled" Color="{Binding AverageColorBrushDark.Color}" x:DataType="cs:SharedViewModel"/>
-        <SolidColorBrush x:Key="ButtonBorderBrush" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="ButtonForegroundBrush" Color="{Binding AverageColorBrushDim.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="ButtonHighlightBrush" Color="{Binding AverageColorBrush.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="CheckBoxBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}" x:DataType="cs:SharedViewModel" />
-        <SolidColorBrush x:Key="TooltipColorBrush" Color="{Binding AverageColorBrushDimmer.Color}" x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrushDim.Color}"
+                         x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}"
+                         x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="{Binding AverageColorBrush.Color}"
+                         x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrushDim.Color}"
+                         x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}"
+                         x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}"
+                         x:DataType="cs:SharedViewModel" />
+
+        <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
+                         x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="ButtonBackgroundBrushPointerOver" Color="{Binding AverageColorBrush.Color}"
+                         x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="ButtonBackgroundBrushPressed" Color="{Binding AverageColorBrush.Color}"
+                         x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="ButtonBackgroundBrushDisabled" Color="{Binding AverageColorBrushDark.Color}"
+                         x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="ButtonBorderBrush" Color="{Binding AverageColorBrush.Color}"
+                         x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="ButtonForegroundBrush" Color="{Binding AverageColorBrushDim.Color}"
+                         x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="ButtonHighlightBrush" Color="{Binding AverageColorBrush.Color}"
+                         x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="CheckBoxBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
+                         x:DataType="cs:SharedViewModel" />
+        <SolidColorBrush x:Key="TooltipColorBrush" Color="{Binding AverageColorBrushDimmer.Color}"
+                         x:DataType="cs:SharedViewModel" />
     </Window.Resources>
     <Window.Styles>
 
@@ -111,7 +126,7 @@
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="0" />
         </Grid.ColumnDefinitions>
-        
+
         <Canvas ZIndex="99" IsHitTestVisible="False">
             <Border x:Name="CustomTooltip"
                     CornerRadius="8"
@@ -132,13 +147,14 @@
                                FontSize="13"
                                FontWeight="Regular"
                                HorizontalAlignment="Center"
-                               TextAlignment="Center"/>
+                               TextAlignment="Center" />
                 </Grid>
             </Border>
         </Canvas>
 
-        
-        <StackPanel Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Top" x:Name="TextBlockPanel" Margin="0,82,0,0">
+
+        <StackPanel Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Top" x:Name="TextBlockPanel"
+                    Margin="0,82,0,0">
             <StackPanel Orientation="Horizontal" Margin="0,0,0,0" x:Name="osuautodeafenLogoPanel">
                 <Image Name="osuLogo" Source="avares://osuautodeafen/Resources/osu_whitestroke.png" Height="60"
                        Margin="0,0,0,0" />
@@ -195,12 +211,13 @@
                             Click="SettingsButton_Click"
                             IsVisible="True"
                             ZIndex="1">
-                        <Image x:Name="SettingsCogImage"
-                               Source="avares://osuautodeafen/Icons/gear-solid-small.png"
-                               Width="50" Height="50"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               RenderTransformOrigin="0.5,0.5" />
+                        <Svg x:Name="SettingsCogImage"
+                             Path="Icons/gear.svg"
+                             Width="50"
+                             Height="50"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             RenderTransformOrigin="0.5,0.5" />
                     </Button>
                 </Grid>
             </Border>
@@ -234,11 +251,11 @@
                                    FontSize="16" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
-                        <Image Source="avares://osuautodeafen/Icons/clock-solid.png" Width="25" Height="25"
-                               Margin="0,0,5,0"
-                               PointerEntered="CompletionPercentageImage_PointerEnter"
-                               PointerExited="CompletionPercentageImage_PointerLeave">
-                        </Image>
+                        <Svg Path="Icons/clock.svg" Width="32" Height="32"
+                             Margin="0,0,5,0"
+                             PointerEntered="CompletionPercentageImage_PointerEnter"
+                             PointerExited="CompletionPercentageImage_PointerLeave">
+                        </Svg>
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="CompletionPercentageSlider"
                                     Minimum="0"
@@ -258,11 +275,11 @@
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
-                        <Image Source="avares://osuautodeafen/Icons/star-solid.png" Width="30" Height="30"
-                               Margin="0,0,5,3"
-                               PointerEntered="StarRatingImage_PointerEnter"
-                               PointerExited="StarRatingImage_PointerLeave">
-                        </Image>
+                        <Svg Path="Icons/star.svg" Width="32" Height="32"
+                             Margin="0,0,5,3"
+                             PointerEntered="StarRatingImage_PointerEnter"
+                             PointerExited="StarRatingImage_PointerLeave">
+                        </Svg>
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="StarRatingSlider"
                                     Minimum="0"
@@ -281,12 +298,12 @@
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
-                        <Image Source="avares://osuautodeafen/Icons/medal-solid.png" Width="25" Height="25"
-                               Margin="0,0,5,0"
-                               PointerEntered="PPImage_PointerEnter"
-                               PointerExited="PPImage_PointerLeave">
-                            
-                        </Image>
+                        <Svg Path="Icons/star-ranking.svg" Width="32" Height="32"
+                             Margin="0,0,5,0"
+                             PointerEntered="PPImage_PointerEnter"
+                             PointerExited="PPImage_PointerLeave">
+
+                        </Svg>
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="PPSlider"
                                     Minimum="0"
@@ -303,56 +320,51 @@
                             </Slider>
                         </StackPanel>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center"
+
+                    <StackPanel Orientation="Horizontal" Margin="10,0,0,0" HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
                                 PointerEntered="FCToggle_PointerEnter"
                                 PointerExited="FCToggle_PointerLeave">
-                        <Image Source="avares://osuautodeafen/Icons/crown-solid.png" Width="25" Height="25"
-                               Margin="0,0,5,0">
-                        </Image>
+                        <Svg Path="Icons/crown.svg" Width="26" Height="26" Margin="0,0,5,0" VerticalAlignment="Center" />
                         <CheckBox x:Name="FCToggle" Content="FC Required?" Foreground="White"
                                   IsChecked="{Binding IsFCRequired, Mode=TwoWay}"
-                                  HorizontalAlignment="Left" Margin="0" Width="120" Classes="custom">
-                        </CheckBox>
+                                  HorizontalAlignment="Left" VerticalAlignment="Center"
+                                  Margin="0" Width="125" Classes="custom" />
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="5,0,0,0" HorizontalAlignment="Center"
+                    <StackPanel Orientation="Horizontal" Margin="10,0,0,0" HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
                                 PointerEntered="UndeafenOnMissToggle_PointerEnter"
                                 PointerExited="UndeafenOnMissToggle_PointerLeave">
-                        <Image Source="avares://osuautodeafen/Icons/shooting-star-solid.png" Width="25" Height="25"
-                               Margin="0,0,5,0">
-                        </Image>
+                        <Svg Path="Icons/meteor.svg" Width="26" Height="26" Margin="0,0,5,0" VerticalAlignment="Center" />
                         <CheckBox x:Name="UndeafenOnMissToggle" Content="Miss Undeafen" Foreground="White"
                                   IsChecked="{Binding UndeafenAfterMiss, Mode=TwoWay}"
                                   IsEnabled="{Binding ElementName=FCToggle, Path=IsChecked}"
-                                  HorizontalAlignment="Left" Margin="0" Width="120" Classes="custom">
-                        </CheckBox>
+                                  HorizontalAlignment="Left" VerticalAlignment="Center"
+                                  Margin="0" Width="125" Classes="custom" />
                     </StackPanel>
-                    <!--
-                    5px shift right because it isn't lined up for some reason 🤔
-                    (which now that I think about it is probably due to image width)
-                    -->
-                    <StackPanel Orientation="Horizontal" Margin="5,0,0,0" HorizontalAlignment="Center"
+                    <StackPanel Orientation="Horizontal" Margin="10,0,0,0" HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
                                 PointerEntered="BreakUndeafenToggle_PointerEnter"
                                 PointerExited="BreakUndeafenToggle_PointerLeave">
-                        <Image Source="avares://osuautodeafen/Icons/map-location-dot-solid.png" Width="25"
-                               Height="25"
-                               Margin="0,0,5,0">
-                        </Image>
+                        <Svg Path="Icons/map-location.svg" Width="26" Height="26" Margin="0,0,5,0"
+                             VerticalAlignment="Center" />
                         <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
                                   IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
-                                  HorizontalAlignment="Left" Margin="0" Classes="custom">
-                        </CheckBox>
+                                  HorizontalAlignment="Left" VerticalAlignment="Center"
+                                  Margin="0" Width="125" Classes="custom" />
                     </StackPanel>
+
                     <Button Content="Reset to Default" Click="ResetButton_Click" Margin="0,7,0,0" FontSize="12"
                             Foreground="White" HorizontalAlignment="Center"
                             PointerEntered="ResetButton_PointerEnter"
-                            PointerExited="ResetButton_PointerLeave"/>
+                            PointerExited="ResetButton_PointerLeave" />
                     <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
                     <!--title-->
                     <TextBlock Text="Preset Settings"
                                HorizontalAlignment="Center"
                                Margin="0,0,0,8"
                                Foreground="White"
-                               FontSize="16"/>
+                               FontSize="16" />
                     <StackPanel Orientation="Vertical" Margin="0,3,0,0" HorizontalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
                             <Button x:Name="CreatePresetButton"
@@ -562,7 +574,6 @@
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
-
                         <Button x:Name="DeleteAllPresetsButton"
                                 Width="135"
                                 HorizontalAlignment="Left"
@@ -579,10 +590,10 @@
                             <Button.Content>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
                                             HorizontalAlignment="Center">
-                                    <Image Source="avares://osuautodeafen/Icons/trash-can-solid.png"
-                                           Width="15" Height="15"
-                                           Margin="0,0,3,0"
-                                           VerticalAlignment="Center" />
+                                    <Svg Path="Icons/trash.svg"
+                                         Width="15" Height="15"
+                                         Margin="0,0,3,0"
+                                         VerticalAlignment="Center" />
                                     <TextBlock Text="Delete All Presets" VerticalAlignment="Center"
                                                Margin="0,0,10,0" />
                                 </StackPanel>
@@ -636,9 +647,9 @@
                         <StackPanel Orientation="Horizontal" Margin="0,10,10,0"
                                     PointerEntered="DeafenKeybindPanel_PointerEnter"
                                     PointerExited="DeafenKeybindPanel_PointerLeave">
-                            <Image Source="avares://osuautodeafen/Icons/keyboard-solid.png" Width="27"
-                                   Height="27" Margin="0,0,5,0">
-                            </Image>
+                            <Svg Path="Icons/keyboard.svg" Width="32"
+                                 Height="32" Margin="0,0,5,0">
+                            </Svg>
                             <Button x:Name="DeafenKeybindButton" Width="100" Height="40"
                                     HorizontalAlignment="Left" FontSize="11" Margin="0"
                                     Content="{Binding DeafenKeybindDisplay}"
@@ -661,51 +672,47 @@
                                Margin="0,0,0,8"
                                Foreground="White"
                                FontSize="16" />
-                    <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center"
+
+                    <StackPanel Orientation="Horizontal" Margin="10,7,0,0" HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
                                 PointerEntered="BGToggle_PointerEnter"
                                 PointerExited="BGToggle_PointerLeave">
-                        <Image Source="avares://osuautodeafen/Icons/image-solid.png" Width="25" Height="25"
-                               Margin="0,0,5,0">
-                        </Image>
+                        <Svg Path="Icons/image.svg" Width="26" Height="26" Margin="0,0,5,0" VerticalAlignment="Center" />
                         <CheckBox x:Name="BackgroundToggle" Content="Background" Foreground="White"
+                                  VerticalAlignment="Center"
                                   IsChecked="{Binding IsBackgroundEnabled, Mode=TwoWay}"
-                                  HorizontalAlignment="Left" Margin="0" Classes="custom">
-                        </CheckBox>
+                                  HorizontalAlignment="Left" Margin="0" Width="125" Classes="custom" />
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center"
+                    <StackPanel Orientation="Horizontal" Margin="10,0,0,0" HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
                                 PointerEntered="ParallaxToggle_PointerEnter"
                                 PointerExited="ParallaxToggle_PointerLeave">
-                        <Image Source="avares://osuautodeafen/Icons/arrows.png" Width="19" Height="19"
-                               VerticalAlignment="Center"
-                               Margin="0,0,5,0">
-                        </Image>
-                        <CheckBox x:Name="ParallaxToggle" Content="Parallax    " Foreground="White"
+                        <Svg Path="Icons/arrows.svg" Width="26" Height="26" Margin="0,0,5,0" VerticalAlignment="Center" />
+                        <CheckBox x:Name="ParallaxToggle" Content="Parallax" Foreground="White"
                                   VerticalAlignment="Center"
                                   IsChecked="{Binding IsParallaxEnabled, Mode=TwoWay}"
                                   IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
-                                  HorizontalAlignment="Left" Margin="0" Classes="custom">
-                        </CheckBox>
+                                  HorizontalAlignment="Left" Margin="0" Width="125" Classes="custom" />
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,0" HorizontalAlignment="Center"
+                    <StackPanel Orientation="Horizontal" Margin="10,0,0,0" HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
                                 PointerEntered="KiaiEffectToggle_PointerEnter"
                                 PointerExited="KiaiEffectToggle_PointerLeave">
-                        <Image Source="avares://osuautodeafen/Icons/star-half-stroke-solid.png" Width="19" Height="19"
-                               VerticalAlignment="Center"
-                               Margin="0,0,5,0">
-                        </Image>
+                        <Svg Path="Icons/star-half.svg" Width="26" Height="26" Margin="0,0,5,0"
+                             VerticalAlignment="Center" />
                         <CheckBox x:Name="KiaiEffectToggle" Content="Kiai Effect" Foreground="White"
                                   VerticalAlignment="Center"
                                   IsChecked="{Binding IsKiaiEffectEnabled, Mode=TwoWay}"
                                   IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
-                                  HorizontalAlignment="Left" Margin="0" Classes="custom">
-                        </CheckBox>
+                                  HorizontalAlignment="Left" Margin="0" Width="125" Classes="custom" />
                     </StackPanel>
+
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
-                        <Image Source="avares://osuautodeafen/Icons/images-solid.png" Width="25" Height="25"
-                               Margin="0,0,5,0"
-                               PointerEntered="BlurEffectImage_PointerEnter"
-                               PointerExited="BlurEffectImage_PointerLeave">
-                        </Image>
+                        <Svg Path="Icons/layer-group.svg" Width="25" Height="25"
+                             Margin="0,0,5,0"
+                             PointerEntered="BlurEffectImage_PointerEnter"
+                             PointerExited="BlurEffectImage_PointerLeave">
+                        </Svg>
                         <Slider x:Name="BlurEffectSlider"
                                 Minimum="0"
                                 Maximum="20"
@@ -732,77 +739,65 @@
                             Margin="0,16.5,0,10"
                             FontSize="12"
                             Foreground="White"
-                            VerticalAlignment="Bottom" 
+                            VerticalAlignment="Bottom"
                             PointerEntered="CheckForUpdatesButton_PointerEnter"
-                            PointerExited="CheckForUpdatesButton_PointerLeave"/>
+                            PointerExited="CheckForUpdatesButton_PointerLeave" />
                     <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom"
                                VerticalAlignment="Bottom" HorizontalAlignment="Center"
                                Margin="0,0,0,8" Foreground="White" FontSize="14" />
                     <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Button x:Name="OpenFileLocationButton"
-                                Background="{x:Null}"
+                                Width="50" Height="50"
+                                Background="Transparent"
                                 BorderBrush="{x:Null}"
                                 BorderThickness="0"
-                                CornerRadius="0"
                                 HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
                                 Click="OpenFileLocationButton_Click"
-                                HorizontalAlignment="Center"
-                                Margin="0,0,0,10"
-                                FontSize="12"
-                                Foreground="White"
-                                VerticalAlignment="Bottom"
+                                Margin="0,0,6,0"
                                 PointerEntered="FileLocationButton_PointerEnter"
                                 PointerExited="FileLocationButton_PointerLeave">
-                            <Image x:Name="OpenFileLocationImage"
-                                   Source="avares://osuautodeafen/Icons/folder-open-solid.png"
-                                   Width="20" Height="20"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   RenderTransformOrigin="0.5,0.5" />
+                            <Svg x:Name="OpenFileLocationImage"
+                                 Path="Icons/folder.svg"
+                                 Width="24" Height="24"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center" />
                         </Button>
+
                         <Button x:Name="ReportIssueButton"
-                                Background="{x:Null}"
+                                Width="50" Height="50"
+                                Background="Transparent"
                                 BorderBrush="{x:Null}"
                                 BorderThickness="0"
-                                CornerRadius="0"
                                 HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
                                 Click="ReportIssueButton_Click"
-                                HorizontalAlignment="Center"
-                                Margin="0,0,0,10"
-                                FontSize="12"
-                                Foreground="White"
-                                VerticalAlignment="Bottom"
+                                Margin="0,0,6,0"
                                 PointerEntered="ReportIssueButton_PointerEnter"
                                 PointerExited="ReportIssueButton_PointerLeave">
-                            <Image x:Name="ReportIssueImage"
-                                   Source="avares://osuautodeafen/Icons/bug-solid.png"
-                                   Width="20" Height="20"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   RenderTransformOrigin="0.5,0.5" />
+                            <Svg x:Name="ReportIssueImage"
+                                 Path="Icons/bug.svg"
+                                 Width="24" Height="24"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center" />
                         </Button>
+
                         <Button x:Name="DebugConsoleButton"
-                                Background="{x:Null}"
+                                Width="50" Height="50"
+                                Background="Transparent"
                                 BorderBrush="{x:Null}"
                                 BorderThickness="0"
-                                CornerRadius="0"
                                 HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
                                 Click="ToggleDebugConsole"
-                                HorizontalAlignment="Center"
-                                Margin="0,0,0,10"
-                                FontSize="7"
-                                Foreground="White"
-                                IsVisible="True"
-                                VerticalAlignment="Bottom"
                                 PointerEntered="DebugConsoleButton_PointerEnter"
                                 PointerExited="DebugConsoleButton_PointerLeave">
-                            <Image x:Name="DebugConsoleImage"
-                                   Source="avares://osuautodeafen/Icons/code-solid.png"
-                                   Width="20" Height="20"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   RenderTransformOrigin="0.5,0.5" />
+                            <Svg x:Name="DebugConsoleImage"
+                                 Path="Icons/code.svg"
+                                 Width="24" Height="24"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center" />
                         </Button>
                     </StackPanel>
                 </StackPanel>

@@ -2,11 +2,11 @@
   "version": 3,
   "targets": {
     "net9.0": {
-      "Avalonia/11.3.5": {
+      "Avalonia/11.3.6": {
         "type": "package",
         "dependencies": {
           "Avalonia.BuildServices": "0.0.31",
-          "Avalonia.Remote.Protocol": "11.3.5",
+          "Avalonia.Remote.Protocol": "11.3.6",
           "MicroCom.Runtime": "0.11.0"
         },
         "compile": {
@@ -182,7 +182,7 @@
           }
         }
       },
-      "Avalonia.Remote.Protocol/11.3.5": {
+      "Avalonia.Remote.Protocol/11.3.6": {
         "type": "package",
         "compile": {
           "lib/net8.0/Avalonia.Remote.Protocol.dll": {
@@ -599,7 +599,7 @@
           }
         }
       },
-      "ShimSkiaSharp/3.0.6": {
+      "ShimSkiaSharp/3.2.1": {
         "type": "package",
         "compile": {
           "lib/net8.0/ShimSkiaSharp.dll": {}
@@ -829,7 +829,20 @@
           }
         }
       },
-      "Svg.Custom/3.0.6": {
+      "Svg.Controls.Avalonia/11.3.6.2": {
+        "type": "package",
+        "dependencies": {
+          "Avalonia": "11.3.6",
+          "Svg.Model": "3.2.1"
+        },
+        "compile": {
+          "lib/net8.0/Svg.Controls.Avalonia.dll": {}
+        },
+        "runtime": {
+          "lib/net8.0/Svg.Controls.Avalonia.dll": {}
+        }
+      },
+      "Svg.Custom/3.2.1": {
         "type": "package",
         "dependencies": {
           "ExCSS": "4.3.1"
@@ -841,11 +854,11 @@
           "lib/net8.0/Svg.Custom.dll": {}
         }
       },
-      "Svg.Model/3.0.6": {
+      "Svg.Model/3.2.1": {
         "type": "package",
         "dependencies": {
-          "ShimSkiaSharp": "3.0.6",
-          "Svg.Custom": "3.0.6"
+          "ShimSkiaSharp": "3.2.1",
+          "Svg.Custom": "3.2.1"
         },
         "compile": {
           "lib/net8.0/Svg.Model.dll": {}
@@ -953,10 +966,10 @@
     }
   },
   "libraries": {
-    "Avalonia/11.3.5": {
-      "sha512": "vuu1rcH/HiDJrGto/S1PB+IbBwDL7+oaU7uLvF5Nu+tiJt/uREx+7Mv0mxPaOdLyJ1ATANJY5KsHnehfgZe01w==",
+    "Avalonia/11.3.6": {
+      "sha512": "h8V6Cmklaak2h+WVp5gcsprwmrCLQylfNmIQnOQyiETzOazKGmFhlcf+K9zoupxfkhOQXsbSJpb/elyCkrjlig==",
       "type": "package",
-      "path": "avalonia/11.3.5",
+      "path": "avalonia/11.3.6",
       "hasTools": true,
       "files": [
         ".nupkg.metadata",
@@ -964,7 +977,7 @@
         "Icon.png",
         "analyzers/dotnet/cs/Avalonia.Analyzers.dll",
         "analyzers/dotnet/cs/Avalonia.Generators.dll",
-        "avalonia.11.3.5.nupkg.sha512",
+        "avalonia.11.3.6.nupkg.sha512",
         "avalonia.nuspec",
         "build/Avalonia.Generators.props",
         "build/Avalonia.props",
@@ -1229,15 +1242,15 @@
         "runtimes/osx/native/libAvaloniaNative.dylib"
       ]
     },
-    "Avalonia.Remote.Protocol/11.3.5": {
-      "sha512": "IdBLa+RIECfkW/QgqWdXp4xN0R+IbbNx9KYWoU9b79Q8opi3pgSyLENuhHYYpLXGovIknMhAqqeUbhjdTRExew==",
+    "Avalonia.Remote.Protocol/11.3.6": {
+      "sha512": "i1lW1ZA5Ghe19kbPiC2pMq48P/9CcOWi8hFj0Y8UZr/czCQok3YJRwU5z8vKsJ5xsMvzpPf+GO/6Qu9Dy2yLvg==",
       "type": "package",
-      "path": "avalonia.remote.protocol/11.3.5",
+      "path": "avalonia.remote.protocol/11.3.6",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "Icon.png",
-        "avalonia.remote.protocol.11.3.5.nupkg.sha512",
+        "avalonia.remote.protocol.11.3.6.nupkg.sha512",
         "avalonia.remote.protocol.nuspec",
         "lib/net6.0/Avalonia.Remote.Protocol.dll",
         "lib/net6.0/Avalonia.Remote.Protocol.xml",
@@ -1794,10 +1807,10 @@
         "sharphook.nuspec"
       ]
     },
-    "ShimSkiaSharp/3.0.6": {
-      "sha512": "Eu7c1jH6ta8WGIDhWV0L42t/Ph7Saq1DF9DVd5O8T/4/0CosyqyOU3rZaAJwsMU8B0HDXp557JysIYsL4QTT5g==",
+    "ShimSkiaSharp/3.2.1": {
+      "sha512": "WyMf+0aj5IJcHkG/t89WApGFg756oXB30ehu9kYu9hjdfS0snkXHoAiTJZqVlqyLOvzC6eA+nOQ2hI84g//5Pg==",
       "type": "package",
-      "path": "shimskiasharp/3.0.6",
+      "path": "shimskiasharp/3.2.1",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -1805,7 +1818,7 @@
         "lib/net6.0/ShimSkiaSharp.dll",
         "lib/net8.0/ShimSkiaSharp.dll",
         "lib/netstandard2.0/ShimSkiaSharp.dll",
-        "shimskiasharp.3.0.6.nupkg.sha512",
+        "shimskiasharp.3.2.1.nupkg.sha512",
         "shimskiasharp.nuspec"
       ]
     },
@@ -2123,24 +2136,39 @@
         "splat.logging.nuspec"
       ]
     },
-    "Svg.Custom/3.0.6": {
-      "sha512": "aBukIEqAZlubS5FvQJp3x3YtgsSyD8l03T3zwP0iLUq7Ywg+NOYyXZE75+MOm+sf/PuJiV2CPHiV+VsYhtK2wg==",
+    "Svg.Controls.Avalonia/11.3.6.2": {
+      "sha512": "T8FmqM4y5pahTM83Qvt/wDuKLQXkiJZwXzP0zpYgzw0RhiyfoUuXWumCpHaiPP7rLjeYBGT5qKdVDPd5MzkJnA==",
       "type": "package",
-      "path": "svg.custom/3.0.6",
+      "path": "svg.controls.avalonia/11.3.6.2",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "lib/net461/Svg.Controls.Avalonia.dll",
+        "lib/net6.0/Svg.Controls.Avalonia.dll",
+        "lib/net8.0/Svg.Controls.Avalonia.dll",
+        "lib/netstandard2.0/Svg.Controls.Avalonia.dll",
+        "svg.controls.avalonia.11.3.6.2.nupkg.sha512",
+        "svg.controls.avalonia.nuspec"
+      ]
+    },
+    "Svg.Custom/3.2.1": {
+      "sha512": "Wu0+Il+SZfY5+AT25b2PMlSbBrzGIo/6vMMMdOK8jd25I9tdJJbxOFJNG87gFgo9UY9OmpIFzVobGOHzFdJYeQ==",
+      "type": "package",
+      "path": "svg.custom/3.2.1",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net6.0/Svg.Custom.dll",
         "lib/net8.0/Svg.Custom.dll",
         "lib/netstandard2.0/Svg.Custom.dll",
-        "svg.custom.3.0.6.nupkg.sha512",
+        "svg.custom.3.2.1.nupkg.sha512",
         "svg.custom.nuspec"
       ]
     },
-    "Svg.Model/3.0.6": {
-      "sha512": "CnEdCGzQQgk/p7RKvLDk2d9ySEkjfCztteTMppKA5LzX3Xa5aTbYU1zAlhkql5tZPZ8Vfa0Q5ilcnld/5AIGSw==",
+    "Svg.Model/3.2.1": {
+      "sha512": "N4yWlvqv1XWZ+VvI29lT4HkEgtiP3rS/poMfWiVzz6Ao/3IjQCfmo2qrKphq77IqTdMYyh7wGDknMId7YrQY5Q==",
       "type": "package",
-      "path": "svg.model/3.0.6",
+      "path": "svg.model/3.2.1",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -2148,7 +2176,7 @@
         "lib/net6.0/Svg.Model.dll",
         "lib/net8.0/Svg.Model.dll",
         "lib/netstandard2.0/Svg.Model.dll",
-        "svg.model.3.0.6.nupkg.sha512",
+        "svg.model.3.2.1.nupkg.sha512",
         "svg.model.nuspec"
       ]
     },
@@ -2381,6 +2409,7 @@
       "SkiaSharp.NativeAssets.Win32 >= 3.119.0",
       "SkiaSharp.NativeAssets.macOS >= 3.119.0",
       "SkiaSharp.Views >= 3.119.0",
+      "Svg.Controls.Avalonia >= 11.3.6.2",
       "Svg.Skia >= 3.0.6",
       "Velopack >= 0.0.1362-gfa48e3c",
       "WebSocketSharp >= 1.0.3-rc11",
@@ -2485,6 +2514,10 @@
           "SkiaSharp.Views": {
             "target": "Package",
             "version": "[3.119.0, )"
+          },
+          "Svg.Controls.Avalonia": {
+            "target": "Package",
+            "version": "[11.3.6.2, )"
           },
           "Svg.Skia": {
             "target": "Package",
