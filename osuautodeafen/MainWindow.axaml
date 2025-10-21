@@ -336,7 +336,9 @@
                         </CheckBox>
                     </StackPanel>
                     <Button Content="Reset to Default" Click="ResetButton_Click" Margin="0,7,0,0" FontSize="12"
-                            Foreground="White" HorizontalAlignment="Center" />
+                            Foreground="White" HorizontalAlignment="Center"
+                            PointerEntered="ResetButton_PointerEnter"
+                            PointerExited="ResetButton_PointerLeave"/>
                     <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
                     <!--title-->
                     <TextBlock Text="Preset Settings"

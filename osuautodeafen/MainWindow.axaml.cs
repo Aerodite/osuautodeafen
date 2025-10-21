@@ -939,6 +939,25 @@ public partial class MainWindow : Window
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value*5:F0}% Blur");
     }
     
+    private void ResetButton_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not Button) 
+            return;
+
+        Point pointerPosition = Tooltips.GetWindowRelativePointer(this, e);
+
+        string tooltipText = _settingsHandler!.IsPresetActive
+            ? "Reset current preset to default settings"
+            : "Reset global settings to default";
+
+        _tooltipManager.ShowTooltip(this, pointerPosition, tooltipText);
+    }
+    
+    private void ResetButton_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+    
     private void PresetCreate_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
