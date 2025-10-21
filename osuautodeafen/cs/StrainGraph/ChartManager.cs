@@ -9,6 +9,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Threading;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
@@ -17,7 +18,7 @@ using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Avalonia;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs.StrainGraph.Sections;
-using osuautodeafen.cs.StrainGraph.Tooltips;
+using osuautodeafen.cs.Tooltips;
 using osuautodeafen.cs.Tosu;
 using SkiaSharp;
 // ReSharper disable CompareOfFloatsByEqualityOperator
@@ -47,6 +48,8 @@ public class ChartManager
     private CancellationTokenSource? _deafenOverlayCts;
     private RectangularSection? _draggedDeafenSection;
     private bool _isDraggingDeafenEdge;
+    
+    private readonly TooltipManager _tooltipManager;
 
     private bool _isHoveringDeafenEdge;
     private List<BreakPeriod>? _lastBreaks;
@@ -59,6 +62,7 @@ public class ChartManager
     private AnnotatedSection? _lastTooltipSection;
     private string? _lastTooltipText;
     private List<double>? _lastXAxis;
+    private List<double>? _currentXAxis;
 
     public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel, KiaiTimes kiaiTimes,
         TooltipManager tooltipManager)
@@ -67,7 +71,8 @@ public class ChartManager
         _tosuApi = tosuApi ?? throw new ArgumentNullException(nameof(tosuApi));
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         _kiaiTimes = kiaiTimes ?? throw new ArgumentNullException(nameof(kiaiTimes));
-
+        _tooltipManager = tooltipManager ?? throw new ArgumentNullException(nameof(tooltipManager));
+        
         _progressIndicator = new LineSeries<ObservablePoint>
         {
             Stroke = new SolidColorPaint { Color = ProgressIndicatorColor, StrokeThickness = 5 },
@@ -79,7 +84,7 @@ public class ChartManager
         };
         // for some reason we need this to initialize break color correctly -_-
         ViewModel_PropertyChanged(this, new PropertyChangedEventArgs(nameof(_viewModel.IsBreakUndeafenToggleEnabled)));
-        SetupPlotViewEvents(tooltipManager);
+        SetupPlotViewEvents();
         InitializeChart();
     }
 
@@ -131,14 +136,11 @@ public class ChartManager
     /// <summary>
     ///     Updates the chart axes based on current data ranges.
     /// </summary>
-    /// <param name="tooltipManager"></param>
-    private void SetupPlotViewEvents(TooltipManager tooltipManager)
+    private void SetupPlotViewEvents()
     {
-        PlotView.PointerMoved += (s, e) => _ = PlotView_PointerMoved(e, tooltipManager);
         PlotView.PointerPressed += PlotView_PointerPressed;
         PlotView.PointerReleased += PlotView_PointerReleased;
-        PlotView.PointerMoved += async (_, e) => await PlotView_PointerMovedAsync(e, tooltipManager);
-        PlotView.PointerExited += (_, _) => PlotView_PointerExited(tooltipManager);
+        PlotView.PointerExited += (_, _) => PlotView_PointerExited(_tooltipManager);
 
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
     }
@@ -167,86 +169,27 @@ public class ChartManager
     }
 
     /// <summary>
-    ///     Handles pointer movement over the chart, updating tooltips and drag interactions.
-    /// </summary>
-    /// <param name="e"></param>
-    /// <param name="tooltipManager"></param>
-    private async Task PlotView_PointerMoved(PointerEventArgs e, TooltipManager tooltipManager)
-    {
-        if (_isDraggingDeafenEdge)
-            return;
-
-        Point pixelPoint = e.GetPosition(PlotView);
-        LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
-
-        if (TryShowSectionTooltip(dataPoint, pixelPoint, tooltipManager))
-            return;
-
-        if (await HandleDeafenOverlayHoverAsync(dataPoint))
-            return;
-
-        tooltipManager.HideCustomTooltip();
-    }
-
-    /// <summary>
-    ///     Tries to show a tooltip for sections like breaks or kiai
+    /// Tries to show a tooltip on the given poistion
     /// </summary>
     /// <param name="dataPoint"></param>
     /// <param name="pixelPoint"></param>
     /// <param name="tooltipManager"></param>
     /// <returns></returns>
-    private bool TryShowSectionTooltip(LvcPointD dataPoint, Point pixelPoint, TooltipManager tooltipManager)
+    public void TryShowTooltip(LvcPointD dataPoint, Point pixelPoint, TooltipManager tooltipManager)
     {
-        foreach (AnnotatedSection section in PlotView.Sections.OfType<AnnotatedSection>())
+        double? currentTime = null;
+        if (PlotView.Bounds.Width > 0 && _currentXAxis != null)
         {
-            if (!section.Tooltip || section.Xi == null || section.Xj == null) continue;
-            if (dataPoint.X >= section.Xi && dataPoint.X <= section.Xj)
-            {
-                string start = TimeSpan.FromMilliseconds(section.StartTime).ToString(@"mm\:ss\:ff");
-                string end = TimeSpan.FromMilliseconds(section.EndTime).ToString(@"mm\:ss\:ff");
-                string tooltipText = section.SectionType == "Break"
-                    ? $"Break ({(AudibleBreaksEnabled ? "Undeafened" : "Deafened")})\n{start}-{end}"
-                    : $"{section.SectionType}\n{start}-{end}";
-
-                tooltipManager.ShowCustomTooltip(pixelPoint, tooltipText, PlotView.Bounds);
-
-                if (tooltipManager.CustomTooltip != null)
-                {
-                    tooltipManager.CustomTooltip.Width = double.NaN;
-                    tooltipManager.CustomTooltip.Height = double.NaN;
-                }
-
-                _lastTooltipSection = section;
-                _lastTooltipText = tooltipText;
-                return true;
-            }
+            LvcPointD mapped = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
+            int index = (int)Math.Round(mapped.X);
+            index = Math.Max(0, Math.Min(index, _currentXAxis.Count - 1));
+            currentTime = _currentXAxis.ElementAtOrDefault(index);
         }
-
-        if (!_isDraggingDeafenEdge && _lastTooltipSection != null)
-        {
-            tooltipManager.HideCustomTooltip();
-            _lastTooltipSection = null;
-            _lastTooltipText = null;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    ///     Tries to show a tooltip for the deafen overlay edge if dragging
-    /// </summary>
-    /// <param name="dataPoint"></param>
-    /// <param name="pixelPoint"></param>
-    /// <param name="tooltipManager"></param>
-    /// <returns></returns>
-    private TooltipType TryShowTooltip(LvcPointD dataPoint, Point pixelPoint, TooltipManager tooltipManager)
-    {
+        
         if (_isDraggingDeafenEdge && _draggedDeafenSection != null)
         {
-            double maxXi = MaxLimit;
-            double newXi = Math.Max(0, Math.Min(dataPoint.X, Math.Min((_draggedDeafenSection.Xj ?? 0) - 1, maxXi)));
+            double newXi = Math.Max(0, Math.Min(dataPoint.X, Math.Min((_draggedDeafenSection.Xj ?? 0) - 1, MaxLimit)));
             _draggedDeafenSection.Xi = newXi;
-
             double newPercentage = Math.Min(100.0, 100.0 * newXi / MaxLimit);
             _viewModel.MinCompletionPercentage = (int)newPercentage;
 
@@ -254,123 +197,83 @@ public class ChartManager
                 desktop.MainWindow is MainWindow { CompletionPercentageSlider: not null } mainWindow)
             {
                 mainWindow.CompletionPercentageSlider.Value = newPercentage;
-                double oldValue = _viewModel.MinCompletionPercentage;
-                RangeBaseValueChangedEventArgs args = new(oldValue, newPercentage, null);
-                mainWindow.CompletionPercentageSlider_ValueChanged(null, args);
+                mainWindow.CompletionPercentageSlider_ValueChanged(null, new RangeBaseValueChangedEventArgs(newPercentage, newPercentage, null));
             }
 
-            _lastTooltipSection = null;
-            _lastTooltipText = null;
+            TimeSpan ts = currentTime.HasValue ? TimeSpan.FromMilliseconds(currentTime.Value) : TimeSpan.Zero;
+            string timeText = ts.ToString(@"mm\:ss");
+            tooltipManager.ShowTooltip(PlotView, pixelPoint, $"Deafen Min %:\n{newPercentage:F2}% ({timeText})");
 
-            tooltipManager.ShowCustomTooltip(pixelPoint, $"Deafen Min %: \n{newPercentage:F2}%", PlotView.Bounds);
             PlotView.InvalidateVisual();
-            return TooltipType.Deafen;
+            _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.Deafen;
+            return;
         }
 
+        AnnotatedSection? activeSection = null;
+        string? tooltipText = null;
         foreach (AnnotatedSection section in PlotView.Sections.OfType<AnnotatedSection>())
         {
-            if (!section.Tooltip || section.Xi == null || section.Xj == null) continue;
+            if (!section.Tooltip || section.Xi == null || section.Xj == null)
+                continue;
             if (dataPoint.X >= section.Xi && dataPoint.X <= section.Xj)
             {
-                string tooltipText = FormatSectionTooltip(section);
-
-                _lastTooltipText = null;
-
-                tooltipManager.ShowCustomTooltip(pixelPoint, tooltipText, PlotView.Bounds);
-                _lastTooltipSection = section;
-                _lastTooltipText = tooltipText;
-                return TooltipType.Section;
+                activeSection = section;
+                tooltipText = FormatSectionTooltip(section, currentTime);
+                break;
             }
         }
 
-        if (!_isDraggingDeafenEdge && (_lastTooltipSection != null || _lastTooltipText != null))
+        if (activeSection != null && tooltipText != null)
         {
-            tooltipManager.HideCustomTooltip();
-            _lastTooltipSection = null;
-            _lastTooltipText = null;
+            tooltipManager.ShowTooltip(PlotView, pixelPoint, tooltipText);
+            _lastTooltipSection = activeSection;
+            _lastTooltipText = tooltipText;
+            _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.Section;
+            return;
         }
 
-        return TooltipType.None;
+        if (currentTime.HasValue)
+        {
+            TimeSpan ts = TimeSpan.FromMilliseconds(currentTime.Value);
+            string timeText = $"{ts.Minutes:D2}:{ts.Seconds:D2}";
+            tooltipManager.ShowTooltip(PlotView, pixelPoint, timeText);
+            _lastTooltipSection = null;
+            _lastTooltipText = null;
+            _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.Time;
+            return;
+        }
+
+        _lastTooltipSection = null;
+        _lastTooltipText = null;
+        _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.None;
     }
+
 
     /// <summary>
     ///     Formats the tooltip text for a given section.
     /// </summary>
     /// <param name="section"></param>
+    /// <param name="currentTimeMs"></param>
     /// <returns></returns>
-    private string FormatSectionTooltip(AnnotatedSection section)
+    private string FormatSectionTooltip(AnnotatedSection section, double? currentTimeMs = null)
     {
         string start = TimeSpan.FromMilliseconds(section.StartTime).ToString(@"mm\:ss\:ff");
         string end = TimeSpan.FromMilliseconds(section.EndTime).ToString(@"mm\:ss\:ff");
-        return section.SectionType == "Break"
-            ? $"Break ({(AudibleBreaksEnabled ? "Undeafened" : "Deafened")})\n{start}-{end}"
-            : $"{section.SectionType}\n{start}-{end}";
+
+        string? current = currentTimeMs.HasValue
+            ? TimeSpan.FromMilliseconds(currentTimeMs.Value).ToString(@"mm\:ss")
+            : null;
+
+        string? sectionText = section.SectionType == "Break"
+            ? $"Break ({(AudibleBreaksEnabled ? "Undeafened" : "Deafened")})"
+            : section.SectionType;
+
+        if (current != null)
+            return $"{sectionText} ({current})\n{start}-{end}";
+
+        return $"{sectionText}\n{start}-{end}";
     }
 
-    /// <summary>
-    ///     Handles chart pointer movement, allowing for tooltip updates and drag interactions
-    /// </summary>
-    /// <param name="e"></param>
-    /// <param name="tooltipManager"></param>
-    private async Task PlotView_PointerMovedAsync(PointerEventArgs e, TooltipManager tooltipManager)
-    {
-        Point pixelPoint = e.GetPosition(PlotView);
-        LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
-
-        TooltipType tooltipType = TryShowTooltip(dataPoint, pixelPoint, tooltipManager);
-
-        if (tooltipType == TooltipType.Deafen)
-        {
-            await UpdateDeafenOverlayAsync(_viewModel.MinCompletionPercentage);
-            e.Handled = true;
-        }
-    }
-
-    /// <summary>
-    ///     Handles hover effects and cursor changes for the deafen overlay section
-    /// </summary>
-    /// <param name="dataPoint"></param>
-    /// <returns></returns>
-    private async Task<bool> HandleDeafenOverlayHoverAsync(LvcPointD dataPoint)
-    {
-        foreach (CoreSection section in PlotView.Sections)
-            if (section is RectangularSection rs &&
-                rs.Fill is SolidColorPaint paint &&
-                paint.Color == DeafenOverlayColor)
-            {
-                rs.Yi = -MaxYValue * 0.6;
-                rs.Yj = MaxYValue * 1.5;
-                rs.Xj = MaxLimit * 1.5;
-
-                bool insideSection = dataPoint.X >= (rs.Xi ?? 0) && dataPoint.X <= (rs.Xj ?? 0);
-                bool nearEdge = insideSection && Math.Abs(dataPoint.X - (rs.Xi ?? 0)) < 5;
-
-                if (insideSection && !_isHoveringDeafenEdge)
-                {
-                    await AnimateStrokeThickness(rs, 2, 10, 100);
-                    _isHoveringDeafenEdge = true;
-                }
-                else if (!insideSection && _isHoveringDeafenEdge)
-                {
-                    await AnimateStrokeThickness(rs, 10, 2, 100);
-                    _isHoveringDeafenEdge = false;
-                }
-
-                UpdateCursor(nearEdge
-                    ? new Cursor(StandardCursorType.SizeWestEast)
-                    : new Cursor(StandardCursorType.Arrow));
-
-                rs.Stroke = new SolidColorPaint
-                {
-                    Color = insideSection ? SKColors.DarkRed : DeafenOverlayColor,
-                    StrokeThickness = insideSection ? 10 : 2
-                };
-                PlotView.InvalidateVisual();
-                return insideSection;
-            }
-
-        return false;
-    }
 
     /// <summary>
     ///     Animates the stroke thickness of a rectangular section over a specified duration (used for deafen section)
@@ -437,33 +340,19 @@ public class ChartManager
             _draggedDeafenSection = null;
             _isHoveringDeafenEdge = false;
             UpdateCursor(new Cursor(StandardCursorType.Arrow));
-            // tooltipManager.HideCustomTooltip();
             e.Handled = true;
         }
     }
 
     /// <summary>
-    ///     Handles pointer exit events to reset hover states and hide tooltips
+    /// Handles pointer exit events to reset hover states and hide tooltips with a short delay
     /// </summary>
     /// <param name="tooltipManager"></param>
-    private void PlotView_PointerExited(TooltipManager tooltipManager)
+    private async void PlotView_PointerExited(TooltipManager tooltipManager)
     {
-        tooltipManager.HideCustomTooltip();
-        if (_isHoveringDeafenEdge)
-        {
-            foreach (CoreSection section in PlotView.Sections)
-                if (section is RectangularSection rs && rs.Fill is SolidColorPaint paint &&
-                    paint.Color == DeafenOverlayColor)
-                {
-                    rs.Yi = 0;
-                    rs.Yj = MaxYValue;
-                    rs.Stroke = new SolidColorPaint { Color = DeafenOverlayColor, StrokeThickness = 2 };
-                }
-
-            _isHoveringDeafenEdge = false;
-            PlotView.InvalidateVisual();
-        }
+      
     }
+
 
     /// <summary>
     ///     Updates the deafen overlay section to reflect the current minimum completion percentage.
@@ -735,84 +624,85 @@ public class ChartManager
     /// <param name="graphData"></param>
     /// <param name="osuFilePath"></param>
     // Only use indices, avoid copying large lists
-private async Task UpdateSectionsAsync(GraphData graphData, string osuFilePath)
-{
-    double rate = _tosuApi.GetRateAdjustRate();
-    var xAxis = graphData.XAxis;
-    var seriesData = graphData.Series[0].Data;
-    int firstValidIdx = seriesData.FindIndex(y => y != -100);
-
-    int dataStart = Math.Max(0, firstValidIdx);
-    int dataCount = seriesData.Count - dataStart;
-
-    // Use indices for break/kiai calculations
-    var breaks = await GetBreakPeriodsAsync(osuFilePath, xAxis, seriesData); // If possible, refactor GetBreakPeriodsAsync to accept start/count
-
-    _cachedBreakPeriods.Clear();
-    foreach (BreakPeriod breakPeriod in breaks)
+    private async Task UpdateSectionsAsync(GraphData graphData, string osuFilePath)
     {
-        double breakStart = _tosuApi.GetRawBanchoStatus() != 2
-            ? breakPeriod.Start / rate
-            : breakPeriod.Start;
-        double breakEnd = _tosuApi.GetRawBanchoStatus() != 2
-            ? breakPeriod.End / rate
-            : breakPeriod.End;
+        double rate = _tosuApi.GetRateAdjustRate();
+        var xAxis = graphData.XAxis;
+        _currentXAxis = xAxis;
+        var seriesData = graphData.Series[0].Data;
+        int firstValidIdx = seriesData.FindIndex(y => y != -100);
 
-        int startIdx = FindClosestIndex(xAxis, breakStart, dataStart, dataCount);
-        int endIdx = FindClosestIndex(xAxis, breakEnd, dataStart, dataCount);
-        AnnotatedSection breakSection = new()
+        int dataStart = Math.Max(0, firstValidIdx);
+        int dataCount = seriesData.Count - dataStart;
+
+        // Use indices for break/kiai calculations
+        var breaks = await GetBreakPeriodsAsync(osuFilePath, xAxis, seriesData);
+
+        _cachedBreakPeriods.Clear();
+        foreach (BreakPeriod breakPeriod in breaks)
         {
-            Xi = startIdx,
-            Xj = endIdx,
-            Yi = 0,
-            Yj = MaxYValue,
-            Fill = AudibleBreaksEnabled
-                ? new LinearGradientPaint(
-                    new[] { new SKColor(0x00, 0x80, 0xFF, 255) },
-                    new SKPoint(0, 0),
-                    new SKPoint(endIdx - startIdx, (float)MaxYValue)
-                )
-                : new SolidColorPaint { Color = BreakColor },
-            SectionType = "Break",
-            StartTime = breakPeriod.Start,
-            EndTime = breakPeriod.End,
-            Tooltip = true
-        };
-        _cachedBreakPeriods.Add(breakSection);
-    }
+            double breakStart = _tosuApi.GetRawBanchoStatus() != 2
+                ? breakPeriod.Start / rate
+                : breakPeriod.Start;
+            double breakEnd = _tosuApi.GetRawBanchoStatus() != 2
+                ? breakPeriod.End / rate
+                : breakPeriod.End;
 
-    var kiaiList = await _kiaiTimes.ParseKiaiTimesAsync(osuFilePath);
-    _cachedKiaiPeriods.Clear();
-    foreach (KiaiTime kiai in kiaiList)
-    {
-        double kiaiStart = _tosuApi.GetRawBanchoStatus() != 2
-            ? kiai.Start / rate
-            : kiai.Start;
-        double kiaiEnd = _tosuApi.GetRawBanchoStatus() != 2
-            ? kiai.End / rate
-            : kiai.End;
+            int startIdx = FindClosestIndex(xAxis, breakStart, dataStart, dataCount);
+            int endIdx = FindClosestIndex(xAxis, breakEnd, dataStart, dataCount);
+            AnnotatedSection breakSection = new()
+            {
+                Xi = startIdx,
+                Xj = endIdx,
+                Yi = 0,
+                Yj = MaxYValue,
+                Fill = AudibleBreaksEnabled
+                    ? new LinearGradientPaint(
+                        new[] { new SKColor(0x00, 0x80, 0xFF, 255) },
+                        new SKPoint(0, 0),
+                        new SKPoint(endIdx - startIdx, (float)MaxYValue)
+                    )
+                    : new SolidColorPaint { Color = BreakColor },
+                SectionType = "Break",
+                StartTime = breakPeriod.Start,
+                EndTime = breakPeriod.End,
+                Tooltip = true
+            };
+            _cachedBreakPeriods.Add(breakSection);
+        }
 
-        int startIdx = FindClosestIndex(xAxis, kiaiStart, dataStart, dataCount);
-        int endIdx = FindClosestIndex(xAxis, kiaiEnd, dataStart, dataCount);
-        _cachedKiaiPeriods.Add(new AnnotatedSection
+        var kiaiList = await _kiaiTimes.ParseKiaiTimesAsync(osuFilePath);
+        _cachedKiaiPeriods.Clear();
+        foreach (KiaiTime kiai in kiaiList)
         {
-            Xi = startIdx,
-            Xj = endIdx,
-            Yi = 0,
-            Yj = MaxYValue,
-            Fill = new SolidColorPaint { Color = KiaiColor },
-            SectionType = "Kiai",
-            StartTime = kiai.Start,
-            EndTime = kiai.End,
-            Tooltip = true
-        });
-    }
+            double kiaiStart = _tosuApi.GetRawBanchoStatus() != 2
+                ? kiai.Start / rate
+                : kiai.Start;
+            double kiaiEnd = _tosuApi.GetRawBanchoStatus() != 2
+                ? kiai.End / rate
+                : kiai.End;
 
-    var combinedSections = _cachedBreakPeriods.Concat(_cachedKiaiPeriods).ToList();
-    AddDeafenOverlaySection(combinedSections, _viewModel.MinCompletionPercentage);
-    PlotView.Sections = combinedSections;
-    PlotView.InvalidateVisual();
-}
+            int startIdx = FindClosestIndex(xAxis, kiaiStart, dataStart, dataCount);
+            int endIdx = FindClosestIndex(xAxis, kiaiEnd, dataStart, dataCount);
+            _cachedKiaiPeriods.Add(new AnnotatedSection
+            {
+                Xi = startIdx,
+                Xj = endIdx,
+                Yi = 0,
+                Yj = MaxYValue,
+                Fill = new SolidColorPaint { Color = KiaiColor },
+                SectionType = "Kiai",
+                StartTime = kiai.Start,
+                EndTime = kiai.End,
+                Tooltip = true
+            });
+        }
+
+        var combinedSections = _cachedBreakPeriods.Concat(_cachedKiaiPeriods).ToList();
+        AddDeafenOverlaySection(combinedSections, _viewModel.MinCompletionPercentage);
+        PlotView.Sections = combinedSections;
+        PlotView.InvalidateVisual();
+    }
 
 
     /// <summary>
@@ -1000,15 +890,5 @@ private async Task UpdateSectionsAsync(GraphData graphData, string osuFilePath)
         _lastSeriesData = new List<double>(seriesData);
         _lastBreaks = breaks;
         return breaks;
-    }
-
-    /// <summary>
-    ///     Types of tooltips that can be shown on the chart
-    /// </summary>
-    private enum TooltipType
-    {
-        None,
-        Section,
-        Deafen
     }
 }

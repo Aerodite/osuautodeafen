@@ -11,6 +11,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using osuautodeafen.cs.Settings;
 using osuautodeafen.cs.Settings.Presets;
+using osuautodeafen.cs.Tooltips;
 using osuautodeafen.cs.Tosu;
 using osuautodeafen.cs.Update;
 
@@ -21,6 +22,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private readonly bool _canUpdateSettings = true;
 
     private readonly SettingsHandler _settingsHandler;
+    
+    private readonly TooltipManager _tooltipManager;
 
     private readonly TosuApi _tosuApi;
 
@@ -73,12 +76,13 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
 
-    public SharedViewModel(TosuApi tosuApi)
+    public SharedViewModel(TosuApi tosuApi, TooltipManager tooltipManager)
     {
         _settingsHandler = new SettingsHandler();
         OpenUpdateUrlCommand = new RelayCommand(OpenUpdateUrl);
         Task.Run(InitializeAsync);
         _tosuApi = tosuApi;
+        _tooltipManager = tooltipManager;
         Task.Run(UpdateCompletionPercentageAsync);
 
         if (Presets != null) 
@@ -262,7 +266,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         get
         {
             Color color = _averageColorBrush.Color;
-            Color lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.25f, 0.5f);
+            Color lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.8f, 0.35f);
             return new SolidColorBrush(lessVibrantColor);
         }
     }
@@ -273,6 +277,16 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         {
             Color color = _averageColorBrush.Color;
             Color lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.75f, 0.25f);
+            return new SolidColorBrush(lessVibrantColor);
+        }
+    }
+    
+    public SolidColorBrush AverageColorBrushDarker
+    {
+        get
+        {
+            Color color = _averageColorBrush.Color;
+            Color lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.85f, 0.12f);
             return new SolidColorBrush(lessVibrantColor);
         }
     }
@@ -298,6 +312,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 _isBackgroundEnabled = value;
                 OnPropertyChanged();
                 if (wasDisabled && value) _tosuApi.ForceBeatmapChange();
+                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Beatmap Background", true);
             }
         }
     }
@@ -311,6 +326,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _isParallaxEnabled = value;
                 OnPropertyChanged();
+                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Parallax Effect", true);
             }
         }
     }
@@ -324,6 +340,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _IsBreakUndeafenToggleEnabled = value;
                 OnPropertyChanged();
+                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Undeafening during breaks", true);
             }
         }
     }
@@ -338,6 +355,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 _IsKiaiEffectEnabled = value;
                 OnPropertyChanged();
                 _tosuApi.RaiseKiaiChanged();
+                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Kiai Effect", true);
             }
         }
     }
@@ -351,6 +369,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _undeafenAfterMiss = value;
                 OnPropertyChanged();
+                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Undeafening after a miss", true);
             }
         }
     }
@@ -364,6 +383,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _isFCRequired = value;
                 OnPropertyChanged();
+                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " FC Requirement", true);
             }
         }
     }

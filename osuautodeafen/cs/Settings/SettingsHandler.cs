@@ -27,8 +27,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     private double _windowHeight;
     private double _windowWidth;
-
+    
     public IniData Data;
+    
 
     public SettingsHandler()
     {
@@ -60,7 +61,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public int DeafenKeybindAltSide { get; private set; }
     public int DeafenKeybindShiftSide { get; private set; }
 
-    private bool IsPresetActive => _activePresetPath != null;
+    public bool IsPresetActive => _activePresetPath != null;
     private IniData CurrentData => IsPresetActive ? _presetData! : _mainData;
     private string ActivePath => _activePresetPath ?? _iniPath;
 
