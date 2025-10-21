@@ -61,8 +61,7 @@ namespace osuautodeafen.cs.Tooltips
             DispatcherTimer.Run(() =>
             {
                 if (CustomTooltip != null && _tooltipSize.HasValue)
-                    UpdateTooltipPosition(_targetPosition, _tooltipSize.Value.width, _tooltipSize.Value.height);
-
+                    MoveTooltipToPosition(_targetPosition);
                 return true;
             }, TimeSpan.FromMilliseconds(16));
 
@@ -82,7 +81,6 @@ namespace osuautodeafen.cs.Tooltips
             
             _visibilityCts?.Cancel();
             _visibilityCts = new CancellationTokenSource();
-            CancellationToken token = _visibilityCts.Token;
 
             // basically if the control we're over is covered or we're not over one don't show a tooltip
             if (!Tooltips.IsPointerOverElement(target, pointerInWindow))
@@ -97,7 +95,7 @@ namespace osuautodeafen.cs.Tooltips
             _tooltipText.Width = double.NaN;
 
             _tooltipText.Measure(new Size(_windowWidth * 0.5, double.PositiveInfinity));
-            double tooltipWidth = _tooltipText.DesiredSize.Width + CustomTooltip.Padding.Left + CustomTooltip.Padding.Right;
+            double tooltipWidth = _tooltipText.DesiredSize.Width + CustomTooltip.Padding.Left*1.25 + CustomTooltip.Padding.Right*1.25;
             double tooltipHeight = _tooltipText.DesiredSize.Height + CustomTooltip.Padding.Top + CustomTooltip.Padding.Bottom;
 
             _tooltipSize = (tooltipWidth, tooltipHeight);
@@ -116,38 +114,61 @@ namespace osuautodeafen.cs.Tooltips
                 _state = Tooltips.TooltipState.Showing;
             }
         }
-
-        private void UpdateTooltipPosition(Point position, double width, double height)
+        
+        private void SmoothUpdateTooltipPosition(Point position, double width, double height)
         {
             if (CustomTooltip == null) return;
 
             double left = position.X + TooltipOffset;
             double top = position.Y + TooltipOffset;
-            
+
             if (left + width > _windowWidth) left = position.X - width - TooltipOffset;
             if (top + height > _windowHeight) top = position.Y - height - TooltipOffset;
 
             left = Math.Clamp(left, 0, _windowWidth - width);
             top = Math.Clamp(top, 0, _windowHeight - height);
-            
+
             double currentLeft = Canvas.GetLeft(CustomTooltip);
             if (double.IsNaN(currentLeft)) currentLeft = 0;
 
             double currentTop = Canvas.GetTop(CustomTooltip);
             if (double.IsNaN(currentTop)) currentTop = 0;
-            
-            double smoothedLeft = currentLeft + (left - currentLeft) * 0.25;
-            double smoothedTop = currentTop + (top - currentTop) * 0.25;
+
+            double smoothedLeft = currentLeft + (left - currentLeft) * 0.18;
+            double smoothedTop = currentTop + (top - currentTop) * 0.18;
 
             Canvas.SetLeft(CustomTooltip, Math.Round(smoothedLeft));
             Canvas.SetTop(CustomTooltip, Math.Round(smoothedTop));
         }
         
-        public void UpdateTooltipCursor(Point pointerInWindow)
+        /// <summary>
+        /// Moves the tooltip to the specified point
+        /// </summary>
+        /// <param name="point"></param>
+        public void MoveTooltipToPosition(Point point)
         {
-            _targetPosition = pointerInWindow;
+            _targetPosition = point;
             if (_tooltipSize.HasValue && CustomTooltip != null)
-                UpdateTooltipPosition(_targetPosition, _tooltipSize.Value.width, _tooltipSize.Value.height);
+                SmoothUpdateTooltipPosition(_targetPosition, _tooltipSize.Value.width, _tooltipSize.Value.height);
+        }
+        
+        /// <summary>
+        /// Updates the text of an already visible tooltip without changing its size
+        /// </summary>
+        /// <param name="newText">The new text to display.</param>
+        public void UpdateTooltipText(string newText)
+        {
+            if (CustomTooltip == null || _tooltipText == null)
+                return;
+            
+            if (!_isTooltipShowing || _isTooltipHiding)
+                return;
+            
+            if (string.Equals(_lastTooltipText, newText, StringComparison.Ordinal))
+                return;
+
+            _lastTooltipText = newText;
+            _tooltipText.Text = newText;
         }
 
         /// <summary>

@@ -343,7 +343,7 @@
                                HorizontalAlignment="Center"
                                Margin="0,0,0,8"
                                Foreground="White"
-                               FontSize="16" />
+                               FontSize="16"/>
                     <StackPanel Orientation="Vertical" Margin="0,3,0,0" HorizontalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
                             <Button x:Name="CreatePresetButton"
@@ -353,7 +353,9 @@
                                     Margin="0"
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
-                                    IsVisible="{Binding CanCreatePreset}">
+                                    IsVisible="{Binding CanCreatePreset}"
+                                    PointerEntered="PresetCreate_PointerEnter"
+                                    PointerExited="PresetCreate_PointerLeave">
                                 <Button.Content>
                                     <StackPanel>
                                         <TextBlock Text="Create Map Preset for"
@@ -423,7 +425,9 @@
                                     IsVisible="{Binding CanCreatePreset, Converter={StaticResource InverseBooleanConverter}}"
                                     Foreground="White"
                                     Background="#705959"
-                                    BorderBrush="#996363">
+                                    BorderBrush="#996363"
+                                    PointerEntered="PresetDelete_PointerEnter"
+                                    PointerExited="PresetDelete_PointerLeave">
                                 <Button.Content>
                                     <StackPanel>
                                         <TextBlock Text="Delete Map Preset for"
@@ -493,7 +497,9 @@
                                 HorizontalContentAlignment="Center"
                                 VerticalContentAlignment="Center"
                                 IsEnabled="{Binding HasAnyPresetsNotCurrent}"
-                                Click="LoadPresetButton_Click">
+                                Click="LoadPresetButton_Click"
+                                PointerEntered="LoadPresetButton_PointerEnter"
+                                PointerExited="LoadPresetButton_PointerLeave">
                             <Button.Content>
                                 <TextBlock Text="Load Preset" />
                             </Button.Content>
@@ -558,7 +564,9 @@
                                 IsVisible="{Binding HasAnyPresets}"
                                 Foreground="White"
                                 Background="#705959"
-                                BorderBrush="#996363">
+                                BorderBrush="#996363"
+                                PointerEntered="DeleteAllPresetsButton_PointerEnter"
+                                PointerExited="DeleteAllPresetsButton_PointerLeave">
                             <Button.Content>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
                                             HorizontalAlignment="Center">
@@ -616,12 +624,11 @@
                                Foreground="White"
                                FontSize="16" />
                     <StackPanel HorizontalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" Margin="0,10,10,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,10,10,0"
+                                    PointerEntered="DeafenKeybindPanel_PointerEnter"
+                                    PointerExited="DeafenKeybindPanel_PointerLeave">
                             <Image Source="avares://osuautodeafen/Icons/keyboard-solid.png" Width="27"
                                    Height="27" Margin="0,0,5,0">
-                                <ToolTip.Tip>
-                                    <TextBlock Text="Click to set your Discord Toggle Deafen keybind" />
-                                </ToolTip.Tip>
                             </Image>
                             <Button x:Name="DeafenKeybindButton" Width="100" Height="40"
                                     HorizontalAlignment="Left" FontSize="11" Margin="0"
@@ -629,9 +636,7 @@
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
                                     Click="DeafenKeybindButton_Click">
-                                <ToolTip.Tip>
-                                    <TextBlock Text="Click to set your Discord Toggle Deafen keybind" />
-                                </ToolTip.Tip>
+                                <!--this should probably include some sort of verification prompt in the near future.. maybe-->
                                 <Button.Flyout>
                                     <Flyout>
                                         <TextBlock Text="Press any key(s) for the keybind..." />
@@ -647,63 +652,50 @@
                                Margin="0,0,0,8"
                                Foreground="White"
                                FontSize="16" />
-                    <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Center"
+                                PointerEntered="BGToggle_PointerEnter"
+                                PointerExited="BGToggle_PointerLeave">
                         <Image Source="avares://osuautodeafen/Icons/image-solid.png" Width="25" Height="25"
                                Margin="0,0,5,0">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Enable or disable the background" />
-                            </ToolTip.Tip>
                         </Image>
                         <CheckBox x:Name="BackgroundToggle" Content="Background" Foreground="White"
                                   IsChecked="{Binding IsBackgroundEnabled, Mode=TwoWay}"
                                   HorizontalAlignment="Left" Margin="0" Classes="custom">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Enable or disable the background" />
-                            </ToolTip.Tip>
                         </CheckBox>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center"
+                                PointerEntered="ParallaxToggle_PointerEnter"
+                                PointerExited="ParallaxToggle_PointerLeave">
                         <Image Source="avares://osuautodeafen/Icons/arrows.png" Width="19" Height="19"
                                VerticalAlignment="Center"
                                Margin="0,0,5,0">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Enable or disable the parallax effect" />
-                            </ToolTip.Tip>
                         </Image>
                         <CheckBox x:Name="ParallaxToggle" Content="Parallax    " Foreground="White"
                                   VerticalAlignment="Center"
                                   IsChecked="{Binding IsParallaxEnabled, Mode=TwoWay}"
                                   IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
                                   HorizontalAlignment="Left" Margin="0" Classes="custom">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Enable or disable the parallax effect" />
-                            </ToolTip.Tip>
                         </CheckBox>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,0" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,0" HorizontalAlignment="Center"
+                                PointerEntered="KiaiEffectToggle_PointerEnter"
+                                PointerExited="KiaiEffectToggle_PointerLeave">
                         <Image Source="avares://osuautodeafen/Icons/star-half-stroke-solid.png" Width="19" Height="19"
                                VerticalAlignment="Center"
                                Margin="0,0,5,0">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Enable or disable the Kiai Flashes" />
-                            </ToolTip.Tip>
                         </Image>
                         <CheckBox x:Name="KiaiEffectToggle" Content="Kiai Effect" Foreground="White"
                                   VerticalAlignment="Center"
                                   IsChecked="{Binding IsKiaiEffectEnabled, Mode=TwoWay}"
                                   IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
                                   HorizontalAlignment="Left" Margin="0" Classes="custom">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Enable or disable the Kiai Flashes" />
-                            </ToolTip.Tip>
                         </CheckBox>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Image Source="avares://osuautodeafen/Icons/images-solid.png" Width="25" Height="25"
-                               Margin="0,0,5,0">
-                            <ToolTip.Tip>
-                                <TextBlock Text="Change the background blur radius" />
-                            </ToolTip.Tip>
+                               Margin="0,0,5,0"
+                               PointerEntered="BlurEffectImage_PointerEnter"
+                               PointerExited="BlurEffectImage_PointerLeave">
                         </Image>
                         <Slider x:Name="BlurEffectSlider"
                                 Minimum="0"
@@ -713,8 +705,9 @@
                                 Value="{Binding BlurRadius, Mode=OneWayToSource}"
                                 ValueChanged="BlurEffectSlider_ValueChanged"
                                 PointerMoved="BlurEffectSlider_PointerMoved"
+                                PointerEntered="BlurEffectSlider_PointerEnter"
+                                PointerExited="BlurEffectSlider_PointerLeave"
                                 PointerPressed="BlurEffectSlider_PointerPressed"
-                                PointerReleased="BlurEffectSlider_PointerReleased"
                                 IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
                                 Width="100"
                                 HorizontalAlignment="Left"
@@ -730,7 +723,9 @@
                             Margin="0,16.5,0,10"
                             FontSize="12"
                             Foreground="White"
-                            VerticalAlignment="Bottom" />
+                            VerticalAlignment="Bottom" 
+                            PointerEntered="CheckForUpdatesButton_PointerEnter"
+                            PointerExited="CheckForUpdatesButton_PointerLeave"/>
                     <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom"
                                VerticalAlignment="Bottom" HorizontalAlignment="Center"
                                Margin="0,0,0,8" Foreground="White" FontSize="14" />
@@ -747,16 +742,15 @@
                                 Margin="0,0,0,10"
                                 FontSize="12"
                                 Foreground="White"
-                                VerticalAlignment="Bottom">
+                                VerticalAlignment="Bottom"
+                                PointerEntered="FileLocationButton_PointerEnter"
+                                PointerExited="FileLocationButton_PointerLeave">
                             <Image x:Name="OpenFileLocationImage"
                                    Source="avares://osuautodeafen/Icons/folder-open-solid.png"
                                    Width="20" Height="20"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    RenderTransformOrigin="0.5,0.5" />
-                            <ToolTip.Tip>
-                                <TextBlock Text="Open AppData Folder" />
-                            </ToolTip.Tip>
                         </Button>
                         <Button x:Name="ReportIssueButton"
                                 Background="{x:Null}"
@@ -769,19 +763,18 @@
                                 Margin="0,0,0,10"
                                 FontSize="12"
                                 Foreground="White"
-                                VerticalAlignment="Bottom">
+                                VerticalAlignment="Bottom"
+                                PointerEntered="ReportIssueButton_PointerEnter"
+                                PointerExited="ReportIssueButton_PointerLeave">
                             <Image x:Name="ReportIssueImage"
                                    Source="avares://osuautodeafen/Icons/bug-solid.png"
                                    Width="20" Height="20"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    RenderTransformOrigin="0.5,0.5" />
-                            <ToolTip.Tip>
-                                <TextBlock Text="Report an Issue" />
-                            </ToolTip.Tip>
                         </Button>
                         <Button x:Name="DebugConsoleButton"
-                                Background="Transparent"
+                                Background="{x:Null}"
                                 BorderBrush="{x:Null}"
                                 BorderThickness="0"
                                 CornerRadius="0"
@@ -791,17 +784,16 @@
                                 Margin="0,0,0,10"
                                 FontSize="7"
                                 Foreground="White"
-                                IsVisible="False"
-                                VerticalAlignment="Bottom">
+                                IsVisible="True"
+                                VerticalAlignment="Bottom"
+                                PointerEntered="DebugConsoleButton_PointerEnter"
+                                PointerExited="DebugConsoleButton_PointerLeave">
                             <Image x:Name="DebugConsoleImage"
                                    Source="avares://osuautodeafen/Icons/code-solid.png"
                                    Width="20" Height="20"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    RenderTransformOrigin="0.5,0.5" />
-                            <ToolTip.Tip>
-                                <TextBlock Text="See debug info" />
-                            </ToolTip.Tip>
                         </Button>
                     </StackPanel>
                 </StackPanel>

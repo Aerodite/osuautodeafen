@@ -126,7 +126,7 @@ public partial class MainWindow : Window
 
         _tosuApi = new TosuApi();
 
-        _viewModel = new SharedViewModel(_tosuApi);
+        _viewModel = new SharedViewModel(_tosuApi, _tooltipManager);
         ViewModel = _viewModel;
         DataContext = _viewModel;
 
@@ -481,29 +481,50 @@ public partial class MainWindow : Window
             _ = _chartManager.UpdateDeafenOverlayAsync(_viewModel.MinCompletionPercentage);
             e.Handled = true;
         }
-        
+
         MainWindow window = this;
         PixelPoint screenPoint = PlotView.PointToScreen(pixelPoint);
         Point windowPoint = new(screenPoint.X - window.Position.X, screenPoint.Y - window.Position.Y);
-
-        if (pixelPoint.Y < PlotView.Bounds.Height - 120)
+        
+        // this is really stupid but it just prevents the case where the straingraph's tooltips attempt to show in areas outside of the straingraph
+        if (currentTooltipType == Tooltips.TooltipType.Time || currentTooltipType == Tooltips.TooltipType.Section)
         {
-            if (!_tooltipOutsideBounds)
-            {
-                _tooltipManager.HideTooltip();
-                _tooltipOutsideBounds = true;
-            }
+            bool belowBottomLimit = pixelPoint.Y >= PlotView.Bounds.Height - 120;
+            bool withinRightLimit = !_isSettingsPanelOpen || pixelPoint.X <= PlotView.Bounds.Width - 200;
 
-            _tooltipManager.UpdateTooltipCursor(windowPoint);
-            return;
+            if (!belowBottomLimit || !withinRightLimit)
+            {
+                if (!_tooltipOutsideBounds)
+                {
+                    _tooltipManager.HideTooltip();
+                    _tooltipOutsideBounds = true;
+                }
+
+                _tooltipManager.MoveTooltipToPosition(windowPoint);
+                return;
+            }
+        }
+        else
+        {
+            if (pixelPoint.Y < PlotView.Bounds.Height - 120)
+            {
+                if (!_tooltipOutsideBounds)
+                {
+                    _tooltipManager.HideTooltip();
+                    _tooltipOutsideBounds = true;
+                }
+
+                _tooltipManager.MoveTooltipToPosition(windowPoint);
+                return;
+            }
         }
 
         _tooltipOutsideBounds = false;
         _chartManager.TryShowTooltip(dataPoint, windowPoint, _tooltipManager);
     }
-
+    
     private SharedViewModel ViewModel { get; }
-
+    
     private void UpdateViewModel()
     {
         if (_settingsHandler != null)
@@ -841,16 +862,43 @@ public partial class MainWindow : Window
         _tooltipManager.HideTooltip();
     }
     
+    private void BlurEffectImage_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not Image image) return;
+        Point point = Tooltips.GetWindowRelativePointer(image, e);
+        _tooltipManager.ShowTooltip(this, point, "Background Blur Radius\n(0-20 multiplied by 5)");
+    }
+    
+    private void BlurEffectImage_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+    
     private void BlurEffectSlider_PointerPressed(object sender, PointerPressedEventArgs e)
     {
-        ToolTip.SetIsOpen(BlurEffectSlider, true);
+        if (sender is not Slider slider) return;
+        Point point = Tooltips.GetWindowRelativePointer(slider, e);
+        _tooltipManager.ShowTooltip(this, point, $"{slider.Value*5:F0}% Blur");
+    }
+    
+    private void BlurEffectSlider_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not Slider slider) return;
+        Point point = Tooltips.GetWindowRelativePointer(slider, e);
+        _tooltipManager.ShowTooltip(this, point, $"{slider.Value*5:F0}% Blur");
+    }
+    
+    private void BlurEffectSlider_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
     }
     
     private void FCToggle_PointerEnter(object sender, PointerEventArgs e)
     {
-        if (sender is not StackPanel FCTogglePanel) return;
-        Point point = Tooltips.GetWindowRelativePointer(FCTogglePanel, e);
-        _tooltipManager.ShowTooltip(this, point, "Require an FC to Deafen");
+        if (sender is not StackPanel) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        bool isEnabled = FCToggle.IsChecked ?? false;
+        _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " FC Requirement");
     }
     
     private void FCToggle_PointerLeave(object sender, PointerEventArgs e)
@@ -860,9 +908,10 @@ public partial class MainWindow : Window
     
     private void UndeafenOnMissToggle_PointerEnter(object sender, PointerEventArgs e)
     {
-        if (sender is not StackPanel UndeafenOnMissTogglePanel) return;
-        Point point = Tooltips.GetWindowRelativePointer(UndeafenOnMissTogglePanel, e);
-        _tooltipManager.ShowTooltip(this, point, "Undeafen after missing");
+        if (sender is not StackPanel) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        bool isEnabled = UndeafenOnMissToggle.IsChecked ?? false;
+        _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Undeafening after a miss");
     }
     
     private void UndeafenOnMissToggle_PointerLeave(object sender, PointerEventArgs e)
@@ -872,9 +921,10 @@ public partial class MainWindow : Window
     
     private void BreakUndeafenToggle_PointerEnter(object sender, PointerEventArgs e)
     {
-        if (sender is not StackPanel BreakUndeafenTogglePanel) return;
-        Point point = Tooltips.GetWindowRelativePointer(BreakUndeafenTogglePanel, e);
-        _tooltipManager.ShowTooltip(this, point, "Undeafen during breaks");
+        if (sender is not StackPanel) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        bool isEnabled = BreakUndeafenToggle.IsChecked ?? false;
+        _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Undeafening during breaks");
     }
     
     private void BreakUndeafenToggle_PointerLeave(object sender, PointerEventArgs e)
@@ -888,11 +938,151 @@ public partial class MainWindow : Window
         Point point = Tooltips.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value*5:F0}% Blur");
     }
-
-    private void BlurEffectSlider_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    
+    private void PresetCreate_PointerEnter(object sender, PointerEventArgs e)
     {
-        if (sender is Slider slider)
-            ToolTip.SetIsOpen(slider, false);
+        if (sender is not Button) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        _tooltipManager.ShowTooltip(this, point, "Create Preset for " + _viewModel.FullBeatmapName);
+    }
+    
+    private void PresetCreate_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+    
+    private void PresetDelete_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not Button) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        _tooltipManager.ShowTooltip(this, point, "Delete Preset for " + _viewModel.FullBeatmapName);
+    }
+    
+    private void PresetDelete_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+    
+    private void LoadPresetButton_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not Button) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        _tooltipManager.ShowTooltip(this, point, "Load a different map's preset on to\n" + _viewModel.FullBeatmapName);
+    }
+    private void LoadPresetButton_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+    
+    private void DeleteAllPresetsButton_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not Button) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        _tooltipManager.ShowTooltip(this, point, "Delete All Presets\n(CAN NOT BE UNDONE)");
+    }
+    
+    private void DeleteAllPresetsButton_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+    
+    private void DeafenKeybindPanel_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not StackPanel) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        _tooltipManager.ShowTooltip(this, point, "Set Deafen Keybind");
+    }
+    
+    private void DeafenKeybindPanel_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+    
+    private void BGToggle_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not StackPanel) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        bool isEnabled = BackgroundToggle.IsChecked ?? false;
+        _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Beatmap Background");
+    }
+    
+    private void BGToggle_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+    
+    private void ParallaxToggle_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not StackPanel) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        bool isEnabled = ParallaxToggle.IsChecked ?? false;
+        _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Parallax Effect");
+    }
+    
+    private void ParallaxToggle_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+    
+    private void KiaiEffectToggle_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not StackPanel) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        bool isEnabled = KiaiEffectToggle.IsChecked ?? false;
+        _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Kiai Effect");
+    }
+    
+    private void KiaiEffectToggle_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+    
+    private void CheckForUpdatesButton_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not Button) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        _tooltipManager.ShowTooltip(this, point, "Check for Updates");
+    }
+    
+    private void CheckForUpdatesButton_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+    
+    private void FileLocationButton_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not Button) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        _tooltipManager.ShowTooltip(this, point, "Open AppData File Location\n(" + _settingsHandler!.GetPath() +")");
+    }
+    
+    private void FileLocationButton_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+    
+    private void ReportIssueButton_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not Button) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        _tooltipManager.ShowTooltip(this, point, "Report an Issue on GitHub");
+    }
+    
+    private void ReportIssueButton_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+    
+    private void DebugConsoleButton_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not Button) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        _tooltipManager.ShowTooltip(this, point, "Open Debug Console");
+    }
+    
+    private void DebugConsoleButton_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
     }
 
     public async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
