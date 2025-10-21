@@ -60,10 +60,18 @@ namespace osuautodeafen.cs.Tooltips
 
             DispatcherTimer.Run(() =>
             {
-                if (CustomTooltip != null && _tooltipSize.HasValue)
+                if (CustomTooltip == null) return true;
+                if (_isTooltipShowing && !CustomTooltip.IsVisible && !_isTooltipHiding)
+                {
+                    CustomTooltip.IsVisible = true;
+                    CustomTooltip.Opacity = 1;
+                }
+
+                if (_tooltipSize.HasValue)
                     MoveTooltipToPosition(_targetPosition);
                 return true;
             }, TimeSpan.FromMilliseconds(16));
+
 
             Canvas.SetLeft(CustomTooltip, 0);
             Canvas.SetTop(CustomTooltip, 0);
@@ -81,7 +89,8 @@ namespace osuautodeafen.cs.Tooltips
             
             _visibilityCts?.Cancel();
             _visibilityCts = new CancellationTokenSource();
-
+            var token = _visibilityCts.Token;
+            
             // basically if the control we're over is covered or we're not over one don't show a tooltip
             if (!Tooltips.IsPointerOverElement(target, pointerInWindow))
             {
@@ -95,7 +104,7 @@ namespace osuautodeafen.cs.Tooltips
             _tooltipText.Width = double.NaN;
 
             _tooltipText.Measure(new Size(_windowWidth * 0.5, double.PositiveInfinity));
-            double tooltipWidth = _tooltipText.DesiredSize.Width + CustomTooltip.Padding.Left*1.25 + CustomTooltip.Padding.Right*1.25;
+            double tooltipWidth = _tooltipText.DesiredSize.Width + CustomTooltip.Padding.Left + CustomTooltip.Padding.Right;
             double tooltipHeight = _tooltipText.DesiredSize.Height + CustomTooltip.Padding.Top + CustomTooltip.Padding.Bottom;
 
             _tooltipSize = (tooltipWidth, tooltipHeight);
@@ -104,17 +113,26 @@ namespace osuautodeafen.cs.Tooltips
             CustomTooltip.Width = tooltipWidth;
             CustomTooltip.Height = tooltipHeight;
 
-            if (!_isTooltipShowing)
+            // this is just to prevent tooltips from perma-hiding if the previous one is fading out
+            if (_isTooltipHiding)
+            {
+                _isTooltipHiding = false;
+                _state = Tooltips.TooltipState.Showing;
+            }
+
+            if (!_isTooltipShowing || CustomTooltip.Opacity < 1)
             {
                 CustomTooltip.IsVisible = true;
-                if (CustomTooltip.Opacity < 1)
-                    _ = SetTooltipVisibility(CustomTooltip, true);
-
-                _isTooltipShowing = true;
-                _state = Tooltips.TooltipState.Showing;
+                _ = SetTooltipVisibility(CustomTooltip, true, token);
             }
         }
         
+        /// <summary>
+        /// Smoothly interpolates the tooltip position towards wanted position
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="width"></param>
+        /// <param name="height"></param>
         private void SmoothUpdateTooltipPosition(Point position, double width, double height)
         {
             if (CustomTooltip == null) return;
@@ -151,25 +169,41 @@ namespace osuautodeafen.cs.Tooltips
             if (_tooltipSize.HasValue && CustomTooltip != null)
                 SmoothUpdateTooltipPosition(_targetPosition, _tooltipSize.Value.width, _tooltipSize.Value.height);
         }
-        
+
         /// <summary>
-        /// Updates the text of an already visible tooltip without changing its size
+        /// Updates the text of an already visible tooltip
         /// </summary>
-        /// <param name="newText">The new text to display.</param>
-        public void UpdateTooltipText(string newText)
+        /// <param name="newText">The new text to display</param>
+        /// <param name="forceResize">Whether to force a new tooltip size</param>
+        public void UpdateTooltipText(string newText, bool forceResize = false)
         {
             if (CustomTooltip == null || _tooltipText == null)
                 return;
-            
+
             if (!_isTooltipShowing || _isTooltipHiding)
                 return;
-            
+
             if (string.Equals(_lastTooltipText, newText, StringComparison.Ordinal))
                 return;
 
             _lastTooltipText = newText;
             _tooltipText.Text = newText;
+            
+            if (!forceResize)
+                return;
+            
+            _tooltipText.Width = double.NaN;
+            _tooltipText.Measure(new Size(_windowWidth * 0.5, double.PositiveInfinity));
+            double tooltipWidth = _tooltipText.DesiredSize.Width + CustomTooltip.Padding.Left + CustomTooltip.Padding.Right;
+            double tooltipHeight = _tooltipText.DesiredSize.Height + CustomTooltip.Padding.Top + CustomTooltip.Padding.Bottom;
+
+            _tooltipSize = (tooltipWidth, tooltipHeight);
+            CustomTooltip.Width = tooltipWidth;
+            CustomTooltip.Height = tooltipHeight;
+            
+            MoveTooltipToPosition(_targetPosition);
         }
+
 
         /// <summary>
         /// Hides the currently showing Tooltip

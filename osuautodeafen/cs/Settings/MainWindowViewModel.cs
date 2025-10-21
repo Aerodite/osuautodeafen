@@ -302,7 +302,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 _isBackgroundEnabled = value;
                 OnPropertyChanged();
                 if (wasDisabled && value) _tosuApi.ForceBeatmapChange();
-                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Beatmap Background");
+                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Beatmap Background", true);
             }
         }
     }
@@ -316,7 +316,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _isParallaxEnabled = value;
                 OnPropertyChanged();
-                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Parallax Effect");
+                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Parallax Effect", true);
             }
         }
     }
@@ -330,7 +330,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _IsBreakUndeafenToggleEnabled = value;
                 OnPropertyChanged();
-                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Undeafening during breaks");
+                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Undeafening during breaks", true);
             }
         }
     }
@@ -345,7 +345,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 _IsKiaiEffectEnabled = value;
                 OnPropertyChanged();
                 _tosuApi.RaiseKiaiChanged();
-                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Kiai Effect");
+                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Kiai Effect", true);
             }
         }
     }
@@ -359,7 +359,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _undeafenAfterMiss = value;
                 OnPropertyChanged();
-                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Undeafening after a miss");
+                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Undeafening after a miss", true);
             }
         }
     }
@@ -373,7 +373,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _isFCRequired = value;
                 OnPropertyChanged();
-                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " FC Requirement");
+                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " FC Requirement", true);
             }
         }
     }
