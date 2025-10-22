@@ -41,6 +41,7 @@ using osuautodeafen.cs.Tosu;
 using osuautodeafen.cs.Update;
 using SkiaSharp;
 using Svg.Skia;
+using WebSocketSharp;
 using Animation = Avalonia.Animation.Animation;
 using KeyFrame = Avalonia.Animation.KeyFrame;
 
@@ -82,6 +83,8 @@ public partial class MainWindow : Window
     
     private bool _tooltipOutsideBounds = false;
 
+    private bool _isDebugConsoleOpen = false;
+
     private CancellationTokenSource? _frameCts;
     private bool _isCogSpinning;
     private bool _isKiaiPulseHigh;
@@ -106,6 +109,8 @@ public partial class MainWindow : Window
 
     private Button? _updateNotificationBarButton;
     private ProgressBar? _updateProgressBar;
+    
+    private Point _lastMousePosition;
 
     public Image? NormalBackground;
     
@@ -588,6 +593,8 @@ public partial class MainWindow : Window
     private void MainWindow_PointerMoved(object? sender, PointerEventArgs e)
     {
         _backgroundManager?.OnMouseMove(sender, e);
+        
+        _lastMousePosition = e.GetPosition(PlotView);
 
         Point pixelPoint = e.GetPosition(PlotView);
         LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
@@ -1308,7 +1315,8 @@ public partial class MainWindow : Window
     {
         if (sender is not Button) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Open Debug Console");
+        bool isOpen = _isDebugConsoleOpen;
+        _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Debug Console" : "Open Debug Console");
     }
     
     private void DebugConsoleButton_PointerLeave(object sender, PointerEventArgs e)
@@ -1808,14 +1816,11 @@ public partial class MainWindow : Window
     private void DeafenKeybindButton_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.IsKeybindCaptureFlyoutOpen = !ViewModel.IsKeybindCaptureFlyoutOpen;
-        Flyout? flyout = DeafenKeybindButton.Flyout as Flyout;
-        if (flyout != null)
-        {
-            if (ViewModel.IsKeybindCaptureFlyoutOpen)
-                flyout.ShowAt(DeafenKeybindButton, true);
-            else
-                flyout.Hide();
-        }
+        if (DeafenKeybindButton.Flyout is not Flyout flyout) return;
+        if (ViewModel.IsKeybindCaptureFlyoutOpen)
+            flyout.ShowAt(DeafenKeybindButton, true);
+        else
+            flyout.Hide();
     }
     
     /// <summary>
@@ -1851,6 +1856,23 @@ public partial class MainWindow : Window
             else
             {
                 _modifierOnlyTimer?.Stop();
+            }
+            
+            // only because i'm a bit paranoid about osu! anticheat
+            // don't try circumventing this LOL not my fault if you get banned 
+            IEnumerable<Key> osuKeybinds = _tosuApi.GetOsuKeybinds();
+            Key[] keys = osuKeybinds as Key[] ?? osuKeybinds.ToArray();
+            Key k1 = keys.ElementAtOrDefault(0);
+            Key k2 = keys.ElementAtOrDefault(1);
+
+            if (keys.Contains(e.Key))
+            {
+                string keybind = e.Key == k1 ? "K1" :
+                    e.Key == k2 ? "K2" : "osu! keybind";
+
+                ViewModel.KeybindPrompt = $"'{GetFriendlyKeyName(e.Key)}' is a disallowed keybind (it is your current osu! {keybind})\n(please use something else bro :sob:)";
+                e.Handled = true;
+                return;
             }
             
             DateTime currentTime = DateTime.Now;
@@ -2816,6 +2838,12 @@ public partial class MainWindow : Window
             if (debugConsolePanel != null && !debugConsolePanel.IsVisible)
             {
                 StartStableFrameTimer();
+                
+                _isDebugConsoleOpen = true;
+                if (sender is Button)
+                {
+                    _tooltipManager.UpdateTooltipText("Close Debug Console", true);
+                }
 
                 await SetupDebugConsoleTransitionsAsync(debugConsolePanel);
                 debugConsolePanel.IsVisible = true;
@@ -2832,6 +2860,13 @@ public partial class MainWindow : Window
             else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
             {
                 StopStableFrameTimer();
+                
+                _isDebugConsoleOpen = false;
+
+                if (sender is Button)
+                {
+                    _tooltipManager.UpdateTooltipText("Open Debug Console", true);
+                }
 
                 await AnimateDebugConsoleOutAsync(debugConsolePanel);
                 debugConsolePanel.IsVisible = false;
