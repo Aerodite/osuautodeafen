@@ -189,7 +189,9 @@
                            IsHitTestVisible="True"
                            FontSize="6" />
             </StackPanel>
-            <Border x:Name="SettingsButtonContainer" Grid.Column="1" Margin="0,42,0,0">
+            <Border x:Name="SettingsButtonContainer" Grid.Column="1" Margin="0,42,0,0"
+                    PointerEntered="SettingsButton_PointerEnter"
+                    PointerExited="SettingsButton_PointerLeave">
                 <Grid HorizontalAlignment="Right" VerticalAlignment="Top">
 
                     <Image Source="avares://osuautodeafen/Icons/outline.png"
@@ -334,11 +336,11 @@
                     <StackPanel Orientation="Horizontal" Margin="10,0,0,0" HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
                                 PointerEntered="UndeafenOnMissToggle_PointerEnter"
-                                PointerExited="UndeafenOnMissToggle_PointerLeave">
+                                PointerExited="UndeafenOnMissToggle_PointerLeave"
+                                x:Name="UndeafenOnMissPanel">
                         <Svg Path="Icons/meteor.svg" Width="26" Height="26" Margin="0,0,5,0" VerticalAlignment="Center" />
                         <CheckBox x:Name="UndeafenOnMissToggle" Content="Miss Undeafen" Foreground="White"
                                   IsChecked="{Binding UndeafenAfterMiss, Mode=TwoWay}"
-                                  IsEnabled="{Binding ElementName=FCToggle, Path=IsChecked}"
                                   HorizontalAlignment="Left" VerticalAlignment="Center"
                                   Margin="0" Width="125" Classes="custom" />
                     </StackPanel>
@@ -350,6 +352,7 @@
                              VerticalAlignment="Center" />
                         <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
                                   IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
+                                  IsEnabled="{Binding IsFCRequired, Converter={StaticResource InverseBooleanConverter}}"
                                   HorizontalAlignment="Left" VerticalAlignment="Center"
                                   Margin="0" Width="125" Classes="custom" />
                     </StackPanel>
@@ -686,7 +689,8 @@
                     <StackPanel Orientation="Horizontal" Margin="10,0,0,0" HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
                                 PointerEntered="ParallaxToggle_PointerEnter"
-                                PointerExited="ParallaxToggle_PointerLeave">
+                                PointerExited="ParallaxToggle_PointerLeave"
+                                x:Name="ParallaxTogglePanel">
                         <Svg Path="Icons/arrows.svg" Width="26" Height="26" Margin="0,0,5,0" VerticalAlignment="Center" />
                         <CheckBox x:Name="ParallaxToggle" Content="Parallax" Foreground="White"
                                   VerticalAlignment="Center"
@@ -697,17 +701,18 @@
                     <StackPanel Orientation="Horizontal" Margin="10,0,0,0" HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
                                 PointerEntered="KiaiEffectToggle_PointerEnter"
-                                PointerExited="KiaiEffectToggle_PointerLeave">
+                                PointerExited="KiaiEffectToggle_PointerLeave"
+                                x:Name="KiaiTogglePanel">
                         <Svg Path="Icons/star-half.svg" Width="26" Height="26" Margin="0,0,5,0"
                              VerticalAlignment="Center" />
                         <CheckBox x:Name="KiaiEffectToggle" Content="Kiai Effect" Foreground="White"
                                   VerticalAlignment="Center"
                                   IsChecked="{Binding IsKiaiEffectEnabled, Mode=TwoWay}"
-                                  IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
+                                    IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
                                   HorizontalAlignment="Left" Margin="0" Width="125" Classes="custom" />
                     </StackPanel>
 
-                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center" x:Name="BlurEffectPanel">
                         <Svg Path="Icons/layer-group.svg" Width="25" Height="25"
                              Margin="0,0,5,0"
                              PointerEntered="BlurEffectImage_PointerEnter"

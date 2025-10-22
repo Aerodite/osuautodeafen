@@ -20,6 +20,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using IniParser.Model;
 using LiveChartsCore.Defaults;
@@ -40,6 +41,8 @@ using osuautodeafen.cs.Tosu;
 using osuautodeafen.cs.Update;
 using SkiaSharp;
 using Svg.Skia;
+using Animation = Avalonia.Animation.Animation;
+using KeyFrame = Avalonia.Animation.KeyFrame;
 
 namespace osuautodeafen;
 
@@ -105,6 +108,8 @@ public partial class MainWindow : Window
     private ProgressBar? _updateProgressBar;
 
     public Image? NormalBackground;
+    
+    private readonly Dictionary<Control, Task> _toggleQueues = new();
 
     /// <summary>
     ///     Primary Constructor for MainWindow
@@ -457,6 +462,118 @@ public partial class MainWindow : Window
             if (point.Y <= titleBarHeight) BeginMoveDrag(e);
         };
         
+        var FCToggle = this.FindControl<CheckBox>("FCToggle");
+        var undeafenPanel = this.FindControl<StackPanel>("UndeafenOnMissPanel");
+
+        if (FCToggle != null && undeafenPanel != null)
+        {
+            if (FCToggle.IsChecked == true)
+            {
+                undeafenPanel.IsVisible = true;
+                undeafenPanel.Opacity = 1;
+                undeafenPanel.RenderTransform ??= new TranslateTransform();
+                ((TranslateTransform)undeafenPanel.RenderTransform).Y = 0;
+            }
+
+            FCToggle.IsCheckedChanged += async (sender, _) =>
+            {
+                CheckBox? check = sender as CheckBox;
+                bool isChecked = check?.IsChecked == true;
+                await EnqueueShowSubToggle(undeafenPanel, isChecked);
+            };
+        }
+        else
+        {
+            Console.WriteLine("FCToggle or UndeafenOnMissPanel not found in XAML");
+        }
+        
+        this.FindControl<StackPanel>("UndeafenOnMissPanel")!.IsVisible = false;
+        this.FindControl<StackPanel>("UndeafenOnMissPanel")!.Opacity = 0;
+        
+        if (_settingsHandler.IsFCRequired)
+        {
+            UndeafenOnMissPanel.IsVisible = true;
+            UndeafenOnMissPanel.Opacity = 1;
+            (((TranslateTransform)UndeafenOnMissPanel.RenderTransform)!).Y = 0;
+        }
+        
+        StackPanel? parallaxPanel = this.FindControl<StackPanel>("ParallaxTogglePanel");
+        StackPanel? kiaiPanel = this.FindControl<StackPanel>("KiaiTogglePanel");
+        StackPanel? blurPanel = this.FindControl<StackPanel>("BlurEffectPanel");
+
+        if (BackgroundToggle != null && parallaxPanel != null && kiaiPanel != null && blurPanel != null)
+        {
+            if (parallaxPanel.RenderTransform == null) parallaxPanel.RenderTransform = new TranslateTransform();
+            if (kiaiPanel.RenderTransform == null) kiaiPanel.RenderTransform = new TranslateTransform();
+            if (blurPanel.RenderTransform == null) blurPanel.RenderTransform = new TranslateTransform();
+
+            if (BackgroundToggle.IsChecked == true)
+            {
+                parallaxPanel.IsVisible = true;
+                parallaxPanel.Opacity = 1;
+                ((TranslateTransform)parallaxPanel.RenderTransform).Y = 0;
+
+                kiaiPanel.IsVisible = true;
+                kiaiPanel.Opacity = 1;
+                ((TranslateTransform)kiaiPanel.RenderTransform).Y = 0;
+                
+                blurPanel.IsVisible = true;
+                blurPanel.Opacity = 1;
+                ((TranslateTransform)blurPanel.RenderTransform).Y = 0;
+            }
+
+            BackgroundToggle.IsCheckedChanged += async (sender, _) =>
+            {
+                CheckBox? check = sender as CheckBox;
+                bool isChecked = check?.IsChecked == true;
+
+                if (isChecked)
+                {
+                    await EnqueueShowSubToggle(parallaxPanel, true);
+                    await EnqueueShowSubToggle(kiaiPanel, true);
+                    await EnqueueShowSubToggle(blurPanel, true);
+                }
+                else
+                {
+                    await EnqueueShowSubToggle(blurPanel, false);
+                    await EnqueueShowSubToggle(kiaiPanel, false);
+                    await EnqueueShowSubToggle(parallaxPanel, false);
+                }
+            };
+            
+            if (_settingsHandler.IsBackgroundEnabled)
+            {
+                parallaxPanel.IsVisible = true;
+                parallaxPanel.Opacity = 1;
+                ((TranslateTransform)parallaxPanel.RenderTransform).Y = 0;
+
+                kiaiPanel.IsVisible = true;
+                kiaiPanel.Opacity = 1;
+                ((TranslateTransform)kiaiPanel.RenderTransform).Y = 0;
+                
+                blurPanel.IsVisible = true;
+                blurPanel.Opacity = 1;
+                ((TranslateTransform)blurPanel.RenderTransform).Y = 0;
+            }
+            else
+            {
+                parallaxPanel.IsVisible = false;
+                parallaxPanel.Opacity = 0;
+                ((TranslateTransform)parallaxPanel.RenderTransform).Y = -20;
+                kiaiPanel.IsVisible = false;
+                kiaiPanel.Opacity = 0;
+                ((TranslateTransform)kiaiPanel.RenderTransform).Y = -20;
+                blurPanel.IsVisible = false;
+                blurPanel.Opacity = 0;
+                ((TranslateTransform)blurPanel.RenderTransform).Y = -20;
+            }
+        }
+        else
+        {
+            Console.WriteLine("BackgroundToggle or ParallaxTogglePanel or KiaiTogglePanel not found in XAML");
+        }
+
+        
         PointerMoved += MainWindow_PointerMoved;
 
         InitializeKeybindButtonText();
@@ -639,7 +756,86 @@ public partial class MainWindow : Window
             Console.WriteLine("[ERROR] Exception when updating Deafen Section after reset: " + ex.Message);
         }
     }
+    
+    /// <summary>
+    /// Slides the sub-toggle control in or out of view
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="show"></param>
+    private static async Task ShowSubToggle(Control target, bool show)
+    {
+        if (target == null) return;
 
+        await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            if (target.RenderTransform == null || target.RenderTransform is not TranslateTransform)
+                target.RenderTransform = new TranslateTransform();
+
+            var transform = (TranslateTransform)target.RenderTransform;
+
+            if (show)
+            {
+                target.IsVisible = true;
+                target.Opacity = 0;
+                transform.Y = -20;
+            }
+
+            var animation = new Animation
+            {
+                Duration = TimeSpan.FromMilliseconds(200),
+                Easing = new CubicEaseInOut(),
+                FillMode = FillMode.Forward,
+                Children =
+                {
+                    new KeyFrame
+                    {
+                        Cue = new Cue(0),
+                        Setters =
+                        {
+                            new Setter(OpacityProperty, show ? 0.0 : 1.0),
+                            new Setter(TranslateTransform.YProperty, show ? -20.0 : 0.0)
+                        }
+                    },
+                    new KeyFrame
+                    {
+                        Cue = new Cue(1),
+                        Setters =
+                        {
+                            new Setter(OpacityProperty, show ? 1.0 : 0.0),
+                            new Setter(TranslateTransform.YProperty, show ? 0.0 : -20.0)
+                        }
+                    }
+                }
+            };
+
+            await animation.RunAsync(target, CancellationToken.None);
+
+            if (!show)
+            {
+                target.IsVisible = false;
+                target.Opacity = 1;
+                transform.Y = 0;
+            }
+        });
+    }
+
+    
+    private Task EnqueueShowSubToggle(Control? target, bool show)
+    {
+        if (target == null) return Task.CompletedTask;
+        
+        if (!_toggleQueues.TryGetValue(target, out var previousTask))
+            previousTask = Task.CompletedTask;
+        
+        var newTask = previousTask.ContinueWith(async _ =>
+        {
+            await ShowSubToggle(target, show);
+        }).Unwrap();
+
+        _toggleQueues[target] = newTask;
+        return newTask;
+    }
+    
     /// <summary>
     ///     Starts the frame timer for debug panel to measure frametimes and framerate
     /// </summary>
@@ -749,6 +945,19 @@ public partial class MainWindow : Window
     /*
      10/20/25 update: yes we are now using TooltipManager.cs for all of these tooltips hiphiphurray
      */
+    
+    private void SettingsButton_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not Border) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        bool isOpen = _isSettingsPanelOpen;
+        _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Settings" : "Open Settings");
+    }
+    
+    private void SettingsButton_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
 
     private void CompletionPercentageImage_PointerEnter(object sender, PointerEventArgs e)
     {
@@ -975,7 +1184,7 @@ public partial class MainWindow : Window
     {
         if (sender is not Button) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Delete Preset for " + _viewModel.FullBeatmapName);
+        _tooltipManager.ShowTooltip(this, point, "Delete Preset for\n" + _viewModel.FullBeatmapName);
     }
     
     private void PresetDelete_PointerLeave(object sender, PointerEventArgs e)
