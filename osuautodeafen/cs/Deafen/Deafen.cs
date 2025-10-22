@@ -149,7 +149,6 @@ public class Deafen : IDisposable
         bool starRatingMet = currentStarRating >= requiredStarRating;
         bool performancePointsMet = currentPerformancePoints >= requiredPerformancePoints;
         bool hasHitObjects = _tosuAPI.GetMaxCombo() != 0;
-        bool notPracticeDifficulty = (int)_tosuAPI.GetRankedStatus() != 1;
         bool isFullCombo = _tosuAPI.IsFullCombo();
         _isInBreakPeriod = _tosuAPI.IsBreakPeriod();
 
@@ -165,7 +164,6 @@ public class Deafen : IDisposable
             starRatingMet,
             performancePointsMet,
             hasHitObjects,
-            notPracticeDifficulty,
             fcRequirementMet,
             breakConditionMet,
             missConditionMet
