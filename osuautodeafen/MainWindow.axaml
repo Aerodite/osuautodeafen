@@ -661,7 +661,7 @@
                                 <!--this should probably include some sort of verification prompt in the near future.. maybe-->
                                 <Button.Flyout>
                                     <Flyout>
-                                        <TextBlock Text="Press any key(s) for the keybind..." />
+                                        <TextBlock Text="{Binding KeybindPrompt}" />
                                     </Flyout>
                                 </Button.Flyout>
                             </Button>

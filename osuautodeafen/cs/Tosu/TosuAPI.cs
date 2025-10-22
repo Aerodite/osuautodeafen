@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Input;
 using Newtonsoft.Json;
 using osuautodeafen.cs.Settings;
 using osuautodeafen.cs.StrainGraph;
@@ -59,6 +60,8 @@ public class TosuApi : IDisposable
     private double _rankedStatus;
     private int _rawBanchoStatus = -1;
     private double? _realtimeBpm;
+    private string k1Bind = "";
+    private string k2Bind = "";
     private double _sbCount;
     private string _server;
     private string? _settingsSongsDirectory;
@@ -406,6 +409,20 @@ public class TosuApi : IDisposable
                                 _modNumber = modNumber.GetInt32();
                         }
 
+                        if (root.TryGetProperty("settings", out JsonElement settings))
+                            if (settings.TryGetProperty("keybinds", out JsonElement keybinds))
+                                if (keybinds.TryGetProperty("osu", out JsonElement osuKeybinds))
+                                {
+                                    if (osuKeybinds.TryGetProperty("k1", out JsonElement k1))
+                                    {
+                                        k1Bind = k1.GetString() ?? "";
+                                    }
+
+                                    if (osuKeybinds.TryGetProperty("k2", out JsonElement k2))
+                                    {
+                                        k2Bind = k2.GetString() ?? "";
+                                    }
+                                }
 
                         if (root.TryGetProperty("performance", out JsonElement performance))
                             if (performance.TryGetProperty("graph", out JsonElement graphs))
@@ -614,6 +631,14 @@ public class TosuApi : IDisposable
     public string GetBeatmapDifficulty()
     {
         return (_beatmapDifficulty ?? "Unknown Difficulty").TrimEnd();
+    }
+    
+    public IEnumerable<Key> GetOsuKeybinds()
+    {
+        if (Enum.TryParse<Key>(k1Bind, out var key1))
+            yield return key1;
+        if (Enum.TryParse<Key>(k2Bind, out var key2))
+            yield return key2;
     }
 
     /// <summary>

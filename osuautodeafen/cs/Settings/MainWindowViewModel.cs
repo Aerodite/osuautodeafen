@@ -687,6 +687,17 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         string message;
         string url;
     }
+    
+    private string _keybindPrompt = "Press any key(s) for the keybind...";
+    public string KeybindPrompt
+    {
+        get => _keybindPrompt;
+        set
+        {
+            _keybindPrompt = value;
+            OnPropertyChanged();
+        }
+    }
 
     private void OpenUpdateUrl()
     {
