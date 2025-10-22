@@ -945,6 +945,19 @@ public partial class MainWindow : Window
     /*
      10/20/25 update: yes we are now using TooltipManager.cs for all of these tooltips hiphiphurray
      */
+    
+    private void SettingsButton_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not Border) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        bool isOpen = _isSettingsPanelOpen;
+        _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Settings" : "Open Settings");
+    }
+    
+    private void SettingsButton_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
 
     private void CompletionPercentageImage_PointerEnter(object sender, PointerEventArgs e)
     {
@@ -1171,7 +1184,7 @@ public partial class MainWindow : Window
     {
         if (sender is not Button) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Delete Preset for " + _viewModel.FullBeatmapName);
+        _tooltipManager.ShowTooltip(this, point, "Delete Preset for\n" + _viewModel.FullBeatmapName);
     }
     
     private void PresetDelete_PointerLeave(object sender, PointerEventArgs e)

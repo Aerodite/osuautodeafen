@@ -189,7 +189,9 @@
                            IsHitTestVisible="True"
                            FontSize="6" />
             </StackPanel>
-            <Border x:Name="SettingsButtonContainer" Grid.Column="1" Margin="0,42,0,0">
+            <Border x:Name="SettingsButtonContainer" Grid.Column="1" Margin="0,42,0,0"
+                    PointerEntered="SettingsButton_PointerEnter"
+                    PointerExited="SettingsButton_PointerLeave">
                 <Grid HorizontalAlignment="Right" VerticalAlignment="Top">
 
                     <Image Source="avares://osuautodeafen/Icons/outline.png"
