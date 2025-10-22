@@ -108,6 +108,8 @@ public partial class MainWindow : Window
     private ProgressBar? _updateProgressBar;
 
     public Image? NormalBackground;
+    
+    private readonly Dictionary<Control, Task> _toggleQueues = new();
 
     /// <summary>
     ///     Primary Constructor for MainWindow
@@ -477,7 +479,7 @@ public partial class MainWindow : Window
             {
                 CheckBox? check = sender as CheckBox;
                 bool isChecked = check?.IsChecked == true;
-                await ShowSubToggle(undeafenPanel, isChecked);
+                await EnqueueShowSubToggle(undeafenPanel, isChecked);
             };
         }
         else
@@ -494,6 +496,83 @@ public partial class MainWindow : Window
             UndeafenOnMissPanel.Opacity = 1;
             (((TranslateTransform)UndeafenOnMissPanel.RenderTransform)!).Y = 0;
         }
+        
+        StackPanel? parallaxPanel = this.FindControl<StackPanel>("ParallaxTogglePanel");
+        StackPanel? kiaiPanel = this.FindControl<StackPanel>("KiaiTogglePanel");
+        StackPanel? blurPanel = this.FindControl<StackPanel>("BlurEffectPanel");
+
+        if (BackgroundToggle != null && parallaxPanel != null && kiaiPanel != null && blurPanel != null)
+        {
+            if (parallaxPanel.RenderTransform == null) parallaxPanel.RenderTransform = new TranslateTransform();
+            if (kiaiPanel.RenderTransform == null) kiaiPanel.RenderTransform = new TranslateTransform();
+            if (blurPanel.RenderTransform == null) blurPanel.RenderTransform = new TranslateTransform();
+
+            if (BackgroundToggle.IsChecked == true)
+            {
+                parallaxPanel.IsVisible = true;
+                parallaxPanel.Opacity = 1;
+                ((TranslateTransform)parallaxPanel.RenderTransform).Y = 0;
+
+                kiaiPanel.IsVisible = true;
+                kiaiPanel.Opacity = 1;
+                ((TranslateTransform)kiaiPanel.RenderTransform).Y = 0;
+                
+                blurPanel.IsVisible = true;
+                blurPanel.Opacity = 1;
+                ((TranslateTransform)blurPanel.RenderTransform).Y = 0;
+            }
+
+            BackgroundToggle.IsCheckedChanged += async (sender, _) =>
+            {
+                CheckBox? check = sender as CheckBox;
+                bool isChecked = check?.IsChecked == true;
+
+                if (isChecked)
+                {
+                    await EnqueueShowSubToggle(parallaxPanel, true);
+                    await EnqueueShowSubToggle(kiaiPanel, true);
+                    await EnqueueShowSubToggle(blurPanel, true);
+                }
+                else
+                {
+                    await EnqueueShowSubToggle(blurPanel, false);
+                    await EnqueueShowSubToggle(kiaiPanel, false);
+                    await EnqueueShowSubToggle(parallaxPanel, false);
+                }
+            };
+            
+            if (_settingsHandler.IsBackgroundEnabled)
+            {
+                parallaxPanel.IsVisible = true;
+                parallaxPanel.Opacity = 1;
+                ((TranslateTransform)parallaxPanel.RenderTransform).Y = 0;
+
+                kiaiPanel.IsVisible = true;
+                kiaiPanel.Opacity = 1;
+                ((TranslateTransform)kiaiPanel.RenderTransform).Y = 0;
+                
+                blurPanel.IsVisible = true;
+                blurPanel.Opacity = 1;
+                ((TranslateTransform)blurPanel.RenderTransform).Y = 0;
+            }
+            else
+            {
+                parallaxPanel.IsVisible = false;
+                parallaxPanel.Opacity = 0;
+                ((TranslateTransform)parallaxPanel.RenderTransform).Y = -20;
+                kiaiPanel.IsVisible = false;
+                kiaiPanel.Opacity = 0;
+                ((TranslateTransform)kiaiPanel.RenderTransform).Y = -20;
+                blurPanel.IsVisible = false;
+                blurPanel.Opacity = 0;
+                ((TranslateTransform)blurPanel.RenderTransform).Y = -20;
+            }
+        }
+        else
+        {
+            Console.WriteLine("BackgroundToggle or ParallaxTogglePanel or KiaiTogglePanel not found in XAML");
+        }
+
         
         PointerMoved += MainWindow_PointerMoved;
 
@@ -683,58 +762,78 @@ public partial class MainWindow : Window
     /// </summary>
     /// <param name="target"></param>
     /// <param name="show"></param>
-    private async Task ShowSubToggle(Control? target, bool show)
+    private static async Task ShowSubToggle(Control target, bool show)
     {
         if (target == null) return;
 
-        if (target.RenderTransform == null || target.RenderTransform is not TranslateTransform)
-            target.RenderTransform = new TranslateTransform();
-
-        TranslateTransform? transform = (TranslateTransform)target.RenderTransform;
-        
-        if (show)
+        await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            target.IsVisible = true;
-            target.Opacity = 0;
-            transform.Y = -20;
-        }
+            if (target.RenderTransform == null || target.RenderTransform is not TranslateTransform)
+                target.RenderTransform = new TranslateTransform();
 
-        Animation animation = new Animation
-        {
-            Duration = TimeSpan.FromMilliseconds(250),
-            Easing = new CubicEaseInOut(),
-            FillMode = FillMode.Forward,
-            Children =
+            var transform = (TranslateTransform)target.RenderTransform;
+
+            if (show)
             {
-                new KeyFrame
+                target.IsVisible = true;
+                target.Opacity = 0;
+                transform.Y = -20;
+            }
+
+            var animation = new Animation
+            {
+                Duration = TimeSpan.FromMilliseconds(200),
+                Easing = new CubicEaseInOut(),
+                FillMode = FillMode.Forward,
+                Children =
                 {
-                    Cue = new Cue(0),
-                    Setters =
+                    new KeyFrame
                     {
-                        new Setter(OpacityProperty, show ? 0.0 : 1.0),
-                        new Setter(TranslateTransform.YProperty, show ? -20.0 : 0.0)
-                    }
-                },
-                new KeyFrame
-                {
-                    Cue = new Cue(1),
-                    Setters =
+                        Cue = new Cue(0),
+                        Setters =
+                        {
+                            new Setter(OpacityProperty, show ? 0.0 : 1.0),
+                            new Setter(TranslateTransform.YProperty, show ? -20.0 : 0.0)
+                        }
+                    },
+                    new KeyFrame
                     {
-                        new Setter(OpacityProperty, show ? 1.0 : 0.0),
-                        new Setter(TranslateTransform.YProperty, show ? 0.0 : -20.0)
+                        Cue = new Cue(1),
+                        Setters =
+                        {
+                            new Setter(OpacityProperty, show ? 1.0 : 0.0),
+                            new Setter(TranslateTransform.YProperty, show ? 0.0 : -20.0)
+                        }
                     }
                 }
+            };
+
+            await animation.RunAsync(target, CancellationToken.None);
+
+            if (!show)
+            {
+                target.IsVisible = false;
+                target.Opacity = 1;
+                transform.Y = 0;
             }
-        };
+        });
+    }
 
-        await animation.RunAsync(target, CancellationToken.None);
-
-        if (!show)
+    
+    private Task EnqueueShowSubToggle(Control? target, bool show)
+    {
+        if (target == null) return Task.CompletedTask;
+        
+        if (!_toggleQueues.TryGetValue(target, out var previousTask))
+            previousTask = Task.CompletedTask;
+        
+        var newTask = previousTask.ContinueWith(async _ =>
         {
-            target.IsVisible = false;
-            target.Opacity = 1;
-            transform.Y = 0;
-        }
+            await ShowSubToggle(target, show);
+        }).Unwrap();
+
+        _toggleQueues[target] = newTask;
+        return newTask;
     }
     
     /// <summary>
