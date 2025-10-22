@@ -6,7 +6,6 @@
         xmlns:cs="clr-namespace:osuautodeafen.cs"
         xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
         xmlns:settings="clr-namespace:osuautodeafen.cs.Settings"
-        xmlns:strainGraph="clr-namespace:osuautodeafen.cs.StrainGraph"
         xmlns:global="clr-namespace:"
         xmlns:presets="clr-namespace:osuautodeafen.cs.Settings.Presets"
         xmlns:progressIndicator="clr-namespace:osuautodeafen.cs.StrainGraph.ProgressIndicator"
@@ -16,7 +15,7 @@
         x:DataType="local:MainWindow">
 
 
-    <Window.Resources>
+  <Window.Resources>
         <global:AverageColorCycleConverter x:Key="AverageColorCycleConverter" />
         <presets:BackgroundPathToBrushConverter x:Key="BackgroundPathToBrushConverter" />
         <global:InverseBooleanConverter x:Key="InverseBooleanConverter" />
@@ -256,8 +255,7 @@
                         <Svg Path="Icons/clock.svg" Width="32" Height="32"
                              Margin="0,0,5,0"
                              PointerEntered="CompletionPercentageImage_PointerEnter"
-                             PointerExited="CompletionPercentageImage_PointerLeave">
-                        </Svg>
+                             PointerExited="CompletionPercentageImage_PointerLeave" />
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="CompletionPercentageSlider"
                                     Minimum="0"
@@ -271,8 +269,7 @@
                                     PointerEntered="CompletionPercentageSlider_PointerEnter"
                                     PointerMoved="CompletionPercentageSlider_PointerMove"
                                     PointerExited="CompletionPercentageSlider_PointerLeave"
-                                    PointerPressed="CompletionPercentageSlider_PointerPressed">
-                            </Slider>
+                                    PointerPressed="CompletionPercentageSlider_PointerPressed" />
                         </StackPanel>
                     </StackPanel>
 
@@ -280,8 +277,7 @@
                         <Svg Path="Icons/star.svg" Width="32" Height="32"
                              Margin="0,0,5,3"
                              PointerEntered="StarRatingImage_PointerEnter"
-                             PointerExited="StarRatingImage_PointerLeave">
-                        </Svg>
+                             PointerExited="StarRatingImage_PointerLeave" />
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="StarRatingSlider"
                                     Minimum="0"
@@ -294,8 +290,7 @@
                                     PointerMoved="StarRatingSlider_PointerMove"
                                     PointerEntered="StarRatingSlider_PointerEnter"
                                     PointerExited="StarRatingSlider_PointerLeave"
-                                    PointerPressed="StarRatingSlider_PointerPressed">
-                            </Slider>
+                                    PointerPressed="StarRatingSlider_PointerPressed" />
                         </StackPanel>
                     </StackPanel>
 
@@ -303,9 +298,7 @@
                         <Svg Path="Icons/star-ranking.svg" Width="32" Height="32"
                              Margin="0,0,5,0"
                              PointerEntered="PPImage_PointerEnter"
-                             PointerExited="PPImage_PointerLeave">
-
-                        </Svg>
+                             PointerExited="PPImage_PointerLeave" />
                         <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                             <Slider x:Name="PPSlider"
                                     Minimum="0"
@@ -318,8 +311,7 @@
                                     PointerMoved="PPSlider_PointerMove"
                                     PointerEntered="PPSlider_PointerEnter"
                                     PointerPressed="PPSlider_PointerPressed"
-                                    PointerExited="PPSlider_PointerLeave">
-                            </Slider>
+                                    PointerExited="PPSlider_PointerLeave" />
                         </StackPanel>
                     </StackPanel>
 
@@ -650,8 +642,7 @@
                                     PointerEntered="DeafenKeybindPanel_PointerEnter"
                                     PointerExited="DeafenKeybindPanel_PointerLeave">
                             <Svg Path="Icons/keyboard.svg" Width="32"
-                                 Height="32" Margin="0,0,5,0">
-                            </Svg>
+                                 Height="32" Margin="0,0,5,0" />
                             <Button x:Name="DeafenKeybindButton" Width="100" Height="40"
                                     HorizontalAlignment="Left" FontSize="11" Margin="0"
                                     Content="{Binding DeafenKeybindDisplay}"
@@ -707,16 +698,16 @@
                         <CheckBox x:Name="KiaiEffectToggle" Content="Kiai Effect" Foreground="White"
                                   VerticalAlignment="Center"
                                   IsChecked="{Binding IsKiaiEffectEnabled, Mode=TwoWay}"
-                                    IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
+                                  IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
                                   HorizontalAlignment="Left" Margin="0" Width="125" Classes="custom" />
                     </StackPanel>
 
-                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center" x:Name="BlurEffectPanel">
+                    <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center"
+                                x:Name="BlurEffectPanel">
                         <Svg Path="Icons/layer-group.svg" Width="25" Height="25"
                              Margin="0,0,5,0"
                              PointerEntered="BlurEffectImage_PointerEnter"
-                             PointerExited="BlurEffectImage_PointerLeave">
-                        </Svg>
+                             PointerExited="BlurEffectImage_PointerLeave" />
                         <Slider x:Name="BlurEffectSlider"
                                 Minimum="0"
                                 Maximum="20"
@@ -809,8 +800,7 @@
         </DockPanel>
 
 
-        <Grid x:Name="MainContainer">
-        </Grid>
+        <Grid x:Name="MainContainer" />
 
 
         <Grid VerticalAlignment="Bottom">

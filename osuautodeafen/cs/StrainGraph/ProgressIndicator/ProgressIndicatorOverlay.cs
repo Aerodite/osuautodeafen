@@ -112,7 +112,7 @@ public class ProgressIndicatorOverlay : Control
         if (localYMax == ChartYMin)
             //Console.WriteLine($"[MapChartYToCanvas] localYMax == ChartYMin ({ChartYMin}), returning 0");
             return 0;
-        double result = Bounds.Height - ((chartY - ChartYMin) / (localYMax - ChartYMin) * Bounds.Height);
+        double result = Bounds.Height - (chartY - ChartYMin) / (localYMax - ChartYMin) * Bounds.Height;
         //Console.WriteLine($"[MapChartYToCanvas] chartY={chartY}, ChartYMin={ChartYMin}, localYMax={localYMax}, Bounds.Height={Bounds.Height} => {result}");
         return result;
     }

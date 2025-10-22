@@ -28,7 +28,7 @@
         <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="3.119.0"/>
         <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.0"/>
         <PackageReference Include="SkiaSharp.Views" Version="3.119.0"/>
-        <PackageReference Include="Svg.Controls.Avalonia" Version="11.3.6.2" />
+        <PackageReference Include="Svg.Controls.Avalonia" Version="11.3.6.2"/>
         <PackageReference Include="Svg.Skia" Version="3.0.6"/>
         <PackageReference Include="Velopack" Version="0.0.1362-gfa48e3c"/>
         <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11"/>
@@ -47,41 +47,41 @@
         <None Remove="Resources\osu_whitestroke.png"/>
         <None Remove="Icons\outline.png"/>
         <AvaloniaResource Include="Icons\outline.png"/>
-        <AvaloniaResource Include="Icons\gear.svg" />
-        <None Remove="Icons\arrows.svg" />
-        <AvaloniaResource Include="Icons\arrows.svg" />
-        <None Remove="Icons\layer-group.svg" />
-        <AvaloniaResource Include="Icons\layer-group.svg" />
-        <None Remove="Icons\image.svg" />
-        <AvaloniaResource Include="Icons\image.svg" />
-        <None Remove="Icons\arrows-rotate.svg" />
-        <AvaloniaResource Include="Icons\arrows-rotate.svg" />
-        <None Remove="Icons\bug.svg" />
-        <AvaloniaResource Include="Icons\bug.svg" />
-        <None Remove="Icons\clock.svg" />
-        <AvaloniaResource Include="Icons\clock.svg" />
-        <None Remove="Icons\star.svg" />
-        <AvaloniaResource Include="Icons\star.svg" />
-        <None Remove="Icons\star-ranking.svg" />
-        <AvaloniaResource Include="Icons\star-ranking.svg" />
-        <None Remove="Icons\crown.svg" />
-        <AvaloniaResource Include="Icons\crown.svg" />
-        <None Remove="Icons\meteor.svg" />
-        <AvaloniaResource Include="Icons\meteor.svg" />
-        <None Remove="Icons\map-location.svg" />
-        <AvaloniaResource Include="Icons\map-location.svg" />
-        <None Remove="Icons\keyboard.svg" />
-        <AvaloniaResource Include="Icons\keyboard.svg" />
-        <None Remove="Icons\trash.svg" />
-        <AvaloniaResource Include="Icons\trash.svg" />
-        <None Remove="Icons\folder.svg" />
-        <AvaloniaResource Include="Icons\folder.svg" />
-        <None Remove="Icons\folder-open.svg" />
-        <AvaloniaResource Include="Icons\folder-open.svg" />
-        <None Remove="Icons\code.svg" />
-        <AvaloniaResource Include="Icons\code.svg" />
-        <None Remove="Icons\star-half.svg" />
-        <AvaloniaResource Include="Icons\star-half.svg" />
+        <AvaloniaResource Include="Icons\gear.svg"/>
+        <None Remove="Icons\arrows.svg"/>
+        <AvaloniaResource Include="Icons\arrows.svg"/>
+        <None Remove="Icons\layer-group.svg"/>
+        <AvaloniaResource Include="Icons\layer-group.svg"/>
+        <None Remove="Icons\image.svg"/>
+        <AvaloniaResource Include="Icons\image.svg"/>
+        <None Remove="Icons\arrows-rotate.svg"/>
+        <AvaloniaResource Include="Icons\arrows-rotate.svg"/>
+        <None Remove="Icons\bug.svg"/>
+        <AvaloniaResource Include="Icons\bug.svg"/>
+        <None Remove="Icons\clock.svg"/>
+        <AvaloniaResource Include="Icons\clock.svg"/>
+        <None Remove="Icons\star.svg"/>
+        <AvaloniaResource Include="Icons\star.svg"/>
+        <None Remove="Icons\star-ranking.svg"/>
+        <AvaloniaResource Include="Icons\star-ranking.svg"/>
+        <None Remove="Icons\crown.svg"/>
+        <AvaloniaResource Include="Icons\crown.svg"/>
+        <None Remove="Icons\meteor.svg"/>
+        <AvaloniaResource Include="Icons\meteor.svg"/>
+        <None Remove="Icons\map-location.svg"/>
+        <AvaloniaResource Include="Icons\map-location.svg"/>
+        <None Remove="Icons\keyboard.svg"/>
+        <AvaloniaResource Include="Icons\keyboard.svg"/>
+        <None Remove="Icons\trash.svg"/>
+        <AvaloniaResource Include="Icons\trash.svg"/>
+        <None Remove="Icons\folder.svg"/>
+        <AvaloniaResource Include="Icons\folder.svg"/>
+        <None Remove="Icons\folder-open.svg"/>
+        <AvaloniaResource Include="Icons\folder-open.svg"/>
+        <None Remove="Icons\code.svg"/>
+        <AvaloniaResource Include="Icons\code.svg"/>
+        <None Remove="Icons\star-half.svg"/>
+        <AvaloniaResource Include="Icons\star-half.svg"/>
     </ItemGroup>
 
     <ItemGroup>

@@ -21,7 +21,6 @@ public class TimePeriod
 /// </summary>
 public class KiaiTime : TimePeriod
 {
-    
 }
 
 /// <summary>
@@ -164,7 +163,8 @@ public class BreakPeriodCalculator
     /// <param name="xAxis"></param>
     /// <param name="yAxis"></param>
     /// <returns></returns>
-    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string? osuFilePath, List<double>? xAxis, List<double> yAxis)
+    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string? osuFilePath, List<double>? xAxis,
+        List<double> yAxis)
     {
         BreakPeriods.Clear();
         if (osuFilePath == null) return BreakPeriods;

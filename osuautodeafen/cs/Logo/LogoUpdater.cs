@@ -22,7 +22,7 @@ public class LogoUpdater(
     private string? _cachedBitmapPath;
     private SKBitmap? _cachedSKBitmap;
     private CancellationTokenSource? _colorTransitionCts;
-    
+
     private int _currentSectionIndex;
     private SKColor _lastRenderedColor = new(255, 255, 255, 255);
 
@@ -120,7 +120,7 @@ public class LogoUpdater(
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Exception in UpdateLogoAsync: {ex}");
+            // probably just cancelled we're fine
         }
     }
 
@@ -221,7 +221,7 @@ public class LogoUpdater(
             for (int y = yStart; y < yEnd; y++)
             for (int x = 0; x < width; x++)
             {
-                uint pixel = pixels[(y * width) + x];
+                uint pixel = pixels[y * width + x];
                 totalB += pixel & 0xFF;
                 totalG += (pixel >> 8) & 0xFF;
                 totalR += (pixel >> 16) & 0xFF;
@@ -405,7 +405,7 @@ public class LogoUpdater(
 
         byte InterpolateComponent(byte start, byte end, float factor)
         {
-            return (byte)(start + ((end - start) * factor));
+            return (byte)(start + (end - start) * factor);
         }
     }
 }

@@ -20,7 +20,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
 {
     private readonly Dictionary<string, OpacityRequest> _opacityRequests = new();
     private readonly TimeSpan _parallaxInterval = TimeSpan.FromMilliseconds(16);
-    
+
     private PropertyChangedEventHandler? _backgroundPropertyChangedHandler;
     private double _cachedDownscale = 1.0;
 
@@ -36,10 +36,10 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     private double _lastMovementX, _lastMovementY;
     private DateTime _lastUpdate = DateTime.MinValue;
     private Bitmap? _lastValidBitmap;
-    public required LogoUpdater? LogoUpdater;
     private double _mouseX;
     private double _mouseY;
     public BlurEffect? BackgroundBlurEffect;
+    public required LogoUpdater? LogoUpdater;
 
     /// <summary>
     ///     Sets the background opacity, optionally animating the transition over a specified duration
@@ -65,7 +65,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
 
         for (int i = 1; i <= steps; i++)
         {
-            _currentBackgroundOpacity = start + (step * i);
+            _currentBackgroundOpacity = start + step * i;
             UpdateBackgroundLayerOpacity();
             await Task.Delay(delay);
         }
@@ -382,8 +382,8 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
 
         for (int i = 1; i <= steps; i++)
         {
-            double newX = startX + (stepX * i);
-            double newY = startY + (stepY * i);
+            double newX = startX + stepX * i;
+            double newY = startY + stepY * i;
             _cachedGpuBackground.RenderTransform = new TranslateTransform(newX, newY);
             await Task.Delay(durationMs / steps);
         }

@@ -25,7 +25,6 @@ using Avalonia.Threading;
 using IniParser.Model;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
-using LiveChartsCore.Measure;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Background;
 using osuautodeafen.cs.Deafen;
@@ -41,7 +40,6 @@ using osuautodeafen.cs.Tosu;
 using osuautodeafen.cs.Update;
 using SkiaSharp;
 using Svg.Skia;
-using WebSocketSharp;
 using Animation = Avalonia.Animation.Animation;
 using KeyFrame = Avalonia.Animation.KeyFrame;
 
@@ -67,6 +65,8 @@ public partial class MainWindow : Window
     private readonly ProgressIndicatorHelper _progressIndicatorHelper;
     private readonly Action _settingsButtonClicked;
     private readonly SettingsHandler? _settingsHandler;
+
+    private readonly Dictionary<Control, Task> _toggleQueues = new();
     private readonly TooltipManager _tooltipManager = new();
     private readonly TosuApi _tosuApi;
     private readonly UpdateChecker _updateChecker = new();
@@ -80,13 +80,11 @@ public partial class MainWindow : Window
     private DispatcherTimer? _cogSpinTimer;
 
     private DispatcherTimer? _completionPercentageSaveTimer;
-    
-    private bool _tooltipOutsideBounds = false;
-
-    private bool _isDebugConsoleOpen = false;
 
     private CancellationTokenSource? _frameCts;
     private bool _isCogSpinning;
+
+    private bool _isDebugConsoleOpen;
     private bool _isKiaiPulseHigh;
     private bool _isSettingsPanelOpen;
     private DispatcherTimer? _kiaiBrightnessTimer;
@@ -94,27 +92,27 @@ public partial class MainWindow : Window
     private GraphData? _lastGraphData;
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
+
+    private Point _lastMousePosition;
     private LogoControl? _logoControl;
     private DispatcherTimer? _logUpdateTimer;
+
+    private DispatcherTimer? _modifierOnlyTimer;
     private double _opacity = 1.00;
     private double _pendingCompletionPercentage;
     private int _pendingPP;
     private double _pendingStarRating;
-    
-    private DispatcherTimer? _modifierOnlyTimer;
 
     private DispatcherTimer? _ppSaveTimer;
 
     private DispatcherTimer? _starRatingSaveTimer;
 
+    private bool _tooltipOutsideBounds;
+
     private Button? _updateNotificationBarButton;
     private ProgressBar? _updateProgressBar;
-    
-    private Point _lastMousePosition;
 
     public Image? NormalBackground;
-    
-    private readonly Dictionary<Control, Task> _toggleQueues = new();
 
     /// <summary>
     ///     Primary Constructor for MainWindow
@@ -236,7 +234,7 @@ public partial class MainWindow : Window
 
         ProgressOverlay.Points =
             _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage());
-        
+
         _tosuApi.BeatmapChanged += async () =>
         {
             string checksum = _tosuApi.GetBeatmapChecksum();
@@ -245,11 +243,8 @@ public partial class MainWindow : Window
             string presetFilePath = Path.Combine(presetsPath, $"{checksum}.preset");
             _viewModel.PresetExistsForCurrentChecksum = File.Exists(presetFilePath);
             foreach (PresetInfo preset in _viewModel.Presets ?? Enumerable.Empty<PresetInfo>())
-            {
                 preset.IsCurrentPreset = preset.Checksum == _tosuApi.GetBeatmapChecksum();
-                //Console.WriteLine($"Preset {preset.BeatmapName} IsCurrentPreset: {preset.IsCurrentPreset}");
-            }
-
+            //Console.WriteLine($"Preset {preset.BeatmapName} IsCurrentPreset: {preset.IsCurrentPreset}");
             if (_viewModel.PresetExistsForCurrentChecksum)
             {
                 _settingsHandler.ActivatePreset(presetFilePath);
@@ -458,7 +453,8 @@ public partial class MainWindow : Window
         CanResize = false;
         Closing += MainWindow_Closing;
 
-        _tooltipManager.SetTooltipControls(CustomTooltip, TooltipText, _settingsHandler.WindowWidth, _settingsHandler.WindowHeight);
+        _tooltipManager.SetTooltipControls(CustomTooltip, TooltipText, _settingsHandler.WindowWidth,
+            _settingsHandler.WindowHeight);
 
         PointerPressed += (sender, e) =>
         {
@@ -466,9 +462,9 @@ public partial class MainWindow : Window
             const int titleBarHeight = 34;
             if (point.Y <= titleBarHeight) BeginMoveDrag(e);
         };
-        
-        var FCToggle = this.FindControl<CheckBox>("FCToggle");
-        var undeafenPanel = this.FindControl<StackPanel>("UndeafenOnMissPanel");
+
+        CheckBox? FCToggle = this.FindControl<CheckBox>("FCToggle");
+        StackPanel? undeafenPanel = this.FindControl<StackPanel>("UndeafenOnMissPanel");
 
         if (FCToggle != null && undeafenPanel != null)
         {
@@ -491,17 +487,17 @@ public partial class MainWindow : Window
         {
             Console.WriteLine("FCToggle or UndeafenOnMissPanel not found in XAML");
         }
-        
+
         this.FindControl<StackPanel>("UndeafenOnMissPanel")!.IsVisible = false;
         this.FindControl<StackPanel>("UndeafenOnMissPanel")!.Opacity = 0;
-        
+
         if (_settingsHandler.IsFCRequired)
         {
             UndeafenOnMissPanel.IsVisible = true;
             UndeafenOnMissPanel.Opacity = 1;
-            (((TranslateTransform)UndeafenOnMissPanel.RenderTransform)!).Y = 0;
+            ((TranslateTransform)UndeafenOnMissPanel.RenderTransform)!.Y = 0;
         }
-        
+
         StackPanel? parallaxPanel = this.FindControl<StackPanel>("ParallaxTogglePanel");
         StackPanel? kiaiPanel = this.FindControl<StackPanel>("KiaiTogglePanel");
         StackPanel? blurPanel = this.FindControl<StackPanel>("BlurEffectPanel");
@@ -521,7 +517,7 @@ public partial class MainWindow : Window
                 kiaiPanel.IsVisible = true;
                 kiaiPanel.Opacity = 1;
                 ((TranslateTransform)kiaiPanel.RenderTransform).Y = 0;
-                
+
                 blurPanel.IsVisible = true;
                 blurPanel.Opacity = 1;
                 ((TranslateTransform)blurPanel.RenderTransform).Y = 0;
@@ -545,7 +541,7 @@ public partial class MainWindow : Window
                     await EnqueueShowSubToggle(parallaxPanel, false);
                 }
             };
-            
+
             if (_settingsHandler.IsBackgroundEnabled)
             {
                 parallaxPanel.IsVisible = true;
@@ -555,7 +551,7 @@ public partial class MainWindow : Window
                 kiaiPanel.IsVisible = true;
                 kiaiPanel.Opacity = 1;
                 ((TranslateTransform)kiaiPanel.RenderTransform).Y = 0;
-                
+
                 blurPanel.IsVisible = true;
                 blurPanel.Opacity = 1;
                 ((TranslateTransform)blurPanel.RenderTransform).Y = 0;
@@ -578,7 +574,7 @@ public partial class MainWindow : Window
             Console.WriteLine("BackgroundToggle or ParallaxTogglePanel or KiaiTogglePanel not found in XAML");
         }
 
-        
+
         PointerMoved += MainWindow_PointerMoved;
 
         InitializeKeybindButtonText();
@@ -590,10 +586,12 @@ public partial class MainWindow : Window
         _viewModel.RefreshPresets();
     }
 
+    private SharedViewModel ViewModel { get; }
+
     private void MainWindow_PointerMoved(object? sender, PointerEventArgs e)
     {
         _backgroundManager?.OnMouseMove(sender, e);
-        
+
         _lastMousePosition = e.GetPosition(PlotView);
 
         Point pixelPoint = e.GetPosition(PlotView);
@@ -610,7 +608,7 @@ public partial class MainWindow : Window
         MainWindow window = this;
         PixelPoint screenPoint = PlotView.PointToScreen(pixelPoint);
         Point windowPoint = new(screenPoint.X - window.Position.X, screenPoint.Y - window.Position.Y);
-        
+
         // this is really stupid but it just prevents the case where the straingraph's tooltips attempt to show in areas outside of the straingraph
         if (currentTooltipType == Tooltips.TooltipType.Time || currentTooltipType == Tooltips.TooltipType.Section)
         {
@@ -647,9 +645,7 @@ public partial class MainWindow : Window
         _tooltipOutsideBounds = false;
         _chartManager.TryShowTooltip(dataPoint, windowPoint, _tooltipManager);
     }
-    
-    private SharedViewModel ViewModel { get; }
-    
+
     private void UpdateViewModel()
     {
         if (_settingsHandler != null)
@@ -763,9 +759,9 @@ public partial class MainWindow : Window
             Console.WriteLine("[ERROR] Exception when updating Deafen Section after reset: " + ex.Message);
         }
     }
-    
+
     /// <summary>
-    /// Slides the sub-toggle control in or out of view
+    ///     Slides the sub-toggle control in or out of view
     /// </summary>
     /// <param name="target"></param>
     /// <param name="show"></param>
@@ -778,7 +774,7 @@ public partial class MainWindow : Window
             if (target.RenderTransform == null || target.RenderTransform is not TranslateTransform)
                 target.RenderTransform = new TranslateTransform();
 
-            var transform = (TranslateTransform)target.RenderTransform;
+            TranslateTransform? transform = (TranslateTransform)target.RenderTransform;
 
             if (show)
             {
@@ -787,7 +783,7 @@ public partial class MainWindow : Window
                 transform.Y = -20;
             }
 
-            var animation = new Animation
+            Animation animation = new()
             {
                 Duration = TimeSpan.FromMilliseconds(200),
                 Easing = new CubicEaseInOut(),
@@ -826,29 +822,26 @@ public partial class MainWindow : Window
         });
     }
 
-    
+
     private Task EnqueueShowSubToggle(Control? target, bool show)
     {
         if (target == null) return Task.CompletedTask;
-        
-        if (!_toggleQueues.TryGetValue(target, out var previousTask))
+
+        if (!_toggleQueues.TryGetValue(target, out Task? previousTask))
             previousTask = Task.CompletedTask;
-        
-        var newTask = previousTask.ContinueWith(async _ =>
-        {
-            await ShowSubToggle(target, show);
-        }).Unwrap();
+
+        Task newTask = previousTask.ContinueWith(async _ => { await ShowSubToggle(target, show); }).Unwrap();
 
         _toggleQueues[target] = newTask;
         return newTask;
     }
-    
+
     /// <summary>
     ///     Starts the frame timer for debug panel to measure frametimes and framerate
     /// </summary>
     /// <remarks>
-    ///  ideally this shouldn't be used elsewhere because this might be a bit more resource-intensive than necessary,
-    ///  but for debugging purposes its good enough
+    ///     ideally this shouldn't be used elsewhere because this might be a bit more resource-intensive than necessary,
+    ///     but for debugging purposes its good enough
     /// </remarks>
     /// <param name="targetFps"></param>
     private void StartStableFrameTimer(int targetFps = 1000)
@@ -875,7 +868,7 @@ public partial class MainWindow : Window
                     long frameStartTicks = _frameStopwatch.ElapsedTicks;
                     double frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
                     lastFrameTicks = frameStartTicks;
-                    
+
                     frameInterval = Math.Max(frameInterval, 0.01);
                     minFrame = Math.Min(minFrame, frameInterval);
                     maxFrame = Math.Max(maxFrame, frameInterval);
@@ -900,7 +893,7 @@ public partial class MainWindow : Window
                         sumFrame = 0;
                         frameCount = 0;
                     }
-                    
+
                     while (true)
                     {
                         double elapsedMs = (_frameStopwatch.ElapsedTicks - frameStartTicks) * tickMs;
@@ -908,15 +901,11 @@ public partial class MainWindow : Window
 
                         if (remaining <= 0)
                             break;
-                        
+
                         if (remaining > 2.0)
-                        {
                             await Task.Delay(1, _frameCts.Token);
-                        }
                         else
-                        {
                             Thread.SpinWait(100);
-                        }
                     }
                 }
             }
@@ -939,7 +928,7 @@ public partial class MainWindow : Window
         _frameCts?.Cancel();
         _frameStopwatch.Stop();
     }
-    
+
     /*
         we need to start handling all of this slider bullshit somewhere else bro istg
         ESPECIALLY for tooltips because holy hell they are kind of a mess
@@ -952,7 +941,7 @@ public partial class MainWindow : Window
     /*
      10/20/25 update: yes we are now using TooltipManager.cs for all of these tooltips hiphiphurray
      */
-    
+
     private void SettingsButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Border) return;
@@ -960,7 +949,7 @@ public partial class MainWindow : Window
         bool isOpen = _isSettingsPanelOpen;
         _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Settings" : "Open Settings");
     }
-    
+
     private void SettingsButton_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
@@ -972,18 +961,19 @@ public partial class MainWindow : Window
         Point point = Tooltips.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Minimum Map \nProgress to Deafen");
     }
-    
+
     private void CompletionPercentageImage_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
+
     private void CompletionPercentageSlider_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Slider slider) return;
         Point point = Tooltips.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0.00}%");
     }
-    
+
     private void CompletionPercentageSlider_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Slider slider) return;
@@ -997,19 +987,19 @@ public partial class MainWindow : Window
         Point point = Tooltips.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0.00}%");
     }
-    
+
     private void CompletionPercentageSlider_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void PPSlider_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Slider slider) return;
         Point point = Tooltips.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0}pp");
     }
-    
+
     private void PPSlider_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Slider slider) return;
@@ -1028,88 +1018,89 @@ public partial class MainWindow : Window
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void PPImage_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Avalonia.Svg.Svg) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Minimum SS PP to Deafen\n (" + _tosuApi.GetMaxPP() + "pp for this map)");
+        _tooltipManager.ShowTooltip(this, point,
+            "Minimum SS PP to Deafen\n (" + _tosuApi.GetMaxPP() + "pp for this map)");
     }
-    
+
     private void PPImage_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void StarRatingSlider_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Slider slider) return;
         Point point = Tooltips.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value:F1}*");
     }
-    
+
     private void StarRatingSlider_PointerMove(object? sender, PointerEventArgs e)
     {
         if (sender is not Slider slider) return;
         Point point = Tooltips.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value:F1}*");
     }
-    
+
     private void StarRatingSlider_PointerEnter(object? sender, PointerEventArgs e)
     {
         if (sender is not Slider slider) return;
         Point point = Tooltips.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value:F1}*");
     }
-    
+
     private void StarRatingSlider_PointerLeave(object? sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void StarRatingImage_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Avalonia.Svg.Svg) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Minimum SR to Deafen\n(" + _tosuApi.GetFullSR() + "* for this map)");
     }
-    
+
     private void StarRatingImage_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void BlurEffectImage_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Avalonia.Svg.Svg) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Background Blur Radius\n(0-20 multiplied by 5)");
     }
-    
+
     private void BlurEffectImage_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void BlurEffectSlider_PointerPressed(object sender, PointerPressedEventArgs e)
     {
         if (sender is not Slider slider) return;
         Point point = Tooltips.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value*5:F0}% Blur");
+        _tooltipManager.ShowTooltip(this, point, $"{slider.Value * 5:F0}% Blur");
     }
-    
+
     private void BlurEffectSlider_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Slider slider) return;
         Point point = Tooltips.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value*5:F0}% Blur");
+        _tooltipManager.ShowTooltip(this, point, $"{slider.Value * 5:F0}% Blur");
     }
-    
+
     private void BlurEffectSlider_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void FCToggle_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not StackPanel) return;
@@ -1117,12 +1108,12 @@ public partial class MainWindow : Window
         bool isEnabled = FCToggle.IsChecked ?? false;
         _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " FC Requirement");
     }
-    
+
     private void FCToggle_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void UndeafenOnMissToggle_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not StackPanel) return;
@@ -1130,35 +1121,36 @@ public partial class MainWindow : Window
         bool isEnabled = UndeafenOnMissToggle.IsChecked ?? false;
         _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Undeafening after a miss");
     }
-    
+
     private void UndeafenOnMissToggle_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void BreakUndeafenToggle_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not StackPanel) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
         bool isEnabled = BreakUndeafenToggle.IsChecked ?? false;
-        _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Undeafening during breaks");
+        _tooltipManager.ShowTooltip(this, point,
+            "" + (isEnabled ? "Disable" : "Enable") + " Undeafening during breaks");
     }
-    
+
     private void BreakUndeafenToggle_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void BlurEffectSlider_PointerMoved(object? sender, PointerEventArgs e)
     {
         if (sender is not Slider slider) return;
         Point point = Tooltips.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value*5:F0}% Blur");
+        _tooltipManager.ShowTooltip(this, point, $"{slider.Value * 5:F0}% Blur");
     }
-    
+
     private void ResetButton_PointerEnter(object sender, PointerEventArgs e)
     {
-        if (sender is not Button) 
+        if (sender is not Button)
             return;
 
         Point pointerPosition = Tooltips.GetWindowRelativePointer(this, e);
@@ -1169,71 +1161,72 @@ public partial class MainWindow : Window
 
         _tooltipManager.ShowTooltip(this, pointerPosition, tooltipText);
     }
-    
+
     private void ResetButton_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void PresetCreate_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Create Preset for\n" + _viewModel.FullBeatmapName);
     }
-    
+
     private void PresetCreate_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void PresetDelete_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Delete Preset for\n" + _viewModel.FullBeatmapName);
     }
-    
+
     private void PresetDelete_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void LoadPresetButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Load a different map's preset on to\n" + _viewModel.FullBeatmapName);
     }
+
     private void LoadPresetButton_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void DeleteAllPresetsButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Delete All Presets\n(CAN NOT BE UNDONE)");
     }
-    
+
     private void DeleteAllPresetsButton_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void DeafenKeybindPanel_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not StackPanel) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Set Deafen Keybind");
     }
-    
+
     private void DeafenKeybindPanel_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void BGToggle_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not StackPanel) return;
@@ -1241,12 +1234,12 @@ public partial class MainWindow : Window
         bool isEnabled = BackgroundToggle.IsChecked ?? false;
         _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Beatmap Background");
     }
-    
+
     private void BGToggle_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void ParallaxToggle_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not StackPanel) return;
@@ -1254,12 +1247,12 @@ public partial class MainWindow : Window
         bool isEnabled = ParallaxToggle.IsChecked ?? false;
         _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Parallax Effect");
     }
-    
+
     private void ParallaxToggle_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void KiaiEffectToggle_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not StackPanel) return;
@@ -1267,29 +1260,30 @@ public partial class MainWindow : Window
         bool isEnabled = KiaiEffectToggle.IsChecked ?? false;
         _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Kiai Effect");
     }
-    
+
     private void KiaiEffectToggle_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void CheckForUpdatesButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Check for New Updates");
     }
-    
+
     private void CheckForUpdatesButton_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void FileLocationButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Open AppData File Location\n(" + _settingsHandler!.GetPath(true) + ")");
+        _tooltipManager.ShowTooltip(this, point,
+            "Open AppData File Location\n(" + _settingsHandler!.GetPath(true) + ")");
         OpenFileLocationImage.Path = "Icons/folder-open.svg";
     }
 
@@ -1305,12 +1299,12 @@ public partial class MainWindow : Window
         Point point = Tooltips.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Report an Issue on GitHub");
     }
-    
+
     private void ReportIssueButton_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private void DebugConsoleButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
@@ -1318,7 +1312,7 @@ public partial class MainWindow : Window
         bool isOpen = _isDebugConsoleOpen;
         _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Debug Console" : "Open Debug Console");
     }
-    
+
     private void DebugConsoleButton_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();
@@ -1822,7 +1816,7 @@ public partial class MainWindow : Window
         else
             flyout.Hide();
     }
-    
+
     /// <summary>
     ///     Captures key presses when the keybind capture flyout is open
     /// </summary>
@@ -1841,7 +1835,7 @@ public partial class MainWindow : Window
                 flyout?.Hide();
                 return;
             }
-            
+
             if (_pressedKeys.All(IsModifierKey))
             {
                 if (_modifierOnlyTimer == null || !_modifierOnlyTimer.IsEnabled)
@@ -1850,18 +1844,17 @@ public partial class MainWindow : Window
                     _modifierOnlyTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
                     _modifierOnlyTimer.Start();
                 }
+
                 e.Handled = true;
                 return;
             }
-            else
-            {
-                _modifierOnlyTimer?.Stop();
-            }
-            
+
+            _modifierOnlyTimer?.Stop();
+
             // only because i'm a bit paranoid about osu! anticheat
             // don't try circumventing this LOL not my fault if you get banned 
-            IEnumerable<Key> osuKeybinds = _tosuApi.GetOsuKeybinds();
-            Key[] keys = osuKeybinds as Key[] ?? osuKeybinds.ToArray();
+            var osuKeybinds = _tosuApi.GetOsuKeybinds();
+            var keys = osuKeybinds as Key[] ?? osuKeybinds.ToArray();
             Key k1 = keys.ElementAtOrDefault(0);
             Key k2 = keys.ElementAtOrDefault(1);
 
@@ -1870,17 +1863,18 @@ public partial class MainWindow : Window
                 string keybind = e.Key == k1 ? "K1" :
                     e.Key == k2 ? "K2" : "osu! keybind";
 
-                ViewModel.KeybindPrompt = $"'{GetFriendlyKeyName(e.Key)}' is a disallowed keybind (it is your current osu! {keybind})\n(please use something else bro :sob:)";
+                ViewModel.KeybindPrompt =
+                    $"'{GetFriendlyKeyName(e.Key)}' is a disallowed keybind (it is your current osu! {keybind})\n(please use something else bro :sob:)";
                 e.Handled = true;
                 return;
             }
-            
+
             DateTime currentTime = DateTime.Now;
             if (e.Key == _lastKeyPressed && (currentTime - _lastKeyPressTime).TotalMilliseconds < 2500)
                 return;
             _lastKeyPressed = e.Key;
             _lastKeyPressTime = currentTime;
-            
+
             if (IsModifierKey(e.Key))
                 return;
 
@@ -1943,20 +1937,20 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///    Captures key releases when the keybind capture flyout is open
+    ///     Captures key releases when the keybind capture flyout is open
     /// </summary>
     /// <param name="e"></param>
     protected override void OnKeyUp(KeyEventArgs e)
     {
         base.OnKeyUp(e);
         _pressedKeys.Remove(e.Key);
-        
+
         if (ViewModel.IsKeybindCaptureFlyoutOpen && _modifierOnlyTimer?.IsEnabled == true && IsModifierKey(e.Key))
         {
             _modifierOnlyTimer.Stop();
 
             Flyout? flyout = DeafenKeybindButton.Flyout as Flyout;
-            
+
             var allModifiers = new HashSet<Key>(_pressedKeys) { e.Key };
 
             KeyModifiers modifiers = KeyModifiers.None;
@@ -2033,10 +2027,8 @@ public partial class MainWindow : Window
             display += shiftSide == 2 ? "RShift+" : "LShift+";
 
         if (keyVal == (int)Key.None)
-        {
             // signifies that only modifiers are used, so we should remove the trailing +
-            return display.EndsWith('+') ? display[..^1] : (display.Length > 0 ? display : "Set Keybind");
-        }
+            return display.EndsWith('+') ? display[..^1] : display.Length > 0 ? display : "Set Keybind";
 
         display += GetFriendlyKeyName((Key)keyVal);
         return display;
@@ -2137,7 +2129,7 @@ public partial class MainWindow : Window
 
             for (int i = 1; i <= steps; i++)
             {
-                _updateProgressBar.Value = start + ((end - start) * i / steps);
+                _updateProgressBar.Value = start + (end - start) * i / steps;
                 await Task.Delay(delayPerStep);
             }
         }
@@ -2285,7 +2277,8 @@ public partial class MainWindow : Window
             if (logoHost != null)
                 logoHost.Content = _logoControl;
 
-            _backgroundManager!.LogoUpdater = new LogoUpdater(_getLowResBackground, _logoControl, ViewModel, LoadSkSvgResource);
+            _backgroundManager!.LogoUpdater =
+                new LogoUpdater(_getLowResBackground, _logoControl, ViewModel, LoadSkSvgResource);
 
             Console.WriteLine("SVG loaded successfully.");
         }
@@ -2715,7 +2708,7 @@ public partial class MainWindow : Window
             _cogSpinTimer.Tick += (s, ev) =>
             {
                 double elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
-                double angle = (_cogSpinStartAngle + (elapsed * _cogSpinBpm * 360 / BeatsPerRotation)) % 360;
+                double angle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / BeatsPerRotation) % 360;
                 _cogCurrentAngle = angle;
                 rotate.Angle = angle;
             };
@@ -2750,7 +2743,7 @@ public partial class MainWindow : Window
                 for (int i = 1; i <= steps; i++)
                 {
                     await Task.Delay(duration / steps);
-                    double angle = start + (step * i);
+                    double angle = start + step * i;
                     await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle).GetTask();
                 }
 
@@ -2768,7 +2761,7 @@ public partial class MainWindow : Window
         if (_cogSpinTimer != null && _cogSpinTimer.IsEnabled)
         {
             double elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
-            _cogSpinStartAngle = (_cogSpinStartAngle + (elapsed * _cogSpinBpm * 360 / BeatsPerRotation)) % 360;
+            _cogSpinStartAngle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / BeatsPerRotation) % 360;
             _cogSpinStartTime = DateTime.UtcNow;
             _cogSpinBpm = _tosuApi.GetCurrentBpm() > 0 ? _tosuApi.GetCurrentBpm() : 140;
 
@@ -2838,12 +2831,9 @@ public partial class MainWindow : Window
             if (debugConsolePanel != null && !debugConsolePanel.IsVisible)
             {
                 StartStableFrameTimer();
-                
+
                 _isDebugConsoleOpen = true;
-                if (sender is Button)
-                {
-                    _tooltipManager.UpdateTooltipText("Close Debug Console", true);
-                }
+                if (sender is Button) _tooltipManager.UpdateTooltipText("Close Debug Console", true);
 
                 await SetupDebugConsoleTransitionsAsync(debugConsolePanel);
                 debugConsolePanel.IsVisible = true;
@@ -2860,13 +2850,10 @@ public partial class MainWindow : Window
             else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
             {
                 StopStableFrameTimer();
-                
+
                 _isDebugConsoleOpen = false;
 
-                if (sender is Button)
-                {
-                    _tooltipManager.UpdateTooltipText("Open Debug Console", true);
-                }
+                if (sender is Button) _tooltipManager.UpdateTooltipText("Open Debug Console", true);
 
                 await AnimateDebugConsoleOutAsync(debugConsolePanel);
                 debugConsolePanel.IsVisible = false;
@@ -2908,11 +2895,11 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///    Creates a log textblock for the debug panel
+    ///     Creates a log textblock for the debug panel
     /// </summary>
     /// <param name="logText"></param>
     /// <remarks>
-    /// This contains hyperlink support if the text contains a URL
+    ///     This contains hyperlink support if the text contains a URL
     /// </remarks>
     /// <returns></returns>
     private Control CreateLogElement(string logText)
@@ -2951,14 +2938,14 @@ public partial class MainWindow : Window
 
         return new TextBlock { Text = logText, Foreground = Brushes.White };
     }
-    
+
     public static string? ExtractHyperlink(string logText)
     {
         Regex urlRegex = new(@"https?://\S+");
         Match match = urlRegex.Match(logText);
         return match.Success ? match.Value : null;
     }
-    
+
     public class HotKey
     {
         public Key Key { get; set; }

@@ -2,10 +2,19 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
+
 namespace osuautodeafen.cs.Tooltips;
 
 public abstract class Tooltips
 {
+    public enum TooltipState
+    {
+        Hidden,
+        Showing,
+        Hiding,
+        Appearing
+    }
+
     public enum TooltipType
     {
         None,
@@ -14,21 +23,13 @@ public abstract class Tooltips
         Time
     }
 
-    public enum TooltipState
-    {
-        Hidden,
-        Showing,
-        Hiding,
-        Appearing
-    }
-    
     /// <summary>
-    /// Determines if pointer is over the element, and it is not occluded by another control
+    ///     Determines if pointer is over the element, and it is not occluded by another control
     /// </summary>
     /// <remarks>
-    /// It should be fairly obvious but this mainly pertains to settings panel and the straingraph because they can overlap
-    /// But this can be used by any tooltip anywhere thankfully :D
-    /// (as to why this isn't built into avalonia already i dont have a clue in hell)
+    ///     It should be fairly obvious but this mainly pertains to settings panel and the straingraph because they can overlap
+    ///     But this can be used by any tooltip anywhere thankfully :D
+    ///     (as to why this isn't built into avalonia already i dont have a clue in hell)
     /// </remarks>
     public static bool IsPointerOverElement(Control element, Point pointerInWindow)
     {
@@ -37,7 +38,7 @@ public abstract class Tooltips
 
         if (window.InputHitTest(pointerInWindow) is not Control hit)
             return false;
-        
+
         Control? current = hit;
         while (current != null)
         {
@@ -48,9 +49,9 @@ public abstract class Tooltips
 
         return false;
     }
-    
+
     /// <summary>
-    ///  Gets the pointer position relative to the window instead of the control
+    ///     Gets the pointer position relative to the window instead of the control
     /// </summary>
     /// <param name="control"></param>
     /// <param name="e"></param>
@@ -61,6 +62,5 @@ public abstract class Tooltips
         Point controlPoint = e.GetPosition(control);
         PixelPoint screenPoint = control.PointToScreen(controlPoint);
         return new Point(screenPoint.X - window.Position.X, screenPoint.Y - window.Position.Y);
-
     }
 }

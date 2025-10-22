@@ -27,7 +27,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     private double _windowHeight;
     private double _windowWidth;
-    
+
     public IniData Data;
 
     public SettingsHandler()
@@ -250,14 +250,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         if (simple != true) return _appPath;
         if (Environment.OSVersion.Platform == PlatformID.Unix ||
             Environment.OSVersion.Platform == PlatformID.MacOSX)
-        {
             return "~/.config/osuautodeafen";
-        }
-        else
-        {
-            return "%APPDATA%\\osuautodeafen";
-        }
 
+        return "%APPDATA%\\osuautodeafen";
     }
 
     /// <summary>

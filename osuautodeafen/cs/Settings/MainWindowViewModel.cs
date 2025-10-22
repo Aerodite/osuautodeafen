@@ -22,7 +22,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private readonly bool _canUpdateSettings = true;
 
     private readonly SettingsHandler _settingsHandler;
-    
+
     private readonly TooltipManager _tooltipManager;
 
     private readonly TosuApi _tosuApi;
@@ -56,6 +56,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     private bool _isSliderTooltipOpen;
     private bool _isUpdateReady;
+
+    private string _keybindPrompt = "Press any key(s) for the keybind...";
     private double _minCompletionPercentage;
 
     private Bitmap? _modifiedLogoImage;
@@ -85,7 +87,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         _tooltipManager = tooltipManager;
         Task.Run(UpdateCompletionPercentageAsync);
 
-        if (Presets != null) 
+        if (Presets != null)
             Presets.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasAnyPresets));
     }
 
@@ -279,7 +281,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             return new SolidColorBrush(lessVibrantColor);
         }
     }
-    
+
     public SolidColorBrush AverageColorBrushDarker
     {
         get
@@ -339,7 +341,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _IsBreakUndeafenToggleEnabled = value;
                 OnPropertyChanged();
-                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Undeafening during breaks", true);
+                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Undeafening during breaks",
+                    true);
             }
         }
     }
@@ -368,7 +371,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _undeafenAfterMiss = value;
                 OnPropertyChanged();
-                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Undeafening after a miss", true);
+                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Undeafening after a miss",
+                    true);
             }
         }
     }
@@ -543,6 +547,16 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     public object MinSRValue => _tosuApi.GetFullSR();
 
+    public string KeybindPrompt
+    {
+        get => _keybindPrompt;
+        set
+        {
+            _keybindPrompt = value;
+            OnPropertyChanged();
+        }
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public void RefreshPresets()
@@ -559,7 +573,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             preset.IsCurrentPreset = preset.Checksum == _tosuApi.GetBeatmapChecksum();
             Console.WriteLine($"Preset {preset.BeatmapName} IsCurrentPreset: {preset.IsCurrentPreset}");
         }
-        
+
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasAnyPresetsNotCurrent)));
     }
 
@@ -569,19 +583,19 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(HasAnyPresetsNotCurrent));
     }
 
-  private static Color DesaturateAndLightenColorHsl(Color color, float saturationFactor, float lightnessFactor)
+    private static Color DesaturateAndLightenColorHsl(Color color, float saturationFactor, float lightnessFactor)
     {
         // convert rgb to hsl
         float red = color.R / 255f;
         float green = color.G / 255f;
         float blue = color.B / 255f;
-        
+
         float maxComponent = Math.Max(red, Math.Max(green, blue));
         float minComponent = Math.Min(red, Math.Min(green, blue));
         float hue, saturation;
-        
+
         float lightness = (maxComponent + minComponent) / 2f;
-        
+
         if (maxComponent == minComponent)
         {
             hue = 0f;
@@ -590,17 +604,17 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         else
         {
             float delta = maxComponent - minComponent;
-            
+
             saturation = lightness > 0.5f
                 ? delta / (2f - maxComponent - minComponent)
                 : delta / (maxComponent + minComponent);
-            
+
             if (maxComponent == red)
-                hue = ((green - blue) / delta) + (green < blue ? 6f : 0f);
+                hue = (green - blue) / delta + (green < blue ? 6f : 0f);
             else if (maxComponent == green)
-                hue = ((blue - red) / delta) + 2f;
+                hue = (blue - red) / delta + 2f;
             else
-                hue = ((red - green) / delta) + 4f;
+                hue = (red - green) / delta + 4f;
 
             hue /= 6f;
         }
@@ -612,7 +626,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         // convert the hsl back to rgb
         float q = lightness < 0.5f
             ? lightness * (1f + saturation)
-            : lightness + saturation - (lightness * saturation);
+            : lightness + saturation - lightness * saturation;
         float p = 2f * lightness - q;
 
         float[] tempHues = [hue + 1f / 3f, hue, hue - 1f / 3f];
@@ -640,7 +654,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                     break;
             }
         }
-        
+
         return Color.FromArgb(
             color.A,
             (byte)(rgbComponents[0] * 255),
@@ -686,17 +700,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
         string message;
         string url;
-    }
-    
-    private string _keybindPrompt = "Press any key(s) for the keybind...";
-    public string KeybindPrompt
-    {
-        get => _keybindPrompt;
-        set
-        {
-            _keybindPrompt = value;
-            OnPropertyChanged();
-        }
     }
 
     private void OpenUpdateUrl()

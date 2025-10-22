@@ -19,6 +19,7 @@ using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs.Tooltips;
 using osuautodeafen.cs.Tosu;
 using SkiaSharp;
+
 // ReSharper disable CompareOfFloatsByEqualityOperator
 
 namespace osuautodeafen.cs.StrainGraph;
@@ -39,14 +40,18 @@ public class ChartManager
     private readonly KiaiTimes _kiaiTimes;
 
     private readonly LineSeries<ObservablePoint> _progressIndicator;
+    private readonly Dictionary<string, List<int>> _seriesIndexMap = new();
+
+    private readonly TooltipManager _tooltipManager;
     private readonly TosuApi _tosuApi;
     private readonly SharedViewModel _viewModel;
+    private List<double>? _currentXAxis;
 
     private CancellationTokenSource? _deafenOverlayCts;
+
+    private RectangularSection? _draggedDeafenRect;
     private RectangularSection? _draggedDeafenSection;
     private bool _isDraggingDeafenEdge;
-    
-    private readonly TooltipManager _tooltipManager;
 
     private bool _isHoveringDeafenSection;
     private List<BreakPeriod>? _lastBreaks;
@@ -59,10 +64,6 @@ public class ChartManager
     private AnnotatedSection? _lastTooltipSection;
     private string? _lastTooltipText;
     private List<double>? _lastXAxis;
-    private List<double>? _currentXAxis;
-    private readonly Dictionary<string, List<int>> _seriesIndexMap = new();
-    
-    private RectangularSection? _draggedDeafenRect = null;
 
     public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel, KiaiTimes kiaiTimes,
         TooltipManager tooltipManager)
@@ -72,7 +73,7 @@ public class ChartManager
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         _kiaiTimes = kiaiTimes ?? throw new ArgumentNullException(nameof(kiaiTimes));
         _tooltipManager = tooltipManager ?? throw new ArgumentNullException(nameof(tooltipManager));
-        
+
         _progressIndicator = new LineSeries<ObservablePoint>
         {
             Stroke = new SolidColorPaint { Color = ProgressIndicatorColor, StrokeThickness = 5 },
@@ -159,7 +160,7 @@ public class ChartManager
         AudibleBreaksEnabled = _viewModel.IsBreakUndeafenToggleEnabled;
         await RegenerateBreakSectionsAsync();
     }
-    
+
     // this function is just to finally fix that stupid ass fucking issue with presets breaking the chart section updates
     // amen
     private async Task RegenerateBreakSectionsAsync()
@@ -169,7 +170,7 @@ public class ChartManager
     }
 
     /// <summary>
-    /// Tries to show a tooltip on the given poistion
+    ///     Tries to show a tooltip on the given poistion
     /// </summary>
     /// <param name="dataPoint"></param>
     /// <param name="pixelPoint"></param>
@@ -178,7 +179,8 @@ public class ChartManager
     public void TryShowTooltip(LvcPointD dataPoint, Point pixelPoint, TooltipManager tooltipManager)
     {
         double? currentTime = null;
-        if (PlotView.Bounds.Width > 0 && _currentXAxis != null && _seriesIndexMap.TryGetValue("aim", out var indexMap) && indexMap.Count > 0)
+        if (PlotView.Bounds.Width > 0 && _currentXAxis != null &&
+            _seriesIndexMap.TryGetValue("aim", out var indexMap) && indexMap.Count > 0)
         {
             LvcPointD mapped = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
             int normIdx = (int)Math.Round(mapped.X);
@@ -189,7 +191,7 @@ public class ChartManager
 
             currentTime = _currentXAxis[absIdx];
         }
-        
+
         if (_isDraggingDeafenEdge && _draggedDeafenSection != null)
         {
             double newXi = Math.Max(0, Math.Min(dataPoint.X, Math.Min((_draggedDeafenSection.Xj ?? 0) - 1, MaxLimit)));
@@ -201,7 +203,8 @@ public class ChartManager
                 desktop.MainWindow is MainWindow { CompletionPercentageSlider: not null } mainWindow)
             {
                 mainWindow.CompletionPercentageSlider.Value = newPercentage;
-                mainWindow.CompletionPercentageSlider_ValueChanged(null, new RangeBaseValueChangedEventArgs(newPercentage, newPercentage, null));
+                mainWindow.CompletionPercentageSlider_ValueChanged(null,
+                    new RangeBaseValueChangedEventArgs(newPercentage, newPercentage, null));
             }
 
             TimeSpan ts = currentTime.HasValue ? TimeSpan.FromMilliseconds(currentTime.Value) : TimeSpan.Zero;
@@ -310,11 +313,11 @@ public class ChartManager
         if (_draggedDeafenSection != null)
         {
             _draggedDeafenSection.Xi = dataPoint.X;
-            
+
             double newPercentage = Math.Min(100.0, 100.0 * (_draggedDeafenSection.Xi ?? 0) / MaxLimit);
-            
+
             _viewModel.MinCompletionPercentage = newPercentage;
-            
+
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
                 desktop.MainWindow is MainWindow { CompletionPercentageSlider: not null } mainWindow)
             {
@@ -324,9 +327,9 @@ public class ChartManager
                     new RangeBaseValueChangedEventArgs(newPercentage, newPercentage, null)
                 );
             }
-            
+
             PlotView.InvalidateVisual();
-            
+
             _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.Deafen;
             TryShowTooltip(dataPoint, pixelPoint, _tooltipManager);
         }
@@ -351,7 +354,7 @@ public class ChartManager
     }
 
     /// <summary>
-    /// Handles pointer exit events to reset hover states and hide tooltips with a short delay
+    ///     Handles pointer exit events to reset hover states and hide tooltips with a short delay
     /// </summary>
     /// <param name="tooltipManager"></param>
     private void PlotView_PointerExited(TooltipManager tooltipManager)
@@ -359,11 +362,12 @@ public class ChartManager
         _isHoveringDeafenSection = false;
         tooltipManager.HideTooltip();
     }
+
     private void PlotView_PointerMoved(object? sender, PointerEventArgs e)
     {
         Point pixelPoint = e.GetPosition(PlotView);
         LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
-        
+
         if (_isDraggingDeafenEdge && _draggedDeafenSection != null)
         {
             double newXi = Math.Max(0, Math.Min(dataPoint.X, Math.Min((_draggedDeafenSection.Xj ?? 0) - 1, MaxLimit)));
@@ -373,11 +377,11 @@ public class ChartManager
 
             PlotView.InvalidateVisual();
         }
-        
+
         // I have no clue in hell why that just... works ???
         _tooltipManager.UpdateTooltipText("", true);
     }
-    
+
     /// <summary>
     ///     Updates the deafen overlay section to reflect the current minimum completion percentage.
     /// </summary>
@@ -431,7 +435,7 @@ public class ChartManager
             for (int i = 1; i <= steps; i++)
             {
                 token.ThrowIfCancellationRequested();
-                deafenRect.Xi = oldXi + ((newXi - oldXi) * i / steps);
+                deafenRect.Xi = oldXi + (newXi - oldXi) * i / steps;
                 PlotView.InvalidateVisual();
                 await Task.Delay(durationMs / steps, token);
             }
@@ -589,7 +593,7 @@ public class ChartManager
             if (series.Name == null) continue;
             _seriesIndexMap[series.Name] = indexMap;
             maxLimit = Math.Max(maxLimit, updatedValues.Count);
-        
+
             var downsampled = Downsample(updatedValues.ToArray(), maxPoints);
             var smoothed = SmoothData(downsampled, 10, 0.2);
 
@@ -742,15 +746,15 @@ public class ChartManager
         PlotView.Sections = combinedSections;
         PlotView.InvalidateVisual();
     }
-    
+
     private int FindClosestMappedIndex(List<int> indexMap, List<double> xAxis, double time)
     {
         int rawIdx = FindClosestIndex(xAxis, time, 0, xAxis.Count);
         int mapped = indexMap.BinarySearch(rawIdx);
         if (mapped < 0) mapped = ~mapped;
-        return Math.Clamp(mapped, 0, indexMap.Count - 1); 
+        return Math.Clamp(mapped, 0, indexMap.Count - 1);
     }
-    
+
 
     /// <summary>
     ///     Updates the deafen overlay section position based on the minimum completion percentage
@@ -924,7 +928,8 @@ public class ChartManager
     /// <param name="xAxis"></param>
     /// <param name="seriesData"></param>
     /// <returns></returns>
-    private async Task<List<BreakPeriod>> GetBreakPeriodsAsync(string? osuFilePath, List<double>? xAxis, List<double> seriesData)
+    private async Task<List<BreakPeriod>> GetBreakPeriodsAsync(string? osuFilePath, List<double>? xAxis,
+        List<double> seriesData)
     {
         if (osuFilePath == _lastOsuFilePath &&
             AreListsEqual(xAxis, _lastXAxis) &&

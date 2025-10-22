@@ -5,7 +5,6 @@ using System.Threading;
 using Avalonia.Input;
 using osuautodeafen.cs.Settings;
 using osuautodeafen.cs.Settings.Keybinds;
-using osuautodeafen.cs.Settings.Presets;
 using osuautodeafen.cs.Tosu;
 using SharpHook;
 using SharpHook.Data;
@@ -22,14 +21,14 @@ public class Deafen : IDisposable
     private readonly SharedViewModel _sharedViewModel;
     private readonly Timer _timer;
     private readonly TosuApi _tosuAPI;
-    public bool _deafened = false;
+    public bool _deafened;
     private bool _isInBreakPeriod;
+
+    private DateTime _lastToggle = DateTime.MinValue;
 
     public Action? Deafened;
     public Action? Undeafened;
-    
-    private DateTime _lastToggle = DateTime.MinValue;
-    
+
     public Deafen(TosuApi tosuAPI, SettingsHandler settingsHandler, SharedViewModel sharedViewModel)
     {
         _deafened = false;
@@ -64,13 +63,13 @@ public class Deafen : IDisposable
     {
         try
         {
-            IEnumerable<Key> osuKeybinds = _tosuAPI.GetOsuKeybinds();
-            Key[] keys = osuKeybinds as Key[] ?? osuKeybinds.ToArray();
-            
+            var osuKeybinds = _tosuAPI.GetOsuKeybinds();
+            var keys = osuKeybinds as Key[] ?? osuKeybinds.ToArray();
+
             Key osuKey = (Key)_settingsHandler.DeafenKeybindKey;
             if (keys.Contains(osuKey))
             {
-                Console.WriteLine($"Nice try.");
+                Console.WriteLine("Nice try.");
                 return;
             }
 
@@ -155,9 +154,10 @@ public class Deafen : IDisposable
         bool fcRequirementMet = !isFCRequired || isFullCombo;
         bool breakConditionMet = !IsBreakUndeafenToggleEnabled || !_isInBreakPeriod;
         bool missConditionMet = !IsUndeafenAfterMissEnabled || isFullCombo;
-        
+
         // i prefer this condition boolean compared to that nightmare return statement we had before personally
-        bool[] conditions = [
+        bool[] conditions =
+        [
             isPlaying,
             notAlreadyDeafened,
             completionMet,
@@ -168,7 +168,7 @@ public class Deafen : IDisposable
             breakConditionMet,
             missConditionMet
         ];
-        
+
         return conditions.All(x => x);
     }
 
@@ -184,7 +184,7 @@ public class Deafen : IDisposable
         bool isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
         bool isFullCombo = _tosuAPI.IsFullCombo();
         bool isFCRequired = _sharedViewModel.IsFCRequired;
-        
+
         if ((!isPlaying && _deafened) || (completionPercentage <= 0 && _deafened))
         {
             Console.WriteLine("[ShouldUndeafen] Undeafen: not playing or retried");
@@ -212,15 +212,14 @@ public class Deafen : IDisposable
     /// </summary>
     private void CheckAndDeafen()
     {
-
         //this should seal any edge debounce cases, hopefully.
         bool hasHitObjects = _tosuAPI.GetMaxPlayCombo() != 0;
-         /*
-         so tldr basically without that boolean, if you start a map and the preview time is further than your deafen point,
-         then you would be deafened then immediately undeafened.
-         this just prevents ANYTHING from happening until at least one circle is hit.
-         */
-        
+        /*
+        so tldr basically without that boolean, if you start a map and the preview time is further than your deafen point,
+        then you would be deafened then immediately undeafened.
+        this just prevents ANYTHING from happening until at least one circle is hit.
+        */
+
 
         if (ShouldDeafen() && !_deafened && hasHitObjects)
         {
@@ -241,7 +240,7 @@ public class Deafen : IDisposable
     {
         lock (_deafenLock)
         {
-            if ((DateTime.Now - _lastToggle).TotalMilliseconds < 50) return; 
+            if ((DateTime.Now - _lastToggle).TotalMilliseconds < 50) return;
             _lastToggle = DateTime.Now;
             SimulateDeafenKey();
             _deafened = !_deafened;
@@ -376,7 +375,7 @@ public class Deafen : IDisposable
             _ => KeyCode.VcUndefined
         };
     }
-    
+
     private Key MapSharpHookKeyToAvaloniaKey(KeyCode keyCode)
     {
         return keyCode switch

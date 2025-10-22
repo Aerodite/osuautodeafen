@@ -8,7 +8,7 @@ namespace osuautodeafen.cs.Update;
 public class UpdateChecker
 {
     /// <summary>
-    ///    The current version of osuautodeafen
+    ///     The current version of osuautodeafen
     /// </summary>
     public const string CurrentVersion = "1.1.1";
 

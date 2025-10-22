@@ -97,7 +97,6 @@ public class ProgressIndicatorHelper(ChartManager chartManager)
             var sortedPointsCache =
                 new Dictionary<LineSeries<ObservablePoint>, List<ObservablePoint>>(lineSeriesList.Length);
             foreach (var series in lineSeriesList)
-            {
                 if (series.Values != null)
                 {
                     var values = series.Values as List<ObservablePoint> ?? series.Values.ToList();
@@ -105,7 +104,6 @@ public class ProgressIndicatorHelper(ChartManager chartManager)
                         values.Sort((a, b) => Nullable.Compare(a.X, b.X));
                     sortedPointsCache[series] = values;
                 }
-            }
 
             double range = progressPosition - leftEdgePosition;
             double step = range / steps;
@@ -115,7 +113,7 @@ public class ProgressIndicatorHelper(ChartManager chartManager)
 
             for (int i = 0; i <= steps; i++)
             {
-                double x = leftEdgePosition + (i * step);
+                double x = leftEdgePosition + i * step;
                 if (x > progressPosition) x = progressPosition;
 
                 double? maxY = null;
@@ -144,11 +142,11 @@ public class ProgressIndicatorHelper(ChartManager chartManager)
             ObservablePoint last = contour.Last();
             for (int j = 1; j <= extraPoints; j++)
             {
-                double extX = (last.X ?? progressPosition) + (extensionStep * j);
+                double extX = (last.X ?? progressPosition) + extensionStep * j;
                 contour.Add(new ObservablePoint(extX, last.Y));
             }
 
-            double finalX = (last.X ?? progressPosition) + (extensionStep * extraPoints);
+            double finalX = (last.X ?? progressPosition) + extensionStep * extraPoints;
             contour.Add(new ObservablePoint(finalX, 0));
 
             double leftX = contour.First().X ?? leftEdgePosition;
@@ -202,6 +200,6 @@ public class ProgressIndicatorHelper(ChartManager chartManager)
         if (!lx.HasValue || !rx.HasValue || Math.Abs(lx.Value - rx.Value) < epsilon)
             return ly;
 
-        return ly + ((ry - ly) * (x - lx.Value) / (rx.Value - lx.Value));
+        return ly + (ry - ly) * (x - lx.Value) / (rx.Value - lx.Value);
     }
 }

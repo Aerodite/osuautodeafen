@@ -10,13 +10,13 @@ using System.Threading.Tasks;
 using Avalonia.Input;
 using Newtonsoft.Json;
 using osuautodeafen.cs.Settings;
-using osuautodeafen.cs.StrainGraph;
 
 namespace osuautodeafen.cs.Tosu;
 
 public class TosuApi : IDisposable
 {
     private static readonly Lock ConnectionLock = new();
+    private readonly SemaphoreSlim _connectLock = new(1, 1);
     private readonly List<byte> _dynamicBuffer;
     private readonly string _errorMessage = "";
     private readonly StringBuilder _messageAccumulator = new();
@@ -60,12 +60,12 @@ public class TosuApi : IDisposable
     private double _rankedStatus;
     private int _rawBanchoStatus = -1;
     private double? _realtimeBpm;
-    private string k1Bind = "";
-    private string k2Bind = "";
     private double _sbCount;
     private string _server;
     private string? _settingsSongsDirectory;
     private ClientWebSocket _webSocket;
+    private string k1Bind = "";
+    private string k2Bind = "";
 
     public TosuApi()
     {
@@ -82,10 +82,8 @@ public class TosuApi : IDisposable
         }, null, Timeout.Infinite, Timeout.Infinite);
         _webSocket = new ClientWebSocket();
         _dynamicBuffer = new List<byte>();
-        _reconnectTimer = new Timer(_ =>
-        {
-            _ = Task.Run(() => ReconnectTimerCallback());
-        }, null, Timeout.Infinite, 300000);
+        _reconnectTimer = new Timer(_ => { _ = Task.Run(() => ReconnectTimerCallback()); }, null, Timeout.Infinite,
+            300000);
 
         TosuLauncher.EnsureTosuRunning();
         lock (ConnectionLock)
@@ -95,7 +93,6 @@ public class TosuApi : IDisposable
     }
 
     public bool? isWebsocketConnected => _webSocket.State == WebSocketState.Open;
-    private readonly SemaphoreSlim _connectLock = new(1, 1);
 
     private GraphData Graph { get; } = null!;
 
@@ -172,7 +169,6 @@ public class TosuApi : IDisposable
         if (_rawBanchoStatus != 2)
         {
             if (_webSocket.State == WebSocketState.Open)
-            {
                 try
                 {
                     await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Reconnecting",
@@ -182,7 +178,6 @@ public class TosuApi : IDisposable
                 {
                     Console.WriteLine($@"Error closing WebSocket: {ex.Message}");
                 }
-            }
 
             _webSocket?.Dispose();
             _webSocket = new ClientWebSocket();
@@ -236,12 +231,12 @@ public class TosuApi : IDisposable
                 {
                     _webSocket?.Dispose();
                     _webSocket = new ClientWebSocket();
-                    
+
                     await _webSocket.ConnectAsync(new Uri(uriWithParam), cancellationToken);
                     Console.WriteLine("Connected to WebSocket.");
-                    
+
                     _reconnectTimer.Change(300000, Timeout.Infinite);
-                    
+
                     await ReceiveAsync();
 
                     return;
@@ -414,14 +409,10 @@ public class TosuApi : IDisposable
                                 if (keybinds.TryGetProperty("osu", out JsonElement osuKeybinds))
                                 {
                                     if (osuKeybinds.TryGetProperty("k1", out JsonElement k1))
-                                    {
                                         k1Bind = k1.GetString() ?? "";
-                                    }
 
                                     if (osuKeybinds.TryGetProperty("k2", out JsonElement k2))
-                                    {
                                         k2Bind = k2.GetString() ?? "";
-                                    }
                                 }
 
                         if (root.TryGetProperty("performance", out JsonElement performance))
@@ -632,12 +623,12 @@ public class TosuApi : IDisposable
     {
         return (_beatmapDifficulty ?? "Unknown Difficulty").TrimEnd();
     }
-    
+
     public IEnumerable<Key> GetOsuKeybinds()
     {
-        if (Enum.TryParse<Key>(k1Bind, out var key1))
+        if (Enum.TryParse<Key>(k1Bind, out Key key1))
             yield return key1;
-        if (Enum.TryParse<Key>(k2Bind, out var key2))
+        if (Enum.TryParse<Key>(k2Bind, out Key key2))
             yield return key2;
     }
 
@@ -671,7 +662,7 @@ public class TosuApi : IDisposable
         {
             osuSongsFolder = _settingsSongsDirectory ?? "";
         }
-        
+
         string normalizedFilePath = _osuFilePath.TrimStart('\\', '/')
             .Replace('\\', Path.DirectorySeparatorChar)
             .Replace('/', Path.DirectorySeparatorChar);

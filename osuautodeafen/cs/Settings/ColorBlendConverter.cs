@@ -14,10 +14,10 @@ public class ColorBlendConverter : IMultiValueConverter
             return new SolidColorBrush(Colors.Transparent);
 
         double blendAmount = 0.1;
-        byte a = (byte)((baseColor.A * (1 - blendAmount)) + (blendColor.A * blendAmount));
-        byte r = (byte)((baseColor.R * (1 - blendAmount)) + (blendColor.R * blendAmount));
-        byte g = (byte)((baseColor.G * (1 - blendAmount)) + (blendColor.G * blendAmount));
-        byte b = (byte)((baseColor.B * (1 - blendAmount)) + (blendColor.B * blendAmount));
+        byte a = (byte)(baseColor.A * (1 - blendAmount) + blendColor.A * blendAmount);
+        byte r = (byte)(baseColor.R * (1 - blendAmount) + blendColor.R * blendAmount);
+        byte g = (byte)(baseColor.G * (1 - blendAmount) + blendColor.G * blendAmount);
+        byte b = (byte)(baseColor.B * (1 - blendAmount) + blendColor.B * blendAmount);
 
         // Use parameter for opacity (0-255 or 0.0-1.0)
         if (parameter is string paramStr && double.TryParse(paramStr, out double opacity))
