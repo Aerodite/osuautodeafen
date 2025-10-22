@@ -82,8 +82,8 @@ public class TosuApi : IDisposable
         }, null, Timeout.Infinite, Timeout.Infinite);
         _webSocket = new ClientWebSocket();
         _dynamicBuffer = new List<byte>();
-        _reconnectTimer = new Timer(_ => { _ = Task.Run(() => ReconnectTimerCallback()); }, null, Timeout.Infinite,
-            300000);
+        _reconnectTimer = new Timer(_ => { _ = Task.Run(() => ReconnectTimerCallback()); }, null, 600000,
+            600000);
 
         TosuLauncher.EnsureTosuRunning();
         lock (ConnectionLock)
@@ -166,31 +166,24 @@ public class TosuApi : IDisposable
     /// </summary>
     private async Task ReconnectTimerCallback()
     {
-        if (_rawBanchoStatus != 2)
+        if (_webSocket?.State != WebSocketState.Open)
         {
-            if (_webSocket.State == WebSocketState.Open)
-                try
-                {
-                    await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Reconnecting",
-                        CancellationToken.None);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($@"Error closing WebSocket: {ex.Message}");
-                }
-
             _webSocket?.Dispose();
             _webSocket = new ClientWebSocket();
 
             try
             {
-                Console.WriteLine(@"Attempting to reconnect...");
+                Console.WriteLine("Attempting to reconnect...");
                 await ConnectAsync();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($@"Failed to reconnect: {ex.Message}");
+                Console.WriteLine($"Failed to reconnect: {ex.Message}");
             }
+        }
+        else
+        {
+            Console.WriteLine("WebSocket is still connected, no need to reconnect.");
         }
     }
 
@@ -235,7 +228,7 @@ public class TosuApi : IDisposable
                     await _webSocket.ConnectAsync(new Uri(uriWithParam), cancellationToken);
                     Console.WriteLine("Connected to WebSocket.");
 
-                    _reconnectTimer.Change(300000, Timeout.Infinite);
+                    _reconnectTimer.Change(600000, 600000);
 
                     await ReceiveAsync();
 
@@ -262,7 +255,6 @@ public class TosuApi : IDisposable
             _connectLock.Release();
         }
     }
-
 
     /// <summary>
     ///     Receives messages from the WebSocket and processes them into variables that can be used anywhere
