@@ -48,7 +48,7 @@ public class ChartManager
     
     private readonly TooltipManager _tooltipManager;
 
-    private bool _isHoveringDeafenEdge;
+    private bool _isHoveringDeafenSection;
     private List<BreakPeriod>? _lastBreaks;
     private double _lastDeafenOverlayValue = -1;
     private GraphData? _lastGraphData;
@@ -61,6 +61,8 @@ public class ChartManager
     private List<double>? _lastXAxis;
     private List<double>? _currentXAxis;
     private readonly Dictionary<string, List<int>> _seriesIndexMap = new();
+    
+    private RectangularSection? _draggedDeafenRect = null;
 
     public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel, KiaiTimes kiaiTimes,
         TooltipManager tooltipManager)
@@ -139,6 +141,7 @@ public class ChartManager
         PlotView.PointerPressed += PlotView_PointerPressed;
         PlotView.PointerReleased += PlotView_PointerReleased;
         PlotView.PointerExited += (_, _) => PlotView_PointerExited(_tooltipManager);
+        PlotView.PointerMoved += PlotView_PointerMoved;
 
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
     }
@@ -275,26 +278,6 @@ public class ChartManager
         return $"{sectionText}\n{start}-{end}";
     }
 
-
-    /// <summary>
-    ///     Animates the stroke thickness of a rectangular section over a specified duration (used for deafen section)
-    /// </summary>
-    /// <param name="rs"></param>
-    /// <param name="from"></param>
-    /// <param name="to"></param>
-    /// <param name="durationMs"></param>
-    private async Task AnimateStrokeThickness(RectangularSection rs, float from, float to, int durationMs)
-    {
-        int steps = 6;
-        for (int i = 0; i <= steps; i++)
-        {
-            float thickness = from + ((to - from) * i / steps);
-            rs.Stroke = new SolidColorPaint { Color = SKColors.DarkRed, StrokeThickness = thickness };
-            PlotView.InvalidateVisual();
-            await Task.Delay(durationMs / steps);
-        }
-    }
-
     /// <summary>
     ///     Updates the cursor if it has changed
     /// </summary>
@@ -312,20 +295,44 @@ public class ChartManager
     /// <param name="e"></param>
     private void PlotView_PointerPressed(object? sender, PointerEventArgs e)
     {
-        Point pixelPoint = e.GetPosition(PlotView);
-        LvcPointD lvcPoint = new(pixelPoint.X, pixelPoint.Y);
-        LvcPointD dataPoint = PlotView.ScalePixelsToData(lvcPoint);
+        if (!e.GetCurrentPoint(PlotView).Properties.IsLeftButtonPressed) return;
 
-        foreach (CoreSection section in PlotView.Sections)
-            if (section is RectangularSection rs && rs.Fill is SolidColorPaint paint &&
-                paint.Color == DeafenOverlayColor)
-                if (rs.Xi != null && Math.Abs(dataPoint.X - rs.Xi.Value) < 5)
-                {
-                    _isDraggingDeafenEdge = true;
-                    _draggedDeafenSection = rs;
-                    e.Handled = true;
-                    break;
-                }
+        Point pixelPoint = e.GetPosition(PlotView);
+        LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
+
+        _draggedDeafenSection = PlotView.Sections
+            .OfType<RectangularSection>()
+            .FirstOrDefault(rs => rs.Fill is SolidColorPaint paint && paint.Color == DeafenOverlayColor);
+
+        if (_draggedDeafenSection != null)
+            _isDraggingDeafenEdge = true;
+
+        if (_draggedDeafenSection != null)
+        {
+            _draggedDeafenSection.Xi = dataPoint.X;
+            
+            double newPercentage = Math.Min(100.0, 100.0 * (_draggedDeafenSection.Xi ?? 0) / MaxLimit);
+            
+            _viewModel.MinCompletionPercentage = newPercentage;
+            
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
+                desktop.MainWindow is MainWindow { CompletionPercentageSlider: not null } mainWindow)
+            {
+                mainWindow.CompletionPercentageSlider.Value = newPercentage;
+                mainWindow.CompletionPercentageSlider_ValueChanged(
+                    null,
+                    new RangeBaseValueChangedEventArgs(newPercentage, newPercentage, null)
+                );
+            }
+            
+            PlotView.InvalidateVisual();
+            
+            _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.Deafen;
+            TryShowTooltip(dataPoint, pixelPoint, _tooltipManager);
+        }
+
+        e.Handled = true;
+        UpdateCursor(new Cursor(StandardCursorType.SizeWestEast));
     }
 
     /// <summary>
@@ -335,26 +342,42 @@ public class ChartManager
     /// <param name="e"></param>
     private void PlotView_PointerReleased(object? sender, PointerEventArgs e)
     {
-        if (_isDraggingDeafenEdge)
-        {
-            _isDraggingDeafenEdge = false;
-            _draggedDeafenSection = null;
-            _isHoveringDeafenEdge = false;
-            UpdateCursor(new Cursor(StandardCursorType.Arrow));
-            e.Handled = true;
-        }
+        if (!_isDraggingDeafenEdge) return;
+
+        _isDraggingDeafenEdge = false;
+        _draggedDeafenRect = null;
+        e.Handled = true;
+        UpdateCursor(new Cursor(StandardCursorType.Arrow));
     }
 
     /// <summary>
     /// Handles pointer exit events to reset hover states and hide tooltips with a short delay
     /// </summary>
     /// <param name="tooltipManager"></param>
-    private async void PlotView_PointerExited(TooltipManager tooltipManager)
+    private void PlotView_PointerExited(TooltipManager tooltipManager)
     {
-      
+        _isHoveringDeafenSection = false;
+        tooltipManager.HideTooltip();
     }
+    private void PlotView_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        Point pixelPoint = e.GetPosition(PlotView);
+        LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
+        
+        if (_isDraggingDeafenEdge && _draggedDeafenSection != null)
+        {
+            double newXi = Math.Max(0, Math.Min(dataPoint.X, Math.Min((_draggedDeafenSection.Xj ?? 0) - 1, MaxLimit)));
+            _draggedDeafenSection.Xi = newXi;
+            double newPercentage = Math.Min(100.0, 100.0 * newXi / MaxLimit);
+            _viewModel.MinCompletionPercentage = newPercentage;
 
-
+            PlotView.InvalidateVisual();
+        }
+        
+        // I have no clue in hell why that just... works ???
+        _tooltipManager.UpdateTooltipText("", true);
+    }
+    
     /// <summary>
     ///     Updates the deafen overlay section to reflect the current minimum completion percentage.
     /// </summary>

@@ -352,7 +352,6 @@
                              VerticalAlignment="Center" />
                         <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
                                   IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
-                                  IsEnabled="{Binding IsFCRequired, Converter={StaticResource InverseBooleanConverter}}"
                                   HorizontalAlignment="Left" VerticalAlignment="Center"
                                   Margin="0" Width="125" Classes="custom" />
                     </StackPanel>
