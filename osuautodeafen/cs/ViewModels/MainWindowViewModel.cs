@@ -7,6 +7,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using osuautodeafen.cs.Settings;
@@ -14,6 +15,8 @@ using osuautodeafen.cs.Settings.Presets;
 using osuautodeafen.cs.Tooltips;
 using osuautodeafen.cs.Tosu;
 using osuautodeafen.cs.Update;
+using osuautodeafen.cs.ViewModels;
+using osuautodeafen.Views;
 
 namespace osuautodeafen.cs;
 
@@ -31,14 +34,12 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     private string _beatmapDifficulty;
 
-    private string _beatmapName;
+    private string? _beatmapName;
 
     private double _blurRadius;
 
     private double _completionPercentage;
     private MainWindow.HotKey? _deafenKeybind;
-
-    private string _deafenKeybindDisplay;
 
     private string _fullBeatmapName;
 
@@ -56,8 +57,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     private bool _isSliderTooltipOpen;
     private bool _isUpdateReady;
-
-    private string _keybindPrompt = "Press any key(s) for the keybind...";
+    
     private double _minCompletionPercentage;
 
     private Bitmap? _modifiedLogoImage;
@@ -77,9 +77,12 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private string _updateStatusMessage;
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
-
-    public SharedViewModel(TosuApi tosuApi, TooltipManager tooltipManager)
+    public SharedViewModel(TosuApi tosuApi, TooltipManager tooltipManager, HomeView homeView, SettingsView settingsView)
     {
+        HomePage = homeView;
+        SettingsPage = settingsView;
+        CurrentPage = HomePage; 
+        
         _settingsHandler = new SettingsHandler();
         OpenUpdateUrlCommand = new RelayCommand(OpenUpdateUrl);
         Task.Run(InitializeAsync);
@@ -115,7 +118,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    public string BeatmapName
+    public string? BeatmapName
     {
         get => _beatmapName;
         set
@@ -205,10 +208,35 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             }
         }
     }
+    
+    public UserControl HomePage { get; }
+    private UserControl SettingsPage { get; }
 
-
-    public string CurrentAppVersion => $"Current Version: v{UpdateChecker.CurrentVersion}";
-
+    private UserControl _currentPage;
+    public UserControl CurrentPage
+    {
+        get => _currentPage;
+        set
+        {
+            if (_currentPage != value)
+            {
+                _currentPage = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+    
+    public void SwitchPage(string page)
+    {
+        CurrentPage = page switch
+        {
+            "Settings" => SettingsPage,
+            _ => HomePage
+        };
+        OnPropertyChanged(nameof(CurrentPage));
+    }
+    
+    public string CurrentAppVersion => $"v{UpdateChecker.CurrentVersion}";
     public bool IsKeybindCaptureFlyoutOpen
     {
         get => _isKeybindCaptureFlyoutOpen;
@@ -217,19 +245,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             if (_isKeybindCaptureFlyoutOpen != value)
             {
                 _isKeybindCaptureFlyoutOpen = value;
-                OnPropertyChanged();
-            }
-        }
-    }
-
-    public string DeafenKeybindDisplay
-    {
-        get => _deafenKeybindDisplay;
-        set
-        {
-            if (_deafenKeybindDisplay != value)
-            {
-                _deafenKeybindDisplay = value;
                 OnPropertyChanged();
             }
         }
@@ -546,16 +561,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     public object MinPPValue => _tosuApi.GetMaxPP();
 
     public object MinSRValue => _tosuApi.GetFullSR();
-
-    public string KeybindPrompt
-    {
-        get => _keybindPrompt;
-        set
-        {
-            _keybindPrompt = value;
-            OnPropertyChanged();
-        }
-    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

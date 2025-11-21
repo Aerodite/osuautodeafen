@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Avalonia.Controls;
+using Avalonia.Media;
 using Velopack;
 using Velopack.Sources;
 
@@ -7,10 +9,19 @@ namespace osuautodeafen.cs.Update;
 
 public class UpdateChecker
 {
+    private Button? _updateNotificationBarButton;
+    private ProgressBar? _updateProgressBar;
+    
+    public UpdateChecker(Button notificationBar, ProgressBar progressBar)
+    {
+        _updateNotificationBarButton = notificationBar;
+        _updateProgressBar = progressBar;
+    }
+    
     /// <summary>
     ///     The current version of osuautodeafen
     /// </summary>
-    public const string CurrentVersion = "1.1.1";
+    public const string CurrentVersion = "1.1.2";
 
     private static readonly GithubSource UpdateSource = new("https://github.com/Aerodite/osuautodeafen",
         null, false);
@@ -40,5 +51,17 @@ public class UpdateChecker
 
         Console.WriteLine("Update available.");
         await Mgr.DownloadUpdatesAsync(UpdateInfo);
+    }
+    
+    /// <summary>
+    ///     Displays the update notification bar and initializes progress bar
+    /// </summary>
+    public async Task ShowUpdateNotification()
+    {
+        Console.WriteLine("Showing Update Notification");
+
+        _updateNotificationBarButton.IsVisible = true;
+        _updateProgressBar.Value = 0;
+        _updateProgressBar.Foreground = Brushes.Green;
     }
 }

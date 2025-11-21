@@ -13,18 +13,23 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using osuautodeafen.cs.Logo;
 using osuautodeafen.cs.Tosu;
+using osuautodeafen.Views;
 
 namespace osuautodeafen.cs.Background;
 
-public class BackgroundManager(MainWindow window, SharedViewModel viewModel, TosuApi tosuApi)
+public class BackgroundManager(MainWindow window, SharedViewModel viewModel, TosuApi tosuApi, SettingsView settingsView)
 {
     private readonly Dictionary<string, OpacityRequest> _opacityRequests = new();
     private readonly TimeSpan _parallaxInterval = TimeSpan.FromMilliseconds(16);
+    
+    private readonly SettingsView _settingsView = settingsView;
 
     private PropertyChangedEventHandler? _backgroundPropertyChangedHandler;
     private double _cachedDownscale = 1.0;
 
     private Bitmap? _cachedDownscaledBitmap;
+    
+    public bool CachedParallaxSetting = false;
 
     private GpuBackgroundControl? _cachedGpuBackground;
     private Bitmap? _cachedSourceBitmap;
@@ -412,7 +417,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             if (backgroundLayer == null)
                 return;
 
-            if (window.ParallaxToggle?.IsChecked == false || window.BackgroundToggle?.IsChecked == false)
+            if (_settingsView.ParallaxToggle?.IsChecked == false || _settingsView.BackgroundToggle?.IsChecked == false)
             {
                 if (_cachedGpuBackground == null || !backgroundLayer.Children.Contains(_cachedGpuBackground))
                     _cachedGpuBackground = backgroundLayer.Children.OfType<GpuBackgroundControl>().FirstOrDefault();
@@ -464,7 +469,10 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     /// <param name="e"></param>
     public void OnMouseMove(object? sender, PointerEventArgs e)
     {
-        if (window.ParallaxToggle?.IsChecked == false || window.BackgroundToggle?.IsChecked == false)
+        if (_settingsView.ParallaxToggle?.IsChecked == false && CachedParallaxSetting == false)
+            return;
+        
+        if (_settingsView.BackgroundToggle?.IsChecked == false)
             return;
 
         Point position = e.GetPosition(window);
