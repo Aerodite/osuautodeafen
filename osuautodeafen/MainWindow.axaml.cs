@@ -139,17 +139,17 @@ public partial class MainWindow : Window
         LogFileManager.InitializeLogging(logFile);
 
         _tosuApi = new TosuApi();
+
+        _settingsHandler = new SettingsHandler();
+        _settingsHandler.LoadSettings();
         
-        SettingsView = new SettingsView();
+        SettingsView = new SettingsView(_settingsHandler);
         HomeView = new HomeView();
 
         _viewModel = new SharedViewModel(_tosuApi, _tooltipManager, HomeView, SettingsView);
         _settingsViewModel = new SettingsViewModel();
         ViewModel = _viewModel;
         DataContext = _viewModel;
-
-        _settingsHandler = new SettingsHandler();
-        _settingsHandler.LoadSettings();
         
         _viewModel.CurrentPage = _viewModel.HomePage;
         
@@ -461,8 +461,7 @@ public partial class MainWindow : Window
         
         SettingsView.ParallaxToggle.Checked += (_, _) => _backgroundManager.CachedParallaxSetting = true;
         SettingsView.ParallaxToggle.Unchecked += (_, _) => _backgroundManager.CachedParallaxSetting = false;
-
-
+        
         CheckBox? FCToggle = SettingsView.FindControl<CheckBox>("FCToggle");
         StackPanel? undeafenPanel = SettingsView.FindControl<StackPanel>("UndeafenOnMissPanel");
 
@@ -574,11 +573,7 @@ public partial class MainWindow : Window
             Console.WriteLine("BackgroundToggle or ParallaxTogglePanel or KiaiTogglePanel not found in XAML");
         }
 
-
         PointerMoved += MainWindow_PointerMoved;
-
-        SettingsView.InitializeKeybindButtonText();
-        SettingsView.UpdateDeafenKeybindDisplay();
         SettingsView.CompletionPercentageSlider.Value = ViewModel.MinCompletionPercentage;
         SettingsView.StarRatingSlider.Value = ViewModel.StarRating;
         SettingsView.PPSlider.Value = ViewModel.PerformancePoints;
@@ -684,7 +679,7 @@ public partial class MainWindow : Window
         SettingsView.ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
         SettingsView.KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
 
-        _viewModel.DeafenKeybind = new HotKey
+        _settingsViewModel.DeafenKeybind = new HotKey
         {
             Key = _settingsHandler.Data["Hotkeys"]["DeafenKeybindKey"] is { } keyStr &&
                   int.TryParse(keyStr, out int keyVal)
@@ -1069,12 +1064,12 @@ public partial class MainWindow : Window
         base.OnKeyDown(e);
         _pressedKeys.Add(e.Key);
 
-        if (ViewModel.IsKeybindCaptureFlyoutOpen)
+        if (_settingsViewModel.IsKeybindCaptureFlyoutOpen)
         {
             Flyout? flyout = SettingsView.DeafenKeybindButton.Flyout as Flyout;
             if (e.Key == Key.Escape)
             {
-                ViewModel.IsKeybindCaptureFlyoutOpen = false;
+                _settingsViewModel.IsKeybindCaptureFlyoutOpen = false;
                 flyout?.Hide();
                 return;
             }
@@ -1151,14 +1146,14 @@ public partial class MainWindow : Window
                 ShiftSide = shiftSide,
                 FriendlyName = friendlyKeyName
             };
-            ViewModel.DeafenKeybind = hotKey;
+            _settingsViewModel.DeafenKeybind = hotKey;
 
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindKey", (int)e.Key);
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindControlSide", (int)controlSide);
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindAltSide", (int)altSide);
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindShiftSide", (int)shiftSide);
 
-            ViewModel.IsKeybindCaptureFlyoutOpen = false;
+            _settingsViewModel.IsKeybindCaptureFlyoutOpen = false;
             SettingsView.UpdateDeafenKeybindDisplay();
 
             e.Handled = true;
@@ -1188,7 +1183,7 @@ public partial class MainWindow : Window
         base.OnKeyUp(e);
         _pressedKeys.Remove(e.Key);
 
-        if (ViewModel.IsKeybindCaptureFlyoutOpen && _modifierOnlyTimer?.IsEnabled == true && IsModifierKey(e.Key))
+        if (_settingsViewModel.IsKeybindCaptureFlyoutOpen && _modifierOnlyTimer?.IsEnabled == true && IsModifierKey(e.Key))
         {
             _modifierOnlyTimer.Stop();
 
@@ -1225,14 +1220,14 @@ public partial class MainWindow : Window
                 ShiftSide = shiftSide,
                 FriendlyName = modifiers.ToString()
             };
-            ViewModel.DeafenKeybind = hotKey;
+            _settingsViewModel.DeafenKeybind = hotKey;
 
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindKey", (int)Key.None);
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindControlSide", (int)controlSide);
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindAltSide", (int)altSide);
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindShiftSide", (int)shiftSide);
 
-            ViewModel.IsKeybindCaptureFlyoutOpen = false;
+            _settingsViewModel.IsKeybindCaptureFlyoutOpen = false;
             SettingsView.UpdateDeafenKeybindDisplay();
 
             flyout?.Hide();

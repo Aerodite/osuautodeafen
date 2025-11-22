@@ -10,6 +10,7 @@
         xmlns:presets="clr-namespace:osuautodeafen.cs.Settings.Presets"
         xmlns:transitions="clr-namespace:Avalonia.Animation;assembly=Avalonia.Animation"
         xmlns:progressIndicator="clr-namespace:osuautodeafen.cs.StrainGraph.ProgressIndicator"
+        xmlns:viewModels="clr-namespace:osuautodeafen.cs.ViewModels"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osuautodeafen"
@@ -23,36 +24,36 @@
         <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
         <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrushDim.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrushDim.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
 
         <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonBackgroundBrushPointerOver" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonBackgroundBrushPressed" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonBackgroundBrushDisabled" Color="{Binding AverageColorBrushDark.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonBorderBrush" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonForegroundBrush" Color="{Binding AverageColorBrushDim.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonHighlightBrush" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="CheckBoxBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="TooltipColorBrush" Color="{Binding AverageColorBrushDimmer.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
     </Window.Resources>
     <Window.Styles>
 
@@ -126,7 +127,7 @@
             <ColumnDefinition Width="0" />
         </Grid.ColumnDefinitions>
         
-        <ContentControl Content="{Binding CurrentPage}" x:DataType="cs:SharedViewModel"/>
+        <ContentControl Content="{Binding CurrentPage}" x:DataType="viewModels:SharedViewModel"/>
         
         <Canvas ZIndex="99" IsHitTestVisible="False">
             <Grid x:Name="TooltipRoot"
@@ -188,7 +189,7 @@
                         Margin="0,20,0,0"
                         IsVisible="False">
                 <TextBlock x:Name="DebugConsoleTextBlock"
-                           x:DataType="cs:SharedViewModel"
+                           x:DataType="viewModels:SharedViewModel"
                            HorizontalAlignment="Stretch"
                            VerticalAlignment="Stretch"
                            Margin="0,20,0,0"
@@ -209,7 +210,7 @@
                            Width="50" Height="50">
                         <Image.OpacityMask>
                             <MultiBinding Converter="{StaticResource ColorBlendConverter}"
-                                          x:DataType="cs:SharedViewModel">
+                                          x:DataType="viewModels:SharedViewModel">
                                 <Binding Path="Color" Source="{StaticResource BaseBackgroundBrush}" />
                                 <Binding Path="AverageColorBrush.Color" />
                             </MultiBinding>
@@ -249,7 +250,7 @@
             </Grid.RowDefinitions>
 
             <TextBlock Text="{Binding StatusMessage}" HorizontalAlignment="Center" VerticalAlignment="Top"
-                       x:DataType="cs:SharedViewModel" Margin="0,0,0,0" Foreground="#ff3333" FontSize="14" />
+                       x:DataType="viewModels:SharedViewModel" Margin="0,0,0,0" Foreground="#ff3333" FontSize="14" />
             <Grid>
                 <avalonia1:CartesianChart
                     x:Name="PlotView"
@@ -259,7 +260,7 @@
                 <progressIndicator:ProgressIndicatorOverlay
                     x:Name="ProgressOverlay"
                     IsHitTestVisible="False" />
-                <Canvas x:Name="IconOverlay" IsHitTestVisible="False" x:DataType="cs:SharedViewModel" />
+                <Canvas x:Name="IconOverlay" IsHitTestVisible="False" x:DataType="viewModels:SharedViewModel" />
             </Grid>
             <Grid HorizontalAlignment="Stretch" x:Name="UpdateNotificationGrid" VerticalAlignment="Bottom"
                   Grid.Row="2" IsVisible="{Binding IsVisible, ElementName=UpdateNotificationBar}">
@@ -271,7 +272,7 @@
                         HorizontalAlignment="Stretch"
                         FontSize="12"
                         Foreground="White"
-                        x:DataType="cs:SharedViewModel"
+                        x:DataType="viewModels:SharedViewModel"
                         Background="{Binding UpdateBarBackground}"
                         Click="UpdateNotificationBar_Click">
                     <Grid>

@@ -15,10 +15,9 @@ using osuautodeafen.cs.Settings.Presets;
 using osuautodeafen.cs.Tooltips;
 using osuautodeafen.cs.Tosu;
 using osuautodeafen.cs.Update;
-using osuautodeafen.cs.ViewModels;
 using osuautodeafen.Views;
 
-namespace osuautodeafen.cs;
+namespace osuautodeafen.cs.ViewModels;
 
 public sealed class SharedViewModel : INotifyPropertyChanged
 {
@@ -39,7 +38,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private double _blurRadius;
 
     private double _completionPercentage;
-    private MainWindow.HotKey? _deafenKeybind;
 
     private string _fullBeatmapName;
 
@@ -48,8 +46,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private bool _IsBreakUndeafenToggleEnabled;
 
     private bool _isFCRequired;
-
-    private bool _isKeybindCaptureFlyoutOpen;
 
     private bool _IsKiaiEffectEnabled;
 
@@ -237,18 +233,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     }
     
     public string CurrentAppVersion => $"v{UpdateChecker.CurrentVersion}";
-    public bool IsKeybindCaptureFlyoutOpen
-    {
-        get => _isKeybindCaptureFlyoutOpen;
-        set
-        {
-            if (_isKeybindCaptureFlyoutOpen != value)
-            {
-                _isKeybindCaptureFlyoutOpen = value;
-                OnPropertyChanged();
-            }
-        }
-    }
 
     public SolidColorBrush AverageColorBrush
     {
@@ -413,19 +397,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         {
             _statusMessage = value;
             OnPropertyChanged();
-        }
-    }
-
-    public MainWindow.HotKey? DeafenKeybind
-    {
-        get => _deafenKeybind;
-        set
-        {
-            if (_deafenKeybind != value)
-            {
-                _deafenKeybind = value;
-                OnPropertyChanged();
-            }
         }
     }
 

@@ -19,36 +19,36 @@
         <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
         <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrushDim.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrushDim.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
 
         <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonBackgroundBrushPointerOver" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonBackgroundBrushPressed" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonBackgroundBrushDisabled" Color="{Binding AverageColorBrushDark.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonBorderBrush" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonForegroundBrush" Color="{Binding AverageColorBrushDim.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonHighlightBrush" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="CheckBoxBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="TooltipColorBrush" Color="{Binding AverageColorBrushDimmer.Color}"
-                         x:DataType="cs:SharedViewModel" />
+                         x:DataType="viewModels:SharedViewModel" />
     </UserControl.Resources>
     
     <UserControl.Styles>
@@ -120,7 +120,7 @@
     
     <DockPanel x:Name="SettingsPanel" Grid.Column="1" Width="200" IsVisible="True"
                Margin="0,42,0,0" ZIndex="3"
-               x:DataType="cs:SharedViewModel" HorizontalAlignment="Right">
+               x:DataType="viewModels:SharedViewModel" HorizontalAlignment="Right">
             <DockPanel.Background>
                 <MultiBinding Converter="{StaticResource ColorBlendConverter}">
                     <Binding Path="Color" Source="{StaticResource BaseBackgroundBrush}" />
@@ -537,17 +537,18 @@
                                     PointerExited="DeafenKeybindPanel_PointerLeave">
                             <Svg Path="avares://osuautodeafen/Icons/keyboard.svg" Width="32"
                                  Height="32" Margin="0,0,5,0" />
-                            <Button x:Name="DeafenKeybindButton" Width="100" Height="40"
+                            <Button x:Name="DeafenKeybindButton"
+                                    Width="100" Height="40"
                                     HorizontalAlignment="Left" FontSize="11" Margin="0"
+                                    x:DataType="viewModels:SettingsViewModel"
                                     Content="{Binding DeafenKeybindDisplay}"
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
-                                    Click="DeafenKeybindButton_Click"
-                                    x:DataType="viewModels:SettingsViewModel">
+                                    Click="DeafenKeybindButton_Click">
                                 <!--this should probably include some sort of verification prompt in the near future.. maybe-->
                                 <Button.Flyout>
                                     <Flyout>
-                                        <TextBlock Text="{Binding KeybindPrompt}" />
+                                        <TextBlock Text="{Binding KeybindPrompt}"/>
                                     </Flyout>
                                 </Button.Flyout>
                             </Button>

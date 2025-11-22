@@ -30,7 +30,7 @@ namespace osuautodeafen.Views
     public partial class SettingsView : UserControl
     {
         private TosuApi _tosuApi;
-        private readonly SettingsHandler _settingsHandler;
+        private SettingsHandler _settingsHandler;
         private SharedViewModel _viewModel;
         private ChartManager _chartManager;
         private readonly KeybindHelper _keybindHelper = new();
@@ -52,11 +52,11 @@ namespace osuautodeafen.Views
         private DispatcherTimer? _ppSaveTimer;
         private DispatcherTimer? _completionPercentageSaveTimer;
         private DispatcherTimer? _starRatingSaveTimer;
-        public SettingsView()
+        public SettingsView(SettingsHandler settingsHandler)
         {
             InitializeComponent();
             Console.WriteLine("SettingsView initialized");
-            _settingsHandler = new SettingsHandler();
+            _settingsHandler = settingsHandler;
         }
         
         /// <summary>
@@ -68,18 +68,26 @@ namespace osuautodeafen.Views
         /// <param name="backgroundManager"></param>
         /// <param name="tooltipManager"></param>
         /// <param name="settingsViewModel"></param>
-        public void SetViewControls(TosuApi tosuApi, SharedViewModel viewModel, ChartManager chartManager, BackgroundManager? backgroundManager, TooltipManager tooltipManager, SettingsViewModel settingsViewModel)
+        public void SetViewControls(TosuApi tosuApi, SharedViewModel viewModel, ChartManager chartManager,
+            BackgroundManager? backgroundManager, TooltipManager tooltipManager,
+            SettingsViewModel settingsViewModel)
         {
             _tosuApi = tosuApi;
             _viewModel = viewModel;
-            DataContext = _viewModel;
             _chartManager = chartManager;
             _backgroundManager = backgroundManager;
             _tooltipManager = tooltipManager;
             _settingsViewModel = settingsViewModel;
+            DataContext = _viewModel;
+            
+            DeafenKeybindButton.DataContext = _settingsViewModel;
+            if (DeafenKeybindButton.Flyout is Flyout { Content: Control content })
+            {
+                content.DataContext = _settingsViewModel;
+            }
         }
 
-        private void UpdateViewModel()
+        public void UpdateViewModel()
         {
             _viewModel.MinCompletionPercentage = _settingsHandler.MinCompletionPercentage;
             _viewModel.StarRating = _settingsHandler.StarRating;
@@ -116,13 +124,6 @@ namespace osuautodeafen.Views
             BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
             ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
             KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
-        }
-
-        public void InitializeKeybindButtonText()
-        {
-            string currentKeybind = RetrieveKeybindFromSettings();
-            Button? deafenKeybindButton = this.FindControl<Button>("DeafenKeybindButton");
-            if (deafenKeybindButton != null) deafenKeybindButton.Content = currentKeybind;
         }
 
         /// <summary>
@@ -213,7 +214,6 @@ namespace osuautodeafen.Views
         public void UpdateDeafenKeybindDisplay()
         {
             string currentKeybind = RetrieveKeybindFromSettings();
-            DeafenKeybindButton.Content = currentKeybind;
             _settingsViewModel.DeafenKeybindDisplay = currentKeybind;
         }
         
@@ -225,7 +225,9 @@ namespace osuautodeafen.Views
         {
             KeyDataCollection? hotkeys = _settingsHandler?.Data["Hotkeys"];
             if (hotkeys == null)
+            {
                 return "Set Keybind";
+            }
 
             string? keyStr = hotkeys["DeafenKeybindKey"];
             string? controlSideStr = hotkeys["DeafenKeybindControlSide"];
@@ -893,9 +895,9 @@ namespace osuautodeafen.Views
         /// <param name="e"></param>
         private void DeafenKeybindButton_Click(object sender, RoutedEventArgs e)
         {
-            _viewModel.IsKeybindCaptureFlyoutOpen = !_viewModel.IsKeybindCaptureFlyoutOpen;
+            _settingsViewModel.IsKeybindCaptureFlyoutOpen = !_settingsViewModel.IsKeybindCaptureFlyoutOpen;
             if (DeafenKeybindButton.Flyout is not Flyout flyout) return;
-            if (_viewModel.IsKeybindCaptureFlyoutOpen)
+            if (_settingsViewModel.IsKeybindCaptureFlyoutOpen)
                 flyout.ShowAt(DeafenKeybindButton, true);
             else
                 flyout.Hide();

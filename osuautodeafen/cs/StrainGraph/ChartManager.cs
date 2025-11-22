@@ -18,6 +18,7 @@ using LiveChartsCore.SkiaSharpView.Avalonia;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs.Tooltips;
 using osuautodeafen.cs.Tosu;
+using osuautodeafen.cs.ViewModels;
 using osuautodeafen.Views;
 using SkiaSharp;
 

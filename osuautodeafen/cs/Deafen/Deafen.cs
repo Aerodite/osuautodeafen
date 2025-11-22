@@ -6,6 +6,7 @@ using Avalonia.Input;
 using osuautodeafen.cs.Settings;
 using osuautodeafen.cs.Settings.Keybinds;
 using osuautodeafen.cs.Tosu;
+using osuautodeafen.cs.ViewModels;
 using SharpHook;
 using SharpHook.Data;
 using Timer = System.Timers.Timer;
