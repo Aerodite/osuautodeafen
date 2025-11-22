@@ -129,28 +129,31 @@
         <ContentControl Content="{Binding CurrentPage}" x:DataType="cs:SharedViewModel"/>
         
         <Canvas ZIndex="99" IsHitTestVisible="False">
-            <Border x:Name="CustomTooltip"
-                    CornerRadius="8"
-                    Padding="8"
-                    ClipToBounds="True"
-                    Opacity="0"
-                    IsVisible="False">
-                <Border.Background>
-                    <MultiBinding Converter="{StaticResource ColorBlendConverter}" x:DataType="cs:SharedViewModel">
-                        <Binding Path="Color" Source="{StaticResource TooltipColorBrush}" />
-                        <Binding Path="AverageColorBrushDark.Color" />
-                    </MultiBinding>
-                </Border.Background>
-                <Grid>
-                    <TextBlock x:Name="TooltipText"
-                               TextWrapping="Wrap"
-                               Foreground="White"
-                               FontSize="13"
-                               FontWeight="Regular"
-                               HorizontalAlignment="Center"
-                               TextAlignment="Center" />
-                </Grid>
-            </Border>
+            <Grid x:Name="TooltipRoot"
+                  ClipToBounds="True"
+                  Opacity="0"
+                  IsVisible="False"
+                  Background="Transparent">
+
+                <Border x:Name="TooltipBackground"
+                        Background="{Binding Source={StaticResource TooltipColorBrush}}"
+                        CornerRadius="8"
+                        Opacity="0.8"
+                        Padding="8">
+                    <Border.Effect>
+                        <BlurEffect Radius="1"/>
+                    </Border.Effect>
+                </Border>
+
+                <TextBlock x:Name="TooltipText"
+                           TextWrapping="Wrap"
+                           Foreground="White"
+                           FontSize="13"
+                           FontWeight="Regular"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           TextAlignment="Center"/>
+            </Grid>
         </Canvas>
 
         <Grid Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Top">

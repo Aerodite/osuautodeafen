@@ -449,7 +449,7 @@ public partial class MainWindow : Window
         CanResize = false;
         Closing += MainWindow_Closing;
 
-        _tooltipManager.SetTooltipControls(CustomTooltip, TooltipText, _settingsHandler.WindowWidth,
+        _tooltipManager.SetTooltipControls(TooltipRoot, TooltipText, _settingsHandler.WindowWidth,
             _settingsHandler.WindowHeight);
 
         PointerPressed += (sender, e) =>
