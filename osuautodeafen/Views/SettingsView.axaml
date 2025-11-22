@@ -118,6 +118,12 @@
     </UserControl.Styles>
     
     
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        
     <DockPanel x:Name="SettingsPanel" Grid.Column="1" Width="200" IsVisible="True"
                Margin="0,42,0,0" ZIndex="3"
                x:DataType="viewModels:SharedViewModel" HorizontalAlignment="Right">
@@ -673,8 +679,26 @@
                                  HorizontalAlignment="Center"
                                  VerticalAlignment="Center" />
                         </Button>
+                        
+                        <Button x:Name="DebugConsoleButton"
+                                Width="50" Height="50"
+                                Background="Transparent"
+                                BorderBrush="{x:Null}"
+                                BorderThickness="0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Click="DebugConsoleButton_Click"
+                                PointerEntered="DebugConsoleButton_PointerEnter"
+                                PointerExited="DebugConsoleButton_PointerLeave">
+                            <Svg x:Name="DebugConsoleImage"
+                                 Path="avares://osuautodeafen/Icons/code.svg"
+                                 Width="24" Height="24"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center" />
+                        </Button>
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </DockPanel>
+        </Grid>
 </UserControl>

@@ -38,6 +38,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private double _blurRadius;
 
     private double _completionPercentage;
+    
+    private GridLength _settingsPanelWidth = new GridLength(0);
 
     private string _fullBeatmapName;
 
@@ -201,6 +203,19 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             {
                 _updateBarBackground = value;
                 OnPropertyChanged();
+            }
+        }
+    }
+
+    public GridLength SettingsPanelWidth
+    {
+        get => _settingsPanelWidth;
+        set
+        {
+            if (_settingsPanelWidth != value)
+            {
+                _settingsPanelWidth = value;
+                OnPropertyChanged(nameof(SettingsPanelWidth));
             }
         }
     }

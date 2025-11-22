@@ -608,7 +608,7 @@ public partial class MainWindow : Window
         if (currentTooltipType == Tooltips.TooltipType.Time || currentTooltipType == Tooltips.TooltipType.Section)
         {
             bool belowBottomLimit = pixelPoint.Y >= PlotView.Bounds.Height - 120;
-            bool withinRightLimit = !_isSettingsPanelOpen || pixelPoint.X <= PlotView.Bounds.Width - 200;
+            bool withinRightLimit = !_isSettingsPanelOpen || pixelPoint.X <= PlotView.Bounds.Width;
 
             if (!belowBottomLimit || !withinRightLimit)
             {
@@ -1725,6 +1725,7 @@ public partial class MainWindow : Window
 
         tasks.Add(Dispatcher.UIThread.InvokeAsync(() =>
         {
+            _ = AnimateGridLength(_viewModel.SettingsPanelWidth, new GridLength(200, GridUnitType.Pixel),TimeSpan.FromMilliseconds(250), w => _viewModel.SettingsPanelWidth = w);
             settingsPanel.Margin = showMargin;
             buttonContainer.Margin = buttonLeftMargin;
 
@@ -1767,6 +1768,7 @@ public partial class MainWindow : Window
         await Task.WhenAll(
             Dispatcher.UIThread.InvokeAsync(() =>
             {
+                _ = AnimateGridLength(_viewModel.SettingsPanelWidth, new GridLength(0, GridUnitType.Pixel),TimeSpan.FromMilliseconds(250), w => _viewModel.SettingsPanelWidth = w);
                 settingsPanel.Margin = hideMargin;
                 buttonContainer.Margin = buttonRightMargin;
 
@@ -1782,6 +1784,26 @@ public partial class MainWindow : Window
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
             }).GetTask());
     }
+    
+    private async Task AnimateGridLength(
+        GridLength from, GridLength to, TimeSpan duration, Action<GridLength> setter)
+    {
+        const int fps = 60;
+        int frames = (int)(duration.TotalSeconds * fps);
+
+        double current = from.Value;
+        double step = (to.Value - from.Value) / frames;
+
+        for (int i = 0; i < frames; i++)
+        {
+            current += step;
+            setter(new GridLength(current, GridUnitType.Pixel));
+            await Task.Delay(1000 / fps);
+        }
+
+        setter(to);
+    }
+
     
     /// <summary>
     ///     Changes the margin of any Avalonia control to a specified target margin
@@ -2080,7 +2102,7 @@ public partial class MainWindow : Window
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
-    private async void ToggleDebugConsole(object? sender, RoutedEventArgs e)
+    public async void ToggleDebugConsole(object? sender, RoutedEventArgs e)
     {
         try
         {

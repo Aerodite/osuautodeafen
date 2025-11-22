@@ -11,6 +11,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using IniParser.Model;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Background;
@@ -586,13 +587,14 @@ namespace osuautodeafen.Views
             Point point = Tooltips.GetWindowRelativePointer(this, e);
             _tooltipManager.ShowTooltip(this, point,
                 "Open AppData File Location\n(" + _settingsHandler!.GetPath(true) + ")");
-            OpenFileLocationImage.Path = "Icons/folder-open.svg";
+            OpenFileLocationImage.Path = "avares://osuautodeafen/Icons/folder-open.svg";
+
         }
 
         private void FileLocationButton_PointerLeave(object sender, PointerEventArgs e)
         {
             _tooltipManager.HideTooltip();
-            OpenFileLocationImage.Path = "Icons/folder.svg";
+            OpenFileLocationImage.Path = "avares://osuautodeafen/Icons/folder.svg";
         }
 
         private void ReportIssueButton_PointerEnter(object sender, PointerEventArgs e)
@@ -618,6 +620,12 @@ namespace osuautodeafen.Views
         private void DebugConsoleButton_PointerLeave(object sender, PointerEventArgs e)
         {
             _tooltipManager.HideTooltip();
+        }
+        
+        private void DebugConsoleButton_Click(object sender, RoutedEventArgs e)
+        {
+            var window = this.GetVisualRoot() as MainWindow;
+            window?.ToggleDebugConsole(sender, e);
         }
         
         public async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)

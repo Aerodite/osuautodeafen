@@ -121,10 +121,10 @@
         </Style>
     </Window.Styles>
     
-    <Grid ZIndex="5">
+    <Grid ZIndex="5" x:DataType="viewModels:SharedViewModel">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="0" />
+            <ColumnDefinition Width="0"/>
         </Grid.ColumnDefinitions>
         
         <ContentControl Content="{Binding CurrentPage}" x:DataType="viewModels:SharedViewModel"/>
@@ -171,9 +171,9 @@
                     <ContentControl Name="LogoHost" />
                 </StackPanel>
 
-              <!--  <TextBlock Text="{Binding CurrentAppVersion}" HorizontalAlignment="Center"
+              <TextBlock Text="{Binding CurrentAppVersion}" HorizontalAlignment="Center"
                            VerticalAlignment="Center" Margin="0,0,0,10" Foreground="White" FontSize="14"
-                           x:Name="VersionPanel" x:DataType="cs:SharedViewModel"/> -->
+                           x:Name="VersionPanel" x:DataType="viewModels:SharedViewModel" IsVisible="False"/>
             </StackPanel>
         </Grid>
 
@@ -239,10 +239,9 @@
             </Border>
         </Grid>
         
-        <Grid x:Name="MainContainer" />
-
-
-        <Grid VerticalAlignment="Bottom">
+        <Grid Grid.Column="0" x:Name="MainContainer" />
+        
+        <Grid Grid.Column="0" VerticalAlignment="Bottom">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -251,22 +250,37 @@
 
             <TextBlock Text="{Binding StatusMessage}" HorizontalAlignment="Center" VerticalAlignment="Top"
                        x:DataType="viewModels:SharedViewModel" Margin="0,0,0,0" Foreground="#ff3333" FontSize="14" />
-            <Grid>
+
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="{Binding SettingsPanelWidth}" />
+                </Grid.ColumnDefinitions>
+
                 <avalonia1:CartesianChart
                     x:Name="PlotView"
+                    Grid.Column="0"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch"
                     Height="120" />
+
                 <progressIndicator:ProgressIndicatorOverlay
                     x:Name="ProgressOverlay"
+                    Grid.Column="0"
                     IsHitTestVisible="False" />
-                <Canvas x:Name="IconOverlay" IsHitTestVisible="False" x:DataType="viewModels:SharedViewModel" />
+
+                <Canvas x:Name="IconOverlay"
+                        Grid.Column="0"
+                        IsHitTestVisible="False"
+                        x:DataType="viewModels:SharedViewModel" />
             </Grid>
+
             <Grid HorizontalAlignment="Stretch" x:Name="UpdateNotificationGrid" VerticalAlignment="Bottom"
                   Grid.Row="2" IsVisible="{Binding IsVisible, ElementName=UpdateNotificationBar}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
+
                 <Button x:Name="UpdateNotificationBar"
                         IsVisible="False"
                         HorizontalAlignment="Stretch"
@@ -293,5 +307,6 @@
                 </Button>
             </Grid>
         </Grid>
+
     </Grid>
 </Window>
