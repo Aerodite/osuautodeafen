@@ -1300,7 +1300,8 @@ public partial class MainWindow : Window
     private async void UpdateNotificationBar_Click(object sender, RoutedEventArgs e)
     {
         await DownloadUpdateWithProgressAsync();
-        _updateChecker.Mgr.ApplyUpdatesAndRestart(_updateChecker.UpdateInfo);
+        if (_updateChecker?.UpdateInfo != null)
+            _updateChecker?.Mgr.ApplyUpdatesAndRestart(_updateChecker.UpdateInfo);
     }
 
     /// <summary>
@@ -1319,7 +1320,7 @@ public partial class MainWindow : Window
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
         _tosuApi.CheckForPercentageChange();
         _kiaiTimes.UpdateKiaiPeriodState(_tosuApi.GetCurrentTime());
-        _logImportant.logImportant("Velopack: " + _updateChecker.Mgr.IsInstalled, false, "Velopack");
+        _logImportant.logImportant("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
         _logImportant.logImportant("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");
     }
     
@@ -1342,7 +1343,7 @@ public partial class MainWindow : Window
     /// <param name="resourceName"></param>
     /// <returns></returns>
     /// <exception cref="FileNotFoundException"></exception>
-    public SKSvg LoadSkSvgResource(string resourceName)
+    private SKSvg LoadSkSvgResource(string resourceName)
     {
         using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
                               ?? throw new FileNotFoundException("Resource not found: " + resourceName);
@@ -1455,7 +1456,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///     Retries loading the SVG logo multiple times in case of failure
+    ///     Retries loading the logo multiple times in case of failure
     /// </summary>
     /// <param name="resourceName"></param>
     private async Task RetryLoadLogoAsync(string resourceName)
@@ -1468,18 +1469,18 @@ public partial class MainWindow : Window
             try
             {
                 retryCount++;
-                Console.WriteLine($"Retrying to load SVG... Attempt {retryCount}");
+                Console.WriteLine($"Retrying to load logo... Attempt {retryCount}");
                 Bitmap logoImage = await LoadLogoAsync(resourceName);
                 UpdateViewModelWithLogo(logoImage);
                 success = true;
             }
             catch (Exception retryEx)
             {
-                Console.WriteLine($"[ERROR] Retry {retryCount} failed: {retryEx.Message}");
+                Console.WriteLine($"[ERROR] logo retry {retryCount} failed: {retryEx.Message}");
                 if (retryCount >= maxRetries)
                 {
                     Console.WriteLine(
-                        $"[ERROR] Exception while loading SVG after {maxRetries} attempts: {retryEx.Message}");
+                        $"[ERROR] Exception while loading logo after {maxRetries} attempts: {retryEx.Message}");
                     return;
                 }
             }
@@ -1511,41 +1512,6 @@ public partial class MainWindow : Window
         _kiaiBrightnessTimer?.Stop();
         _tosuApi.Dispose();
     }
-    
-    /*
-     
-    /// <summary>
-    ///     Handles all actions required to happen when changing to/from the settings page
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    private async void SettingsButton_Click(object? sender, RoutedEventArgs? e)
-    {
-        try
-        {
-            // very temporary for now
-            if (_viewModel.CurrentPage == _viewModel.HomePage)
-            {
-                _viewModel.SwitchPage("Settings");
-
-               await AnimateLogoAsync(true);
-            }
-            else
-            {
-                _viewModel.SwitchPage("Home");
-
-               await AnimateLogoAsync(false);
-            }
-            
-            return;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[ERROR] Exception in SettingsButton_Click: {ex.Message}");
-        }
-    }
-    
-    */
 
     /// <summary>
     ///     Shows or hides the settings panel if the button is clicked
@@ -1657,8 +1623,7 @@ public partial class MainWindow : Window
             await AnimateAngleAsync(rotate, NormalAngle);
     }
 
-
-     
+    
     /// <summary>
     ///     Sets up the initial state and transitions for the settings panel and related UI elements
     /// </summary>
@@ -1768,7 +1733,7 @@ public partial class MainWindow : Window
         await Task.WhenAll(
             Dispatcher.UIThread.InvokeAsync(() =>
             {
-                _ = AnimateGridLength(_viewModel.SettingsPanelWidth, new GridLength(0, GridUnitType.Pixel),TimeSpan.FromMilliseconds(250), w => _viewModel.SettingsPanelWidth = w);
+                _ = AnimateGridLength(_viewModel.SettingsPanelWidth, new GridLength(0, GridUnitType.Pixel),TimeSpan.FromMilliseconds(0), w => _viewModel.SettingsPanelWidth = w);
                 settingsPanel.Margin = hideMargin;
                 buttonContainer.Margin = buttonRightMargin;
 
