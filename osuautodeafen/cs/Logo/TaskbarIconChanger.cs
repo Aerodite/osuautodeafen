@@ -25,7 +25,7 @@ public static class TaskbarIconChanger
     /// <exception cref="InvalidOperationException"></exception>
     public static void SetTaskbarIcon(Window window, string imagePath)
     {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             return;
 
         IntPtr handle = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
