@@ -12,7 +12,7 @@ public class UpdateChecker
     private Button? _updateNotificationBarButton;
     private ProgressBar? _updateProgressBar;
     
-    public UpdateChecker(Button notificationBar, ProgressBar progressBar)
+    public UpdateChecker(Button? notificationBar, ProgressBar? progressBar)
     {
         _updateNotificationBarButton = notificationBar;
         _updateProgressBar = progressBar;

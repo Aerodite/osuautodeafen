@@ -50,7 +50,6 @@ namespace osuautodeafen;
 public partial class MainWindow : Window
 {
     private const double BeatsPerRotation = 4;
-    private readonly AnimationManager _animationManager = new();
     private readonly BackgroundManager? _backgroundManager;
 
     private readonly BreakPeriodCalculator _breakPeriod;
@@ -67,12 +66,11 @@ public partial class MainWindow : Window
 
     private readonly HashSet<Key> _pressedKeys = new();
     private readonly ProgressIndicatorHelper _progressIndicatorHelper;
-    private readonly Action _settingsButtonClicked;
+    private readonly Action? _settingsButtonClicked;
     private readonly SettingsHandler? _settingsHandler;
     private readonly Dictionary<Control, Task> _toggleQueues = new();
     private readonly TooltipManager _tooltipManager = new();
     private readonly TosuApi _tosuApi;
-    private readonly SemaphoreSlim _updateCheckLock = new(1, 1);
     private readonly SharedViewModel _viewModel;
     private CancellationTokenSource? _blurCts;
     private double _cogCurrentAngle;
@@ -80,8 +78,9 @@ public partial class MainWindow : Window
     private double _cogSpinStartAngle;
     private DateTime _cogSpinStartTime;
     private DispatcherTimer? _cogSpinTimer;
+    
     public readonly SettingsView SettingsView;
-    public readonly HomeView HomeView;
+    private readonly HomeView HomeView;
 
     private CancellationTokenSource? _frameCts;
     private bool _isCogSpinning;
@@ -94,8 +93,7 @@ public partial class MainWindow : Window
     private GraphData? _lastGraphData;
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
-
-    private Point _lastMousePosition;
+    
     private LogoControl? _logoControl;
     private DispatcherTimer? _logUpdateTimer;
 
@@ -109,11 +107,11 @@ public partial class MainWindow : Window
     private static Button? _updateNotificationBarButton;
     private static ProgressBar? _updateProgressBar;
     
-    private UpdateChecker? _updateChecker;
+    private readonly UpdateChecker? _updateChecker;
 
     public Image? NormalBackground;
 
-    private SettingsViewModel _settingsViewModel;
+    private readonly SettingsViewModel _settingsViewModel;
 
     /// <summary>
     ///     Primary Constructor for MainWindow
@@ -586,8 +584,6 @@ public partial class MainWindow : Window
     private void MainWindow_PointerMoved(object? sender, PointerEventArgs e)
     {
         _backgroundManager?.OnMouseMove(sender, e);
-
-        _lastMousePosition = e.GetPosition(PlotView);
 
         Point pixelPoint = e.GetPosition(PlotView);
         LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
@@ -1321,7 +1317,7 @@ public partial class MainWindow : Window
 
                 versionPanel.IsVisible = true;
                 versionPanel.Opacity = 0;
-                transform.Y = -8;
+                transform.Y = -10;
 
                 var anim = new Animation
                 {
@@ -1813,7 +1809,7 @@ public partial class MainWindow : Window
                     Easing = new BackEaseOut()
                 }
             };
-            VersionPanel.Margin = new Thickness(0, 0, 225, 0);
+            VersionPanel.Margin = new Thickness(0, -10, 225, 0);
         }).GetTask());
 
         await Task.WhenAll(tasks);
@@ -1867,7 +1863,7 @@ public partial class MainWindow : Window
                         Easing = new BackEaseOut()
                     }
                 };
-                VersionPanel.Margin = new Thickness(0, 0, 0, 0);
+                VersionPanel.Margin = new Thickness(0, -10, 0, 0);
             }).GetTask());
     }
     

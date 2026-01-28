@@ -31,7 +31,7 @@ namespace osuautodeafen.Views
     public partial class SettingsView : UserControl
     {
         private TosuApi _tosuApi;
-        private SettingsHandler _settingsHandler;
+        private readonly SettingsHandler _settingsHandler;
         private SharedViewModel _viewModel;
         private ChartManager _chartManager;
         private readonly KeybindHelper _keybindHelper = new();
@@ -88,7 +88,7 @@ namespace osuautodeafen.Views
             }
         }
 
-        public void UpdateViewModel()
+        private void UpdateViewModel()
         {
             _viewModel.MinCompletionPercentage = _settingsHandler.MinCompletionPercentage;
             _viewModel.StarRating = _settingsHandler.StarRating;
@@ -683,7 +683,6 @@ namespace osuautodeafen.Views
             _starRatingSaveTimer.Start();
         }
 
-
         public void PPSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
         {
             if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
@@ -716,7 +715,7 @@ namespace osuautodeafen.Views
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private async void ResetButton_Click(object sender, RoutedEventArgs e)
+        private void ResetButton_Click(object sender, RoutedEventArgs e)
         {
             _settingsHandler?.ResetToDefaults();
             UpdateViewModel();
@@ -732,7 +731,7 @@ namespace osuautodeafen.Views
         }
     
         /// <summary>
-        ///     Deletes the preset for the current beatmap if "Yes" is clicked
+        ///     Deletes the preset for the current beatmap
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -764,7 +763,7 @@ namespace osuautodeafen.Views
         }
 
         /// <summary>
-        ///     Creates a preset for the current beatmap if "Yes" is clicked
+        ///     Creates a preset for the current beatmap
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -783,22 +782,12 @@ namespace osuautodeafen.Views
             CreatePresetData();
             _viewModel.RefreshPresets();
         }
-
-        /// <summary>
-        ///     Closes the Create Preset flyout if the user clicked the button by mistake
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
+        
         private void PresetButtonNo_Click(object sender, RoutedEventArgs e)
         {
             CreatePresetButton.Flyout?.Hide();
         }
-
-        /// <summary>
-        ///     Closes the Delete Preset flyout if the user clicked the button by mistake
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
+        
         private void PresetButtonDeleteNo_Click(object sender, RoutedEventArgs e)
         {
             DeletePresetButton.Flyout?.Hide();
@@ -910,12 +899,7 @@ namespace osuautodeafen.Views
             else
                 flyout.Hide();
         }
-    
-        /// <summary>
-        ///     Checks for newer versions when the button is clicked
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
+        
         public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)
         {
             if (!await _updateCheckLock.WaitAsync(0))
@@ -983,7 +967,7 @@ namespace osuautodeafen.Views
         }
 
         /// <summary>
-        ///     Opens the GitHub issues page in the default web browser with a default issue template
+        /// Opens a new GitHub issue creation page
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
