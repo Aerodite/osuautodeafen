@@ -25,6 +25,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private IniData? _presetData;
     private double _starRating;
 
+    private string _discordClient;
+    private bool _useHyprlandDispatch;
+
     private double _windowHeight;
     private double _windowWidth;
 
@@ -63,6 +66,26 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public bool IsPresetActive => _activePresetPath != null;
     private IniData CurrentData => IsPresetActive ? _presetData! : _mainData;
     private string ActivePath => _activePresetPath ?? _iniPath;
+    
+    public string DiscordClient
+    {
+        get => _discordClient;
+        set
+        {
+            if (Set(ref _discordClient, value))
+                SaveSetting("Linux", "discordClient", value);
+        }
+    }
+    
+    public bool UseHyprlandDispatch
+    {
+        get => _useHyprlandDispatch;
+        set
+        {
+            if (Set(ref _useHyprlandDispatch, value))
+                SaveSetting("Linux", "useHyprlandDispatch", value);
+        }
+    }
 
     public double MinCompletionPercentage
     {
@@ -247,6 +270,23 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         data["Network"]["tosuApiIp"] = "127.0.0.1";
         data["Network"]["tosuApiPort"] = "24050";
 
+        data.Sections.AddSection("Linux");
+        data["Linux"]["discordClient"] = "";
+        data.Sections["Linux"]
+            .GetKeyData("discordClient")
+            .Comments.Add(
+                "Leave this blank if you want osuautodeafen to just try using keybinds directly on Linux,"
+                + " otherwise, specify the discord client you use (e.g. vesktop, equibop, discord) and osuautodeafen will try dispatching the command directly through your compositor"
+                + " (only hyprland at the moment since I think other compositors you could just set a global keybind)"
+            );
+        data["Linux"]["useHyprlandDispatch"] = "False";
+        data.Sections["Linux"]
+            .GetKeyData("useHyprlandDispatch")
+            .Comments.Add(
+                "Uses hypr's 'dispatch sendshortcut' instead of keybind simulation (mainly for use in 3rd party discord clients such as vesktop)"
+            );
+
+
         return data;
     }
 
@@ -317,6 +357,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
         tosuApiIp = Data["Network"]["tosuApiIp"];
         tosuApiPort = Data["Network"]["tosuApiPort"];
+        
+        _discordClient = Data["Linux"]["discordClient"];
+        _useHyprlandDispatch = bool.TryParse(Data["Linux"]["useHyprlandDispatch"], out bool hypr) && hypr;
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MinCompletionPercentage)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StarRating)));

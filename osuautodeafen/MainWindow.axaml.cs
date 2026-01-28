@@ -362,7 +362,7 @@ public partial class MainWindow : Window
             _logImportant.logImportant("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
             _logImportant.logImportant("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
             _logImportant.logImportant("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
-            _logImportant.logImportant("isDeafened: " + deafen._deafened, false, "isDeafened");
+            _logImportant.logImportant("isDeafened: " + deafen.Deafened, false, "isDeafened");
             _logImportant.logImportant("Deafen Start Percentage: " + _viewModel.MinCompletionPercentage + "%", false,
                 "Min Deafen Percentage");
             _logImportant.logImportant("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");

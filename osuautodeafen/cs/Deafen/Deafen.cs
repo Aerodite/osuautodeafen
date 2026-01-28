@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using Avalonia.Input;
@@ -22,25 +23,68 @@ public class Deafen : IDisposable
     private readonly SharedViewModel _sharedViewModel;
     private readonly Timer _timer;
     private readonly TosuApi _tosuAPI;
-    public bool _deafened;
+    public  bool Deafened;
     private bool _isInBreakPeriod;
+    private bool _isDeafened;
+    private bool _desiredDeafenState;
 
-    private DateTime _lastToggle = DateTime.MinValue;
-
-    public Action? Deafened;
-    public Action? Undeafened;
+    private DateTime _nextStateChangedAt = DateTime.MinValue;
+    private DateTime _lastToggleAt = DateTime.MinValue;
 
     public Deafen(TosuApi tosuAPI, SettingsHandler settingsHandler, SharedViewModel sharedViewModel)
     {
-        _deafened = false;
+        Deafened = false;
         _tosuAPI = tosuAPI;
         _hook = new SimpleGlobalHook();
         _sharedViewModel = sharedViewModel;
         _settingsHandler = settingsHandler;
         
         _timer = new Timer(16);
-        _timer.Elapsed += (_, _) => CheckAndDeafen();
+        _timer.Elapsed += (_, _) => EvaluateDeafenState();
         _timer.Start();
+    }
+    
+    // this is kinda just for me (and anyone else on hyprland not using the official discord client)
+    bool IsHyprland()
+    {
+        return Environment.GetEnvironmentVariable("HYPRLAND_INSTANCE_SIGNATURE") != null;
+    }
+    
+    bool IsWayland()
+    {
+        return Environment.GetEnvironmentVariable("WAYLAND_DISPLAY") != null;
+    }
+    
+    private bool TryHyprlandSendShortcut()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient))
+                return false;
+            
+            ProcessStartInfo psi = new()
+            {
+                FileName = "hyprctl",
+                Arguments = "dispatch sendshortcut CTRL+SHIFT,D,class:" + _settingsHandler.DiscordClient,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using Process? process = Process.Start(psi);
+            if (process == null)
+                return false;
+
+            process.WaitForExit(200);
+
+            return process.ExitCode == 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Hyprland] sendshortcut failed: {ex.Message}");
+            return false;
+        }
     }
 
     private bool IsUndeafenAfterMissEnabled => _sharedViewModel.UndeafenAfterMiss;
@@ -65,14 +109,20 @@ public class Deafen : IDisposable
         {
             var osuKeybinds = _tosuAPI.GetOsuKeybinds();
             var keys = osuKeybinds as Key[] ?? osuKeybinds.ToArray();
+            
+            Key configuredKey = (Key)_settingsHandler.DeafenKeybindKey;
 
-            Key osuKey = (Key)_settingsHandler.DeafenKeybindKey;
-            if (keys.Contains(osuKey))
+            bool hasAnyModifier =
+                _settingsHandler.DeafenKeybindControlSide != 0 ||
+                _settingsHandler.DeafenKeybindAltSide != 0 ||
+                _settingsHandler.DeafenKeybindShiftSide != 0;
+
+            if (!hasAnyModifier && keys.Contains(configuredKey))
             {
                 Console.WriteLine("Nice try.");
                 return;
             }
-
+            
             List<ModifierWithSide> modifiers = [];
 
             KeyCode key = MapAvaloniaKeyToSharpHook((Key)_settingsHandler.DeafenKeybindKey);
@@ -125,138 +175,103 @@ public class Deafen : IDisposable
         }
     }
 
-    /// <summary>
-    ///     Determines whether the conditions to deafen are met.
-    /// </summary>
-    /// <returns>
-    ///     True if the conditions to deafen are met, otherwise, false.
-    /// </returns>
-    private bool ShouldDeafen()
+    private bool ComputeDeafenState()
     {
-        double completionPercentage = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
-        double currentStarRating = _tosuAPI.GetFullSR();
-        double currentPerformancePoints = _tosuAPI.GetMaxPP();
-        double requiredCompletion = _sharedViewModel.MinCompletionPercentage;
-        double requiredStarRating = _sharedViewModel.StarRating;
-        double requiredPerformancePoints = _sharedViewModel.PerformancePoints;
-        bool isFCRequired = _sharedViewModel.IsFCRequired;
         bool isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
-        bool notAlreadyDeafened = !_deafened;
-        bool isPaused = _tosuAPI.IsPaused();
-        bool isPauseUndeafenEnabled = _sharedViewModel.IsPauseUndeafenToggleEnabled;
-        // 100% will basically act as the deafening part disabled
-        bool completionMet = requiredCompletion < 100 && completionPercentage >= requiredCompletion;
-        bool starRatingMet = currentStarRating >= requiredStarRating;
-        bool performancePointsMet = currentPerformancePoints >= requiredPerformancePoints;
-        bool hasHitObjects = _tosuAPI.GetMaxCombo() != 0;
-        bool isFullCombo = _tosuAPI.IsFullCombo();
+        bool hasHitObjects = _tosuAPI.GetMaxPlayCombo() != 0;
+
+        // prevents deafening on like first tick (just makes sure you've actually hit atleast 1 circle)
+        if (!isPlaying || !hasHitObjects)
+            return false;
+
+        // undeafen if paused and the toggle is enabled
+        if (_sharedViewModel.IsPauseUndeafenToggleEnabled && _tosuAPI.IsPaused())
+            return false;
+
+        // undeafen if in break period and the toggle is enabled
         _isInBreakPeriod = _tosuAPI.IsBreakPeriod();
+        if (IsBreakUndeafenToggleEnabled && _isInBreakPeriod)
+            return false;
 
-        bool fcRequirementMet = !isFCRequired || isFullCombo;
-        bool breakConditionMet = !IsBreakUndeafenToggleEnabled || !_isInBreakPeriod;
-        bool missConditionMet = !IsUndeafenAfterMissEnabled || isFullCombo;
-        bool pauseConditionMet = !isPauseUndeafenEnabled || !isPaused;
+        // fc logic or something
+        if (_sharedViewModel.IsFCRequired && !_tosuAPI.IsFullCombo())
+        {
+            if (IsUndeafenAfterMissEnabled)
+                return false;
+        }
+        
+        // the main conditions
+        double completion = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
+        if (completion < _sharedViewModel.MinCompletionPercentage)
+            return false;
 
-        // i prefer this condition boolean compared to that nightmare return statement we had before personally
-        bool[] conditions =
-        [
-            isPlaying,
-            notAlreadyDeafened,
-            completionMet,
-            starRatingMet,
-            performancePointsMet,
-            hasHitObjects,
-            pauseConditionMet,
-            fcRequirementMet,
-            breakConditionMet,
-            missConditionMet
-        ];
+        if (_tosuAPI.GetFullSR() < _sharedViewModel.StarRating)
+            return false;
 
-        return conditions.All(x => x);
+        if (_tosuAPI.GetMaxPP() < _sharedViewModel.PerformancePoints)
+            return false;
+
+        return true;
     }
-
-    /// <summary>
-    ///     Determines whether the conditions to undeafen are met.
-    /// </summary>
-    /// <returns>
-    ///     True if the conditions to undeafen are met, otherwise, false.
-    /// </returns>
-    private bool ShouldUndeafen()
-    {
-        double completionPercentage = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
-        bool isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
-        bool isFullCombo = _tosuAPI.IsFullCombo();
-        bool isFCRequired = _sharedViewModel.IsFCRequired;
-        bool isPauseUndeafenEnabled = _sharedViewModel.IsPauseUndeafenToggleEnabled;
-        bool isPaused = _tosuAPI.IsPaused();
-
-        if ((!isPlaying && _deafened) || (completionPercentage <= 0 && _deafened))
-        {
-            Console.WriteLine("[ShouldUndeafen] Undeafen: not playing or retried");
-            return true;
-        }
-
-        if (isPauseUndeafenEnabled && isPaused && _deafened)
-        {
-            Console.WriteLine("[ShouldUndeafen] Undeafen: paused and setting enabled");
-            return true;
-        }
-
-        if (IsUndeafenAfterMissEnabled && !isFullCombo && isFCRequired && _deafened)
-        {
-            Console.WriteLine("[ShouldUndeafen] Undeafen: lost FC and setting enabled");
-            return true;
-        }
-
-        if (IsBreakUndeafenToggleEnabled && _isInBreakPeriod && _deafened)
-        {
-            Console.WriteLine("[ShouldUndeafen] Undeafen: in break period and setting enabled");
-            return true;
-        }
-
-        return false;
-    }
-
+    
     /// <summary>
     ///     Checks the conditions to deafen or undeafen and toggles the deafen state accordingly.
     /// </summary>
-    private void CheckAndDeafen()
+    private void EvaluateDeafenState()
     {
-        //this should seal any edge debounce cases, hopefully.
-        bool hasHitObjects = _tosuAPI.GetMaxPlayCombo() != 0;
-        /*
-        so tldr basically without that boolean, if you start a map and the preview time is further than your deafen point,
-        then you would be deafened then immediately undeafened.
-        this just prevents ANYTHING from happening until at least one circle is hit.
-        */
+        bool nextState = ComputeDeafenState();
 
+        if (nextState != _desiredDeafenState)
+        {
+            _desiredDeafenState = nextState;
+            _nextStateChangedAt = DateTime.Now;
+            return;
+        }
 
-        if (ShouldDeafen() && !_deafened && hasHitObjects)
-        {
-            Console.WriteLine("[CheckAndDeafen] Should deafen. Toggling deafen state.");
-            ToggleDeafenState();
-        }
-        else if (ShouldUndeafen() && _deafened)
-        {
-            Console.WriteLine("[CheckAndDeafen] Should undeafen. Toggling deafen state.");
-            ToggleDeafenState();
-        }
+        if ((DateTime.Now - _nextStateChangedAt).TotalMilliseconds < 100)
+            return;
+
+        if (nextState == _isDeafened)
+            return;
+
+        Console.WriteLine(
+            nextState
+                ? "[Deafen] deafening"
+                : "[Deafen] undeafening"
+        );
+
+        ApplyDeafenToggle();
     }
 
     /// <summary>
     ///     Toggles the deafen state by simulating the deafen key press.
     /// </summary>
-    private void ToggleDeafenState()
+    private void ApplyDeafenToggle()
     {
         lock (_deafenLock)
         {
-            if ((DateTime.Now - _lastToggle).TotalMilliseconds < 50) return;
-            _lastToggle = DateTime.Now;
+            if ((DateTime.Now - _lastToggleAt).TotalMilliseconds < 50)
+                return;
+
+            _lastToggleAt = DateTime.Now;
+
+            // allows for 3rd party discord clients on hyprland to work properly
+            if (IsWayland() && IsHyprland() &&
+                _settingsHandler.UseHyprlandDispatch &&
+                !string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient))
+            {
+                if (TryHyprlandSendShortcut())
+                {
+                    _isDeafened = !_isDeafened;
+                    return;
+                }
+            }
+
             SimulateDeafenKey();
-            _deafened = !_deafened;
+            _isDeafened = !_isDeafened;
         }
     }
-
+    
     private KeyCode MapAvaloniaKeyToSharpHook(Key avaloniaKey)
     {
         return avaloniaKey switch
@@ -386,6 +401,8 @@ public class Deafen : IDisposable
         };
     }
 
+    // just in case its ever needed
+    // ReSharper disable once UnusedMember.Local
     private Key MapSharpHookKeyToAvaloniaKey(KeyCode keyCode)
     {
         return keyCode switch
@@ -513,7 +530,6 @@ public class Deafen : IDisposable
             _ => Key.None
         };
     }
-
 
     private struct ModifierWithSide
     {
