@@ -37,8 +37,7 @@ public class Deafen : IDisposable
         _hook = new SimpleGlobalHook();
         _sharedViewModel = sharedViewModel;
         _settingsHandler = settingsHandler;
-
-        // handled seperately from the main timer due to importance
+        
         _timer = new Timer(16);
         _timer.Elapsed += (_, _) => CheckAndDeafen();
         _timer.Start();
@@ -84,7 +83,6 @@ public class Deafen : IDisposable
 
             Console.WriteLine(
                 $"[SimulateDeafenKey] Retrieved keybind from settings: Key={key}, ControlSide={controlSide}, AltSide={altSide}, ShiftSide={shiftSide}");
-
 
             if (controlSide != 0)
                 modifiers.Add(new ModifierWithSide
@@ -144,6 +142,8 @@ public class Deafen : IDisposable
         bool isFCRequired = _sharedViewModel.IsFCRequired;
         bool isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
         bool notAlreadyDeafened = !_deafened;
+        bool isPaused = _tosuAPI.IsPaused();
+        bool isPauseUndeafenEnabled = _sharedViewModel.IsPauseUndeafenToggleEnabled;
         // 100% will basically act as the deafening part disabled
         bool completionMet = requiredCompletion < 100 && completionPercentage >= requiredCompletion;
         bool starRatingMet = currentStarRating >= requiredStarRating;
@@ -155,6 +155,7 @@ public class Deafen : IDisposable
         bool fcRequirementMet = !isFCRequired || isFullCombo;
         bool breakConditionMet = !IsBreakUndeafenToggleEnabled || !_isInBreakPeriod;
         bool missConditionMet = !IsUndeafenAfterMissEnabled || isFullCombo;
+        bool pauseConditionMet = !isPauseUndeafenEnabled || !isPaused;
 
         // i prefer this condition boolean compared to that nightmare return statement we had before personally
         bool[] conditions =
@@ -165,6 +166,7 @@ public class Deafen : IDisposable
             starRatingMet,
             performancePointsMet,
             hasHitObjects,
+            pauseConditionMet,
             fcRequirementMet,
             breakConditionMet,
             missConditionMet
@@ -185,6 +187,8 @@ public class Deafen : IDisposable
         bool isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
         bool isFullCombo = _tosuAPI.IsFullCombo();
         bool isFCRequired = _sharedViewModel.IsFCRequired;
+        bool isPauseUndeafenEnabled = _sharedViewModel.IsPauseUndeafenToggleEnabled;
+        bool isPaused = _tosuAPI.IsPaused();
 
         if ((!isPlaying && _deafened) || (completionPercentage <= 0 && _deafened))
         {
@@ -192,7 +196,12 @@ public class Deafen : IDisposable
             return true;
         }
 
-        //thanks jurme
+        if (isPauseUndeafenEnabled && isPaused && _deafened)
+        {
+            Console.WriteLine("[ShouldUndeafen] Undeafen: paused and setting enabled");
+            return true;
+        }
+
         if (IsUndeafenAfterMissEnabled && !isFullCombo && isFCRequired && _deafened)
         {
             Console.WriteLine("[ShouldUndeafen] Undeafen: lost FC and setting enabled");

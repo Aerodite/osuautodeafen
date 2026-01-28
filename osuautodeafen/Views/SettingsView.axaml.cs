@@ -125,6 +125,7 @@ namespace osuautodeafen.Views
             _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
             _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
             _viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
+            _viewModel.IsPauseUndeafenToggleEnabled = _settingsHandler.IsPauseUndeafenToggleEnabled;
 
             _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
             _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
@@ -148,6 +149,7 @@ namespace osuautodeafen.Views
             FCToggle.IsChecked = _viewModel.IsFCRequired;
             UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
             BreakUndeafenToggle.IsChecked = _viewModel.IsBreakUndeafenToggleEnabled;
+            PauseUndeafenToggle.IsChecked = _viewModel.IsPauseUndeafenToggleEnabled;
 
             BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
             ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
@@ -476,6 +478,19 @@ namespace osuautodeafen.Views
             if (sender is not Slider slider) return;
             Point point = Tooltips.GetWindowRelativePointer(slider, e);
             _tooltipManager.ShowTooltip(this, point, $"{slider.Value * 5:F0}% Blur");
+        }
+        
+        private void PauseUndeafenToggle_PointerEnter(object sender, PointerEventArgs e)
+        {
+            if (sender is not StackPanel) return;
+            Point point = Tooltips.GetWindowRelativePointer(this, e);
+            bool isEnabled = PauseUndeafenToggle.IsChecked ?? false;
+            _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Undeafening during a pause");
+        }
+        
+        private void PauseUndeafenToggle_PointerLeave(object sender, PointerEventArgs e)
+        {
+            _tooltipManager.HideTooltip();
         }
 
         private void ResetButton_PointerEnter(object sender, PointerEventArgs e)

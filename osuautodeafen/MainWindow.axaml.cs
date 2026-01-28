@@ -678,6 +678,7 @@ public partial class MainWindow : Window
         _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
         _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
         _viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
+        _viewModel.IsPauseUndeafenToggleEnabled = _settingsHandler.IsPauseUndeafenToggleEnabled;
 
         _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
         _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
@@ -701,6 +702,7 @@ public partial class MainWindow : Window
         SettingsView.FCToggle.IsChecked = _viewModel.IsFCRequired;
         SettingsView.UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
         SettingsView.BreakUndeafenToggle.IsChecked = _viewModel.IsBreakUndeafenToggleEnabled;
+        SettingsView.PauseUndeafenToggle.IsChecked = _viewModel.IsPauseUndeafenToggleEnabled;
 
         SettingsView.BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
         SettingsView.ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
@@ -1023,6 +1025,10 @@ public partial class MainWindow : Window
                 case nameof(SharedViewModel.IsBreakUndeafenToggleEnabled):
                     _settingsHandler?.SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled",
                         _viewModel.IsBreakUndeafenToggleEnabled);
+                    break;
+                case nameof(SharedViewModel.IsPauseUndeafenToggleEnabled):
+                    _settingsHandler?.SaveSetting("Behavior", "IsPauseUndeafenToggleEnabled",
+                        _viewModel.IsPauseUndeafenToggleEnabled);
                     break;
                 case nameof(SharedViewModel.UndeafenAfterMiss):
                     _settingsHandler?.SaveSetting("Behavior", "UndeafenAfterMiss", _viewModel.UndeafenAfterMiss);

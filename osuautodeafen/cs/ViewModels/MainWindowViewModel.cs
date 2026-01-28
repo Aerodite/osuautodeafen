@@ -46,6 +46,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private bool _isBackgroundEnabled;
 
     private bool _IsBreakUndeafenToggleEnabled;
+    
+    private bool _IsPauseUndeafenToggleEnabled;
 
     private bool _isFCRequired;
 
@@ -373,6 +375,21 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 _IsBreakUndeafenToggleEnabled = value;
                 OnPropertyChanged();
                 _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Undeafening during breaks",
+                    true);
+            }
+        }
+    }
+    
+    public bool IsPauseUndeafenToggleEnabled
+    {
+        get => _IsPauseUndeafenToggleEnabled;
+        set
+        {
+            if (_IsPauseUndeafenToggleEnabled != value)
+            {
+                _IsPauseUndeafenToggleEnabled = value;
+                OnPropertyChanged();
+                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Undeafening during a pause",
                     true);
             }
         }

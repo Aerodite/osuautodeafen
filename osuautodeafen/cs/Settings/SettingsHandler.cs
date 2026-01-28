@@ -111,6 +111,16 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         }
     }
 
+    public bool IsPauseUndeafenToggleEnabled
+    {
+        get => _isBreakUndeafenToggleEnabled;
+        set
+        {
+            if (Set(ref _isBreakUndeafenToggleEnabled, value))
+                SaveSetting("Behavior", "IsPauseUndeafenToggleEnabled", value);
+        }
+    }
+
     public double WindowWidth
     {
         get => _windowWidth;
@@ -217,6 +227,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         data["Behavior"]["IsFCRequired"] = "False";
         data["Behavior"]["UndeafenAfterMiss"] = "False";
         data["Behavior"]["IsBreakUndeafenToggleEnabled"] = "False";
+        data["Behavior"]["IsPauseUndeafenToggleEnabled"] = "True";
 
         data.Sections.AddSection("Hotkeys");
         data["Hotkeys"]["DeafenKeybindKey"] = "47"; // D
@@ -286,6 +297,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
         IsBreakUndeafenToggleEnabled =
             bool.TryParse(Data["Behavior"]["IsBreakUndeafenToggleEnabled"], out bool bu) && bu;
+        IsPauseUndeafenToggleEnabled =
+            bool.TryParse(Data["Behavior"]["IsPauseUndeafenToggleEnabled"], out bool pu) && pu;
         IsFCRequired = bool.TryParse(Data["Behavior"]["IsFCRequired"], out bool fc) && fc;
         UndeafenAfterMiss = bool.TryParse(Data["Behavior"]["UndeafenAfterMiss"], out bool uam) && uam;
 
@@ -315,6 +328,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BlurRadius)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybind)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsBreakUndeafenToggleEnabled)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsPauseUndeafenToggleEnabled)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsKiaiEffectEnabled)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(tosuApiIp)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(tosuApiPort)));

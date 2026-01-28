@@ -66,6 +66,8 @@ public class TosuApi : IDisposable
     private ClientWebSocket _webSocket;
     private string k1Bind = "";
     private string k2Bind = "";
+    private bool _isPaused = false;
+    private bool _hasFailed = false;
 
     public TosuApi()
     {
@@ -395,7 +397,12 @@ public class TosuApi : IDisposable
                             if (mods.TryGetProperty("number", out JsonElement modNumber))
                                 _modNumber = modNumber.GetInt32();
                         }
-
+                        
+                        if (play.TryGetProperty("failed", out JsonElement hasFailed))
+                        {
+                            _hasFailed = hasFailed.GetBoolean();
+                        }
+                        
                         if (root.TryGetProperty("settings", out JsonElement settings))
                             if (settings.TryGetProperty("keybinds", out JsonElement keybinds))
                                 if (keybinds.TryGetProperty("osu", out JsonElement osuKeybinds))
@@ -440,7 +447,11 @@ public class TosuApi : IDisposable
                                 {
                                 }
 
-
+                        if (root.TryGetProperty("game", out var gameElement))
+                            if (gameElement.TryGetProperty("paused", out var isPaused))
+                            {
+                                _isPaused = isPaused.GetBoolean();
+                            }
                         if (root.TryGetProperty("folders", out JsonElement folders) &&
                             folders.TryGetProperty("songs", out JsonElement songs))
                             _settingsSongsDirectory = songs.GetString();
@@ -592,6 +603,23 @@ public class TosuApi : IDisposable
             return _realtimeBpm.Value;
         return 0;
     }
+    
+    /// <summary>
+    ///    Checks if the current play is paused
+    /// </summary>
+    public bool IsPaused()
+    {
+        return _isPaused;
+    }
+    
+    /// <summary>
+    ///     Checks if the current play has failed
+    /// </summary>
+    /// <returns></returns>
+    public bool HasFailed()
+    {
+        return _hasFailed;
+    }
 
     /// <summary>
     ///     Obtains the title of the current beatmap
@@ -618,9 +646,9 @@ public class TosuApi : IDisposable
 
     public IEnumerable<Key> GetOsuKeybinds()
     {
-        if (Enum.TryParse<Key>(k1Bind, out Key key1))
+        if (Enum.TryParse(k1Bind, out Key key1))
             yield return key1;
-        if (Enum.TryParse<Key>(k2Bind, out Key key2))
+        if (Enum.TryParse(k2Bind, out Key key2))
             yield return key2;
     }
 
@@ -645,7 +673,7 @@ public class TosuApi : IDisposable
         string osuSongsFolder;
 
         if ((OperatingSystem.IsLinux() || OperatingSystem.IsMacOS()) &&
-            _client == "stable") // basically just wine linux
+            _client == "stable") // basically just wine
         {
             string home = Environment.GetEnvironmentVariable("HOME") ?? "";
             osuSongsFolder = Path.Combine(home, ".local", "share", "osu-wine", "osu!", "Songs");
