@@ -112,56 +112,9 @@ public partial class MainWindow : Window
     public Image? NormalBackground;
 
     private readonly SettingsViewModel _settingsViewModel;
-
-    /// <summary>
-    ///     Primary Constructor for MainWindow
-    /// </summary>
-    /// <exception cref="FileNotFoundException"></exception>
+    
     public MainWindow()
     {
-        InitializeComponent();
-        
-        _updateChecker = new UpdateChecker(UpdateNotificationBar, UpdateProgressBar);
-        
-        _updateNotificationBarButton = UpdateNotificationBar;
-        _updateProgressBar = UpdateProgressBar;
-        
-        string appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen");
-        Directory.CreateDirectory(appPath);
-
-        string logFile = Path.Combine(appPath, "osuautodeafen.log");
-        LogFileManager.CreateLogFile(logFile);
-        LogFileManager.ClearLogFile(logFile);
-
-        LogFileManager.InitializeLogging(logFile);
-
-        _tosuApi = new TosuApi();
-
-        _settingsHandler = new SettingsHandler();
-        _settingsHandler.LoadSettings();
-        
-        SettingsView = new SettingsView(_settingsHandler);
-        HomeView = new HomeView();
-
-        _viewModel = new SharedViewModel(_tosuApi, _tooltipManager, HomeView, SettingsView);
-        _settingsViewModel = new SettingsViewModel();
-        ViewModel = _viewModel;
-        DataContext = _viewModel;
-        
-        _viewModel.CurrentPage = _viewModel.HomePage;
-        
-        InitializeSettings();
-
-        InitializeLogo();
-
-        Opened += async (_, __) =>
-        {
-            await _updateChecker.CheckForUpdatesAsync();
-            if (_updateChecker.UpdateInfo != null) 
-                await _updateChecker.ShowUpdateNotification();
-        };
-
         string resourceName = "osuautodeafen.Resources.favicon.ico";
         string deafenResourceName = "osuautodeafen.Resources.favicon_d.ico";
         string startupIconPath = Path.Combine(Path.GetTempPath(), "osuautodeafen_favicon.ico");
@@ -188,28 +141,100 @@ public partial class MainWindow : Window
                 }
             }
         }
+        
+        InitializeComponent();
+        
+        _updateChecker = new UpdateChecker(UpdateNotificationBar, UpdateProgressBar);
+        
+        _updateNotificationBarButton = UpdateNotificationBar;
+        _updateProgressBar = UpdateProgressBar;
+        
+        string appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen");
+        Directory.CreateDirectory(appPath);
 
-        TaskbarIconChanger.SetTaskbarIcon(this, startupIconPath);
-        Icon = new WindowIcon(startupIconPath);
+        string logFile = Path.Combine(appPath, "osuautodeafen.log");
+        LogFileManager.CreateLogFile(logFile);
+        LogFileManager.ClearLogFile(logFile);
 
-        _getLowResBackground = new GetLowResBackground(_tosuApi);
+        LogFileManager.InitializeLogging(logFile);
 
-        _backgroundManager = new BackgroundManager(this, _viewModel, _tosuApi, SettingsView)
+        _tosuApi = new TosuApi();
+
+        _settingsHandler = new SettingsHandler();
+        _settingsHandler.LoadSettings();
+        
+        HomeView = new HomeView();
+        _settingsViewModel = new SettingsViewModel();
+        
+        _viewModel = new SharedViewModel(
+            _tosuApi,
+            _tooltipManager,
+            homeView: null,
+            settingsView: null
+        );
+
+        ViewModel = _viewModel;
+        DataContext = _viewModel;
+        
+        SettingsView = new SettingsView(
+            _settingsHandler,
+            _tosuApi,
+            _viewModel,
+            chartManager: null,
+            backgroundManager: null,
+            _tooltipManager,
+            _settingsViewModel
+        );
+        
+        _breakPeriod = new BreakPeriodCalculator();
+
+        _chartManager = new ChartManager(
+            PlotView,
+            _tosuApi,
+            _viewModel,
+            _kiaiTimes,
+            _tooltipManager,
+            SettingsView
+        );
+
+        _backgroundManager = new BackgroundManager(
+            this,
+            _viewModel,
+            _tosuApi,
+            SettingsView
+        )
         {
             LogoUpdater = null
         };
+
+        _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager);
+        _getLowResBackground = new GetLowResBackground(_tosuApi);
+        
+        _viewModel.AttachViews(HomeView, SettingsView);
+        SettingsView.AttachManagers(_chartManager, _backgroundManager);
+        
         object? oldContent = Content;
         Content = null;
         Content = new Grid
         {
             Children = { new ContentControl { Content = oldContent } }
         };
-
+        
         InitializeViewModel();
+        
+        _viewModel.CurrentPage = _viewModel.HomePage;
+        
+        InitializeSettings();
 
-        _breakPeriod = new BreakPeriodCalculator();
-        _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel, _kiaiTimes, _tooltipManager, SettingsView);
-        _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager);
+        InitializeLogo();
+
+        Opened += async (_, __) =>
+        {
+            await _updateChecker.CheckForUpdatesAsync();
+            if (_updateChecker.UpdateInfo != null) 
+                await _updateChecker.ShowUpdateNotification();
+        };
 
         Deafen deafen = new(_tosuApi, _settingsHandler, _viewModel);
 
@@ -456,17 +481,7 @@ public partial class MainWindow : Window
             const int titleBarHeight = 34;
             if (point.Y <= titleBarHeight) BeginMoveDrag(e);
         };
-        
-        SettingsView.ParallaxToggle.IsCheckedChanged += (sender, _) =>
-        {
-            CheckBox? check = sender as CheckBox;
-            bool isChecked = check?.IsChecked == true;
-            if (_backgroundManager != null)
-            {
-                _backgroundManager.CachedParallaxSetting = isChecked;
-                _viewModel.IsParallaxEnabled = isChecked;
-            }
-        };
+
         CheckBox? FCToggle = SettingsView.FindControl<CheckBox>("FCToggle");
         StackPanel? undeafenPanel = SettingsView.FindControl<StackPanel>("UndeafenOnMissPanel");
 
@@ -1672,9 +1687,6 @@ public partial class MainWindow : Window
                 settingsPanel.IsVisible = false;
                 _viewModel.SwitchPage("Home");
                 
-                // without this settings such as parallax just wont work at all because we're uninitializing the settingsview
-                SettingsView.SetViewControls(_tosuApi, _viewModel, _chartManager, _backgroundManager, _tooltipManager, _settingsViewModel);
-
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
                 debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
                 await UpdateSettingsOpacityAsync("Home");

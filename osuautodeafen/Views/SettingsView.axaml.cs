@@ -53,11 +53,38 @@ namespace osuautodeafen.Views
         private DispatcherTimer? _ppSaveTimer;
         private DispatcherTimer? _completionPercentageSaveTimer;
         private DispatcherTimer? _starRatingSaveTimer;
-        public SettingsView(SettingsHandler settingsHandler)
+        public SettingsView(
+            SettingsHandler settingsHandler,
+            TosuApi tosuApi,
+            SharedViewModel viewModel,
+            ChartManager chartManager,
+            BackgroundManager? backgroundManager,
+            TooltipManager tooltipManager,
+            SettingsViewModel settingsViewModel)
         {
             InitializeComponent();
-            Console.WriteLine("SettingsView initialized");
+
             _settingsHandler = settingsHandler;
+            _tosuApi = tosuApi;
+            _viewModel = viewModel;
+            _chartManager = chartManager;
+            _backgroundManager = backgroundManager;
+            _tooltipManager = tooltipManager;
+            _settingsViewModel = settingsViewModel;
+
+            DataContext = _viewModel;
+
+            DeafenKeybindButton.DataContext = _settingsViewModel;
+            if (DeafenKeybindButton.Flyout is Flyout { Content: Control content })
+                content.DataContext = _settingsViewModel;
+        }
+        
+        public void AttachManagers(
+            ChartManager chartManager,
+            BackgroundManager backgroundManager)
+        {
+            _chartManager = chartManager;
+            _backgroundManager = backgroundManager;
         }
         
         /// <summary>

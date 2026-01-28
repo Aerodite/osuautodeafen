@@ -75,23 +75,36 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private string _updateStatusMessage;
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
-    public SharedViewModel(TosuApi tosuApi, TooltipManager tooltipManager, HomeView homeView, SettingsView settingsView)
+    public SharedViewModel(
+        TosuApi tosuApi,
+        TooltipManager tooltipManager,
+        HomeView? homeView,
+        SettingsView? settingsView)
     {
-        HomePage = homeView;
-        SettingsPage = settingsView;
-        CurrentPage = HomePage; 
-        
+        _homePage = homeView!;
+        _settingsPage = settingsView!;
+        CurrentPage = _homePage;
+
         _settingsHandler = new SettingsHandler();
         OpenUpdateUrlCommand = new RelayCommand(OpenUpdateUrl);
         Task.Run(InitializeAsync);
+
         _tosuApi = tosuApi;
         _tooltipManager = tooltipManager;
         Task.Run(UpdateCompletionPercentageAsync);
-
-        if (Presets != null)
-            Presets.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasAnyPresets));
     }
+    
+    public void AttachViews(HomeView homeView, SettingsView settingsView)
+    {
+        _homePage = homeView;
+        _settingsPage = settingsView;
 
+        if (CurrentPage == null)
+            CurrentPage = _homePage;
+
+        OnPropertyChanged(nameof(CurrentPage));
+    }
+    
     public bool CanCreatePreset => !PresetExistsForCurrentChecksum;
 
     public bool HasAnyPresets => Presets != null && Presets.Any();
@@ -220,8 +233,12 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
     
-    public UserControl HomePage { get; }
-    private UserControl SettingsPage { get; }
+    private UserControl _homePage;
+    private UserControl _settingsPage;
+
+    public UserControl HomePage => _homePage;
+    private UserControl SettingsPage => _settingsPage;
+
 
     private UserControl _currentPage;
     public UserControl CurrentPage

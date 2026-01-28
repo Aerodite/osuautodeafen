@@ -29,8 +29,6 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     private double _cachedDownscale = 1.0;
 
     private Bitmap? _cachedDownscaledBitmap;
-    
-    public bool CachedParallaxSetting = false;
 
     private GpuBackgroundControl? _cachedGpuBackground;
     private Bitmap? _cachedSourceBitmap;
@@ -470,14 +468,14 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     /// <param name="e"></param>
     public void OnMouseMove(object? sender, PointerEventArgs e)
     {
-        if (_settingsView.ParallaxToggle?.IsChecked == false && CachedParallaxSetting == false)
+        if (!viewModel.IsBackgroundEnabled)
             return;
-        
-        if (_settingsView.BackgroundToggle?.IsChecked == false)
+
+        if (!viewModel.IsParallaxEnabled)
             return;
 
         Point position = e.GetPosition(window);
-        if (position.X < 0 || position.Y < 0 || position.X > window.Width || position.Y > window.Height)
+        if (position.X < 0 || position.Y < 0 || position.X > window.Bounds.Width || position.Y > window.Bounds.Height)
             return;
 
         _mouseX = position.X;
