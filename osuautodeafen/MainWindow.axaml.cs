@@ -457,9 +457,16 @@ public partial class MainWindow : Window
             if (point.Y <= titleBarHeight) BeginMoveDrag(e);
         };
         
-        SettingsView.ParallaxToggle.Checked += (_, _) => _backgroundManager.CachedParallaxSetting = true;
-        SettingsView.ParallaxToggle.Unchecked += (_, _) => _backgroundManager.CachedParallaxSetting = false;
-        
+        SettingsView.ParallaxToggle.IsCheckedChanged += (sender, _) =>
+        {
+            CheckBox? check = sender as CheckBox;
+            bool isChecked = check?.IsChecked == true;
+            if (_backgroundManager != null)
+            {
+                _backgroundManager.CachedParallaxSetting = isChecked;
+                _viewModel.IsParallaxEnabled = isChecked;
+            }
+        };
         CheckBox? FCToggle = SettingsView.FindControl<CheckBox>("FCToggle");
         StackPanel? undeafenPanel = SettingsView.FindControl<StackPanel>("UndeafenOnMissPanel");
 
@@ -501,9 +508,12 @@ public partial class MainWindow : Window
 
         if (SettingsView.BackgroundToggle != null && parallaxPanel != null && kiaiPanel != null && blurPanel != null)
         {
-            if (parallaxPanel.RenderTransform == null) parallaxPanel.RenderTransform = new TranslateTransform();
-            if (kiaiPanel.RenderTransform == null) kiaiPanel.RenderTransform = new TranslateTransform();
-            if (blurPanel.RenderTransform == null) blurPanel.RenderTransform = new TranslateTransform();
+            if (parallaxPanel.RenderTransform == null) 
+                parallaxPanel.RenderTransform = new TranslateTransform();
+            if (kiaiPanel.RenderTransform == null) 
+                kiaiPanel.RenderTransform = new TranslateTransform();
+            if (blurPanel.RenderTransform == null) 
+                blurPanel.RenderTransform = new TranslateTransform();
 
             if (SettingsView.BackgroundToggle.IsChecked == true)
             {
@@ -511,8 +521,9 @@ public partial class MainWindow : Window
                 parallaxPanel.Opacity = 1;
                 ((TranslateTransform)parallaxPanel.RenderTransform).Y = 0;
 
-                kiaiPanel.IsVisible = true;
-                kiaiPanel.Opacity = 1;
+                //this effect is really bad imo im just disabling for now
+                kiaiPanel.IsVisible = false;
+                kiaiPanel.Opacity = 0;
                 ((TranslateTransform)kiaiPanel.RenderTransform).Y = 0;
 
                 blurPanel.IsVisible = true;
@@ -528,16 +539,20 @@ public partial class MainWindow : Window
                 if (isChecked)
                 {
                     await EnqueueShowSubToggle(parallaxPanel, true);
-                    await EnqueueShowSubToggle(kiaiPanel, true);
+                    //await EnqueueShowSubToggle(kiaiPanel, true);
                     await EnqueueShowSubToggle(blurPanel, true);
                 }
                 else
                 {
                     await EnqueueShowSubToggle(blurPanel, false);
-                    await EnqueueShowSubToggle(kiaiPanel, false);
+                    //await EnqueueShowSubToggle(kiaiPanel, false);
                     await EnqueueShowSubToggle(parallaxPanel, false);
                 }
             };
+            
+            _toggleQueues.Remove(parallaxPanel);
+            //_toggleQueues.Remove(kiaiPanel);
+            _toggleQueues.Remove(blurPanel);
 
             if (_settingsHandler.IsBackgroundEnabled)
             {
@@ -545,8 +560,9 @@ public partial class MainWindow : Window
                 parallaxPanel.Opacity = 1;
                 ((TranslateTransform)parallaxPanel.RenderTransform).Y = 0;
 
-                kiaiPanel.IsVisible = true;
-                kiaiPanel.Opacity = 1;
+                // same as above
+                kiaiPanel.IsVisible = false;
+                kiaiPanel.Opacity = 0;
                 ((TranslateTransform)kiaiPanel.RenderTransform).Y = 0;
 
                 blurPanel.IsVisible = true;
