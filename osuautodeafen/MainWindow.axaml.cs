@@ -1291,17 +1291,107 @@ public partial class MainWindow : Window
         sw.Stop();
         Console.WriteLine($"Update download completed in {sw.ElapsedMilliseconds} ms");
     }
-
-    /// <summary>
-    ///     Handles the click event on the update notification bar to start the update process
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
+    
     private async void UpdateNotificationBar_Click(object sender, RoutedEventArgs e)
     {
         await DownloadUpdateWithProgressAsync();
         if (_updateChecker?.UpdateInfo != null)
             _updateChecker?.Mgr.ApplyUpdatesAndRestart(_updateChecker.UpdateInfo);
+    }
+    
+    private CancellationTokenSource? _versionAnimCts;
+
+    private async void LogoPanel_PointerEnter(object sender, PointerEventArgs e)
+    {
+        try
+        {
+            if (sender is not StackPanel) return;
+            var versionPanel = this.FindControl<TextBlock>("VersionPanel");
+            if (versionPanel == null) return;
+
+            _versionAnimCts?.Cancel();
+            _versionAnimCts?.Dispose();
+            _versionAnimCts = new CancellationTokenSource();
+            var token = _versionAnimCts.Token;
+
+            await Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                versionPanel.RenderTransform ??= new TranslateTransform();
+                TranslateTransform? transform = (TranslateTransform)versionPanel.RenderTransform;
+
+                versionPanel.IsVisible = true;
+                versionPanel.Opacity = 0;
+                transform.Y = -8;
+
+                var anim = new Animation
+                {
+                    Duration = TimeSpan.FromMilliseconds(220),
+                    Easing = new CubicEaseOut(),
+                    FillMode = FillMode.Forward,
+                    Children =
+                    {
+                        new KeyFrame { Cue = new Cue(0), Setters = { new Setter(OpacityProperty, 0.0), new Setter(TranslateTransform.YProperty, -8.0) } },
+                        new KeyFrame { Cue = new Cue(1), Setters = { new Setter(OpacityProperty, 1.0), new Setter(TranslateTransform.YProperty, 0.0) } }
+                    }
+                };
+
+                try { await anim.RunAsync(versionPanel, token); } catch (OperationCanceledException) { }
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception in LogoPanel_PointerEnter: {ex.Message}");
+        }
+    }
+
+    private async void LogoPanel_PointerExit(object sender, PointerEventArgs e)
+    {
+        try
+        {
+            _tooltipManager.HideTooltip();
+            var versionPanel = this.FindControl<TextBlock>("VersionPanel");
+            if (versionPanel == null) return;
+
+            _versionAnimCts?.Cancel();
+            _versionAnimCts?.Dispose();
+            _versionAnimCts = new CancellationTokenSource();
+            var token = _versionAnimCts.Token;
+
+            await Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                versionPanel.RenderTransform ??= new TranslateTransform();
+                TranslateTransform? transform = (TranslateTransform)versionPanel.RenderTransform;
+
+                Animation anim = new()
+                {
+                    Duration = TimeSpan.FromMilliseconds(180),
+                    Easing = new CubicEaseIn(),
+                    FillMode = FillMode.Forward,
+                    Children =
+                    {
+                        new KeyFrame { Cue = new Cue(0), Setters = { new Setter(OpacityProperty, versionPanel.Opacity), new Setter(TranslateTransform.YProperty, transform.Y) } },
+                        new KeyFrame { Cue = new Cue(1), Setters = { new Setter(OpacityProperty, 0.0), new Setter(TranslateTransform.YProperty, -8.0) } }
+                    }
+                };
+
+                try
+                {
+                    await anim.RunAsync(versionPanel, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                
+                versionPanel.IsVisible = false;
+                versionPanel.Opacity = 1.0;
+                transform.Y = 0;
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception in LogoPanel_PointerExit: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -1662,6 +1752,15 @@ public partial class MainWindow : Window
                     Easing = new BackEaseOut()
                 }
             };
+            VersionPanel.Transitions = new Transitions
+            {
+                new ThicknessTransition
+                {
+                    Property = MarginProperty,
+                    Duration = TimeSpan.FromMilliseconds(500),
+                    Easing = new BackEaseOut()
+                }
+            };
         });
     }
 
@@ -1704,6 +1803,17 @@ public partial class MainWindow : Window
                 }
             };
             osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
+            
+            VersionPanel.Transitions = new Transitions
+            {
+                new ThicknessTransition
+                {
+                    Property = MarginProperty,
+                    Duration = TimeSpan.FromMilliseconds(500),
+                    Easing = new BackEaseOut()
+                }
+            };
+            VersionPanel.Margin = new Thickness(0, 0, 225, 0);
         }).GetTask());
 
         await Task.WhenAll(tasks);
@@ -1747,6 +1857,17 @@ public partial class MainWindow : Window
                     }
                 };
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
+                
+                VersionPanel.Transitions = new Transitions
+                {
+                    new ThicknessTransition
+                    {
+                        Property = MarginProperty,
+                        Duration = TimeSpan.FromMilliseconds(500),
+                        Easing = new BackEaseOut()
+                    }
+                };
+                VersionPanel.Margin = new Thickness(0, 0, 0, 0);
             }).GetTask());
     }
     

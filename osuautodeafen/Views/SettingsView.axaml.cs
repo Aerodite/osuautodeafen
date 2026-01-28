@@ -919,8 +919,8 @@ namespace osuautodeafen.Views
         public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)
         {
             if (!await _updateCheckLock.WaitAsync(0))
-                return; // already running
-
+                return;
+            
             try
             {
                 Button? button = this.FindControl<Button>("CheckForUpdatesButton");

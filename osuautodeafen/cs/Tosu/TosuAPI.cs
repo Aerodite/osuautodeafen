@@ -183,7 +183,7 @@ public class TosuApi : IDisposable
         }
         else
         {
-            Console.WriteLine("WebSocket is still connected, no need to reconnect.");
+            Console.WriteLine("No reconnection needed, WebSocket is open");
         }
     }
 

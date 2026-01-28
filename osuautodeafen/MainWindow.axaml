@@ -166,14 +166,27 @@
                     </TransformGroup>
                 </StackPanel.RenderTransform>
 
-                <StackPanel Orientation="Horizontal" x:Name="osuautodeafenLogoPanel">
+                <StackPanel Orientation="Horizontal" x:Name="osuautodeafenLogoPanel"
+                            PointerEntered="LogoPanel_PointerEnter"
+                            PointerExited="LogoPanel_PointerExit">
                     <Image Name="osuLogo" Source="avares://osuautodeafen/Resources/osu_whitestroke.png" Height="60" />
                     <ContentControl Name="LogoHost" />
                 </StackPanel>
 
-              <TextBlock Text="{Binding CurrentAppVersion}" HorizontalAlignment="Center"
-                           VerticalAlignment="Center" Margin="0,0,0,10" Foreground="White" FontSize="14"
-                           x:Name="VersionPanel" x:DataType="viewModels:SharedViewModel" IsVisible="False"/>
+                <TextBlock Text="{Binding CurrentAppVersion}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Margin="0,-10,0,6"
+                           Foreground="White"
+                           FontSize="16"
+                           x:Name="VersionPanel"
+                           x:DataType="viewModels:SharedViewModel"
+                           IsVisible="False"
+                           RenderTransformOrigin="0.5,0.0">
+                    <TextBlock.RenderTransform>
+                        <TranslateTransform />
+                    </TextBlock.RenderTransform>
+                </TextBlock>
             </StackPanel>
         </Grid>
 
