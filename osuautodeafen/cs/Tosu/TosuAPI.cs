@@ -41,8 +41,10 @@ public class TosuApi : IDisposable
     private double _fullSR;
     private string? _gameDirectory;
     private JsonElement _graphData;
+    private bool _hasFailed;
     private bool _isBreakPeriod;
     public bool _isKiai;
+    private bool _isPaused;
     private string? _lastBeatmapChecksum = "abcdefghijklmnop";
     private double? _lastBpm;
     private double? _lastCompletionPercentage;
@@ -66,8 +68,6 @@ public class TosuApi : IDisposable
     private ClientWebSocket _webSocket;
     private string k1Bind = "";
     private string k2Bind = "";
-    private bool _isPaused = false;
-    private bool _hasFailed = false;
 
     public TosuApi()
     {
@@ -397,12 +397,10 @@ public class TosuApi : IDisposable
                             if (mods.TryGetProperty("number", out JsonElement modNumber))
                                 _modNumber = modNumber.GetInt32();
                         }
-                        
+
                         if (play.TryGetProperty("failed", out JsonElement hasFailed))
-                        {
                             _hasFailed = hasFailed.GetBoolean();
-                        }
-                        
+
                         if (root.TryGetProperty("settings", out JsonElement settings))
                             if (settings.TryGetProperty("keybinds", out JsonElement keybinds))
                                 if (keybinds.TryGetProperty("osu", out JsonElement osuKeybinds))
@@ -447,11 +445,9 @@ public class TosuApi : IDisposable
                                 {
                                 }
 
-                        if (root.TryGetProperty("game", out var gameElement))
-                            if (gameElement.TryGetProperty("paused", out var isPaused))
-                            {
+                        if (root.TryGetProperty("game", out JsonElement gameElement))
+                            if (gameElement.TryGetProperty("paused", out JsonElement isPaused))
                                 _isPaused = isPaused.GetBoolean();
-                            }
                         if (root.TryGetProperty("folders", out JsonElement folders) &&
                             folders.TryGetProperty("songs", out JsonElement songs))
                             _settingsSongsDirectory = songs.GetString();
@@ -603,15 +599,15 @@ public class TosuApi : IDisposable
             return _realtimeBpm.Value;
         return 0;
     }
-    
+
     /// <summary>
-    ///    Checks if the current play is paused
+    ///     Checks if the current play is paused
     /// </summary>
     public bool IsPaused()
     {
         return _isPaused;
     }
-    
+
     /// <summary>
     ///     Checks if the current play has failed
     /// </summary>

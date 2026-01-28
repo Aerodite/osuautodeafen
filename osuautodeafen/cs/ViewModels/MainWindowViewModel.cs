@@ -38,16 +38,15 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private double _blurRadius;
 
     private double _completionPercentage;
-    
-    private GridLength _settingsPanelWidth = new GridLength(0);
+
+
+    private UserControl _currentPage;
 
     private string _fullBeatmapName;
 
     private bool _isBackgroundEnabled;
 
     private bool _IsBreakUndeafenToggleEnabled;
-    
-    private bool _IsPauseUndeafenToggleEnabled;
 
     private bool _isFCRequired;
 
@@ -55,14 +54,18 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     private bool _isParallaxEnabled;
 
+    private bool _IsPauseUndeafenToggleEnabled;
+
     private bool _isSliderTooltipOpen;
     private bool _isUpdateReady;
-    
+
     private double _minCompletionPercentage;
 
     private Bitmap? _modifiedLogoImage;
     private int _performancePoints;
     private bool _presetExistsForCurrentChecksum;
+
+    private GridLength _settingsPanelWidth = new(0);
 
     private double _sliderTooltipOffsetX;
     private double _starRating;
@@ -77,15 +80,16 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     private string _updateStatusMessage;
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
+
     public SharedViewModel(
         TosuApi tosuApi,
         TooltipManager tooltipManager,
         HomeView? homeView,
         SettingsView? settingsView)
     {
-        _homePage = homeView!;
-        _settingsPage = settingsView!;
-        CurrentPage = _homePage;
+        HomePage = homeView!;
+        SettingsPage = settingsView!;
+        CurrentPage = HomePage;
 
         _settingsHandler = new SettingsHandler();
         OpenUpdateUrlCommand = new RelayCommand(OpenUpdateUrl);
@@ -95,18 +99,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         _tooltipManager = tooltipManager;
         Task.Run(UpdateCompletionPercentageAsync);
     }
-    
-    public void AttachViews(HomeView homeView, SettingsView settingsView)
-    {
-        _homePage = homeView;
-        _settingsPage = settingsView;
 
-        if (CurrentPage == null)
-            CurrentPage = _homePage;
-
-        OnPropertyChanged(nameof(CurrentPage));
-    }
-    
     public bool CanCreatePreset => !PresetExistsForCurrentChecksum;
 
     public bool HasAnyPresets => Presets != null && Presets.Any();
@@ -230,19 +223,15 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             if (_settingsPanelWidth != value)
             {
                 _settingsPanelWidth = value;
-                OnPropertyChanged(nameof(SettingsPanelWidth));
+                OnPropertyChanged();
             }
         }
     }
-    
-    private UserControl _homePage;
-    private UserControl _settingsPage;
 
-    public UserControl HomePage => _homePage;
-    private UserControl SettingsPage => _settingsPage;
+    public UserControl HomePage { get; private set; }
 
+    private UserControl SettingsPage { get; set; }
 
-    private UserControl _currentPage;
     public UserControl CurrentPage
     {
         get => _currentPage;
@@ -255,17 +244,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             }
         }
     }
-    
-    public void SwitchPage(string page)
-    {
-        CurrentPage = page switch
-        {
-            "Settings" => SettingsPage,
-            _ => HomePage
-        };
-        OnPropertyChanged(nameof(CurrentPage));
-    }
-    
+
     public string CurrentAppVersion => $"v{UpdateChecker.CurrentVersion}";
 
     public SolidColorBrush AverageColorBrush
@@ -379,7 +358,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             }
         }
     }
-    
+
     public bool IsPauseUndeafenToggleEnabled
     {
         get => _IsPauseUndeafenToggleEnabled;
@@ -583,6 +562,27 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     public object MinSRValue => _tosuApi.GetFullSR();
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public void AttachViews(HomeView homeView, SettingsView settingsView)
+    {
+        HomePage = homeView;
+        SettingsPage = settingsView;
+
+        if (CurrentPage == null)
+            CurrentPage = HomePage;
+
+        OnPropertyChanged(nameof(CurrentPage));
+    }
+
+    public void SwitchPage(string page)
+    {
+        CurrentPage = page switch
+        {
+            "Settings" => SettingsPage,
+            _ => HomePage
+        };
+        OnPropertyChanged(nameof(CurrentPage));
+    }
 
     public void RefreshPresets()
     {

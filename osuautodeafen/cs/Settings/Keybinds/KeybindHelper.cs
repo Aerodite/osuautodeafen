@@ -16,7 +16,7 @@ public class KeybindHelper
                key == Key.LeftShift || key == Key.RightShift ||
                key == Key.LWin || key == Key.RWin;
     }
-    
+
     /// <summary>
     ///     Converts certain keys to more user-friendly names for display purposes
     /// </summary>

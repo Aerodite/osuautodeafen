@@ -1,16 +1,12 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                xmlns:views="clr-namespace:osuautodeafen.Views"
-                xmlns:cs="clr-namespace:osuautodeafen.cs"
-                xmlns:local="clr-namespace:osuautodeafen"
-                x:Class="osuautodeafen.Views.SettingsView"
-                xmlns:settings="clr-namespace:osuautodeafen.cs.Settings"
-                xmlns:global="clr-namespace:"
-                xmlns:presets="clr-namespace:osuautodeafen.cs.Settings.Presets"
-                xmlns:transitions="clr-namespace:Avalonia.Animation;assembly=Avalonia.Animation"
-                xmlns:viewModels="clr-namespace:osuautodeafen.cs.ViewModels"
-                DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
-    
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="osuautodeafen.Views.SettingsView"
+             xmlns:settings="clr-namespace:osuautodeafen.cs.Settings"
+             xmlns:global="clr-namespace:"
+             xmlns:presets="clr-namespace:osuautodeafen.cs.Settings.Presets"
+             xmlns:viewModels="clr-namespace:osuautodeafen.cs.ViewModels"
+             DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+
     <UserControl.Resources>
         <global:AverageColorCycleConverter x:Key="AverageColorCycleConverter" />
         <presets:BackgroundPathToBrushConverter x:Key="BackgroundPathToBrushConverter" />
@@ -18,39 +14,17 @@
         <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
         <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
-        <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrushDim.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrushDim.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
 
         <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
                          x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="ButtonBackgroundBrushPointerOver" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="ButtonBackgroundBrushPressed" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonBackgroundBrushDisabled" Color="{Binding AverageColorBrushDark.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="ButtonBorderBrush" Color="{Binding AverageColorBrush.Color}"
                          x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonForegroundBrush" Color="{Binding AverageColorBrushDim.Color}"
                          x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="ButtonHighlightBrush" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="CheckBoxBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
                          x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="TooltipColorBrush" Color="{Binding AverageColorBrushDimmer.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
     </UserControl.Resources>
-    
+
     <UserControl.Styles>
 
         <Style Selector="Button">
@@ -116,17 +90,17 @@
             <Setter Property="Background" Value="#444" />
         </Style>
     </UserControl.Styles>
-    
-    
+
+
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
-        
-    <DockPanel x:Name="SettingsPanel" Grid.Column="1" Width="200" IsVisible="True"
-               Margin="0,42,0,0" ZIndex="3"
-               x:DataType="viewModels:SharedViewModel" HorizontalAlignment="Right">
+
+        <DockPanel x:Name="SettingsPanel" Grid.Column="1" Width="200" IsVisible="True"
+                   Margin="0,42,0,0" ZIndex="3"
+                   x:DataType="viewModels:SharedViewModel" HorizontalAlignment="Right">
             <DockPanel.Background>
                 <MultiBinding Converter="{StaticResource ColorBlendConverter}">
                     <Binding Path="Color" Source="{StaticResource BaseBackgroundBrush}" />
@@ -219,7 +193,8 @@
                                 VerticalAlignment="Center"
                                 PointerEntered="FCToggle_PointerEnter"
                                 PointerExited="FCToggle_PointerLeave">
-                        <Svg Path="avares://osuautodeafen/Icons/crown.svg" Width="26" Height="26" Margin="0,0,5,0" VerticalAlignment="Center" />
+                        <Svg Path="avares://osuautodeafen/Icons/crown.svg" Width="26" Height="26" Margin="0,0,5,0"
+                             VerticalAlignment="Center" />
                         <CheckBox x:Name="FCToggle" Content="FC Required?" Foreground="White"
                                   IsChecked="{Binding IsFCRequired, Mode=TwoWay}"
                                   HorizontalAlignment="Left" VerticalAlignment="Center"
@@ -230,7 +205,8 @@
                                 PointerEntered="UndeafenOnMissToggle_PointerEnter"
                                 PointerExited="UndeafenOnMissToggle_PointerLeave"
                                 x:Name="UndeafenOnMissPanel">
-                        <Svg Path="avares://osuautodeafen/Icons/meteor.svg" Width="26" Height="26" Margin="0,0,5,0" VerticalAlignment="Center" />
+                        <Svg Path="avares://osuautodeafen/Icons/meteor.svg" Width="26" Height="26" Margin="0,0,5,0"
+                             VerticalAlignment="Center" />
                         <CheckBox x:Name="UndeafenOnMissToggle" Content="Miss Undeafen" Foreground="White"
                                   IsChecked="{Binding UndeafenAfterMiss, Mode=TwoWay}"
                                   HorizontalAlignment="Left" VerticalAlignment="Center"
@@ -240,21 +216,22 @@
                                 VerticalAlignment="Center"
                                 PointerEntered="BreakUndeafenToggle_PointerEnter"
                                 PointerExited="BreakUndeafenToggle_PointerLeave">
-                        <Svg Path="avares://osuautodeafen/Icons/map-location.svg" Width="26" Height="26" Margin="0,0,5,0"
+                        <Svg Path="avares://osuautodeafen/Icons/map-location.svg" Width="26" Height="26"
+                             Margin="0,0,5,0"
                              VerticalAlignment="Center" />
                         <CheckBox x:Name="BreakUndeafenToggle" Content="Audible Breaks" Foreground="White"
                                   IsChecked="{Binding IsBreakUndeafenToggleEnabled, Mode=TwoWay}"
                                   HorizontalAlignment="Left" VerticalAlignment="Center"
                                   Margin="0" Width="125" Classes="custom" />
                     </StackPanel>
-                    
+
                     <StackPanel Orientation="Horizontal" Margin="10,0,0,0" HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
                                 PointerEntered="PauseUndeafenToggle_PointerEnter"
                                 PointerExited="PauseUndeafenToggle_PointerLeave">
                         <Svg Path="avares://osuautodeafen/Icons/pause.svg" Width="26" Height="26" Margin="0,0,5,0"
                              VerticalAlignment="Center" />
-                        <CheckBox x:Name="PauseUndeafenToggle" Content="Undeafen on Pause" Foreground="White"
+                        <CheckBox x:Name="PauseUndeafenToggle" Content="Pause Undeafen" Foreground="White"
                                   IsChecked="{Binding IsPauseUndeafenToggleEnabled, Mode=TwoWay}"
                                   HorizontalAlignment="Left" VerticalAlignment="Center"
                                   Margin="0" Width="125" Classes="custom" />
@@ -566,7 +543,7 @@
                                 <!--this should probably include some sort of verification prompt in the near future.. maybe-->
                                 <Button.Flyout>
                                     <Flyout>
-                                        <TextBlock Text="{Binding KeybindPrompt}"/>
+                                        <TextBlock Text="{Binding KeybindPrompt}" />
                                     </Flyout>
                                 </Button.Flyout>
                             </Button>
@@ -584,7 +561,8 @@
                                 VerticalAlignment="Center"
                                 PointerEntered="BGToggle_PointerEnter"
                                 PointerExited="BGToggle_PointerLeave">
-                        <Svg Path="avares://osuautodeafen/Icons/image.svg" Width="26" Height="26" Margin="0,0,5,0" VerticalAlignment="Center" />
+                        <Svg Path="avares://osuautodeafen/Icons/image.svg" Width="26" Height="26" Margin="0,0,5,0"
+                             VerticalAlignment="Center" />
                         <CheckBox x:Name="BackgroundToggle" Content="Background" Foreground="White"
                                   VerticalAlignment="Center"
                                   IsChecked="{Binding IsBackgroundEnabled, Mode=TwoWay}"
@@ -595,7 +573,8 @@
                                 PointerEntered="ParallaxToggle_PointerEnter"
                                 PointerExited="ParallaxToggle_PointerLeave"
                                 x:Name="ParallaxTogglePanel">
-                        <Svg Path="avares://osuautodeafen/Icons/arrows.svg" Width="26" Height="26" Margin="0,0,5,0" VerticalAlignment="Center" />
+                        <Svg Path="avares://osuautodeafen/Icons/arrows.svg" Width="26" Height="26" Margin="0,0,5,0"
+                             VerticalAlignment="Center" />
                         <CheckBox x:Name="ParallaxToggle" Content="Parallax" Foreground="White"
                                   VerticalAlignment="Center"
                                   IsChecked="{Binding IsParallaxEnabled, Mode=TwoWay}"
@@ -691,7 +670,7 @@
                                  HorizontalAlignment="Center"
                                  VerticalAlignment="Center" />
                         </Button>
-                        
+
                         <Button x:Name="DebugConsoleButton"
                                 Width="50" Height="50"
                                 Background="Transparent"
@@ -712,5 +691,5 @@
                 </StackPanel>
             </ScrollViewer>
         </DockPanel>
-        </Grid>
+    </Grid>
 </UserControl>

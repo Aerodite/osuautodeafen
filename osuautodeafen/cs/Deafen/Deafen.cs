@@ -23,16 +23,16 @@ public class Deafen : IDisposable
     private readonly SharedViewModel _sharedViewModel;
     private readonly Timer _timer;
     private readonly TosuApi _tosuAPI;
-    public  bool Deafened;
-    private bool _isInBreakPeriod;
-    private bool _isDeafened;
+    private DateTime _deafenEnteredAt = DateTime.MinValue;
     private bool _desiredDeafenState;
     private bool _hasAppliedFirstDeafen = false;
-    private DateTime _deafenEnteredAt = DateTime.MinValue;
+    private bool _isDeafened;
+    private bool _isInBreakPeriod;
+    private DateTime _lastToggleAt = DateTime.MinValue;
 
 
     private DateTime _nextStateChangedAt = DateTime.MinValue;
-    private DateTime _lastToggleAt = DateTime.MinValue;
+    public bool Deafened;
 
     public Deafen(TosuApi tosuAPI, SettingsHandler settingsHandler, SharedViewModel sharedViewModel)
     {
@@ -41,30 +41,43 @@ public class Deafen : IDisposable
         _hook = new SimpleGlobalHook();
         _sharedViewModel = sharedViewModel;
         _settingsHandler = settingsHandler;
-        
+
         _timer = new Timer(64);
         _timer.Elapsed += (_, _) => EvaluateDeafenState();
         _timer.Start();
     }
-    
+
+    private bool IsUndeafenAfterMissEnabled => _sharedViewModel.UndeafenAfterMiss;
+    private bool IsBreakUndeafenToggleEnabled => _sharedViewModel.IsBreakUndeafenToggleEnabled;
+
+    /// <summary>
+    ///     Cleans up resources used by the Deafen class
+    /// </summary>
+    public void Dispose()
+    {
+        Console.WriteLine("Disposing Deafen resources.");
+        _hook.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
     // this is kinda just for me (and anyone else on hyprland not using the official discord client)
-    bool IsHyprland()
+    private bool IsHyprland()
     {
         return Environment.GetEnvironmentVariable("HYPRLAND_INSTANCE_SIGNATURE") != null;
     }
-    
-    bool IsWayland()
+
+    private bool IsWayland()
     {
         return Environment.GetEnvironmentVariable("WAYLAND_DISPLAY") != null;
     }
-    
+
     private bool TryHyprlandSendShortcut()
     {
         try
         {
             if (string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient))
                 return false;
-            
+
             ProcessStartInfo psi = new()
             {
                 FileName = "hyprctl",
@@ -90,19 +103,6 @@ public class Deafen : IDisposable
         }
     }
 
-    private bool IsUndeafenAfterMissEnabled => _sharedViewModel.UndeafenAfterMiss;
-    private bool IsBreakUndeafenToggleEnabled => _sharedViewModel.IsBreakUndeafenToggleEnabled;
-
-    /// <summary>
-    ///     Cleans up resources used by the Deafen class
-    /// </summary>
-    public void Dispose()
-    {
-        Console.WriteLine("Disposing Deafen resources.");
-        _hook.Dispose();
-        GC.SuppressFinalize(this);
-    }
-
     /// <summary>
     ///     Attempts to simulate the press(ing) of keybinds to deafen/undeafen in Discord.
     /// </summary>
@@ -112,7 +112,7 @@ public class Deafen : IDisposable
         {
             var osuKeybinds = _tosuAPI.GetOsuKeybinds();
             var keys = osuKeybinds as Key[] ?? osuKeybinds.ToArray();
-            
+
             Key configuredKey = (Key)_settingsHandler.DeafenKeybindKey;
 
             bool hasAnyModifier =
@@ -125,7 +125,7 @@ public class Deafen : IDisposable
                 Console.WriteLine("Nice try.");
                 return;
             }
-            
+
             List<ModifierWithSide> modifiers = [];
 
             KeyCode key = MapAvaloniaKeyToSharpHook((Key)_settingsHandler.DeafenKeybindKey);
@@ -198,11 +198,9 @@ public class Deafen : IDisposable
 
         // fc logic or something
         if (_sharedViewModel.IsFCRequired && !_tosuAPI.IsFullCombo())
-        {
             if (IsUndeafenAfterMissEnabled)
                 return false;
-        }
-        
+
         // the main conditions
         double completion = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
         if (completion < _sharedViewModel.MinCompletionPercentage)
@@ -216,7 +214,7 @@ public class Deafen : IDisposable
 
         return true;
     }
-    
+
     /// <summary>
     ///     Checks the conditions to deafen or undeafen and toggles the deafen state accordingly.
     /// </summary>
@@ -227,13 +225,11 @@ public class Deafen : IDisposable
         if (nextState != _desiredDeafenState)
         {
             if (_isDeafened && !nextState)
-            {
                 if ((DateTime.Now - _deafenEnteredAt).TotalMilliseconds < 500)
                 {
                     Console.WriteLine("[Eval] Suppressing early undeafen");
                     return;
                 }
-            }
 
             _desiredDeafenState = nextState;
             _nextStateChangedAt = DateTime.Now;
@@ -271,7 +267,6 @@ public class Deafen : IDisposable
             if (IsWayland() && IsHyprland() &&
                 _settingsHandler.UseHyprlandDispatch &&
                 !string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient))
-            {
                 if (TryHyprlandSendShortcut())
                 {
                     _isDeafened = !_isDeafened;
@@ -281,7 +276,6 @@ public class Deafen : IDisposable
 
                     return;
                 }
-            }
 
             SimulateDeafenKey();
             _isDeafened = !_isDeafened;

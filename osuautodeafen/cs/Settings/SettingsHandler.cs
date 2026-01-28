@@ -16,6 +16,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private string? _activePresetPath;
     private double _blurRadius;
 
+    private string _discordClient;
+
     private bool _isBreakUndeafenToggleEnabled;
 
     private IniData _mainData;
@@ -24,8 +26,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private double _performancePoints;
     private IniData? _presetData;
     private double _starRating;
-
-    private string _discordClient;
     private bool _useHyprlandDispatch;
 
     private double _windowHeight;
@@ -66,7 +66,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public bool IsPresetActive => _activePresetPath != null;
     private IniData CurrentData => IsPresetActive ? _presetData! : _mainData;
     private string ActivePath => _activePresetPath ?? _iniPath;
-    
+
     public string DiscordClient
     {
         get => _discordClient;
@@ -76,7 +76,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
                 SaveSetting("Linux", "discordClient", value);
         }
     }
-    
+
     public bool UseHyprlandDispatch
     {
         get => _useHyprlandDispatch;
@@ -262,7 +262,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         data["UI"]["IsBackgroundEnabled"] = "True";
         data["UI"]["IsParallaxEnabled"] = "True";
         data["UI"]["BlurRadius"] = "0";
-        data["UI"]["IsKiaiEffectEnabled"] = "True";
+        data["UI"]["IsKiaiEffectEnabled"] = "False";
         data["UI"]["WindowWidth"] = "630";
         data["UI"]["WindowHeight"] = "630";
 
@@ -357,7 +357,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
         tosuApiIp = Data["Network"]["tosuApiIp"];
         tosuApiPort = Data["Network"]["tosuApiPort"];
-        
+
         _discordClient = Data["Linux"]["discordClient"];
         _useHyprlandDispatch = bool.TryParse(Data["Linux"]["useHyprlandDispatch"], out bool hypr) && hypr;
 

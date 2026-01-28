@@ -42,11 +42,11 @@ public class ChartManager
 
     private readonly LineSeries<ObservablePoint> _progressIndicator;
     private readonly Dictionary<string, List<int>> _seriesIndexMap = new();
+    private readonly SettingsView _settingsView;
 
     private readonly TooltipManager _tooltipManager;
     private readonly TosuApi _tosuApi;
     private readonly SharedViewModel _viewModel;
-    private readonly SettingsView _settingsView;
     private List<double>? _currentXAxis;
 
     private CancellationTokenSource? _deafenOverlayCts;
@@ -201,9 +201,9 @@ public class ChartManager
             _draggedDeafenSection.Xi = newXi;
             double newPercentage = Math.Min(100.0, 100.0 * newXi / MaxLimit);
             _viewModel.MinCompletionPercentage = (int)newPercentage;
-            
+
             _settingsView.CompletionPercentageSlider.Value = newPercentage;
-            _settingsView.CompletionPercentageSlider_ValueChanged(null, 
+            _settingsView.CompletionPercentageSlider_ValueChanged(null,
                 new RangeBaseValueChangedEventArgs(newPercentage, newPercentage, null));
 
             TimeSpan ts = currentTime.HasValue ? TimeSpan.FromMilliseconds(currentTime.Value) : TimeSpan.Zero;

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -13,7 +12,6 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -22,12 +20,12 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
-using IniParser.Model;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Background;
 using osuautodeafen.cs.Deafen;
+using osuautodeafen.cs.Helpers;
 using osuautodeafen.cs.Log;
 using osuautodeafen.cs.Logo;
 using osuautodeafen.cs.Settings;
@@ -50,6 +48,12 @@ namespace osuautodeafen;
 public partial class MainWindow : Window
 {
     private const double BeatsPerRotation = 4;
+
+    private const double HoverAngle = 15;
+    private const double NormalAngle = 0;
+
+    private static Button? _updateNotificationBarButton;
+    private static ProgressBar? _updateProgressBar;
     private readonly BackgroundManager? _backgroundManager;
 
     private readonly BreakPeriodCalculator _breakPeriod;
@@ -57,30 +61,37 @@ public partial class MainWindow : Window
     private readonly Lock _cogSpinLock = new();
     private readonly Stopwatch _frameStopwatch = new();
     private readonly GetLowResBackground? _getLowResBackground;
+
+    private readonly KeybindHelper _keybindHelper = new();
     private readonly KiaiTimes _kiaiTimes = new();
     private readonly LogImportant _logImportant = new();
+
+    private readonly SemaphoreSlim _logoAnimationLock = new(1, 1);
     private readonly DispatcherTimer _mainTimer;
     private readonly SemaphoreSlim _panelAnimationLock = new(1, 1);
-    
-    private readonly KeybindHelper _keybindHelper = new();
 
     private readonly HashSet<Key> _pressedKeys = new();
     private readonly ProgressIndicatorHelper _progressIndicatorHelper;
     private readonly Action? _settingsButtonClicked;
     private readonly SettingsHandler? _settingsHandler;
+
+    private readonly SettingsViewModel _settingsViewModel;
     private readonly Dictionary<Control, Task> _toggleQueues = new();
     private readonly TooltipManager _tooltipManager = new();
     private readonly TosuApi _tosuApi;
+
+    private readonly UpdateChecker? _updateChecker;
     private readonly SharedViewModel _viewModel;
+    private readonly HomeView HomeView;
+
+    public readonly SettingsView SettingsView;
     private CancellationTokenSource? _blurCts;
+    private CancellationTokenSource? _cogAnimationCts;
     private double _cogCurrentAngle;
     private double _cogSpinBpm = 140;
     private double _cogSpinStartAngle;
     private DateTime _cogSpinStartTime;
     private DispatcherTimer? _cogSpinTimer;
-    
-    public readonly SettingsView SettingsView;
-    private readonly HomeView HomeView;
 
     private CancellationTokenSource? _frameCts;
     private bool _isCogSpinning;
@@ -93,26 +104,24 @@ public partial class MainWindow : Window
     private GraphData? _lastGraphData;
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
-    
+
     private LogoControl? _logoControl;
     private DispatcherTimer? _logUpdateTimer;
 
     private DispatcherTimer? _modifierOnlyTimer;
     private double _opacity = 1.00;
-    
-    private readonly SemaphoreSlim _logoAnimationLock = new(1,1);
-    
-    private bool _tooltipOutsideBounds;
 
-    private static Button? _updateNotificationBarButton;
-    private static ProgressBar? _updateProgressBar;
+    private bool _tooltipOutsideBounds;
     
-    private readonly UpdateChecker? _updateChecker;
+    private readonly CancelableAnimator _versionAnimator = new();
 
     public Image? NormalBackground;
-
-    private readonly SettingsViewModel _settingsViewModel;
     
+    private readonly CancelableAnimator _cogAnimator = new();
+    
+    private bool _isLogoHovered;
+
+
     public MainWindow()
     {
         string resourceName = "osuautodeafen.Resources.favicon.ico";
@@ -141,14 +150,14 @@ public partial class MainWindow : Window
                 }
             }
         }
-        
+
         InitializeComponent();
-        
+
         _updateChecker = new UpdateChecker(UpdateNotificationBar, UpdateProgressBar);
-        
+
         _updateNotificationBarButton = UpdateNotificationBar;
         _updateProgressBar = UpdateProgressBar;
-        
+
         string appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen");
         Directory.CreateDirectory(appPath);
@@ -163,30 +172,30 @@ public partial class MainWindow : Window
 
         _settingsHandler = new SettingsHandler();
         _settingsHandler.LoadSettings();
-        
+
         HomeView = new HomeView();
         _settingsViewModel = new SettingsViewModel();
-        
+
         _viewModel = new SharedViewModel(
             _tosuApi,
             _tooltipManager,
-            homeView: null,
-            settingsView: null
+            null,
+            null
         );
 
         ViewModel = _viewModel;
         DataContext = _viewModel;
-        
+
         SettingsView = new SettingsView(
             _settingsHandler,
             _tosuApi,
             _viewModel,
-            chartManager: null,
-            backgroundManager: null,
+            null,
+            null,
             _tooltipManager,
             _settingsViewModel
         );
-        
+
         _breakPeriod = new BreakPeriodCalculator();
 
         _chartManager = new ChartManager(
@@ -210,21 +219,21 @@ public partial class MainWindow : Window
 
         _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager);
         _getLowResBackground = new GetLowResBackground(_tosuApi);
-        
+
         _viewModel.AttachViews(HomeView, SettingsView);
         SettingsView.AttachManagers(_chartManager, _backgroundManager);
-        
+
         object? oldContent = Content;
         Content = null;
         Content = new Grid
         {
             Children = { new ContentControl { Content = oldContent } }
         };
-        
+
         InitializeViewModel();
-        
+
         _viewModel.CurrentPage = _viewModel.HomePage;
-        
+
         InitializeSettings();
 
         InitializeLogo();
@@ -232,7 +241,7 @@ public partial class MainWindow : Window
         Opened += async (_, __) =>
         {
             await _updateChecker.CheckForUpdatesAsync();
-            if (_updateChecker.UpdateInfo != null) 
+            if (_updateChecker.UpdateInfo != null)
                 await _updateChecker.ShowUpdateNotification();
         };
 
@@ -385,7 +394,7 @@ public partial class MainWindow : Window
         {
             _logImportant.logImportant("State: " + _tosuApi.GetRawBanchoStatus(), false, "State");
         };
-        _tosuApi.HasKiaiChanged += async (sender, e) =>
+        /*_tosuApi.HasKiaiChanged += async (sender, e) =>
         {
             if (!_viewModel.IsBackgroundEnabled || !_viewModel.IsKiaiEffectEnabled)
             {
@@ -428,12 +437,12 @@ public partial class MainWindow : Window
 
                 _backgroundManager.RemoveBackgroundOpacityRequest("kiai");
             }
-        };
+        };*/
         _breakPeriod.BreakPeriodEntered += async () => { _logImportant.logImportant("Break: True", false, "Break"); };
         _breakPeriod.BreakPeriodExited += async () => { _logImportant.logImportant("Break: False", false, "Break"); };
         _kiaiTimes.KiaiPeriodEntered += async () => { _logImportant.logImportant("Kiai: True", false, "Kiai"); };
         _kiaiTimes.KiaiPeriodExited += async () => { _logImportant.logImportant("Kiai: False", false, "Kiai"); };
-        
+
         DockPanel? settingsPanel = SettingsView.FindControl<DockPanel>("SettingsPanel");
         settingsPanel.Transitions = new Transitions
         {
@@ -445,9 +454,10 @@ public partial class MainWindow : Window
             }
         };
 
-        SettingsView.SetViewControls(_tosuApi, _viewModel, _chartManager, _backgroundManager, _tooltipManager, _settingsViewModel);
+        SettingsView.SetViewControls(_tosuApi, _viewModel, _chartManager, _backgroundManager, _tooltipManager,
+            _settingsViewModel);
         SettingsView.UpdateDeafenKeybindDisplay();
-        
+
         ExtendClientAreaToDecorationsHint = true;
         ExtendClientAreaTitleBarHeightHint = 32;
         ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
@@ -523,11 +533,11 @@ public partial class MainWindow : Window
 
         if (SettingsView.BackgroundToggle != null && parallaxPanel != null && kiaiPanel != null && blurPanel != null)
         {
-            if (parallaxPanel.RenderTransform == null) 
+            if (parallaxPanel.RenderTransform == null)
                 parallaxPanel.RenderTransform = new TranslateTransform();
-            if (kiaiPanel.RenderTransform == null) 
+            if (kiaiPanel.RenderTransform == null)
                 kiaiPanel.RenderTransform = new TranslateTransform();
-            if (blurPanel.RenderTransform == null) 
+            if (blurPanel.RenderTransform == null)
                 blurPanel.RenderTransform = new TranslateTransform();
 
             if (SettingsView.BackgroundToggle.IsChecked == true)
@@ -564,7 +574,7 @@ public partial class MainWindow : Window
                     await EnqueueShowSubToggle(parallaxPanel, false);
                 }
             };
-            
+
             _toggleQueues.Remove(parallaxPanel);
             //_toggleQueues.Remove(kiaiPanel);
             _toggleQueues.Remove(blurPanel);
@@ -614,8 +624,6 @@ public partial class MainWindow : Window
 
     private void MainWindow_PointerMoved(object? sender, PointerEventArgs e)
     {
-        _backgroundManager?.OnMouseMove(sender, e);
-
         Point pixelPoint = e.GetPosition(PlotView);
         LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
 
@@ -630,7 +638,9 @@ public partial class MainWindow : Window
         MainWindow window = this;
         PixelPoint screenPoint = PlotView.PointToScreen(pixelPoint);
         Point windowPoint = new(screenPoint.X - window.Position.X, screenPoint.Y - window.Position.Y);
-
+        
+        _backgroundManager.ApplyParallax(windowPoint.X, windowPoint.Y);
+        
         // this is really stupid but it just prevents the case where the straingraph's tooltips attempt to show in areas outside of the straingraph
         if (currentTooltipType == Tooltips.TooltipType.Time || currentTooltipType == Tooltips.TooltipType.Section)
         {
@@ -916,7 +926,7 @@ public partial class MainWindow : Window
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private async Task UpdateSettingsOpacityAsync(string targetPage)
     {
         try
@@ -938,7 +948,7 @@ public partial class MainWindow : Window
             Console.WriteLine($"[ERROR] in UpdateSettingsOpacityAsync: {ex}");
         }
     }
-    
+
     private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         try
@@ -992,7 +1002,7 @@ public partial class MainWindow : Window
                     {
                         await _backgroundManager?.UpdateBackground(null, null)!;
 
-                        if (_tosuApi._isKiai && _viewModel.IsKiaiEffectEnabled)
+                        /*if (_tosuApi._isKiai && _viewModel.IsKiaiEffectEnabled)
                         {
                             double bpm = _tosuApi.GetCurrentBpm();
                             double intervalMs = 60000.0 / bpm;
@@ -1010,7 +1020,7 @@ public partial class MainWindow : Window
                                     (int)(intervalMs / 4));
                             };
                             _kiaiBrightnessTimer.Start();
-                        }
+                        }*/
                     }
 
                     break;
@@ -1129,13 +1139,18 @@ public partial class MainWindow : Window
             Key k1 = keys.ElementAtOrDefault(0);
             Key k2 = keys.ElementAtOrDefault(1);
 
-            if (keys.Contains(e.Key))
+            bool isOsuKey = keys.Contains(e.Key);
+            bool hasModifiers = e.KeyModifiers != KeyModifiers.None;
+
+            if (isOsuKey && !hasModifiers)
             {
                 string keybind = e.Key == k1 ? "K1" :
                     e.Key == k2 ? "K2" : "osu! keybind";
 
                 _settingsViewModel.KeybindPrompt =
-                    $"'{_keybindHelper.GetFriendlyKeyName(e.Key)}' is a disallowed keybind (it is your current osu! {keybind})\n(please use something else bro :sob:)";
+                    $"'{_keybindHelper.GetFriendlyKeyName(e.Key)}' is a disallowed keybind (it is your current osu! {keybind})\n" +
+                    "(please use something else bro :sob:)";
+
                 e.Handled = true;
                 return;
             }
@@ -1196,7 +1211,7 @@ public partial class MainWindow : Window
 
         switch (e.Key)
         {
-            case Key.D when e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+            case Key.D when e.KeyModifiers.HasFlag(KeyModifiers.Shift):
                 Dispatcher.UIThread.InvokeAsync(() => ToggleDebugConsole(null, null!));
                 e.Handled = true;
                 return;
@@ -1216,7 +1231,8 @@ public partial class MainWindow : Window
         base.OnKeyUp(e);
         _pressedKeys.Remove(e.Key);
 
-        if (_settingsViewModel.IsKeybindCaptureFlyoutOpen && _modifierOnlyTimer?.IsEnabled == true && IsModifierKey(e.Key))
+        if (_settingsViewModel.IsKeybindCaptureFlyoutOpen && _modifierOnlyTimer?.IsEnabled == true &&
+            IsModifierKey(e.Key))
         {
             _modifierOnlyTimer.Stop();
 
@@ -1324,109 +1340,84 @@ public partial class MainWindow : Window
         sw.Stop();
         Console.WriteLine($"Update download completed in {sw.ElapsedMilliseconds} ms");
     }
-    
+
     private async void UpdateNotificationBar_Click(object sender, RoutedEventArgs e)
     {
         await DownloadUpdateWithProgressAsync();
         if (_updateChecker?.UpdateInfo != null)
             _updateChecker?.Mgr.ApplyUpdatesAndRestart(_updateChecker.UpdateInfo);
     }
-    
-    private CancellationTokenSource? _versionAnimCts;
 
-    private async void LogoPanel_PointerEnter(object sender, PointerEventArgs e)
+    private void LogoPanel_PointerEnter(object sender, PointerEventArgs e)
     {
-        try
+        _isLogoHovered = true;
+        AnimateVersionPanel();
+    }
+    
+    private void LogoPanel_PointerExit(object sender, PointerEventArgs e)
+    {
+        _isLogoHovered = false;
+        AnimateVersionPanel();
+    }
+
+    private async void AnimateVersionPanel()
+    {
+        TextBlock? versionPanel = this.FindControl<TextBlock>("VersionPanel");
+        if (versionPanel == null)
+            return;
+
+        await _versionAnimator.RunAsync(async token =>
         {
-            if (sender is not StackPanel) return;
-            var versionPanel = this.FindControl<TextBlock>("VersionPanel");
-            if (versionPanel == null) return;
-
-            _versionAnimCts?.Cancel();
-            _versionAnimCts?.Dispose();
-            _versionAnimCts = new CancellationTokenSource();
-            var token = _versionAnimCts.Token;
-
             await Dispatcher.UIThread.InvokeAsync(async () =>
             {
                 versionPanel.RenderTransform ??= new TranslateTransform();
-                TranslateTransform? transform = (TranslateTransform)versionPanel.RenderTransform;
+                var transform = (TranslateTransform)versionPanel.RenderTransform;
 
-                versionPanel.IsVisible = true;
-                versionPanel.Opacity = 0;
-                transform.Y = -10;
+                double startOpacity = _isLogoHovered ? 0.0 : 1.0;
+                double startY = _isLogoHovered ? -8.0 : 0.0;
+
+                double targetOpacity = _isLogoHovered ? 1.0 : 0.0;
+                double targetY = _isLogoHovered ? 0.0 : -8.0;
+
+                if (_isLogoHovered)
+                    versionPanel.IsVisible = true;
 
                 var anim = new Animation
                 {
-                    Duration = TimeSpan.FromMilliseconds(220),
-                    Easing = new CubicEaseOut(),
-                    FillMode = FillMode.Forward,
-                    Children =
-                    {
-                        new KeyFrame { Cue = new Cue(0), Setters = { new Setter(OpacityProperty, 0.0), new Setter(TranslateTransform.YProperty, -8.0) } },
-                        new KeyFrame { Cue = new Cue(1), Setters = { new Setter(OpacityProperty, 1.0), new Setter(TranslateTransform.YProperty, 0.0) } }
-                    }
-                };
-
-                try { await anim.RunAsync(versionPanel, token); } catch (OperationCanceledException) { }
-            });
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Exception in LogoPanel_PointerEnter: {ex.Message}");
-        }
-    }
-
-    private async void LogoPanel_PointerExit(object sender, PointerEventArgs e)
-    {
-        try
-        {
-            _tooltipManager.HideTooltip();
-            var versionPanel = this.FindControl<TextBlock>("VersionPanel");
-            if (versionPanel == null) return;
-
-            _versionAnimCts?.Cancel();
-            _versionAnimCts?.Dispose();
-            _versionAnimCts = new CancellationTokenSource();
-            var token = _versionAnimCts.Token;
-
-            await Dispatcher.UIThread.InvokeAsync(async () =>
-            {
-                versionPanel.RenderTransform ??= new TranslateTransform();
-                TranslateTransform? transform = (TranslateTransform)versionPanel.RenderTransform;
-
-                Animation anim = new()
-                {
                     Duration = TimeSpan.FromMilliseconds(180),
-                    Easing = new CubicEaseIn(),
+                    Easing = _isLogoHovered ? new CubicEaseOut() : new CubicEaseIn(),
                     FillMode = FillMode.Forward,
                     Children =
                     {
-                        new KeyFrame { Cue = new Cue(0), Setters = { new Setter(OpacityProperty, versionPanel.Opacity), new Setter(TranslateTransform.YProperty, transform.Y) } },
-                        new KeyFrame { Cue = new Cue(1), Setters = { new Setter(OpacityProperty, 0.0), new Setter(TranslateTransform.YProperty, -8.0) } }
+                        new KeyFrame
+                        {
+                            Cue = new Cue(0),
+                            Setters =
+                            {
+                                new Setter(OpacityProperty, startOpacity),
+                                new Setter(TranslateTransform.YProperty, startY)
+                            }
+                        },
+                        new KeyFrame
+                        {
+                            Cue = new Cue(1),
+                            Setters =
+                            {
+                                new Setter(OpacityProperty, targetOpacity),
+                                new Setter(TranslateTransform.YProperty, targetY)
+                            }
+                        }
                     }
                 };
 
-                try
-                {
-                    await anim.RunAsync(versionPanel, token);
-                }
-                catch (OperationCanceledException)
-                {
-                    return;
-                }
-                
-                versionPanel.IsVisible = false;
-                versionPanel.Opacity = 1.0;
-                transform.Y = 0;
-            });
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Exception in LogoPanel_PointerExit: {ex.Message}");
-        }
-    }
+                await anim.RunAsync(versionPanel, token);
 
+                if (!_isLogoHovered)
+                    versionPanel.IsVisible = false;
+            });
+        });
+    }
+    
     /// <summary>
     ///     Main timer that handles checking states in the API
     /// </summary>
@@ -1446,7 +1437,7 @@ public partial class MainWindow : Window
         _logImportant.logImportant("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
         _logImportant.logImportant("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");
     }
-    
+
 
     /// <summary>
     ///     Determines if the pressed key is a modifier key
@@ -1645,7 +1636,6 @@ public partial class MainWindow : Window
     {
         try
         {
-
             DockPanel? settingsPanel = SettingsView.FindControl<DockPanel>("SettingsPanel");
             Border? buttonContainer = this.FindControl<Border>("SettingsButtonContainer");
             Avalonia.Svg.Svg? cogImage = this.FindControl<Avalonia.Svg.Svg>("SettingsCogImage");
@@ -1660,7 +1650,9 @@ public partial class MainWindow : Window
             Thickness buttonRightMargin = new(0, 42, 0, 10);
             Thickness buttonLeftMargin = new(0, 42, 200, 10);
 
-            if (!settingsPanel.IsVisible)
+            bool opening = !_isSettingsPanelOpen;
+
+            if (opening)
             {
                 await EnsureCogCenterAsync(cogImage);
                 await SetupPanelTransitionsAsync(settingsPanel, buttonContainer);
@@ -1669,19 +1661,21 @@ public partial class MainWindow : Window
 
                 settingsPanel.IsVisible = true;
                 _viewModel.SwitchPage("Settings");
-                
+
                 await AnimatePanelInAsync(settingsPanel, buttonContainer, showMargin, buttonLeftMargin);
 
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
                 debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
                 await UpdateSettingsOpacityAsync("Settings");
+                
+                _isSettingsPanelOpen = true;
             }
             else
             {
                 if (cogImage.RenderTransform is RotateTransform)
                 {
-                    var stopCogTask = StopCogSpinAsync(cogImage);
-                    var panelOutTask =
+                    Task stopCogTask = StopCogSpinAsync(cogImage);
+                    Task panelOutTask =
                         AnimatePanelOutAsync(settingsPanel, buttonContainer, hideMargin, buttonRightMargin);
                     await Task.WhenAll(stopCogTask, panelOutTask);
                 }
@@ -1692,10 +1686,12 @@ public partial class MainWindow : Window
 
                 settingsPanel.IsVisible = false;
                 _viewModel.SwitchPage("Home");
-                
+
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
                 debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
                 await UpdateSettingsOpacityAsync("Home");
+                
+                _isSettingsPanelOpen = false;
             }
         }
         catch (Exception ex)
@@ -1704,46 +1700,61 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task AnimateAngleAsync(RotateTransform rotate, double targetAngle, int duration = 200)
+    private async Task AnimateAngleAsync(
+        RotateTransform rotate,
+        double targetAngle,
+        CancellationToken token)
     {
-        double startAngle = 0;
-        
-        await Dispatcher.UIThread.InvokeAsync(() => startAngle = rotate.Angle);
+        double start = rotate.Angle;
+        double durationMs = 150;
+        double elapsed = 0;
 
-        int steps = 20;
-        double step = (targetAngle - startAngle) / steps;
+        const int frameMs = 16;
 
-        for (int i = 1; i <= steps; i++)
+        while (elapsed < durationMs)
         {
-            await Task.Delay(duration / steps);
-            double angle = startAngle + step * i;
-            
-            await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle);
-        }
-    }
+            token.ThrowIfCancellationRequested();
 
-    private const double HoverAngle = 15;
-    private const double NormalAngle = 0;
+            elapsed += frameMs;
+            double t = elapsed / durationMs;
+            t = Math.Clamp(t, 0, 1);
+
+            rotate.Angle = start + (targetAngle - start) * t;
+
+            await Task.Delay(frameMs, token);
+        }
+
+        rotate.Angle = targetAngle;
+    }
 
     private async void SettingsButtonImage_PointerEnter(object sender, PointerEventArgs e)
     {
-        if(_isCogSpinning)
+        if (_isCogSpinning)
             return;
-        await EnsureCogCenterAsync(SettingsCogImage);
-        if (SettingsCogImage.RenderTransform is RotateTransform rotate)
-            await AnimateAngleAsync(rotate, HoverAngle);
+
+        await _cogAnimator.RunAsync(async token =>
+        {
+            await EnsureCogCenterAsync(SettingsCogImage);
+
+            if (SettingsCogImage.RenderTransform is RotateTransform rotate)
+                await AnimateAngleAsync(rotate, HoverAngle, token);
+        });
     }
 
     private async void SettingsButtonImage_PointerLeave(object sender, PointerEventArgs e)
     {
-        if(_isCogSpinning)
+        if (_isCogSpinning)
             return;
-        await EnsureCogCenterAsync(SettingsCogImage);
-        if (SettingsCogImage.RenderTransform is RotateTransform rotate)
-            await AnimateAngleAsync(rotate, NormalAngle);
+
+        await _cogAnimator.RunAsync(async token =>
+        {
+            await EnsureCogCenterAsync(SettingsCogImage);
+
+            if (SettingsCogImage.RenderTransform is RotateTransform rotate)
+                await AnimateAngleAsync(rotate, NormalAngle, token);
+        });
     }
 
-    
     /// <summary>
     ///     Sets up the initial state and transitions for the settings panel and related UI elements
     /// </summary>
@@ -1819,7 +1830,8 @@ public partial class MainWindow : Window
 
         tasks.Add(Dispatcher.UIThread.InvokeAsync(() =>
         {
-            _ = AnimateGridLength(_viewModel.SettingsPanelWidth, new GridLength(200, GridUnitType.Pixel),TimeSpan.FromMilliseconds(250), w => _viewModel.SettingsPanelWidth = w);
+            _ = AnimateGridLength(_viewModel.SettingsPanelWidth, new GridLength(200, GridUnitType.Pixel),
+                TimeSpan.FromMilliseconds(250), w => _viewModel.SettingsPanelWidth = w);
             settingsPanel.Margin = showMargin;
             buttonContainer.Margin = buttonLeftMargin;
 
@@ -1833,7 +1845,7 @@ public partial class MainWindow : Window
                 }
             };
             osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
-            
+
             VersionPanel.Transitions = new Transitions
             {
                 new ThicknessTransition
@@ -1873,7 +1885,8 @@ public partial class MainWindow : Window
         await Task.WhenAll(
             Dispatcher.UIThread.InvokeAsync(() =>
             {
-                _ = AnimateGridLength(_viewModel.SettingsPanelWidth, new GridLength(0, GridUnitType.Pixel),TimeSpan.FromMilliseconds(0), w => _viewModel.SettingsPanelWidth = w);
+                _ = AnimateGridLength(_viewModel.SettingsPanelWidth, new GridLength(0, GridUnitType.Pixel),
+                    TimeSpan.FromMilliseconds(0), w => _viewModel.SettingsPanelWidth = w);
                 settingsPanel.Margin = hideMargin;
                 buttonContainer.Margin = buttonRightMargin;
 
@@ -1887,7 +1900,7 @@ public partial class MainWindow : Window
                     }
                 };
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
-                
+
                 VersionPanel.Transitions = new Transitions
                 {
                     new ThicknessTransition
@@ -1900,7 +1913,7 @@ public partial class MainWindow : Window
                 VersionPanel.Margin = new Thickness(0, -10, 0, 0);
             }).GetTask());
     }
-    
+
     private async Task AnimateGridLength(
         GridLength from, GridLength to, TimeSpan duration, Action<GridLength> setter)
     {
@@ -1920,7 +1933,7 @@ public partial class MainWindow : Window
         setter(to);
     }
 
-    
+
     /// <summary>
     ///     Changes the margin of any Avalonia control to a specified target margin
     /// </summary>
@@ -1928,7 +1941,7 @@ public partial class MainWindow : Window
     /// <param name="target"></param>
     /// <param name="durationMs"></param>
     /// <param name="easing"></param>
-    private async Task AnimateMarginAsync(Control control, Thickness target, double durationMs, Easing easing) 
+    private async Task AnimateMarginAsync(Control control, Thickness target, double durationMs, Easing easing)
     {
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -1941,14 +1954,13 @@ public partial class MainWindow : Window
                     Easing = easing
                 }
             ];
-            
+
             control.Margin = target;
         });
     }
-    
+
     /// <summary>
     ///     Animates and scales the osuautodeafen logo when switching to/from the settings page (based on JKyrix's figma)
-    ///
     /// </summary>
     /// <param name="toSettings">Whether we're going to the settings page or not</param>
     private async Task AnimateLogoAsync(bool toSettings)
@@ -1964,9 +1976,10 @@ public partial class MainWindow : Window
                 LogoStackPanel.RenderTransform = group;
             }
 
-            var translate = group.Children.OfType<TranslateTransform>().FirstOrDefault() ?? new TranslateTransform();
-            var scale = group.Children.OfType<ScaleTransform>().FirstOrDefault() ?? new ScaleTransform();
-            
+            TranslateTransform translate = group.Children.OfType<TranslateTransform>().FirstOrDefault() ??
+                                           new TranslateTransform();
+            ScaleTransform scale = group.Children.OfType<ScaleTransform>().FirstOrDefault() ?? new ScaleTransform();
+
             const int steps = 30;
             const int delayMs = 10;
 
@@ -1975,17 +1988,17 @@ public partial class MainWindow : Window
 
             double targetX = toSettings ? -235 : 0;
             double targetY = toSettings ? -125 : 0;
-            
+
             double startScale = scale.ScaleX;
             // 80% scale appears to be fine
             double targetScale = toSettings ? 0.8 : 1.0;
-            
+
             _settingsButtonClicked?.Invoke();
-            
+
             for (int i = 1; i <= steps; i++)
             {
-                var t = i / (double)steps;
-                var ease = t * t * (3 - 2 * t);
+                double t = i / (double)steps;
+                double ease = t * t * (3 - 2 * t);
 
                 translate.X = startX + (targetX - startX) * ease;
                 translate.Y = startY + (targetY - startY) * ease;
@@ -1994,7 +2007,7 @@ public partial class MainWindow : Window
 
                 await Task.Delay(delayMs);
             }
-            
+
             translate.X = targetX;
             translate.Y = targetY;
             scale.ScaleX = targetScale;
@@ -2006,12 +2019,13 @@ public partial class MainWindow : Window
         }
     }
 
-    
+
     /// <summary>
-    ///    Animates the settings panel in or out based on the 'show' parameter
+    ///     Animates the settings panel in or out based on the 'show' parameter
     /// </summary>
     /// <param name="show"></param>
-    private async Task AnimateSettingsPanelAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel, bool show)
+    private async Task AnimateSettingsPanelAsync(DockPanel settingsPanel, Border buttonContainer,
+        TextBlock versionPanel, bool show)
     {
         await _panelAnimationLock.WaitAsync();
         bool shouldAnimate = show != _isSettingsPanelOpen;
@@ -2041,7 +2055,7 @@ public partial class MainWindow : Window
         }
 
         Thickness settingsMargin = show ? new Thickness(200, 42, -200, 0) : new Thickness(-200, 42, 0, 0);
-        Thickness buttonMargin = new Thickness(0, 42, 0, 10);
+        Thickness buttonMargin = new(0, 42, 0, 10);
         Thickness logoMargin = show ? new Thickness(0, 0, 225, 0) : new Thickness(0, 0, 0, 0);
         Thickness versionMargin = logoMargin;
 
@@ -2163,7 +2177,7 @@ public partial class MainWindow : Window
         RotateTransform? rotate = cogImage.RenderTransform as RotateTransform;
         if (rotate == null)
             return;
-        
+
         lock (_cogSpinLock)
         {
             if (!_isCogSpinning)
@@ -2176,7 +2190,7 @@ public partial class MainWindow : Window
 
         double start = 0;
         await Dispatcher.UIThread.InvokeAsync(() => start = rotate.Angle);
-        
+
         // tldr the fontawesome cog has 6 teeth so we should snap to the nearest 1/6
         double target = Math.Round(start / 60.0) * 60.0;
 
@@ -2190,7 +2204,7 @@ public partial class MainWindow : Window
             double angle = start + step * i;
             await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle);
         }
-        
+
         await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = target);
         _cogCurrentAngle = target % 360;
     }

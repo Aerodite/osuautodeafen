@@ -11,13 +11,13 @@ namespace osuautodeafen.cs.Tooltips;
 public class TooltipManager
 {
     private const double TooltipOffset = 4;
+
+    private const double TooltipTargetOpacity = 0.78;
     private bool _isTooltipHiding;
 
     private string? _lastTooltipText;
 
     private Tooltips.TooltipState _state;
-    
-    private const double TooltipTargetOpacity = 0.78;
 
     private Point _targetPosition;
 
@@ -32,7 +32,7 @@ public class TooltipManager
 
     public Tooltips.TooltipType CurrentTooltipType;
     private Grid? Tooltip { get; set; }
-    
+
     private Border? TooltipBackground { get; set; }
 
     private bool IsTooltipVisible { get; set; }
@@ -50,7 +50,7 @@ public class TooltipManager
         _tooltipText = tooltipText;
         _windowWidth = windowWidth;
         _windowHeight = windowHeight;
-        
+
         TooltipBackground = Tooltip.FindControl<Border>("TooltipBackground");
         Tooltip.FindControl<TextBlock>("TooltipText");
 
@@ -59,7 +59,7 @@ public class TooltipManager
 
         Tooltip.Opacity = 1;
         Tooltip.IsVisible = false;
-        
+
         TooltipBackground!.Opacity = 0;
 
         Tooltip.ClipToBounds = true;
@@ -115,7 +115,8 @@ public class TooltipManager
         _tooltipText.Measure(new Size(_windowWidth * 0.5, double.PositiveInfinity));
         if (TooltipBackground != null)
         {
-            double tooltipWidth = _tooltipText.DesiredSize.Width + TooltipBackground.Padding.Left + TooltipBackground.Padding.Right;
+            double tooltipWidth = _tooltipText.DesiredSize.Width + TooltipBackground.Padding.Left +
+                                  TooltipBackground.Padding.Right;
             double tooltipHeight =
                 _tooltipText.DesiredSize.Height + TooltipBackground.Padding.Top + TooltipBackground.Padding.Bottom;
 
@@ -226,7 +227,8 @@ public class TooltipManager
         _tooltipText.Measure(new Size(_windowWidth * 0.5, double.PositiveInfinity));
         if (TooltipBackground != null)
         {
-            double tooltipWidth = _tooltipText.DesiredSize.Width + TooltipBackground.Padding.Left + TooltipBackground.Padding.Right;
+            double tooltipWidth = _tooltipText.DesiredSize.Width + TooltipBackground.Padding.Left +
+                                  TooltipBackground.Padding.Right;
             double tooltipHeight =
                 _tooltipText.DesiredSize.Height + TooltipBackground.Padding.Top + TooltipBackground.Padding.Bottom;
 
@@ -304,9 +306,9 @@ public class TooltipManager
             {
                 tooltip.IsVisible = true;
                 TooltipBackground.IsVisible = true;
-                
+
                 await FadeIn(TooltipBackground, durationMs, token);
-                
+
                 TooltipBackground.Opacity = TooltipTargetOpacity;
 
                 IsTooltipVisible = true;
@@ -319,7 +321,7 @@ public class TooltipManager
                 tooltip.IsVisible = false;
                 IsTooltipVisible = false;
 
-                if (_tooltipText != null) 
+                if (_tooltipText != null)
                     _tooltipText.Opacity = 1;
             }
 
@@ -359,7 +361,8 @@ public class TooltipManager
         }
     }
 
-    private static async Task FadeOut(Border background, TextBlock? text, double durationMs = 120, CancellationToken? token = null)
+    private static async Task FadeOut(Border background, TextBlock? text, double durationMs = 120,
+        CancellationToken? token = null)
     {
         double startBg = background.Opacity;
         double startText = text.Opacity;

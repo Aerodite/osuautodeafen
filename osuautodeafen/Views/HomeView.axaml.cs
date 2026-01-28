@@ -1,12 +1,11 @@
 using Avalonia.Controls;
 
-namespace osuautodeafen.Views
+namespace osuautodeafen.Views;
+
+public partial class HomeView : UserControl
 {
-    public partial class HomeView : UserControl
+    public HomeView()
     {
-        public HomeView()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
     }
 }

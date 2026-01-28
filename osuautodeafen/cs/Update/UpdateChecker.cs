@@ -9,15 +9,6 @@ namespace osuautodeafen.cs.Update;
 
 public class UpdateChecker
 {
-    private Button? _updateNotificationBarButton;
-    private ProgressBar? _updateProgressBar;
-    
-    public UpdateChecker(Button? notificationBar, ProgressBar? progressBar)
-    {
-        _updateNotificationBarButton = notificationBar;
-        _updateProgressBar = progressBar;
-    }
-    
     /// <summary>
     ///     The current version of osuautodeafen
     /// </summary>
@@ -26,8 +17,17 @@ public class UpdateChecker
     private static readonly GithubSource UpdateSource = new("https://github.com/Aerodite/osuautodeafen",
         null, false);
 
+    private readonly Button? _updateNotificationBarButton;
+    private readonly ProgressBar? _updateProgressBar;
+
     public readonly UpdateManager Mgr = new(UpdateSource);
     public UpdateInfo? UpdateInfo;
+
+    public UpdateChecker(Button? notificationBar, ProgressBar? progressBar)
+    {
+        _updateNotificationBarButton = notificationBar;
+        _updateProgressBar = progressBar;
+    }
 
     /// <summary>
     ///     Checks for updates and downloads them if a new version is available
@@ -52,7 +52,7 @@ public class UpdateChecker
         Console.WriteLine("Update available.");
         await Mgr.DownloadUpdatesAsync(UpdateInfo);
     }
-    
+
     /// <summary>
     ///     Displays the update notification bar and initializes progress bar
     /// </summary>
