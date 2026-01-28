@@ -27,6 +27,9 @@ public class Deafen : IDisposable
     private bool _isInBreakPeriod;
     private bool _isDeafened;
     private bool _desiredDeafenState;
+    private bool _hasAppliedFirstDeafen = false;
+    private DateTime _deafenEnteredAt = DateTime.MinValue;
+
 
     private DateTime _nextStateChangedAt = DateTime.MinValue;
     private DateTime _lastToggleAt = DateTime.MinValue;
@@ -39,7 +42,7 @@ public class Deafen : IDisposable
         _sharedViewModel = sharedViewModel;
         _settingsHandler = settingsHandler;
         
-        _timer = new Timer(16);
+        _timer = new Timer(64);
         _timer.Elapsed += (_, _) => EvaluateDeafenState();
         _timer.Start();
     }
@@ -223,12 +226,22 @@ public class Deafen : IDisposable
 
         if (nextState != _desiredDeafenState)
         {
+            if (_isDeafened && !nextState)
+            {
+                if ((DateTime.Now - _deafenEnteredAt).TotalMilliseconds < 500)
+                {
+                    Console.WriteLine("[Eval] Suppressing early undeafen");
+                    return;
+                }
+            }
+
             _desiredDeafenState = nextState;
             _nextStateChangedAt = DateTime.Now;
             return;
         }
 
-        if ((DateTime.Now - _nextStateChangedAt).TotalMilliseconds < 100)
+
+        if ((DateTime.Now - _nextStateChangedAt).TotalMilliseconds < 250)
             return;
 
         if (nextState == _isDeafened)
@@ -255,7 +268,6 @@ public class Deafen : IDisposable
 
             _lastToggleAt = DateTime.Now;
 
-            // allows for 3rd party discord clients on hyprland to work properly
             if (IsWayland() && IsHyprland() &&
                 _settingsHandler.UseHyprlandDispatch &&
                 !string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient))
@@ -263,15 +275,22 @@ public class Deafen : IDisposable
                 if (TryHyprlandSendShortcut())
                 {
                     _isDeafened = !_isDeafened;
+
+                    if (_isDeafened)
+                        _deafenEnteredAt = DateTime.Now;
+
                     return;
                 }
             }
 
             SimulateDeafenKey();
             _isDeafened = !_isDeafened;
+
+            if (_isDeafened)
+                _deafenEnteredAt = DateTime.Now;
         }
     }
-    
+
     private KeyCode MapAvaloniaKeyToSharpHook(Key avaloniaKey)
     {
         return avaloniaKey switch
