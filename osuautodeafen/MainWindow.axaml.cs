@@ -120,6 +120,8 @@ public partial class MainWindow : Window
     private readonly CancelableAnimator _cogAnimator = new();
     
     private bool _isLogoHovered;
+    
+    private bool _versionPanelShown;
 
 
     public MainWindow()
@@ -1348,73 +1350,73 @@ public partial class MainWindow : Window
             _updateChecker?.Mgr.ApplyUpdatesAndRestart(_updateChecker.UpdateInfo);
     }
 
+    private void SetVersionPanelState(bool show)
+    {
+        if (_versionPanelShown == show)
+            return;
+
+        _versionPanelShown = show;
+        AnimateVersionPanel(show);
+    }
+    
     private void LogoPanel_PointerEnter(object sender, PointerEventArgs e)
     {
         _isLogoHovered = true;
-        AnimateVersionPanel();
+        SetVersionPanelState(true);
     }
     
     private void LogoPanel_PointerExit(object sender, PointerEventArgs e)
     {
         _isLogoHovered = false;
-        AnimateVersionPanel();
+        SetVersionPanelState(false);
     }
 
-    private async void AnimateVersionPanel()
+    private async void AnimateVersionPanel(bool show)
     {
-        TextBlock? versionPanel = this.FindControl<TextBlock>("VersionPanel");
+        var versionPanel = this.FindControl<TextBlock>("VersionPanel");
         if (versionPanel == null)
             return;
 
+        versionPanel.RenderTransform ??= new TranslateTransform();
+        var transform = (TranslateTransform)versionPanel.RenderTransform;
+
         await _versionAnimator.RunAsync(async token =>
         {
-            await Dispatcher.UIThread.InvokeAsync(async () =>
+            if (show)
+                versionPanel.IsVisible = true;
+
+            var anim = new Animation
             {
-                versionPanel.RenderTransform ??= new TranslateTransform();
-                var transform = (TranslateTransform)versionPanel.RenderTransform;
-
-                double startOpacity = _isLogoHovered ? 0.0 : 1.0;
-                double startY = _isLogoHovered ? -8.0 : 0.0;
-
-                double targetOpacity = _isLogoHovered ? 1.0 : 0.0;
-                double targetY = _isLogoHovered ? 0.0 : -8.0;
-
-                if (_isLogoHovered)
-                    versionPanel.IsVisible = true;
-
-                var anim = new Animation
+                Duration = TimeSpan.FromMilliseconds(180),
+                Easing = new CubicEaseInOut(),
+                FillMode = FillMode.Forward,
+                Children =
                 {
-                    Duration = TimeSpan.FromMilliseconds(180),
-                    Easing = _isLogoHovered ? new CubicEaseOut() : new CubicEaseIn(),
-                    FillMode = FillMode.Forward,
-                    Children =
+                    new KeyFrame
                     {
-                        new KeyFrame
+                        Cue = new Cue(0),
+                        Setters =
                         {
-                            Cue = new Cue(0),
-                            Setters =
-                            {
-                                new Setter(OpacityProperty, startOpacity),
-                                new Setter(TranslateTransform.YProperty, startY)
-                            }
-                        },
-                        new KeyFrame
+                            new Setter(OpacityProperty, versionPanel.Opacity),
+                            new Setter(TranslateTransform.YProperty, transform.Y)
+                        }
+                    },
+                    new KeyFrame
+                    {
+                        Cue = new Cue(1),
+                        Setters =
                         {
-                            Cue = new Cue(1),
-                            Setters =
-                            {
-                                new Setter(OpacityProperty, targetOpacity),
-                                new Setter(TranslateTransform.YProperty, targetY)
-                            }
+                            new Setter(OpacityProperty, show ? 1.0 : 0.0),
+                            new Setter(TranslateTransform.YProperty, show ? 0.0 : -8.0)
                         }
                     }
-                };
+                }
+            };
 
-                await anim.RunAsync(versionPanel, token);
+            await anim.RunAsync(versionPanel, token);
 
-                if (!_isLogoHovered)
-                    versionPanel.IsVisible = false;
-            });
+            if (!show)
+                versionPanel.IsVisible = false;
         });
     }
     
