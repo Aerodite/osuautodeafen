@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -54,10 +55,14 @@ public partial class MainWindow : Window
 
     private static Button? _updateNotificationBarButton;
     private static ProgressBar? _updateProgressBar;
+
+    private static readonly HttpClient _http = new();
     private readonly BackgroundManager? _backgroundManager;
 
     private readonly BreakPeriodCalculator _breakPeriod;
     private readonly ChartManager _chartManager;
+
+    private readonly CancelableAnimator _cogAnimator = new();
     private readonly Lock _cogSpinLock = new();
     private readonly Stopwatch _frameStopwatch = new();
     private readonly GetLowResBackground? _getLowResBackground;
@@ -81,6 +86,8 @@ public partial class MainWindow : Window
     private readonly TosuApi _tosuApi;
 
     private readonly UpdateChecker? _updateChecker;
+
+    private readonly CancelableAnimator _versionAnimator = new();
     private readonly SharedViewModel _viewModel;
     private readonly HomeView HomeView;
 
@@ -98,6 +105,8 @@ public partial class MainWindow : Window
 
     private bool _isDebugConsoleOpen;
     private bool _isKiaiPulseHigh;
+
+    private bool _isLogoHovered;
     private bool _isSettingsPanelOpen;
     private DispatcherTimer? _kiaiBrightnessTimer;
     private List<string> _lastDisplayedLogs = [];
@@ -112,16 +121,10 @@ public partial class MainWindow : Window
     private double _opacity = 1.00;
 
     private bool _tooltipOutsideBounds;
-    
-    private readonly CancelableAnimator _versionAnimator = new();
+
+    private bool _versionPanelShown;
 
     public Image? NormalBackground;
-    
-    private readonly CancelableAnimator _cogAnimator = new();
-    
-    private bool _isLogoHovered;
-    
-    private bool _versionPanelShown;
 
 
     public MainWindow()
@@ -227,10 +230,28 @@ public partial class MainWindow : Window
 
         object? oldContent = Content;
         Content = null;
-        Content = new Grid
-        {
-            Children = { new ContentControl { Content = oldContent } }
-        };
+        Grid rootGrid = new();
+
+        rootGrid.Children.Add(
+            new ContentControl { Content = oldContent }
+        );
+
+        rootGrid.Children.Add(
+            new Border
+            {
+                Background = Brushes.Black,
+                Opacity = 0.85,
+                IsVisible = false,
+                ZIndex = 9999,
+                Child = new ChangelogView
+                {
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            }
+        );
+
+        Content = rootGrid;
 
         InitializeViewModel();
 
@@ -245,6 +266,8 @@ public partial class MainWindow : Window
             await _updateChecker.CheckForUpdatesAsync();
             if (_updateChecker.UpdateInfo != null)
                 await _updateChecker.ShowUpdateNotification();
+
+            await TryShowChangelogAsync();
         };
 
         Deafen deafen = new(_tosuApi, _settingsHandler, _viewModel);
@@ -624,6 +647,36 @@ public partial class MainWindow : Window
 
     private SharedViewModel ViewModel { get; }
 
+    private async Task TryShowChangelogAsync()
+    {
+        KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape && _viewModel.Changelog.IsVisible)
+                _viewModel.Changelog.IsVisible = false;
+        };
+        try
+        {
+            string currentVersion = UpdateChecker.CurrentVersion;
+            string? lastSeenVersion = _settingsHandler?.LastSeenVersion;
+
+            if (lastSeenVersion == currentVersion)
+                return;
+
+            //_viewModel.Changelog.BackgroundBrush = _viewModel.AverageColorBrush;
+
+            string markdown = await _http.GetStringAsync(
+                "https://i.cdn.aerodite.dev/osuautodeafen/changelog-111.md");
+
+            _viewModel.Changelog.LoadFromMarkdown(markdown);
+            _viewModel.Changelog.IsVisible = true;
+            //_settingsHandler!.LastSeenVersion = currentVersion;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Changelog] Failed to show changelog: {ex}");
+        }
+    }
+
     private void MainWindow_PointerMoved(object? sender, PointerEventArgs e)
     {
         Point pixelPoint = e.GetPosition(PlotView);
@@ -640,9 +693,9 @@ public partial class MainWindow : Window
         MainWindow window = this;
         PixelPoint screenPoint = PlotView.PointToScreen(pixelPoint);
         Point windowPoint = new(screenPoint.X - window.Position.X, screenPoint.Y - window.Position.Y);
-        
+
         _backgroundManager.ApplyParallax(windowPoint.X, windowPoint.Y);
-        
+
         // this is really stupid but it just prevents the case where the straingraph's tooltips attempt to show in areas outside of the straingraph
         if (currentTooltipType == Tooltips.TooltipType.Time || currentTooltipType == Tooltips.TooltipType.Section)
         {
@@ -1358,13 +1411,13 @@ public partial class MainWindow : Window
         _versionPanelShown = show;
         AnimateVersionPanel(show);
     }
-    
+
     private void LogoPanel_PointerEnter(object sender, PointerEventArgs e)
     {
         _isLogoHovered = true;
         SetVersionPanelState(true);
     }
-    
+
     private void LogoPanel_PointerExit(object sender, PointerEventArgs e)
     {
         _isLogoHovered = false;
@@ -1373,19 +1426,19 @@ public partial class MainWindow : Window
 
     private async void AnimateVersionPanel(bool show)
     {
-        var versionPanel = this.FindControl<TextBlock>("VersionPanel");
+        TextBlock? versionPanel = this.FindControl<TextBlock>("VersionPanel");
         if (versionPanel == null)
             return;
 
         versionPanel.RenderTransform ??= new TranslateTransform();
-        var transform = (TranslateTransform)versionPanel.RenderTransform;
+        TranslateTransform? transform = (TranslateTransform)versionPanel.RenderTransform;
 
         await _versionAnimator.RunAsync(async token =>
         {
             if (show)
                 versionPanel.IsVisible = true;
 
-            var anim = new Animation
+            Animation anim = new()
             {
                 Duration = TimeSpan.FromMilliseconds(180),
                 Easing = new CubicEaseInOut(),
@@ -1419,7 +1472,7 @@ public partial class MainWindow : Window
                 versionPanel.IsVisible = false;
         });
     }
-    
+
     /// <summary>
     ///     Main timer that handles checking states in the API
     /// </summary>
@@ -1669,7 +1722,7 @@ public partial class MainWindow : Window
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
                 debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
                 await UpdateSettingsOpacityAsync("Settings");
-                
+
                 _isSettingsPanelOpen = true;
             }
             else
@@ -1692,7 +1745,7 @@ public partial class MainWindow : Window
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
                 debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
                 await UpdateSettingsOpacityAsync("Home");
-                
+
                 _isSettingsPanelOpen = false;
             }
         }

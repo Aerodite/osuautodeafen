@@ -29,6 +29,11 @@ public class UpdateChecker
         _updateProgressBar = progressBar;
     }
 
+    private bool ShouldShowChangelog(string lastSeen)
+    {
+        return lastSeen != CurrentVersion;
+    }
+
     /// <summary>
     ///     Checks for updates and downloads them if a new version is available
     /// </summary>

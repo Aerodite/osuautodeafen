@@ -100,6 +100,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         Task.Run(UpdateCompletionPercentageAsync);
     }
 
+    public ChangelogViewModel Changelog { get; } = new();
+
     public bool CanCreatePreset => !PresetExistsForCurrentChecksum;
 
     public bool HasAnyPresets => Presets != null && Presets.Any();

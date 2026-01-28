@@ -11,6 +11,7 @@
         xmlns:transitions="clr-namespace:Avalonia.Animation;assembly=Avalonia.Animation"
         xmlns:progressIndicator="clr-namespace:osuautodeafen.cs.StrainGraph.ProgressIndicator"
         xmlns:viewModels="clr-namespace:osuautodeafen.cs.ViewModels"
+        xmlns:views="clr-namespace:osuautodeafen.Views"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osuautodeafen"
@@ -179,10 +180,13 @@
                            Margin="0,-10,0,6"
                            Foreground="White"
                            FontSize="16"
+                           FontFamily="Inter"
+                           FontWeight="Regular"
                            x:Name="VersionPanel"
                            x:DataType="viewModels:SharedViewModel"
                            IsVisible="False"
                            RenderTransformOrigin="0.5,0.0">
+
                     <TextBlock.RenderTransform>
                         <TranslateTransform />
                     </TextBlock.RenderTransform>
@@ -320,6 +324,16 @@
                 </Button>
             </Grid>
         </Grid>
+        <Border x:Name="ChangelogOverlay"
+                Background="#AA000000"
+                IsVisible="{Binding Changelog.IsVisible}"
+                ZIndex="9999">
 
+            <views:ChangelogView
+                DataContext="{Binding Changelog}"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+            />
+        </Border>
     </Grid>
 </Window>

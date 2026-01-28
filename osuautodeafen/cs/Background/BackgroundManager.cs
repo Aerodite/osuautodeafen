@@ -11,7 +11,6 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using LiveChartsCore.Measure;
 using osuautodeafen.cs.Logo;
 using osuautodeafen.cs.Tosu;
 using osuautodeafen.cs.ViewModels;
@@ -353,7 +352,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
 
             backgroundLayer.Children.Add(gpuBackground);
             backgroundLayer.Opacity = _currentBackgroundOpacity;
-            
+
             _cachedGpuBackground = backgroundLayer.Children
                 .OfType<GpuBackgroundControl>()
                 .FirstOrDefault();
@@ -438,7 +437,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             if (DateTime.UtcNow - _lastUpdate < _parallaxInterval)
                 return;
             _lastUpdate = DateTime.UtcNow;
-            
+
             if (_cachedGpuBackground == null)
                 return;
 

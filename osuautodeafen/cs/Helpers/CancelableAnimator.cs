@@ -8,6 +8,11 @@ public sealed class CancelableAnimator : IDisposable
 {
     private CancellationTokenSource? _cts;
 
+    public void Dispose()
+    {
+        Cancel();
+    }
+
     public async Task RunAsync(Func<CancellationToken, Task> animation)
     {
         Cancel();
@@ -33,10 +38,5 @@ public sealed class CancelableAnimator : IDisposable
         _cts.Cancel();
         _cts.Dispose();
         _cts = null;
-    }
-
-    public void Dispose()
-    {
-        Cancel();
     }
 }

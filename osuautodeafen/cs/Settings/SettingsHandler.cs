@@ -20,6 +20,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     private bool _isBreakUndeafenToggleEnabled;
 
+    private string? _lastSeenVersion;
+
     private IniData _mainData;
 
     private double _minCompletionPercentage;
@@ -171,6 +173,16 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public string? tosuApiIp { get; set; }
     public string? tosuApiPort { get; set; }
 
+    public string? LastSeenVersion
+    {
+        get => _lastSeenVersion;
+        set
+        {
+            if (Set(ref _lastSeenVersion, value))
+                SaveSetting("Updates", "LastSeenVersion", value);
+        }
+    }
+
     public new event PropertyChangedEventHandler? PropertyChanged;
 
     public void ActivatePreset(string presetFilePath)
@@ -286,6 +298,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
                 "Uses hypr's 'dispatch sendshortcut' instead of keybind simulation (mainly for use in 3rd party discord clients such as vesktop)"
             );
 
+        data.Sections.AddSection("Updates");
+        data["Updates"]["LastSeenVersion"] = "0";
+
 
         return data;
     }
@@ -360,6 +375,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
         _discordClient = Data["Linux"]["discordClient"];
         _useHyprlandDispatch = bool.TryParse(Data["Linux"]["useHyprlandDispatch"], out bool hypr) && hypr;
+
+        _lastSeenVersion = Data["General"]["lastSeenVersion"];
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MinCompletionPercentage)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StarRating)));
