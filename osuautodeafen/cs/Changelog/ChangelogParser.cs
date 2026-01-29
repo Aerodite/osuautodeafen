@@ -12,11 +12,9 @@ using Avalonia.Media;
 using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
-using osuautodeafen.cs.Update;
 using osuautodeafen.cs.ViewModels;
 using AvaloniaInline = Avalonia.Controls.Documents.Inline;
 using Inline = Markdig.Syntax.Inlines.Inline;
-
 
 namespace osuautodeafen.cs.Changelog;
 
@@ -27,12 +25,12 @@ public static class ChangelogParser
             .UseAdvancedExtensions()
             .Build();
 
-    public static List<ChangelogViewModel.ChangelogEntry> Parse(string markdown)
+    public static List<ChangelogViewModel.ChangelogEntry> Parse(string markdown, string changelogVersion)
     {
         MarkdownDocument doc = Markdown.Parse(markdown, Pipeline);
 
         ChangelogViewModel.ChangelogEntry entry = new(
-            $"v{UpdateChecker.CurrentVersion}",
+            $"v{changelogVersion}",
             new List<ChangelogViewModel.ChangelogSection>()
         );
 
@@ -50,7 +48,7 @@ public static class ChangelogParser
                     break;
 
                 case ParagraphBlock p when currentSection != null:
-                    ParseParagraph(p, currentSection);
+                    ParseParagraph(p, currentSection, changelogVersion);
                     break;
 
                 case ListBlock list when currentSection != null:
@@ -73,6 +71,7 @@ public static class ChangelogParser
                         )
                     );
                     break;
+
                 case HtmlBlock html when currentSection != null:
                     TryParseHtmlImage(html.Lines.ToString(), currentSection);
                     break;
@@ -86,7 +85,7 @@ public static class ChangelogParser
 
         return new List<ChangelogViewModel.ChangelogEntry> { entry };
     }
-    
+
     private static void TryParseHtmlImage(
         string html,
         ChangelogViewModel.ChangelogSection section)
@@ -107,11 +106,10 @@ public static class ChangelogParser
         }
     }
 
-
-
     private static void ParseParagraph(
         ParagraphBlock p,
-        ChangelogViewModel.ChangelogSection section)
+        ChangelogViewModel.ChangelogSection section,
+        string changelogVersion)
     {
         var image = p.Inline?
             .Descendants<LinkInline>()
@@ -127,7 +125,7 @@ public static class ChangelogParser
 
         string flatText = GetInlineText(p.Inline);
 
-        if (TryParseMedia(flatText, section))
+        if (TryParseMedia(flatText, section, changelogVersion))
             return;
 
         if (p.Inline?.Any(i => i is LinkInline { IsImage: false } || i is AutolinkInline) == true)
@@ -136,14 +134,12 @@ public static class ChangelogParser
                 new ChangelogViewModel.InlineTextBlockModel(
                     ParseInlineParts(p.Inline!)
                 ));
-
             return;
         }
 
         section.Blocks.Add(
             new ChangelogViewModel.TextBlockModel(flatText));
     }
-
 
     private static IReadOnlyList<AvaloniaInline> ParseInlineParts(ContainerInline inline)
     {
@@ -202,6 +198,7 @@ public static class ChangelogParser
             Content = textBlock,
             Tag = url
         };
+
         button.Click += (_, _) =>
             Process.Start(new ProcessStartInfo
             {
@@ -218,7 +215,8 @@ public static class ChangelogParser
 
     private static bool TryParseMedia(
         string text,
-        ChangelogViewModel.ChangelogSection section)
+        ChangelogViewModel.ChangelogSection section,
+        string changelogVersion)
     {
         if (!Uri.TryCreate(text, UriKind.Absolute, out _))
             return false;
@@ -226,7 +224,7 @@ public static class ChangelogParser
         if (IsVideoUrl(text))
         {
             section.Blocks.Add(
-                new ChangelogViewModel.VideoPreviewBlockModel(text)
+                new ChangelogViewModel.VideoPreviewBlockModel(text, changelogVersion)
             );
             return true;
         }
@@ -255,10 +253,7 @@ public static class ChangelogParser
                 continue;
 
             section.Blocks.Add(
-                ParseBullet(GetInlineText(paragraph.Inline) is string text
-                    ? paragraph
-                    : throw new InvalidOperationException()
-                )
+                ParseBullet(paragraph)
             );
         }
     }

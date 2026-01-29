@@ -1,12 +1,13 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace osuautodeafen.cs.ViewModels;
+namespace osuautodeafen.cs.Changelog;
 
 public static class VideoPreviewCache
 {
@@ -15,41 +16,82 @@ public static class VideoPreviewCache
 
     private static readonly CancellationTokenSource GlobalCts = new();
 
-    private static readonly string CacheRoot =
+    private static readonly HttpClient Http = new();
+
+    private static readonly string BaseCacheRoot =
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen",
             "changelog-cache");
 
-    static VideoPreviewCache()
+    private static string GetVersionRoot(string version)
     {
-        Directory.CreateDirectory(CacheRoot);
-        CleanupIfTooLarge(50_000_000); // 50mb
+        string path = Path.Combine(BaseCacheRoot, version);
+        Directory.CreateDirectory(path);
+        return path;
     }
 
-    public static string GetPreviewPath(string url)
+    public static string GetPreviewPath(string url, string version)
     {
-        return Path.Combine(CacheRoot, Hash(url) + ".webp");
+        return Path.Combine(GetVersionRoot(version), Hash(url) + ".webp");
     }
 
     public static void EnsurePreview(
         string url,
+        string version,
         Action<double>? progress,
         Action<string>? completed)
     {
         _ = Task.Run(async () =>
         {
-            string output = GetPreviewPath(url);
-            string poster = GetPosterPath(url);
+            string root = GetVersionRoot(version);
+            CleanupIfTooLarge(root, 50_000_000);
 
-            if (File.Exists(output))
+            string hash = Hash(url);
+            string output = Path.Combine(root, hash + ".webp");
+            string poster = Path.Combine(root, hash + ".jpg");
+
+            if (url.EndsWith(".webp", StringComparison.OrdinalIgnoreCase))
             {
+                if (!File.Exists(output) || new FileInfo(output).Length == 0)
+                {
+                    try
+                    {
+                        await using var stream = await Http.GetStreamAsync(url, GlobalCts.Token);
+                        await using var fs = File.Create(output);
+                        await stream.CopyToAsync(fs, GlobalCts.Token);
+                    }
+                    catch
+                    {
+                        if (File.Exists(output))
+                            File.Delete(output);
+                        return;
+                    }
+                }
+
                 progress?.Invoke(1.0);
                 completed?.Invoke(output);
                 return;
             }
 
-            progress?.Invoke(0.03);
+            if (File.Exists(output))
+            {
+                if (new FileInfo(output).Length > 0)
+                {
+                    progress?.Invoke(1.0);
+                    completed?.Invoke(output);
+                    return;
+                }
+
+                File.Delete(output);
+            }
+
+            if (File.Exists(poster))
+            {
+                completed?.Invoke(poster);
+            }
+
+            progress?.Invoke(0.05);
 
             await EncodeGate.WaitAsync(GlobalCts.Token);
             try
@@ -60,7 +102,7 @@ public static class VideoPreviewCache
                     completed?.Invoke(poster);
                 }
 
-                progress?.Invoke(0.15);
+                progress?.Invoke(0.2);
 
                 await GenerateWebPFromUrlAsync(
                     url,
@@ -68,10 +110,17 @@ public static class VideoPreviewCache
                     p =>
                     {
                         double eased = 1.0 - Math.Pow(1.0 - p, 2.2);
-                        progress?.Invoke(0.15 + eased * 0.80);
+                        progress?.Invoke(0.2 + eased * 0.75);
                     },
                     GlobalCts.Token
                 );
+
+                if (!File.Exists(output) || new FileInfo(output).Length == 0)
+                {
+                    if (File.Exists(output))
+                        File.Delete(output);
+                    return;
+                }
 
                 progress?.Invoke(1.0);
                 completed?.Invoke(output);
@@ -81,6 +130,28 @@ public static class VideoPreviewCache
                 EncodeGate.Release();
             }
         }, GlobalCts.Token);
+    }
+
+    public static void DeleteOldChangelogCaches(string currentVersion)
+    {
+        if (!Directory.Exists(BaseCacheRoot))
+            return;
+
+        foreach (string dir in Directory.GetDirectories(BaseCacheRoot))
+        {
+            string name = Path.GetFileName(dir);
+            if (string.Equals(name, currentVersion, StringComparison.Ordinal))
+                continue;
+
+            try
+            {
+                Directory.Delete(dir, true);
+            }
+            catch
+            {
+                // ignore
+            }
+        }
     }
 
     public static void CancelAll()
@@ -114,7 +185,7 @@ public static class VideoPreviewCache
         };
 
         using Process proc = Process.Start(psi)
-                             ?? throw new InvalidOperationException("Failed to start ffmpeg.");
+                             ?? throw new InvalidOperationException();
 
         double p = 0.0;
 
@@ -122,24 +193,47 @@ public static class VideoPreviewCache
         {
             ct.ThrowIfCancellationRequested();
             await proc.StandardError.ReadLineAsync();
-
             p = Math.Min(p + 0.035, 0.97);
             progress?.Invoke(p);
         }
 
         await proc.WaitForExitAsync(ct);
-
-        if (!File.Exists(output))
-            throw new InvalidOperationException("ffmpeg failed to write WebP preview.");
-
-        progress?.Invoke(1.0);
     }
 
-    private static void CleanupIfTooLarge(long maxBytes)
+    private static async Task GeneratePosterFrameAsync(
+        string url,
+        string output,
+        CancellationToken ct)
+    {
+        ProcessStartInfo psi = new()
+        {
+            FileName = "ffmpeg",
+            Arguments =
+                "-y " +
+                "-loglevel error " +
+                "-ss 0.2 " +
+                $"-i \"{url}\" " +
+                "-frames:v 1 " +
+                "-vf \"scale=896:-1:flags=fast_bilinear\" " +
+                $"\"{output}\"",
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using Process proc = Process.Start(psi)
+                             ?? throw new InvalidOperationException();
+
+        await proc.WaitForExitAsync(ct);
+    }
+
+    private static void CleanupIfTooLarge(string root, long maxBytes)
     {
         try
         {
-            var files = new DirectoryInfo(CacheRoot).GetFiles("*.webp");
+            if (!Directory.Exists(root))
+                return;
+
+            FileInfo[] files = new DirectoryInfo(root).GetFiles("*.webp");
             long total = 0;
 
             foreach (FileInfo f in files)
@@ -170,39 +264,5 @@ public static class VideoPreviewCache
         using SHA1 sha = SHA1.Create();
         return Convert.ToHexString(
             sha.ComputeHash(Encoding.UTF8.GetBytes(input)));
-    }
-
-    private static async Task GeneratePosterFrameAsync(
-        string url,
-        string output,
-        CancellationToken ct)
-    {
-        ProcessStartInfo psi = new()
-        {
-            FileName = "ffmpeg",
-            Arguments =
-                "-y " +
-                "-loglevel error " +
-                "-ss 0.2 " +
-                $"-i \"{url}\" " +
-                "-frames:v 1 " +
-                "-vf \"scale=896:-1:flags=fast_bilinear\" " +
-                $"\"{output}\"",
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        using Process proc = Process.Start(psi)
-                             ?? throw new InvalidOperationException("Failed to extract poster frame.");
-
-        await proc.WaitForExitAsync(ct);
-
-        if (!File.Exists(output))
-            throw new InvalidOperationException("Poster frame not written.");
-    }
-
-    private static string GetPosterPath(string url)
-    {
-        return Path.Combine(CacheRoot, Hash(url) + ".jpg");
     }
 }

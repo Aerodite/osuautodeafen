@@ -18,6 +18,8 @@ public class ChangelogViewModel : ViewModelBase
 {
     private bool _isVisible;
     private bool _isDisposed;
+    
+    public string ChangelogVersion { get; init; } = "";
     public ObservableCollection<ChangelogEntry> Entries { get; } = new();
     public IBrush? BackgroundBrush { get; set; }
 
@@ -37,7 +39,7 @@ public class ChangelogViewModel : ViewModelBase
     public void LoadFromMarkdown(string markdown)
     {
         Entries.Clear();
-        foreach (ChangelogEntry entry in ChangelogParser.Parse(markdown))
+        foreach (ChangelogEntry entry in ChangelogParser.Parse(markdown, ChangelogVersion))
             Entries.Add(entry);
     }
 
@@ -48,7 +50,7 @@ public class ChangelogViewModel : ViewModelBase
     public abstract class ChangelogBlock : ViewModelBase
     {
     }
-
+    
     public sealed class TextBlockModel(string text) : ChangelogBlock
     {
         public string Text { get; } = text;
@@ -115,22 +117,23 @@ public class ChangelogViewModel : ViewModelBase
     public sealed class VideoPreviewBlockModel : ChangelogBlock, IDisposable
     {
         private readonly string _videoUrl;
+        private readonly string _changelogVersion;
 
         private string? _previewPath;
-
         private double _progress;
         private bool _started;
-
         private bool _disposed;
+
 
         public void Dispose()
         {
             _disposed = true;
         }
         
-        public VideoPreviewBlockModel(string videoUrl)
+        public VideoPreviewBlockModel(string videoUrl, string changelogVersion)
         {
             _videoUrl = videoUrl;
+            _changelogVersion = changelogVersion;
 
             OpenVideoCommand = new RelayCommand(() =>
                 Process.Start(new ProcessStartInfo
@@ -139,6 +142,7 @@ public class ChangelogViewModel : ViewModelBase
                     UseShellExecute = true
                 }));
         }
+
 
         public bool IsEncoding => Progress < 1.0;
 
@@ -153,8 +157,7 @@ public class ChangelogViewModel : ViewModelBase
             get => _progress;
             private set => SetProperty(ref _progress, value);
         }
-
-
+        
         public ICommand OpenVideoCommand { get; }
 
         public void OnAttached()
@@ -171,6 +174,7 @@ public class ChangelogViewModel : ViewModelBase
 
             VideoPreviewCache.EnsurePreview(
                 _videoUrl,
+                _changelogVersion,
                 p =>
                 {
                     if (_disposed) return;

@@ -109,7 +109,10 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         if (_changelogManager != null)
             return;
 
-        Changelog = new ChangelogViewModel();
+        Changelog = new ChangelogViewModel
+        {
+            ChangelogVersion = UpdateChecker.CurrentVersion
+        };
 
         _changelogManager = new ChangelogManager(
             new HttpClient(),
@@ -166,20 +169,23 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     {
         if (_changelogManager != null)
             return;
-        
+
         if (_settingsHandler.LastSeenVersion == UpdateChecker.CurrentVersion)
             return;
 
-        Changelog = new ChangelogViewModel();
+        Changelog = new ChangelogViewModel
+        {
+            ChangelogVersion = UpdateChecker.CurrentVersion
+        };
 
         _changelogManager = new ChangelogManager(
             new HttpClient(),
             _settingsHandler,
             Changelog
         );
-        
+
         _changelogManager.ChangelogDestroyed += OnChangelogDestroyed;
-        
+
         Changelog.DismissRequested += () =>
             _changelogManager.DismissChangelog(UpdateChecker.CurrentVersion);
 

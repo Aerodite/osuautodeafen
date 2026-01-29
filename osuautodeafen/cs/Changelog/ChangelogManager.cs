@@ -31,6 +31,8 @@ public sealed class ChangelogManager
         {
             if (_settingsHandler.LastSeenVersion == currentVersion)
                 return;
+            
+            VideoPreviewCache.DeleteOldChangelogCaches(currentVersion);
 
             string markdown = await _http.GetStringAsync(ChangelogUrl);
 
