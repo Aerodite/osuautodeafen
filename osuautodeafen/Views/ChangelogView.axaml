@@ -8,9 +8,38 @@
     x:DataType="vm:ChangelogViewModel">
 
     <UserControl.Resources>
+        <helpers:TextBeforePrConverter x:Key="TextBeforePrConverter" />
+        <helpers:TextAfterPrConverter x:Key="TextAfterPrConverter" />
     </UserControl.Resources>
 
+
     <UserControl.DataTemplates>
+
+        <DataTemplate DataType="vm:ChangelogViewModel+CodeBlockModel">
+            <Border Margin="16,6"
+                    Padding="10"
+                    Background="#101010"
+                    CornerRadius="6">
+                <TextBlock Text="{Binding Code}"
+                           FontFamily="Consolas"
+                           FontSize="12"
+                           Foreground="#DCDCDC"
+                           TextWrapping="Wrap" />
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:ChangelogViewModel+QuoteBlockModel">
+            <Border Margin="16,4"
+                    Padding="10"
+                    BorderThickness="3,0,0,0"
+                    BorderBrush="MediumPurple"
+                    Background="#0D0D0D">
+                <TextBlock Text="{Binding Text}"
+                           Foreground="#CCCCCC"
+                           FontStyle="Italic"
+                           TextWrapping="Wrap" />
+            </Border>
+        </DataTemplate>
 
         <DataTemplate DataType="vm:ChangelogViewModel+TextBlockModel">
             <TextBlock Text="{Binding Text}"
@@ -19,14 +48,50 @@
                        Margin="16,2" />
         </DataTemplate>
 
-        <DataTemplate DataType="vm:ChangelogViewModel+BulletBlockModel">
+        <DataTemplate
+            x:DataType="vm:ChangelogViewModel+BulletBlockModel"
+            DataType="vm:ChangelogViewModel+BulletBlockModel">
+
             <TextBlock Margin="16,2"
                        TextWrapping="Wrap"
                        Foreground="#E8E8E8">
-                <Run Text="• " />
-                <Run Text="{Binding Text}" />
+
+                <TextBlock.Inlines>
+
+                    <Run Text="• " />
+                    <Run Text="{Binding Text, Converter={StaticResource TextBeforePrConverter}}" />
+                    <InlineUIContainer BaselineAlignment="Center">
+                        <Button
+                            Command="{Binding OpenPrCommand}"
+                            IsVisible="{Binding HasPr}"
+                            Padding="0"
+                            Margin="0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            VerticalAlignment="Center">
+
+                            <TextBlock
+                                Text="{Binding PrNumber}"
+                                FontSize="{Binding $parent[TextBlock].FontSize}"
+                                Foreground="DarkOrchid"
+                                VerticalAlignment="Center"/>
+
+                            <Button.Styles>
+                                <Style Selector="Button:pointerover TextBlock">
+                                    <Setter Property="Foreground" Value="MediumPurple"/>
+                                </Style>
+                            </Button.Styles>
+
+                        </Button>
+                    </InlineUIContainer>
+                    
+                    <Run Text="{Binding Text, Converter={StaticResource TextAfterPrConverter}}" />
+                    
+                </TextBlock.Inlines>
             </TextBlock>
+
         </DataTemplate>
+
 
         <DataTemplate DataType="vm:ChangelogViewModel+ImageBlockModel">
             <Border Margin="16,8"

@@ -130,16 +130,49 @@ public class ChangelogViewModel : ViewModelBase
             Text = text;
             PrNumber = prNumber;
             PrUrl = prUrl;
+
+            OpenPrCommand = prUrl == null
+                ? null
+                : new RelayCommand(() =>
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = prUrl,
+                        UseShellExecute = true
+                    }));
         }
 
         public string Text { get; }
         public string? PrNumber { get; }
         public string? PrUrl { get; }
 
-        public bool HasPr => PrNumber != null;
+        public bool HasPr => PrUrl != null;
+        public ICommand? OpenPrCommand { get; }
     }
 
     public sealed class DividerBlockModel : ChangelogBlock
     {
     }
+    
+    public sealed class CodeBlockModel : ChangelogBlock
+    {
+        public CodeBlockModel(string code, string? language)
+        {
+            Code = code;
+            Language = language;
+        }
+
+        public string Code { get; }
+        public string? Language { get; }
+    }
+
+    public sealed class QuoteBlockModel : ChangelogBlock
+    {
+        public QuoteBlockModel(string text)
+        {
+            Text = text;
+        }
+
+        public string Text { get; }
+    }
+
 }
