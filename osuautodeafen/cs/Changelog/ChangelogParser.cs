@@ -1,13 +1,22 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Documents;
+using Avalonia.Input;
+using Avalonia.Media;
 using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 using osuautodeafen.cs.Update;
 using osuautodeafen.cs.ViewModels;
+using AvaloniaInline = Avalonia.Controls.Documents.Inline;
+using Inline = Markdig.Syntax.Inlines.Inline;
+
 
 namespace osuautodeafen.cs.Changelog;
 
@@ -81,23 +90,96 @@ public static class ChangelogParser
         ParagraphBlock p,
         ChangelogViewModel.ChangelogSection section)
     {
-        // markdown image syntax = [text](link)
-        if (p.Inline?.FirstChild is LinkInline link && link.IsImage)
+        string flatText = GetInlineText(p.Inline);
+        
+        if (TryParseMedia(flatText, section))
+            return;
+        
+        if (p.Inline?.Any(i => (i is LinkInline { IsImage: false }) || (i is AutolinkInline)) == true)
         {
             section.Blocks.Add(
-                new ChangelogViewModel.ImageBlockModel(link.Url!)
-            );
+                new ChangelogViewModel.InlineTextBlockModel(
+                    ParseInlineParts(p.Inline!)
+                ));
+
             return;
         }
-
-        string text = GetInlineText(p.Inline);
         
-        if (TryParseMedia(text, section))
-            return;
-
         section.Blocks.Add(
-            new ChangelogViewModel.TextBlockModel(text)
-        );
+            new ChangelogViewModel.TextBlockModel(flatText));
+    }
+
+    
+    private static IReadOnlyList<AvaloniaInline> ParseInlineParts(ContainerInline inline)
+    {
+        var inlines = new List<AvaloniaInline>();
+
+        foreach (var child in inline)
+        {
+            switch (child)
+            {
+                case LiteralInline literal:
+                    inlines.Add(new Run(
+                        literal.Content.Text.Substring(
+                            literal.Content.Start,
+                            literal.Content.Length)));
+                    break;
+
+                case EmphasisInline emphasis:
+                    foreach (var sub in ParseInlineParts(emphasis))
+                        inlines.Add(sub);
+                    break;
+
+                case LinkInline link when !link.IsImage:
+                    inlines.Add(CreateLinkInline(
+                        GetInlineText(link),
+                        link.Url!));
+                    break;
+
+                case AutolinkInline autoLink:
+                    inlines.Add(CreateLinkInline(
+                        autoLink.Url,
+                        autoLink.Url));
+                    break;
+
+                case LineBreakInline:
+                    inlines.Add(new LineBreak());
+                    break;
+            }
+        }
+
+        return inlines;
+    }
+    
+    private static InlineUIContainer CreateLinkInline(string text, string url)
+    {
+        var textBlock = new TextBlock
+        {
+            Text = text,
+            Foreground = Brushes.MediumPurple,
+            TextDecorations = TextDecorations.Underline
+        };
+
+        var button = new Button
+        {
+            Padding = new Thickness(0),
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Content = textBlock,
+            Command = new RelayCommand(() =>
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                }))
+        };
+
+        return new InlineUIContainer
+        {
+            Child = button,
+            BaselineAlignment = BaselineAlignment.Center
+        };
     }
 
     private static bool TryParseMedia(

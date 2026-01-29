@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Windows.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.Controls.Documents;
 using osuautodeafen.cs.Changelog;
 
 namespace osuautodeafen.cs.ViewModels;
@@ -174,5 +176,16 @@ public class ChangelogViewModel : ViewModelBase
 
         public string Text { get; }
     }
+    
+    public sealed class InlineTextBlockModel : ChangelogBlock
+    {
+        public InlineTextBlockModel(IReadOnlyList<Inline> inlines)
+        {
+            Inlines = inlines;
+        }
+
+        public IReadOnlyList<Inline> Inlines { get; }
+    }
+
 
 }

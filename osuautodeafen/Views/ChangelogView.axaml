@@ -4,6 +4,7 @@
     xmlns:vm="clr-namespace:osuautodeafen.cs.ViewModels"
     xmlns:anim="https://github.com/whistyun/AnimatedImage.Avalonia"
     xmlns:helpers="clr-namespace:osuautodeafen.cs.Helpers"
+    xmlns:changelog="clr-namespace:osuautodeafen.cs.Changelog"
     x:Class="osuautodeafen.Views.ChangelogView"
     x:DataType="vm:ChangelogViewModel">
 
@@ -11,7 +12,6 @@
         <helpers:TextBeforePrConverter x:Key="TextBeforePrConverter" />
         <helpers:TextAfterPrConverter x:Key="TextAfterPrConverter" />
     </UserControl.Resources>
-
 
     <UserControl.DataTemplates>
 
@@ -57,7 +57,6 @@
                        Foreground="#E8E8E8">
 
                 <TextBlock.Inlines>
-
                     <Run Text="• " />
                     <Run Text="{Binding Text, Converter={StaticResource TextBeforePrConverter}}" />
                     <InlineUIContainer BaselineAlignment="Center">
@@ -69,29 +68,62 @@
                             Background="Transparent"
                             BorderThickness="0"
                             VerticalAlignment="Center">
-
                             <TextBlock
                                 Text="{Binding PrNumber}"
                                 FontSize="{Binding $parent[TextBlock].FontSize}"
                                 Foreground="DarkOrchid"
-                                VerticalAlignment="Center"/>
-
+                                VerticalAlignment="Center" />
                             <Button.Styles>
                                 <Style Selector="Button:pointerover TextBlock">
-                                    <Setter Property="Foreground" Value="MediumPurple"/>
+                                    <Setter Property="Foreground" Value="MediumPurple" />
                                 </Style>
                             </Button.Styles>
-
                         </Button>
                     </InlineUIContainer>
-                    
                     <Run Text="{Binding Text, Converter={StaticResource TextAfterPrConverter}}" />
-                    
                 </TextBlock.Inlines>
-            </TextBlock>
 
+            </TextBlock>
         </DataTemplate>
 
+        <DataTemplate DataType="vm:ChangelogViewModel+InlineTextBlockModel">
+            <TextBlock
+                Margin="16,2"
+                TextWrapping="Wrap"
+                Foreground="#E8E8E8"
+                AttachedToVisualTree="InlineText_Attached">
+
+                <TextBlock.Tag>
+                    <Binding Path="Inlines"/>
+                </TextBlock.Tag>
+
+            </TextBlock>
+        </DataTemplate>
+        
+        <DataTemplate
+            x:DataType="changelog:TextPart"
+            DataType="changelog:TextPart">
+            <Run Text="{Binding Text}" />
+        </DataTemplate>
+
+        <DataTemplate
+            x:DataType="changelog:LinkPart"
+            DataType="changelog:LinkPart">
+            <InlineUIContainer BaselineAlignment="Center">
+                <Button
+                    Command="{Binding OpenLinkCommand}"
+                    Padding="0"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Cursor="Hand">
+                    <TextBlock
+                        Text="{Binding Text}"
+                        Foreground="MediumPurple"
+                        TextDecorations="Underline"
+                        FontSize="{Binding $parent[TextBlock].FontSize}" />
+                </Button>
+            </InlineUIContainer>
+        </DataTemplate>
 
         <DataTemplate DataType="vm:ChangelogViewModel+ImageBlockModel">
             <Border Margin="16,8"
@@ -105,7 +137,6 @@
 
         <DataTemplate DataType="vm:ChangelogViewModel+VideoPreviewBlockModel">
             <StackPanel AttachedToVisualTree="VideoPreview_AttachedToVisualTree">
-
                 <Border Height="260"
                         CornerRadius="8"
                         ClipToBounds="True"
@@ -114,7 +145,6 @@
                         <Image anim:ImageBehavior.AnimatedSource="{Binding PreviewPath}"
                                anim:ImageBehavior.RepeatBehavior="Forever"
                                Stretch="UniformToFill" />
-
                         <Button Command="{Binding OpenVideoCommand}"
                                 Width="28"
                                 Height="28"
@@ -130,7 +160,6 @@
                         </Button>
                     </Grid>
                 </Border>
-
                 <ProgressBar Height="4"
                              IsVisible="{Binding IsEncoding}"
                              Margin="0,6,0,0"
@@ -150,7 +179,6 @@
 
     </UserControl.DataTemplates>
 
-
     <Border Width="520"
             MaxHeight="600"
             CornerRadius="14"
@@ -167,12 +195,11 @@
                   RowSpacing="18">
 
                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
-                    <TextBlock Text="What’s New"
+                    <TextBlock Text="Changelog"
                                FontSize="26"
                                FontWeight="SemiBold"
                                Foreground="White"
                                HorizontalAlignment="Left" />
-
                     <TextBlock Text="{Binding Entries[0].Version}"
                                Grid.Column="1"
                                FontSize="16"
@@ -181,7 +208,6 @@
                                VerticalAlignment="Center"
                                HorizontalAlignment="Right" />
                 </Grid>
-
 
                 <ScrollViewer Grid.Row="1"
                               VerticalScrollBarVisibility="Auto">
@@ -194,30 +220,25 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel Spacing="10">
-
                                                     <TextBlock Text="{Binding Title}"
                                                                FontSize="14"
                                                                FontWeight="SemiBold"
                                                                Foreground="#CFCFCF"
                                                                Margin="0,12,0,4" />
-
                                                     <ItemsRepeater ItemsSource="{Binding Blocks}">
                                                         <ItemsRepeater.Layout>
                                                             <StackLayout Spacing="10" />
                                                         </ItemsRepeater.Layout>
-
                                                         <ItemsRepeater.ItemTemplate>
                                                             <DataTemplate>
                                                                 <ContentControl Content="{Binding}" />
                                                             </DataTemplate>
                                                         </ItemsRepeater.ItemTemplate>
                                                     </ItemsRepeater>
-
                                                 </StackPanel>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
-
                                 </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
