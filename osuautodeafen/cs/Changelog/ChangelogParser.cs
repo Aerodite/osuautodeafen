@@ -31,7 +31,7 @@ public static class ChangelogParser
     {
         MarkdownDocument doc = Markdown.Parse(markdown, Pipeline);
 
-        var entry = new ChangelogViewModel.ChangelogEntry(
+        ChangelogViewModel.ChangelogEntry entry = new(
             $"v{UpdateChecker.CurrentVersion}",
             new List<ChangelogViewModel.ChangelogSection>()
         );
@@ -39,7 +39,6 @@ public static class ChangelogParser
         ChangelogViewModel.ChangelogSection? currentSection = null;
 
         foreach (Block block in doc)
-        {
             switch (block)
             {
                 case HeadingBlock h:
@@ -74,6 +73,9 @@ public static class ChangelogParser
                         )
                     );
                     break;
+                case HtmlBlock html when currentSection != null:
+                    TryParseHtmlImage(html.Lines.ToString(), currentSection);
+                    break;
 
                 case ThematicBreakBlock when currentSection != null:
                     currentSection.Blocks.Add(
@@ -81,21 +83,54 @@ public static class ChangelogParser
                     );
                     break;
             }
-        }
 
         return new List<ChangelogViewModel.ChangelogEntry> { entry };
     }
+    
+    private static void TryParseHtmlImage(
+        string html,
+        ChangelogViewModel.ChangelogSection section)
+    {
+        foreach (Match match in Regex.Matches(
+                     html,
+                     @"<img[^>]*src\s*=\s*[""'](?<url>[^""']+)[""']",
+                     RegexOptions.IgnoreCase))
+        {
+            string url = match.Groups["url"].Value;
+
+            if (IsImageUrl(url))
+            {
+                section.Blocks.Add(
+                    new ChangelogViewModel.ImageBlockModel(url)
+                );
+            }
+        }
+    }
+
+
 
     private static void ParseParagraph(
         ParagraphBlock p,
         ChangelogViewModel.ChangelogSection section)
     {
+        var image = p.Inline?
+            .Descendants<LinkInline>()
+            .FirstOrDefault(l => l.IsImage && l.Url != null);
+
+        if (image != null)
+        {
+            section.Blocks.Add(
+                new ChangelogViewModel.ImageBlockModel(image.Url!)
+            );
+            return;
+        }
+
         string flatText = GetInlineText(p.Inline);
-        
+
         if (TryParseMedia(flatText, section))
             return;
-        
-        if (p.Inline?.Any(i => (i is LinkInline { IsImage: false }) || (i is AutolinkInline)) == true)
+
+        if (p.Inline?.Any(i => i is LinkInline { IsImage: false } || i is AutolinkInline) == true)
         {
             section.Blocks.Add(
                 new ChangelogViewModel.InlineTextBlockModel(
@@ -104,18 +139,17 @@ public static class ChangelogParser
 
             return;
         }
-        
+
         section.Blocks.Add(
             new ChangelogViewModel.TextBlockModel(flatText));
     }
 
-    
+
     private static IReadOnlyList<AvaloniaInline> ParseInlineParts(ContainerInline inline)
     {
         var inlines = new List<AvaloniaInline>();
 
-        foreach (var child in inline)
-        {
+        foreach (Inline child in inline)
             switch (child)
             {
                 case LiteralInline literal:
@@ -126,7 +160,7 @@ public static class ChangelogParser
                     break;
 
                 case EmphasisInline emphasis:
-                    foreach (var sub in ParseInlineParts(emphasis))
+                    foreach (AvaloniaInline sub in ParseInlineParts(emphasis))
                         inlines.Add(sub);
                     break;
 
@@ -146,34 +180,34 @@ public static class ChangelogParser
                     inlines.Add(new LineBreak());
                     break;
             }
-        }
 
         return inlines;
     }
-    
+
     private static InlineUIContainer CreateLinkInline(string text, string url)
     {
-        var textBlock = new TextBlock
+        TextBlock textBlock = new()
         {
             Text = text,
             Foreground = Brushes.MediumPurple,
             TextDecorations = TextDecorations.Underline
         };
 
-        var button = new Button
+        Button button = new()
         {
             Padding = new Thickness(0),
             Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
             Cursor = new Cursor(StandardCursorType.Hand),
             Content = textBlock,
-            Command = new RelayCommand(() =>
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = url,
-                    UseShellExecute = true
-                }))
+            Tag = url
         };
+        button.Click += (_, _) =>
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
 
         return new InlineUIContainer
         {
@@ -233,7 +267,7 @@ public static class ChangelogParser
         ParagraphBlock paragraph)
     {
         string text = GetInlineText(paragraph.Inline);
-        
+
         Match shortMatch = Regex.Match(text, @"\(#(?<pr>\d+)\)");
         if (shortMatch.Success)
         {
@@ -246,8 +280,8 @@ public static class ChangelogParser
                 url
             );
         }
-        
-        var link = paragraph
+
+        LinkInline? link = paragraph
             .Inline?
             .Descendants<LinkInline>()
             .FirstOrDefault(l =>
@@ -261,7 +295,7 @@ public static class ChangelogParser
             if (match.Success)
             {
                 string pr = match.Groups["pr"].Value;
-                
+
                 string replaced = text.Replace(
                     link.Url!,
                     $"(#{pr})"
@@ -280,7 +314,7 @@ public static class ChangelogParser
 
     private static string GetQuoteText(QuoteBlock quote)
     {
-        var sb = new StringBuilder();
+        StringBuilder sb = new();
 
         foreach (Block block in quote)
             if (block is ParagraphBlock p)
@@ -294,10 +328,9 @@ public static class ChangelogParser
         if (inline == null)
             return string.Empty;
 
-        var sb = new StringBuilder();
+        StringBuilder sb = new();
 
         foreach (Inline child in inline)
-        {
             switch (child)
             {
                 case LiteralInline literal:
@@ -317,19 +350,23 @@ public static class ChangelogParser
                     sb.Append(GetInlineText(link));
                     break;
             }
-        }
 
         return sb.ToString().Trim();
     }
 
-    private static bool IsVideoUrl(string url) =>
-        url.EndsWith(".mp4") ||
-        url.EndsWith(".webm") ||
-        url.Contains("github.com/user-attachments");
+    private static bool IsVideoUrl(string url)
+    {
+        return url.EndsWith(".mp4") ||
+               url.EndsWith(".webm") ||
+               url.Contains("github.com/user-attachments");
+    }
 
-    private static bool IsImageUrl(string url) =>
-        url.EndsWith(".png") ||
-        url.EndsWith(".jpg") ||
-        url.EndsWith(".jpeg") ||
-        url.EndsWith(".gif");
+    private static bool IsImageUrl(string url)
+    {
+        return url.EndsWith(".png") ||
+               url.EndsWith(".jpg") ||
+               url.EndsWith(".jpeg") ||
+               url.EndsWith(".gif") ||
+               url.Contains("github.com/user-attachments");
+    }
 }

@@ -327,7 +327,7 @@
         <Border x:Name="ChangelogOverlay"
                 Background="#AA000000"
                 IsVisible="{Binding Changelog.IsVisible}"
-                ZIndex="9999">
+                ZIndex="98">
 
             <views:ChangelogView
                 DataContext="{Binding Changelog}"

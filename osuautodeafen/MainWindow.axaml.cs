@@ -48,6 +48,8 @@ namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
+    public static TooltipManager Tooltips { get; private set; } = null!;
+    
     private const double BeatsPerRotation = 4;
 
     private const double HoverAngle = 15;
@@ -509,6 +511,8 @@ public partial class MainWindow : Window
 
         _tooltipManager.SetTooltipControls(TooltipRoot, TooltipText, _settingsHandler.WindowWidth,
             _settingsHandler.WindowHeight);
+        
+        Tooltips = _tooltipManager;
 
         PointerPressed += (sender, e) =>
         {
@@ -684,7 +688,7 @@ public partial class MainWindow : Window
 
         Tooltips.TooltipType currentTooltipType = _tooltipManager.CurrentTooltipType;
 
-        if (currentTooltipType == Tooltips.TooltipType.Deafen)
+        if (currentTooltipType == osuautodeafen.cs.Tooltips.Tooltips.TooltipType.Deafen)
         {
             _ = _chartManager.UpdateDeafenOverlayAsync(_viewModel.MinCompletionPercentage);
             e.Handled = true;
@@ -697,7 +701,7 @@ public partial class MainWindow : Window
         _backgroundManager.ApplyParallax(windowPoint.X, windowPoint.Y);
 
         // this is really stupid but it just prevents the case where the straingraph's tooltips attempt to show in areas outside of the straingraph
-        if (currentTooltipType == Tooltips.TooltipType.Time || currentTooltipType == Tooltips.TooltipType.Section)
+        if (currentTooltipType == osuautodeafen.cs.Tooltips.Tooltips.TooltipType.Time || currentTooltipType == osuautodeafen.cs.Tooltips.Tooltips.TooltipType.Section)
         {
             bool belowBottomLimit = pixelPoint.Y >= PlotView.Bounds.Height - 120;
             bool withinRightLimit = !_isSettingsPanelOpen || pixelPoint.X <= PlotView.Bounds.Width;
@@ -972,7 +976,7 @@ public partial class MainWindow : Window
     private void SettingsButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Border) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        Point point = osuautodeafen.cs.Tooltips.Tooltips.GetWindowRelativePointer(this, e);
         bool isOpen = _isSettingsPanelOpen;
         _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Settings" : "Open Settings");
     }

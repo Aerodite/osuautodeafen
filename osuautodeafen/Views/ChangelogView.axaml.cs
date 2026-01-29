@@ -1,10 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
-using Avalonia.Markup.Xaml;
+using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.VisualTree;
+using osuautodeafen.cs.Tooltips;
 using osuautodeafen.cs.ViewModels;
 
 namespace osuautodeafen.Views;
@@ -14,9 +18,12 @@ public partial class ChangelogView : UserControl
     public static readonly StyledProperty<IBrush> BackgroundBrushProperty =
         AvaloniaProperty.Register<ChangelogView, IBrush>(nameof(BackgroundBrush));
 
+    private static TooltipManager Tooltips =>
+        MainWindow.Tooltips;
+
     public ChangelogView()
     {
-        AvaloniaXamlLoader.Load(this);
+        InitializeComponent();
     }
 
     public IBrush BackgroundBrush
@@ -36,13 +43,38 @@ public partial class ChangelogView : UserControl
         if (sender is not TextBlock tb)
             return;
 
-        if (tb.Tag is not IReadOnlyList<Inline> sourceInlines)
+        if (tb.Tag is not IReadOnlyList<Inline> inlines)
             return;
 
-        tb.Inlines?.Clear();
+        if (tb.Inlines == null) return;
+        tb.Inlines.Clear();
 
-        foreach (var inline in sourceInlines)
-            tb.Inlines?.Add(CloneInline(inline));
+        foreach (var inline in inlines)
+        {
+            Inline cloned = CloneInline(inline);
+            tb.Inlines.Add(cloned);
+
+            if (cloned is InlineUIContainer { Child: Button btn } &&
+                btn.Tag is string url)
+            {
+                btn.PointerEntered += (_, ev) => ShowLinkTooltip(btn, ev, FormatUrlForTooltip(url));
+                btn.PointerMoved += (_, ev) => MoveLinkTooltip(btn, ev);
+                btn.PointerExited += (_, _) => Tooltips.HideTooltip();
+            }
+        }
+    }
+    
+    private static string FormatUrlForTooltip(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return url;
+        
+        string host = uri.Host;
+        string lastSegment = uri.Segments.LastOrDefault()?.TrimEnd('/') ?? "";
+
+        return lastSegment.Length > 0
+            ? $"{host}/…/{lastSegment}"
+            : host;
     }
 
     private static Inline CloneInline(Inline inline)
@@ -69,12 +101,11 @@ public partial class ChangelogView : UserControl
             _ => throw new NotSupportedException($"Unsupported inline: {inline.GetType()}")
         };
     }
-    
+
     private static Control CloneControl(Control control)
     {
         if (control is Button button &&
             button.Content is TextBlock text)
-        {
             return new Button
             {
                 Padding = button.Padding,
@@ -82,6 +113,7 @@ public partial class ChangelogView : UserControl
                 BorderThickness = button.BorderThickness,
                 Cursor = button.Cursor,
                 Command = button.Command,
+                Tag = button.Tag,
                 Content = new TextBlock
                 {
                     Text = text.Text,
@@ -90,8 +122,94 @@ public partial class ChangelogView : UserControl
                     TextDecorations = text.TextDecorations
                 }
             };
-        }
 
         throw new NotSupportedException($"Unsupported control: {control.GetType()}");
+    }
+
+    private void ShowLinkTooltip(Control target, PointerEventArgs e, string url)
+    {
+        var window = target.GetVisualRoot() as Window;
+        if (window == null)
+            return;
+
+        Point point = osuautodeafen.cs.Tooltips.Tooltips
+            .GetWindowRelativePointer(window, e);
+        Tooltips.ShowTooltip(target, point, url);
+    }
+
+    private void MoveLinkTooltip(Control target, PointerEventArgs e)
+    {
+        var window = target.GetVisualRoot() as Window;
+        if (window == null)
+            return;
+
+        Point point = osuautodeafen.cs.Tooltips.Tooltips
+            .GetWindowRelativePointer(window, e);
+        Tooltips.MoveTooltipToPosition(point);
+    }
+       
+    private void VideoRedirect_PointerEntered(object? sender, PointerEventArgs e)
+    {
+        if (sender is not Control c)
+            return;
+
+        var window = c.GetVisualRoot() as Window;
+        if (window == null)
+            return;
+
+        Point point = osuautodeafen.cs.Tooltips.Tooltips
+            .GetWindowRelativePointer(window, e);
+        Tooltips.ShowTooltip(c, point, "Open Video in Browser");
+    }
+
+    private void VideoRedirect_PointerExited(object? sender, PointerEventArgs e)
+    {
+        Tooltips.HideTooltip();
+    }
+    
+    private void VideoRedirect_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (sender is not Control c)
+            return;
+
+        var window = c.GetVisualRoot() as Window;
+        if (window == null)
+            return;
+
+        Point point = osuautodeafen.cs.Tooltips.Tooltips
+            .GetWindowRelativePointer(window, e);
+        Tooltips.MoveTooltipToPosition(point);
+    }
+    
+    private void PrButton_PointerEntered(object? sender, PointerEventArgs e)
+    {
+        if (sender is not Control c)
+            return;
+
+        var window = c.GetVisualRoot() as Window;
+        if (window == null)
+            return;
+
+        Point point = osuautodeafen.cs.Tooltips.Tooltips
+            .GetWindowRelativePointer(window, e);
+        Tooltips.ShowTooltip(c, point, "Open Pull Request in Browser");
+    }
+
+    private void PrButton_PointerExited(object? sender, PointerEventArgs e)
+    {
+        Tooltips.HideTooltip();
+    }
+    private void PrButton_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (sender is not Control c)
+            return;
+
+        var window = c.GetVisualRoot() as Window;
+        if (window == null)
+            return;
+
+        Point point = osuautodeafen.cs.Tooltips.Tooltips
+            .GetWindowRelativePointer(window, e);
+        Tooltips.MoveTooltipToPosition(point);
     }
 }

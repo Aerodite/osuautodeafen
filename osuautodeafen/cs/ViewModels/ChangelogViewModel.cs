@@ -2,11 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Linq;
+using System.IO;
+using System.Net.Http;
+using System.Threading.Tasks;
 using System.Windows.Input;
-using Avalonia.Media;
-using Avalonia.Threading;
 using Avalonia.Controls.Documents;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using osuautodeafen.cs.Changelog;
 
 namespace osuautodeafen.cs.ViewModels;
@@ -22,9 +25,12 @@ public class ChangelogViewModel : ViewModelBase
         get => _isVisible;
         set => SetProperty(ref _isVisible, value);
     }
+    
+    public ICommand DismissCommand => new RelayCommand(() =>
+    {
+        IsVisible = false;
 
-    public ICommand DismissCommand =>
-        new RelayCommand(() => { });
+    });
 
     public void LoadFromMarkdown(string markdown)
     {
@@ -46,10 +52,44 @@ public class ChangelogViewModel : ViewModelBase
         public string Text { get; } = text;
     }
 
-    public sealed class ImageBlockModel(string path) : ChangelogBlock
+    public sealed class ImageBlockModel : ChangelogBlock
     {
-        public string Path { get; } = path;
+        private static readonly HttpClient Http = new();
+
+        private IImage? _source;
+        public IImage? Source
+        {
+            get => _source;
+            private set => SetProperty(ref _source, value);
+        }
+
+        public ImageBlockModel(string url)
+        {
+            _ = LoadAsync(url);
+        }
+
+        private async Task LoadAsync(string url)
+        {
+            try
+            {
+                await using var httpStream = await Http.GetStreamAsync(url);
+
+                var ms = new MemoryStream();
+                await httpStream.CopyToAsync(ms);
+                ms.Position = 0;
+
+                var bitmap = new Bitmap(ms);
+
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                    Source = bitmap);
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine($"Failed to load image: {url}\n{e}");
+            }
+        }
     }
+
 
     public sealed class BulletGroupBlockModel : ChangelogBlock
     {
@@ -154,7 +194,7 @@ public class ChangelogViewModel : ViewModelBase
     public sealed class DividerBlockModel : ChangelogBlock
     {
     }
-    
+
     public sealed class CodeBlockModel : ChangelogBlock
     {
         public CodeBlockModel(string code, string? language)
@@ -176,7 +216,7 @@ public class ChangelogViewModel : ViewModelBase
 
         public string Text { get; }
     }
-    
+
     public sealed class InlineTextBlockModel : ChangelogBlock
     {
         public InlineTextBlockModel(IReadOnlyList<Inline> inlines)
@@ -186,6 +226,4 @@ public class ChangelogViewModel : ViewModelBase
 
         public IReadOnlyList<Inline> Inlines { get; }
     }
-
-
 }
