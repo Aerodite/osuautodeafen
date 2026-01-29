@@ -36,13 +36,18 @@ public sealed class ChangelogManager
 
             _changelogViewModel.LoadFromMarkdown(markdown);
             _changelogViewModel.IsVisible = true;
-            
-            _settingsHandler.LastSeenVersion = currentVersion;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[Changelog] Failed to show changelog: {ex}");
         }
+    }
+    
+    public async Task ForceShowChangelogAsync()
+    {
+        string markdown = await _http.GetStringAsync(ChangelogUrl);
+        _changelogViewModel.LoadFromMarkdown(markdown);
+        _changelogViewModel.IsVisible = true;
     }
     
     public void DismissChangelog(string currentVersion)

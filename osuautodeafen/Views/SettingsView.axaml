@@ -618,21 +618,69 @@
                                 Margin="0" />
                     </StackPanel>
                     <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
-                    <Button x:Name="CheckForUpdatesButton"
-                            Content="Check for Updates"
-                            HorizontalContentAlignment="Center"
-                            Click="CheckForUpdatesButton_Click"
-                            Width="180"
-                            HorizontalAlignment="Center"
-                            Margin="0,16.5,0,10"
-                            FontSize="12"
-                            Foreground="White"
-                            VerticalAlignment="Bottom"
-                            PointerEntered="CheckForUpdatesButton_PointerEnter"
-                            PointerExited="CheckForUpdatesButton_PointerLeave" />
-                    <TextBlock Text="{Binding CurrentAppVersion}" DockPanel.Dock="Bottom"
-                               VerticalAlignment="Bottom" HorizontalAlignment="Center"
-                               Margin="0,0,0,8" Foreground="White" FontSize="14" />
+                    <StackPanel HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                Spacing="8"
+                                Margin="0,16,0,10">
+                        
+                        <Button x:Name="CheckForUpdatesButton"
+                                Content="Check for Updates"
+                                Width="180"
+                                FontSize="13"
+                                FontWeight="Regular"
+                                Foreground="White"
+                                HorizontalContentAlignment="Center"
+                                Click="CheckForUpdatesButton_Click"
+                                PointerEntered="CheckForUpdatesButton_PointerEnter"
+                                PointerExited="CheckForUpdatesButton_PointerLeave" />
+
+                        <!-- this looks mega clean on the same line holy -->
+                        <Grid Width="180"
+                              HorizontalAlignment="Center"
+                              Opacity="0.85"
+                              ColumnDefinitions="*,Auto,*">
+                            
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding LongAppVersion}"
+                                       Foreground="#CCFFFFFF"
+                                       FontSize="12"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Center" />
+                            
+                            <Border Grid.Column="1"
+                                    Width="1"
+                                    Height="12"
+                                    Background="#40FFFFFF"
+                                    VerticalAlignment="Center" />
+                            
+                            <Button Grid.Column="2"
+                                    x:Name="OpenChangelogButton"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    HorizontalAlignment="Center"
+                                    Padding="2,2"
+                                    Click="OpenChangelogButton_Click"
+                                    PointerEntered="OpenChangelogButton_PointerEnter"
+                                    PointerExited="OpenChangelogButton_PointerLeave">
+
+                                <StackPanel Orientation="Horizontal"
+                                            Spacing="4"
+                                            VerticalAlignment="Center">
+
+                                    <Svg Path="avares://osuautodeafen/Icons/book.svg"
+                                         Width="14"
+                                         Height="14"
+                                         Opacity="0.7" />
+
+                                    <TextBlock Text="Changelog"
+                                               FontSize="12"
+                                               Foreground="#BBBBBB"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+
                     <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
                     <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center">
                         <Button x:Name="OpenFileLocationButton"

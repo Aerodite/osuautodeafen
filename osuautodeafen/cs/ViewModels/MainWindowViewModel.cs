@@ -103,12 +103,36 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         
         CreateAndShowChangelog();
     }
+    
+    public void OpenChangelog()
+    {
+        if (_changelogManager != null)
+            return;
+
+        Changelog = new ChangelogViewModel();
+
+        _changelogManager = new ChangelogManager(
+            new HttpClient(),
+            _settingsHandler,
+            Changelog
+        );
+
+        _changelogManager.ChangelogDestroyed += OnChangelogDestroyed;
+
+        Changelog.DismissRequested += () =>
+            _changelogManager.DismissChangelog(UpdateChecker.CurrentVersion);
+
+        _ = _changelogManager.ForceShowChangelogAsync();
+
+        OnPropertyChanged(nameof(Changelog));
+    }
 
     public ChangelogViewModel? Changelog { get; private set; }
 
     private void OnChangelogDestroyed()
     {
         Changelog = null;
+        _changelogManager = null;
         OnPropertyChanged(nameof(Changelog));
     }
 
@@ -138,9 +162,12 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     
     private ChangelogManager? _changelogManager;
     
-    private void CreateAndShowChangelog()
+    public void CreateAndShowChangelog()
     {
         if (_changelogManager != null)
+            return;
+        
+        if (_settingsHandler.LastSeenVersion == UpdateChecker.CurrentVersion)
             return;
 
         Changelog = new ChangelogViewModel();
@@ -160,8 +187,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
         OnPropertyChanged(nameof(Changelog));
     }
-
-
+    
     public string? BeatmapName
     {
         get => _beatmapName;
@@ -284,6 +310,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     }
 
     public string CurrentAppVersion => $"v{UpdateChecker.CurrentVersion}";
+    
+    public string LongAppVersion => $"Version {UpdateChecker.CurrentVersion}";
 
     public SolidColorBrush AverageColorBrush
     {

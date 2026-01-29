@@ -376,7 +376,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         _discordClient = Data["Linux"]["discordClient"];
         _useHyprlandDispatch = bool.TryParse(Data["Linux"]["useHyprlandDispatch"], out bool hypr) && hypr;
 
-        _lastSeenVersion = Data["General"]["lastSeenVersion"];
+        _lastSeenVersion = Data["Updates"]["LastSeenVersion"];
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MinCompletionPercentage)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StarRating)));

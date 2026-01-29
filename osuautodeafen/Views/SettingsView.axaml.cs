@@ -1000,6 +1000,23 @@ public partial class SettingsView : UserControl
         }
     }
 
+    private void OpenChangelogButton_Click(object? sender, RoutedEventArgs e)
+    {
+        _viewModel.OpenChangelog();
+    }
+    
+    private void OpenChangelogButton_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (sender is not Button) return;
+        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        _tooltipManager.ShowTooltip(this, point, "View Changelog for v" + UpdateChecker.CurrentVersion);
+    }
+    
+    private void OpenChangelogButton_PointerLeave(object sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+
     /// <summary>
     ///     Opens a new GitHub issue creation page
     /// </summary>

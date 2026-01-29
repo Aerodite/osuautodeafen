@@ -89,6 +89,8 @@
         <AvaloniaResource Include="Icons\star-half.svg"/>
         <None Remove="Icons\pause.svg"/>
         <AvaloniaResource Include="Icons\pause.svg"/>
+        <None Remove="Icons\book.svg" />
+        <AvaloniaResource Include="Icons\book.svg" />
     </ItemGroup>
 
     <ItemGroup>
