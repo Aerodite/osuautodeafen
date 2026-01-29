@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using osuautodeafen.cs.Tooltips;
@@ -64,6 +65,11 @@ public partial class ChangelogView : UserControl
         }
     }
     
+    private async void OnCloseClicked(object? sender, RoutedEventArgs e)
+    {
+     
+    }
+    
     private static string FormatUrlForTooltip(string url)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
@@ -106,14 +112,15 @@ public partial class ChangelogView : UserControl
     {
         if (control is Button button &&
             button.Content is TextBlock text)
-            return new Button
+        {
+            var clone = new Button
             {
                 Padding = button.Padding,
                 Background = button.Background,
                 BorderThickness = button.BorderThickness,
                 Cursor = button.Cursor,
-                Command = button.Command,
                 Tag = button.Tag,
+                Command = button.Command,
                 Content = new TextBlock
                 {
                     Text = text.Text,
@@ -122,9 +129,35 @@ public partial class ChangelogView : UserControl
                     TextDecorations = text.TextDecorations
                 }
             };
+            
+            if (clone.Command == null && clone.Tag is string url)
+            {
+                clone.Click += (_, _) => OpenUrl(url);
+            }
+
+            return clone;
+        }
 
         throw new NotSupportedException($"Unsupported control: {control.GetType()}");
     }
+    
+    private static void OpenUrl(string url)
+    {
+        try
+        {
+            using var _ = System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
 
     private void ShowLinkTooltip(Control target, PointerEventArgs e, string url)
     {

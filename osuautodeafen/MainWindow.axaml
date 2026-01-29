@@ -17,7 +17,7 @@
         Title="osuautodeafen"
         x:DataType="local:MainWindow">
     
-  <Window.Resources>
+    <Window.Resources>
         <global:AverageColorCycleConverter x:Key="AverageColorCycleConverter" />
         <presets:BackgroundPathToBrushConverter x:Key="BackgroundPathToBrushConverter" />
         <global:InverseBooleanConverter x:Key="InverseBooleanConverter" />
@@ -326,7 +326,6 @@
         </Grid>
         <Border x:Name="ChangelogOverlay"
                 Background="#AA000000"
-                IsVisible="{Binding Changelog.IsVisible}"
                 ZIndex="98">
 
             <views:ChangelogView
