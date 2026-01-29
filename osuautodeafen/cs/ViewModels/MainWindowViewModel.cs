@@ -4,12 +4,14 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using osuautodeafen.cs.Changelog;
 using osuautodeafen.cs.Settings;
 using osuautodeafen.cs.Settings.Presets;
 using osuautodeafen.cs.Tooltips;
@@ -98,9 +100,17 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         _tosuApi = tosuApi;
         _tooltipManager = tooltipManager;
         Task.Run(UpdateCompletionPercentageAsync);
+        
+        CreateAndShowChangelog();
     }
 
-    public ChangelogViewModel Changelog { get; } = new();
+    public ChangelogViewModel? Changelog { get; private set; }
+
+    private void OnChangelogDestroyed()
+    {
+        Changelog = null;
+        OnPropertyChanged(nameof(Changelog));
+    }
 
     public bool CanCreatePreset => !PresetExistsForCurrentChecksum;
 
@@ -125,6 +135,32 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             }
         }
     }
+    
+    private ChangelogManager? _changelogManager;
+    
+    private void CreateAndShowChangelog()
+    {
+        if (_changelogManager != null)
+            return;
+
+        Changelog = new ChangelogViewModel();
+
+        _changelogManager = new ChangelogManager(
+            new HttpClient(),
+            _settingsHandler,
+            Changelog
+        );
+        
+        _changelogManager.ChangelogDestroyed += OnChangelogDestroyed;
+        
+        Changelog.DismissRequested += () =>
+            _changelogManager.DismissChangelog(UpdateChecker.CurrentVersion);
+
+        _ = _changelogManager.TryShowChangelogAsync(UpdateChecker.CurrentVersion);
+
+        OnPropertyChanged(nameof(Changelog));
+    }
+
 
     public string? BeatmapName
     {

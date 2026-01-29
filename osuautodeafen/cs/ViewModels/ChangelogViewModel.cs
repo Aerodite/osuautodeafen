@@ -17,6 +17,7 @@ namespace osuautodeafen.cs.ViewModels;
 public class ChangelogViewModel : ViewModelBase
 {
     private bool _isVisible;
+    private bool _isDisposed;
     public ObservableCollection<ChangelogEntry> Entries { get; } = new();
     public IBrush? BackgroundBrush { get; set; }
 
@@ -28,10 +29,11 @@ public class ChangelogViewModel : ViewModelBase
     
     public ICommand DismissCommand => new RelayCommand(() =>
     {
-        IsVisible = false;
-
+        DismissRequested?.Invoke();
     });
 
+    public event Action? DismissRequested;
+    
     public void LoadFromMarkdown(string markdown)
     {
         Entries.Clear();
@@ -52,7 +54,7 @@ public class ChangelogViewModel : ViewModelBase
         public string Text { get; } = text;
     }
 
-    public sealed class ImageBlockModel : ChangelogBlock
+    public sealed class ImageBlockModel : ChangelogBlock, IDisposable
     {
         private static readonly HttpClient Http = new();
 
@@ -62,7 +64,14 @@ public class ChangelogViewModel : ViewModelBase
             get => _source;
             private set => SetProperty(ref _source, value);
         }
+        
+        public void Dispose()
+        {
+            if (_source is Bitmap bitmap)
+                bitmap.Dispose();
 
+            _source = null;
+        }
         public ImageBlockModel(string url)
         {
             _ = LoadAsync(url);
@@ -103,7 +112,7 @@ public class ChangelogViewModel : ViewModelBase
         public List<ChangelogBlock> Children { get; }
     }
 
-    public sealed class VideoPreviewBlockModel : ChangelogBlock
+    public sealed class VideoPreviewBlockModel : ChangelogBlock, IDisposable
     {
         private readonly string _videoUrl;
 
@@ -112,6 +121,13 @@ public class ChangelogViewModel : ViewModelBase
         private double _progress;
         private bool _started;
 
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            _disposed = true;
+        }
+        
         public VideoPreviewBlockModel(string videoUrl)
         {
             _videoUrl = videoUrl;
@@ -148,19 +164,27 @@ public class ChangelogViewModel : ViewModelBase
 
         private void StartEncoding()
         {
-            if (_started)
+            if (_started || _disposed)
                 return;
 
             _started = true;
 
             VideoPreviewCache.EnsurePreview(
                 _videoUrl,
-                p => Dispatcher.UIThread.Post(() => Progress = p),
-                path => Dispatcher.UIThread.Post(() =>
+                p =>
                 {
-                    PreviewPath = new Uri(path).AbsoluteUri;
-                    Progress = 1.0;
-                })
+                    if (_disposed) return;
+                    Dispatcher.UIThread.Post(() => Progress = p);
+                },
+                path =>
+                {
+                    if (_disposed) return;
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        PreviewPath = new Uri(path).AbsoluteUri;
+                        Progress = 1.0;
+                    });
+                }
             );
         }
     }
@@ -225,5 +249,31 @@ public class ChangelogViewModel : ViewModelBase
         }
 
         public IReadOnlyList<Inline> Inlines { get; }
+    }
+    public void Dispose()
+    {
+        if (_isDisposed)
+            return;
+
+        _isDisposed = true;
+
+        // Stop rendering
+        IsVisible = false;
+
+        // Dispose entries
+        foreach (var entry in Entries)
+        {
+            foreach (var section in entry.Sections)
+            {
+                foreach (var block in section.Blocks)
+                {
+                    if (block is IDisposable d)
+                        d.Dispose();
+                }
+            }
+        }
+
+        Entries.Clear();
+        BackgroundBrush = null;
     }
 }

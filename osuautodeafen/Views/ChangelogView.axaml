@@ -285,13 +285,14 @@
 
                     </ScrollViewer>
 
-                    <Button Grid.Row="2"
-                            Content="Close"
-                            Width="100"
-                            HorizontalAlignment="Right"
-                            HorizontalContentAlignment="Center"
-                            Classes="changelog-ok"
-                            Click="OnCloseClicked" />
+                    <Button
+                        Grid.Row="2"
+                        Content="Close"
+                        Width="100"
+                        HorizontalAlignment="Right"
+                        HorizontalContentAlignment="Center"
+                        Classes="changelog-ok"
+                        Command="{Binding DismissCommand}" />
                     
                 </Grid>
             </Border>

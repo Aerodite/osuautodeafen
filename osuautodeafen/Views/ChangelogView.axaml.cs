@@ -65,11 +65,6 @@ public partial class ChangelogView : UserControl
         }
     }
     
-    private async void OnCloseClicked(object? sender, RoutedEventArgs e)
-    {
-     
-    }
-    
     private static string FormatUrlForTooltip(string url)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))

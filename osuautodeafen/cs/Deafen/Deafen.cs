@@ -23,13 +23,15 @@ public class Deafen : IDisposable
     private readonly SharedViewModel _sharedViewModel;
     private readonly Timer _timer;
     private readonly TosuApi _tosuAPI;
+
+    private readonly DateTime _startedAt = DateTime.Now;
+
     private DateTime _deafenEnteredAt = DateTime.MinValue;
     private bool _desiredDeafenState;
     private bool _hasAppliedFirstDeafen = false;
     private bool _isDeafened;
     private bool _isInBreakPeriod;
     private DateTime _lastToggleAt = DateTime.MinValue;
-
 
     private DateTime _nextStateChangedAt = DateTime.MinValue;
     public bool Deafened;
@@ -156,7 +158,6 @@ public class Deafen : IDisposable
                     Side = shiftSide == 2 ? Modifiers.ModifierSide.Right : Modifiers.ModifierSide.Left
                 });
 
-
             Console.WriteLine(
                 $"[SimulateDeafenKey] Pressing modifiers: {string.Join(", ", modifiers.Select(m => m.Modifier + (m.Side != Modifiers.ModifierSide.None ? $"({m.Side})" : "")))}");
             foreach (ModifierWithSide mod in modifiers) _eventSimulator.SimulateKeyPress(mod.Modifier);
@@ -181,8 +182,12 @@ public class Deafen : IDisposable
     private bool ComputeDeafenState()
     {
         bool isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
+        bool isSpectating = _tosuAPI.GetRawBanchoStatus() == 6;
         bool hasHitObjects = _tosuAPI.GetMaxPlayCombo() != 0;
 
+        if (isSpectating)
+            return false;
+        
         // prevents deafening on like first tick (just makes sure you've actually hit atleast 1 circle)
         if (!isPlaying || !hasHitObjects)
             return false;
@@ -220,6 +225,34 @@ public class Deafen : IDisposable
     /// </summary>
     private void EvaluateDeafenState()
     {
+        // bunch of annoying stuff that allows spectating to not be annoying
+        if ((DateTime.Now - _startedAt).TotalMilliseconds < 1000)
+            return;
+
+        bool isSpectating = _tosuAPI.GetRawBanchoStatus() == 6;
+        
+        if (!_hasAppliedFirstDeafen)
+        {
+            _hasAppliedFirstDeafen = true;
+            _desiredDeafenState = false;
+            return;
+        }
+        
+        if (isSpectating)
+        {
+            _desiredDeafenState = false;
+
+            if (_isDeafened)
+            {
+                Console.WriteLine("Undeafening due to spectating");
+                ApplyDeafenToggle();
+            }
+
+            return;
+        }
+        
+        // real deafen shi
+
         bool nextState = ComputeDeafenState();
 
         if (nextState != _desiredDeafenState)
@@ -227,7 +260,6 @@ public class Deafen : IDisposable
             if (_isDeafened && !nextState)
                 if ((DateTime.Now - _deafenEnteredAt).TotalMilliseconds < 500)
                 {
-                    Console.WriteLine("[Eval] Suppressing early undeafen");
                     return;
                 }
 
@@ -235,7 +267,6 @@ public class Deafen : IDisposable
             _nextStateChangedAt = DateTime.Now;
             return;
         }
-
 
         if ((DateTime.Now - _nextStateChangedAt).TotalMilliseconds < 250)
             return;

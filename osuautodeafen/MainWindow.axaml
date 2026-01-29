@@ -12,12 +12,20 @@
         xmlns:progressIndicator="clr-namespace:osuautodeafen.cs.StrainGraph.ProgressIndicator"
         xmlns:viewModels="clr-namespace:osuautodeafen.cs.ViewModels"
         xmlns:views="clr-namespace:osuautodeafen.Views"
+        xmlns:helpers="clr-namespace:osuautodeafen.cs.Helpers"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osuautodeafen"
         x:DataType="local:MainWindow">
     
+    <Window.DataTemplates>
+        <DataTemplate DataType="viewModels:ChangelogViewModel">
+            <views:ChangelogView />
+        </DataTemplate>
+    </Window.DataTemplates>
+    
     <Window.Resources>
+        <helpers:NullToBoolConverter x:Key="NullToBoolConverter" />
         <global:AverageColorCycleConverter x:Key="AverageColorCycleConverter" />
         <presets:BackgroundPathToBrushConverter x:Key="BackgroundPathToBrushConverter" />
         <global:InverseBooleanConverter x:Key="InverseBooleanConverter" />
@@ -324,15 +332,15 @@
                 </Button>
             </Grid>
         </Grid>
-        <Border x:Name="ChangelogOverlay"
-                Background="#AA000000"
-                ZIndex="98">
+        <Border
+            Background="#AA000000"
+            ZIndex="98"
+            IsVisible="{Binding Changelog, Converter={StaticResource NullToBoolConverter}}">
 
-            <views:ChangelogView
-                DataContext="{Binding Changelog}"
+            <ContentControl
+                Content="{Binding Changelog}"
                 HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-            />
+                VerticalAlignment="Center"/>
         </Border>
     </Grid>
 </Window>

@@ -25,6 +25,7 @@ using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Background;
+using osuautodeafen.cs.Changelog;
 using osuautodeafen.cs.Deafen;
 using osuautodeafen.cs.Helpers;
 using osuautodeafen.cs.Log;
@@ -230,31 +231,6 @@ public partial class MainWindow : Window
         _viewModel.AttachViews(HomeView, SettingsView);
         SettingsView.AttachManagers(_chartManager, _backgroundManager);
 
-        object? oldContent = Content;
-        Content = null;
-        Grid rootGrid = new();
-
-        rootGrid.Children.Add(
-            new ContentControl { Content = oldContent }
-        );
-
-        rootGrid.Children.Add(
-            new Border
-            {
-                Background = Brushes.Black,
-                Opacity = 0.85,
-                IsVisible = false,
-                ZIndex = 9999,
-                Child = new ChangelogView
-                {
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center
-                }
-            }
-        );
-
-        Content = rootGrid;
-
         InitializeViewModel();
 
         _viewModel.CurrentPage = _viewModel.HomePage;
@@ -268,8 +244,6 @@ public partial class MainWindow : Window
             await _updateChecker.CheckForUpdatesAsync();
             if (_updateChecker.UpdateInfo != null)
                 await _updateChecker.ShowUpdateNotification();
-
-            await TryShowChangelogAsync();
         };
 
         Deafen deafen = new(_tosuApi, _settingsHandler, _viewModel);
@@ -647,39 +621,15 @@ public partial class MainWindow : Window
         SettingsView.PPSlider.Value = ViewModel.PerformancePoints;
         SettingsView.BlurEffectSlider.Value = ViewModel.BlurRadius;
         _viewModel.RefreshPresets();
-    }
-
-    private SharedViewModel ViewModel { get; }
-
-    private async Task TryShowChangelogAsync()
-    {
+        
         KeyDown += (_, e) =>
         {
             if (e.Key == Key.Escape && _viewModel.Changelog.IsVisible)
                 _viewModel.Changelog.IsVisible = false;
         };
-        try
-        {
-            string currentVersion = UpdateChecker.CurrentVersion;
-            string? lastSeenVersion = _settingsHandler?.LastSeenVersion;
-
-            if (lastSeenVersion == currentVersion)
-                return;
-
-            //_viewModel.Changelog.BackgroundBrush = _viewModel.AverageColorBrush;
-
-            string markdown = await _http.GetStringAsync(
-                "https://i.cdn.aerodite.dev/osuautodeafen/changelog-111.md");
-
-            _viewModel.Changelog.LoadFromMarkdown(markdown);
-            _viewModel.Changelog.IsVisible = true;
-            //_settingsHandler!.LastSeenVersion = currentVersion;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Changelog] Failed to show changelog: {ex}");
-        }
     }
+
+    private SharedViewModel ViewModel { get; }
 
     private void MainWindow_PointerMoved(object? sender, PointerEventArgs e)
     {
