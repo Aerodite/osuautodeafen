@@ -57,4 +57,19 @@ public class SettingsViewModel : ViewModelBase
             OnPropertyChanged();
         }
     }
+
+    private bool _isKeybindCaptureEnabled;
+
+    public bool IsKeybindCaptureEnabled
+    {
+        get => _isKeybindCaptureEnabled;
+        set
+        {
+            if (_isKeybindCaptureEnabled != value)
+            {
+                _isKeybindCaptureEnabled = value;
+                OnPropertyChanged();
+            }
+        }
+    }
 }

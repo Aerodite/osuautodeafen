@@ -122,6 +122,8 @@ public partial class MainWindow : Window
 
     private DispatcherTimer? _modifierOnlyTimer;
     private double _opacity = 1.00;
+    
+    private FileSystemWatcher? _settingsFileWatcher;
 
     private bool _tooltipOutsideBounds;
 
@@ -458,6 +460,22 @@ public partial class MainWindow : Window
         SettingsView.SetViewControls(_tosuApi, _viewModel, _chartManager, _backgroundManager, _tooltipManager,
             _settingsViewModel);
         SettingsView.UpdateDeafenKeybindDisplay();
+        
+        var iniPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen",
+            "settings.ini"
+        );
+
+        _settingsFileWatcher = new FileSystemWatcher
+        {
+            Path = Path.GetDirectoryName(iniPath)!,
+            Filter = Path.GetFileName(iniPath),
+            NotifyFilter = NotifyFilters.LastWrite
+        };
+
+        _settingsFileWatcher.Changed += OnSettingsFileChanged;
+        _settingsFileWatcher.EnableRaisingEvents = true;
 
         ExtendClientAreaToDecorationsHint = true;
         ExtendClientAreaTitleBarHeightHint = 32;
@@ -628,7 +646,24 @@ public partial class MainWindow : Window
                 _viewModel.Changelog.IsVisible = false;
         };
     }
+    
+    private async void OnSettingsFileChanged(object? sender, FileSystemEventArgs e)
+    {
+        // let editor finish writing
+        await Task.Delay(300);
 
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (!_settingsHandler!.ReloadFromDisk())
+                return;
+
+            _settingsHandler.LoadSettings();
+
+            _settingsViewModel.IsKeybindCaptureEnabled =
+                string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient);
+        });
+    }
+    
     private SharedViewModel ViewModel { get; }
 
     private void MainWindow_PointerMoved(object? sender, PointerEventArgs e)
@@ -1446,7 +1481,6 @@ public partial class MainWindow : Window
         _logImportant.logImportant("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
         _logImportant.logImportant("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");
     }
-
 
     /// <summary>
     ///     Determines if the pressed key is a modifier key

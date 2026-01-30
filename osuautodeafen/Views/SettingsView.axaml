@@ -539,7 +539,8 @@
                                     Content="{Binding DeafenKeybindDisplay}"
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
-                                    Click="DeafenKeybindButton_Click">
+                                    Click="DeafenKeybindButton_Click"
+                                    IsEnabled="{Binding IsKeybindCaptureEnabled}">
                                 <!--this should probably include some sort of verification prompt in the near future.. maybe-->
                                 <Button.Flyout>
                                     <Flyout>

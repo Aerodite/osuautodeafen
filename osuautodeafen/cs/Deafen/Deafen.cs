@@ -295,9 +295,7 @@ public class Deafen : IDisposable
 
             _lastToggleAt = DateTime.Now;
 
-            if (IsWayland() && IsHyprland() &&
-                _settingsHandler.UseHyprlandDispatch &&
-                !string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient))
+            if (IsWayland() && IsHyprland() && !string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient))
                 if (TryHyprlandSendShortcut())
                 {
                     _isDeafened = !_isDeafened;

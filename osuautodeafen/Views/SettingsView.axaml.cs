@@ -555,9 +555,20 @@ public partial class SettingsView : UserControl
 
     private void DeafenKeybindPanel_PointerEnter(object sender, PointerEventArgs e)
     {
-        if (sender is not StackPanel) return;
+        if (sender is not StackPanel panel)
+            return;
+
+        var button = panel.FindControl<Button>("DeafenKeybindButton");
+        if (button == null)
+            return;
+
+        string text = button.IsEnabled
+            ? "Set Deafen Keybind"
+            : $"Keybinds disabled due to Linux client being set.\nsettings.ini: discordClient={_settingsHandler.DiscordClient}";
+
+
         Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Set Deafen Keybind");
+        _tooltipManager.ShowTooltip(this, point, text);
     }
 
     private void DeafenKeybindPanel_PointerLeave(object sender, PointerEventArgs e)

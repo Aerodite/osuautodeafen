@@ -28,7 +28,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private double _performancePoints;
     private IniData? _presetData;
     private double _starRating;
-    private bool _useHyprlandDispatch;
+    private bool _isPauseUndeafenToggleEnabled;
+
 
     private double _windowHeight;
     private double _windowWidth;
@@ -76,16 +77,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         {
             if (Set(ref _discordClient, value))
                 SaveSetting("Linux", "discordClient", value);
-        }
-    }
-
-    public bool UseHyprlandDispatch
-    {
-        get => _useHyprlandDispatch;
-        set
-        {
-            if (Set(ref _useHyprlandDispatch, value))
-                SaveSetting("Linux", "useHyprlandDispatch", value);
         }
     }
 
@@ -138,10 +129,10 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     public bool IsPauseUndeafenToggleEnabled
     {
-        get => _isBreakUndeafenToggleEnabled;
+        get => _isPauseUndeafenToggleEnabled;
         set
         {
-            if (Set(ref _isBreakUndeafenToggleEnabled, value))
+            if (Set(ref _isPauseUndeafenToggleEnabled, value))
                 SaveSetting("Behavior", "IsPauseUndeafenToggleEnabled", value);
         }
     }
@@ -291,12 +282,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
                 + " otherwise, specify the discord client you use (e.g. vesktop, equibop, discord) and osuautodeafen will try dispatching the command directly through your compositor"
                 + " (only hyprland at the moment since I think other compositors you could just set a global keybind)"
             );
-        data["Linux"]["useHyprlandDispatch"] = "False";
-        data.Sections["Linux"]
-            .GetKeyData("useHyprlandDispatch")
-            .Comments.Add(
-                "Uses hypr's 'dispatch sendshortcut' instead of keybind simulation (mainly for use in 3rd party discord clients such as vesktop)"
-            );
 
         data.Sections.AddSection("Updates");
         data["Updates"]["LastSeenVersion"] = "0";
@@ -319,6 +304,25 @@ public class SettingsHandler : Control, INotifyPropertyChanged
             return "~/.config/osuautodeafen";
 
         return "%APPDATA%\\osuautodeafen";
+    }
+    
+    public bool ReloadFromDisk()
+    {
+        try
+        {
+            var info = new FileInfo(_iniPath);
+            
+            if (!info.Exists || info.Length == 0)
+                return false;
+
+            _mainData = _parser.ReadFile(_iniPath);
+            Data = _mainData;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>
@@ -348,11 +352,13 @@ public class SettingsHandler : Control, INotifyPropertyChanged
             double.TryParse(Data["General"]["MinCompletionPercentage"], out double mcp) ? mcp : 0;
         _starRating = double.TryParse(Data["General"]["StarRating"], out double sr) ? sr : 0;
         _performancePoints = double.TryParse(Data["General"]["PerformancePoints"], out double pp) ? pp : 0;
-        BlurRadius = double.TryParse(Data["UI"]["BlurRadius"], out double blur) ? blur : 0;
+        _blurRadius =
+            double.TryParse(Data["UI"]["BlurRadius"], out double blur) ? blur : 0;
 
-        IsBreakUndeafenToggleEnabled =
+        _isBreakUndeafenToggleEnabled =
             bool.TryParse(Data["Behavior"]["IsBreakUndeafenToggleEnabled"], out bool bu) && bu;
-        IsPauseUndeafenToggleEnabled =
+
+        _isPauseUndeafenToggleEnabled =
             bool.TryParse(Data["Behavior"]["IsPauseUndeafenToggleEnabled"], out bool pu) && pu;
         IsFCRequired = bool.TryParse(Data["Behavior"]["IsFCRequired"], out bool fc) && fc;
         UndeafenAfterMiss = bool.TryParse(Data["Behavior"]["UndeafenAfterMiss"], out bool uam) && uam;
@@ -374,8 +380,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         tosuApiPort = Data["Network"]["tosuApiPort"];
 
         _discordClient = Data["Linux"]["discordClient"];
-        _useHyprlandDispatch = bool.TryParse(Data["Linux"]["useHyprlandDispatch"], out bool hypr) && hypr;
-
+        
         _lastSeenVersion = Data["Updates"]["LastSeenVersion"];
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MinCompletionPercentage)));
