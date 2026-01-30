@@ -131,7 +131,6 @@ public partial class MainWindow : Window
 
     public Image? NormalBackground;
 
-
     public MainWindow()
     {
         string resourceName = "osuautodeafen.Resources.favicon.ico";
@@ -838,7 +837,6 @@ public partial class MainWindow : Window
         });
     }
 
-
     private Task EnqueueShowSubToggle(Control? target, bool show)
     {
         if (target == null) return Task.CompletedTask;
@@ -934,7 +932,6 @@ public partial class MainWindow : Window
             }
         }, _frameCts.Token);
     }
-
 
     /// <summary>
     ///     Stops the frame timer for debug panel
@@ -1365,7 +1362,7 @@ public partial class MainWindow : Window
 
             for (int i = 1; i <= steps; i++)
             {
-                _updateProgressBar.Value = start + (end - start) * i / steps;
+                _updateProgressBar.Value = start + ((end - start) * i / steps);
                 await Task.Delay(delayPerStep);
             }
         }
@@ -1762,7 +1759,7 @@ public partial class MainWindow : Window
             double t = elapsed / durationMs;
             t = Math.Clamp(t, 0, 1);
 
-            rotate.Angle = start + (targetAngle - start) * t;
+            rotate.Angle = start + ((targetAngle - start) * t);
 
             await Task.Delay(frameMs, token);
         }
@@ -1976,7 +1973,6 @@ public partial class MainWindow : Window
         setter(to);
     }
 
-
     /// <summary>
     ///     Changes the margin of any Avalonia control to a specified target margin
     /// </summary>
@@ -2041,11 +2037,11 @@ public partial class MainWindow : Window
             for (int i = 1; i <= steps; i++)
             {
                 double t = i / (double)steps;
-                double ease = t * t * (3 - 2 * t);
+                double ease = t * t * (3 - (2 * t));
 
-                translate.X = startX + (targetX - startX) * ease;
-                translate.Y = startY + (targetY - startY) * ease;
-                scale.ScaleX = startScale + (targetScale - startScale) * ease;
+                translate.X = startX + ((targetX - startX) * ease);
+                translate.Y = startY + ((targetY - startY) * ease);
+                scale.ScaleX = startScale + ((targetScale - startScale) * ease);
                 scale.ScaleY = scale.ScaleX;
 
                 await Task.Delay(delayMs);
@@ -2061,7 +2057,6 @@ public partial class MainWindow : Window
             _logoAnimationLock.Release();
         }
     }
-
 
     /// <summary>
     ///     Animates the settings panel in or out based on the 'show' parameter
@@ -2092,7 +2087,6 @@ public partial class MainWindow : Window
                     _backgroundManager?.RemoveBackgroundOpacityRequest("settings");
             }
 
-
             if (backgroundTask != null)
                 tasks.Add(backgroundTask);
         }
@@ -2112,7 +2106,6 @@ public partial class MainWindow : Window
 
         await Task.WhenAll(tasks);
     }
-
 
     /// <summary>
     ///     Sets up the initial state and transitions for the debug console panel
@@ -2207,7 +2200,7 @@ public partial class MainWindow : Window
             _cogSpinTimer.Tick += (s, ev) =>
             {
                 double elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
-                double angle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / BeatsPerRotation) % 360;
+                double angle = (_cogSpinStartAngle + (elapsed * _cogSpinBpm * 360 / BeatsPerRotation)) % 360;
                 _cogCurrentAngle = angle;
                 rotate.Angle = angle;
             };
@@ -2244,14 +2237,13 @@ public partial class MainWindow : Window
         for (int i = 1; i <= steps; i++)
         {
             await Task.Delay(duration / steps);
-            double angle = start + step * i;
+            double angle = start + (step * i);
             await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle);
         }
 
         await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = target);
         _cogCurrentAngle = target % 360;
     }
-
 
     /// <summary>
     ///     Update the cog spin BPM with the current beatmap BPM
@@ -2261,7 +2253,7 @@ public partial class MainWindow : Window
         if (_cogSpinTimer != null && _cogSpinTimer.IsEnabled)
         {
             double elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
-            _cogSpinStartAngle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / BeatsPerRotation) % 360;
+            _cogSpinStartAngle = (_cogSpinStartAngle + (elapsed * _cogSpinBpm * 360 / BeatsPerRotation)) % 360;
             _cogSpinStartTime = DateTime.UtcNow;
             _cogSpinBpm = _tosuApi.GetCurrentBpm() > 0 ? _tosuApi.GetCurrentBpm() : 140;
 
