@@ -292,10 +292,6 @@ public class TosuApi : IDisposable
                             "{ \"key\": \"value\" }");
 
                     ////////////////////////////////////////////////////////////////////
-                    if (root.TryGetProperty("state", out JsonElement state))
-                        if (state.TryGetProperty("number", out JsonElement number))
-                            _rawBanchoStatus = number.GetInt32();
-
                     if (root.TryGetProperty("beatmap", out JsonElement beatmap))
                     {
                         if (beatmap.TryGetProperty("time", out JsonElement time))
@@ -433,17 +429,7 @@ public class TosuApi : IDisposable
                         if (root.TryGetProperty("profile", out JsonElement profile))
                             if (profile.TryGetProperty("banchoStatus", out JsonElement banchoStatus))
                                 if (banchoStatus.TryGetProperty("number", out JsonElement banchoStatusNumber))
-                                    //using tosu beta b0bf580 for lazer this does not return the correct status
-                                    //hoping is fixed later by tosu devs
-                                    //if not we might just want to return local status as well?
-                                    //which would be possible by grabbing profile > userStatus > number
-                                    //instead of profile > banchoStatus > number)
-                                    //var rawBanchoStatus = banchoStatusNumber.GetInt32();
-                                    //StateChanged?.Invoke(rawBanchoStatus);
-                                    //_rawBanchoStatus = rawBanchoStatus;
-                                    //if (rawBanchoStatus == 2)
-                                {
-                                }
+                                    _rawBanchoStatus = banchoStatusNumber.GetInt32();
 
                         if (root.TryGetProperty("game", out JsonElement gameElement))
                             if (gameElement.TryGetProperty("paused", out JsonElement isPaused))
