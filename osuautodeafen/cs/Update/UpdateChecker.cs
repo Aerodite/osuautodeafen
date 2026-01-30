@@ -13,6 +13,7 @@ public class UpdateChecker
     ///     The current version of osuautodeafen
     /// </summary>
     public const string CurrentVersion = "1.1.2";
+    public const string CurrentVersionNumeric = "112";
 
     private static readonly GithubSource UpdateSource = new("https://github.com/Aerodite/osuautodeafen",
         null, false);
