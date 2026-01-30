@@ -11,6 +11,8 @@ namespace osuautodeafen.cs.Tooltips;
 public class TooltipManager
 {
     private const double TooltipOffset = 4;
+
+    private const double TooltipTargetOpacity = 0.78;
     private bool _isTooltipHiding;
 
     private string? _lastTooltipText;
@@ -29,41 +31,49 @@ public class TooltipManager
     private double _windowWidth;
 
     public Tooltips.TooltipType CurrentTooltipType;
-    private Border? CustomTooltip { get; set; }
-    public bool IsTooltipVisible { get; private set; }
+    private Grid? Tooltip { get; set; }
+
+    private Border? TooltipBackground { get; set; }
+
+    private bool IsTooltipVisible { get; set; }
 
     /// <summary>
     ///     Used in app setup to get tooltips ready to be used
     /// </summary>
-    /// <param name="customTooltip"></param>
+    /// <param name="tooltipRoot"></param>
     /// <param name="tooltipText"></param>
     /// <param name="windowWidth"></param>
     /// <param name="windowHeight"></param>
-    public void SetTooltipControls(Border customTooltip, TextBlock tooltipText, double windowWidth, double windowHeight)
+    public void SetTooltipControls(Grid tooltipRoot, TextBlock tooltipText, double windowWidth, double windowHeight)
     {
-        CustomTooltip = customTooltip;
+        Tooltip = tooltipRoot;
         _tooltipText = tooltipText;
         _windowWidth = windowWidth;
         _windowHeight = windowHeight;
 
+        TooltipBackground = Tooltip.FindControl<Border>("TooltipBackground");
+        Tooltip.FindControl<TextBlock>("TooltipText");
+
         // giant pita to figure out this is why tooltips would randomly stop...
-        CustomTooltip.IsHitTestVisible = false;
+        Tooltip.IsHitTestVisible = false;
 
-        CustomTooltip.Opacity = 0;
-        CustomTooltip.IsVisible = false;
+        Tooltip.Opacity = 1;
+        Tooltip.IsVisible = false;
 
-        CustomTooltip.ClipToBounds = true;
+        TooltipBackground!.Opacity = 0;
+
+        Tooltip.ClipToBounds = true;
         _tooltipText.Width = double.NaN;
 
         _tooltipText.TextWrapping = TextWrapping.NoWrap;
 
         DispatcherTimer.Run(() =>
         {
-            if (CustomTooltip == null) return true;
-            if (IsTooltipVisible && !CustomTooltip.IsVisible && !_isTooltipHiding)
+            if (Tooltip == null) return true;
+            if (IsTooltipVisible && !Tooltip.IsVisible && !_isTooltipHiding)
             {
-                CustomTooltip.IsVisible = true;
-                CustomTooltip.Opacity = 1;
+                Tooltip.IsVisible = true;
+                Tooltip.Opacity = TooltipTargetOpacity;
             }
 
             if (_tooltipSize.HasValue)
@@ -72,26 +82,26 @@ public class TooltipManager
         }, TimeSpan.FromMilliseconds(16));
 
 
-        Canvas.SetLeft(CustomTooltip, 0);
-        Canvas.SetTop(CustomTooltip, 0);
+        Canvas.SetLeft(Tooltip, 0);
+        Canvas.SetTop(Tooltip, 0);
     }
 
     /// <summary>
     ///     Shows a tooltip at a specified position with specified text
     /// </summary>
-    /// <param name="pointerInWindow">The pointer position relative to the window</param>
+    /// <param name="pointerPos">The pointer position relative to the window</param>
     /// <param name="text">The text to display in the tooltip</param>
     /// <param name="target">The control sending the tooltip request</param>
-    public void ShowTooltip(Control? target, Point pointerInWindow, string text)
+    public void ShowTooltip(Control? target, Point pointerPos, string text)
     {
-        if (CustomTooltip == null || _tooltipText == null) return;
+        if (Tooltip == null || _tooltipText == null) return;
 
         _visibilityCts?.Cancel();
         _visibilityCts = new CancellationTokenSource();
         CancellationToken token = _visibilityCts.Token;
 
         // basically if the control we're over is covered or we're not over one don't show a tooltip
-        if (!Tooltips.IsPointerOverElement(target, pointerInWindow))
+        if (target != null && !Tooltips.IsPointerOverElement(target, pointerPos))
         {
             if (!IsTooltipVisible && !_isTooltipHiding) return;
             ForceHideTooltip();
@@ -103,15 +113,19 @@ public class TooltipManager
         _tooltipText.Width = double.NaN;
 
         _tooltipText.Measure(new Size(_windowWidth * 0.5, double.PositiveInfinity));
-        double tooltipWidth = _tooltipText.DesiredSize.Width + CustomTooltip.Padding.Left + CustomTooltip.Padding.Right;
-        double tooltipHeight =
-            _tooltipText.DesiredSize.Height + CustomTooltip.Padding.Top + CustomTooltip.Padding.Bottom;
+        if (TooltipBackground != null)
+        {
+            double tooltipWidth = _tooltipText.DesiredSize.Width + TooltipBackground.Padding.Left +
+                                  TooltipBackground.Padding.Right;
+            double tooltipHeight =
+                _tooltipText.DesiredSize.Height + TooltipBackground.Padding.Top + TooltipBackground.Padding.Bottom;
 
-        _tooltipSize = (tooltipWidth, tooltipHeight);
-        _targetPosition = pointerInWindow;
+            _tooltipSize = (tooltipWidth, tooltipHeight);
+            _targetPosition = pointerPos;
 
-        CustomTooltip.Width = tooltipWidth;
-        CustomTooltip.Height = tooltipHeight;
+            Tooltip.Width = tooltipWidth;
+            Tooltip.Height = tooltipHeight;
+        }
 
         // this is just to prevent tooltips from perma-hiding if the previous one is fading out
         if (_isTooltipHiding)
@@ -120,10 +134,10 @@ public class TooltipManager
             _state = Tooltips.TooltipState.Showing;
         }
 
-        if (!IsTooltipVisible || CustomTooltip.Opacity < 1)
+        if (!IsTooltipVisible || Tooltip.Opacity < TooltipTargetOpacity)
         {
-            CustomTooltip.IsVisible = true;
-            _ = SetTooltipVisibility(CustomTooltip, true, token);
+            Tooltip.IsVisible = true;
+            _ = SetTooltipVisibility(Tooltip, true, token);
         }
     }
 
@@ -135,7 +149,7 @@ public class TooltipManager
     /// <param name="height"></param>
     private void SmoothUpdateTooltipPosition(Point position, double width, double height)
     {
-        if (CustomTooltip == null) return;
+        if (Tooltip == null) return;
 
         double left, top;
 
@@ -163,17 +177,17 @@ public class TooltipManager
         left = Math.Clamp(left, 0, _windowWidth - width);
         top = Math.Clamp(top, 0, _windowHeight - height);
 
-        double currentLeft = Canvas.GetLeft(CustomTooltip);
+        double currentLeft = Canvas.GetLeft(Tooltip);
         if (double.IsNaN(currentLeft)) currentLeft = 0;
 
-        double currentTop = Canvas.GetTop(CustomTooltip);
+        double currentTop = Canvas.GetTop(Tooltip);
         if (double.IsNaN(currentTop)) currentTop = 0;
 
         double smoothedLeft = currentLeft + (left - currentLeft) * 0.18;
         double smoothedTop = currentTop + (top - currentTop) * 0.18;
 
-        Canvas.SetLeft(CustomTooltip, Math.Round(smoothedLeft));
-        Canvas.SetTop(CustomTooltip, Math.Round(smoothedTop));
+        Canvas.SetLeft(Tooltip, Math.Round(smoothedLeft));
+        Canvas.SetTop(Tooltip, Math.Round(smoothedTop));
     }
 
     /// <summary>
@@ -183,7 +197,7 @@ public class TooltipManager
     public void MoveTooltipToPosition(Point point)
     {
         _targetPosition = point;
-        if (_tooltipSize.HasValue && CustomTooltip != null)
+        if (_tooltipSize.HasValue && Tooltip != null)
             SmoothUpdateTooltipPosition(_targetPosition, _tooltipSize.Value.width, _tooltipSize.Value.height);
     }
 
@@ -194,7 +208,7 @@ public class TooltipManager
     /// <param name="forceResize">Whether to force a new tooltip size</param>
     public void UpdateTooltipText(string newText, bool forceResize = false)
     {
-        if (CustomTooltip == null || _tooltipText == null)
+        if (Tooltip == null || _tooltipText == null)
             return;
 
         if (!IsTooltipVisible || _isTooltipHiding)
@@ -211,13 +225,17 @@ public class TooltipManager
 
         _tooltipText.Width = double.NaN;
         _tooltipText.Measure(new Size(_windowWidth * 0.5, double.PositiveInfinity));
-        double tooltipWidth = _tooltipText.DesiredSize.Width + CustomTooltip.Padding.Left + CustomTooltip.Padding.Right;
-        double tooltipHeight =
-            _tooltipText.DesiredSize.Height + CustomTooltip.Padding.Top + CustomTooltip.Padding.Bottom;
+        if (TooltipBackground != null)
+        {
+            double tooltipWidth = _tooltipText.DesiredSize.Width + TooltipBackground.Padding.Left +
+                                  TooltipBackground.Padding.Right;
+            double tooltipHeight =
+                _tooltipText.DesiredSize.Height + TooltipBackground.Padding.Top + TooltipBackground.Padding.Bottom;
 
-        _tooltipSize = (tooltipWidth, tooltipHeight);
-        CustomTooltip.Width = tooltipWidth;
-        CustomTooltip.Height = tooltipHeight;
+            _tooltipSize = (tooltipWidth, tooltipHeight);
+            Tooltip.Width = tooltipWidth;
+            Tooltip.Height = tooltipHeight;
+        }
 
         MoveTooltipToPosition(_targetPosition);
     }
@@ -228,7 +246,7 @@ public class TooltipManager
     /// <param name="delayMs">how long it takes the Tooltip to fade out</param>
     public void HideTooltip(double delayMs = 200)
     {
-        if (CustomTooltip == null || !IsTooltipVisible) return;
+        if (Tooltip == null || !IsTooltipVisible) return;
 
         _visibilityCts?.Cancel();
         _visibilityCts = new CancellationTokenSource();
@@ -248,24 +266,26 @@ public class TooltipManager
             await Dispatcher.UIThread.InvokeAsync(async () =>
             {
                 if (token.IsCancellationRequested) return;
-                await SetTooltipVisibility(CustomTooltip, false, token);
+                await SetTooltipVisibility(Tooltip, false, token);
                 _lastTooltipText = null;
                 _state = Tooltips.TooltipState.Hidden;
             });
         }, token);
     }
 
+    // i can see some use in this being public incase we need to hide a tooltip immediately for whatever reason
+    // ReSharper disable once MemberCanBePrivate.Global
     public void ForceHideTooltip(double durationMs = 200)
     {
         _visibilityCts?.Cancel();
         IsTooltipVisible = false;
         _lastTooltipText = null;
 
-        if (CustomTooltip == null) return;
+        if (Tooltip == null) return;
 
         _isTooltipHiding = true;
         _state = Tooltips.TooltipState.Hiding;
-        _ = SetTooltipVisibility(CustomTooltip, false, null, durationMs).ContinueWith(_ => _isTooltipHiding = false);
+        _ = SetTooltipVisibility(Tooltip, false, null, durationMs).ContinueWith(_ => _isTooltipHiding = false);
     }
 
     /// <summary>
@@ -275,23 +295,36 @@ public class TooltipManager
     /// <param name="visible"></param>
     /// <param name="token"></param>
     /// <param name="durationMs"></param>
-    private async Task SetTooltipVisibility(Border tooltip, bool visible, CancellationToken? token = null,
+    private async Task SetTooltipVisibility(Grid tooltip, bool visible, CancellationToken? token = null,
         double durationMs = 120)
     {
         try
         {
+            if (TooltipBackground == null) return;
+
             if (visible)
             {
                 tooltip.IsVisible = true;
-                await FadeIn(tooltip, durationMs, token);
+                TooltipBackground.IsVisible = true;
+
+                await FadeIn(TooltipBackground, durationMs, token);
+
+                TooltipBackground.Opacity = TooltipTargetOpacity;
+
                 IsTooltipVisible = true;
             }
             else
             {
-                await FadeOut(tooltip, durationMs, token);
+                await FadeOut(TooltipBackground, _tooltipText, durationMs, token);
+
+                TooltipBackground.IsVisible = false;
                 tooltip.IsVisible = false;
                 IsTooltipVisible = false;
+
+                if (_tooltipText != null)
+                    _tooltipText.Opacity = 1;
             }
+
 
             _isTooltipHiding = false;
         }
@@ -320,7 +353,7 @@ public class TooltipManager
                 border.Opacity = startOpacity + (1 - startOpacity) * progress;
             }
 
-            border.Opacity = 1;
+            border.Opacity = TooltipTargetOpacity;
         }
         catch
         {
@@ -328,9 +361,12 @@ public class TooltipManager
         }
     }
 
-    private static async Task FadeOut(Border border, double durationMs = 120, CancellationToken? token = null)
+    private static async Task FadeOut(Border background, TextBlock? text, double durationMs = 120,
+        CancellationToken? token = null)
     {
-        double startOpacity = border.Opacity;
+        double startBg = background.Opacity;
+        double startText = text.Opacity;
+
         double elapsed = 0;
         const int interval = 10;
 
@@ -343,11 +379,17 @@ public class TooltipManager
                 await Task.Delay(interval);
                 elapsed += interval;
                 double progress = elapsed / durationMs;
-                border.Opacity = Math.Max(0, startOpacity * (1 - progress));
+
+                double inv = 1 - progress;
+
+                background.Opacity = Math.Max(0, startBg * inv);
+                text.Opacity = Math.Max(0, startText * inv);
             }
 
-            border.Opacity = 0;
-            border.IsVisible = false;
+            background.Opacity = 0;
+            text.Opacity = 0;
+
+            background.IsVisible = false;
         }
         catch
         {

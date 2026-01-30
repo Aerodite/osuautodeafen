@@ -16,7 +16,11 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private string? _activePresetPath;
     private double _blurRadius;
 
+    private string _discordClient;
+
     private bool _isBreakUndeafenToggleEnabled;
+
+    private string? _lastSeenVersion;
 
     private IniData _mainData;
 
@@ -24,6 +28,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private double _performancePoints;
     private IniData? _presetData;
     private double _starRating;
+    private bool _isPauseUndeafenToggleEnabled;
+
 
     private double _windowHeight;
     private double _windowWidth;
@@ -63,6 +69,16 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public bool IsPresetActive => _activePresetPath != null;
     private IniData CurrentData => IsPresetActive ? _presetData! : _mainData;
     private string ActivePath => _activePresetPath ?? _iniPath;
+
+    public string DiscordClient
+    {
+        get => _discordClient;
+        set
+        {
+            if (Set(ref _discordClient, value))
+                SaveSetting("Linux", "discordClient", value);
+        }
+    }
 
     public double MinCompletionPercentage
     {
@@ -111,6 +127,16 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         }
     }
 
+    public bool IsPauseUndeafenToggleEnabled
+    {
+        get => _isPauseUndeafenToggleEnabled;
+        set
+        {
+            if (Set(ref _isPauseUndeafenToggleEnabled, value))
+                SaveSetting("Behavior", "IsPauseUndeafenToggleEnabled", value);
+        }
+    }
+
     public double WindowWidth
     {
         get => _windowWidth;
@@ -137,6 +163,16 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public bool IsKiaiEffectEnabled { get; set; }
     public string? tosuApiIp { get; set; }
     public string? tosuApiPort { get; set; }
+
+    public string? LastSeenVersion
+    {
+        get => _lastSeenVersion;
+        set
+        {
+            if (Set(ref _lastSeenVersion, value))
+                SaveSetting("Updates", "LastSeenVersion", value);
+        }
+    }
 
     public new event PropertyChangedEventHandler? PropertyChanged;
 
@@ -217,6 +253,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         data["Behavior"]["IsFCRequired"] = "False";
         data["Behavior"]["UndeafenAfterMiss"] = "False";
         data["Behavior"]["IsBreakUndeafenToggleEnabled"] = "False";
+        data["Behavior"]["IsPauseUndeafenToggleEnabled"] = "True";
 
         data.Sections.AddSection("Hotkeys");
         data["Hotkeys"]["DeafenKeybindKey"] = "47"; // D
@@ -228,13 +265,27 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         data["UI"]["IsBackgroundEnabled"] = "True";
         data["UI"]["IsParallaxEnabled"] = "True";
         data["UI"]["BlurRadius"] = "0";
-        data["UI"]["IsKiaiEffectEnabled"] = "True";
+        data["UI"]["IsKiaiEffectEnabled"] = "False";
         data["UI"]["WindowWidth"] = "630";
         data["UI"]["WindowHeight"] = "630";
 
         data.Sections.AddSection("Network");
         data["Network"]["tosuApiIp"] = "127.0.0.1";
         data["Network"]["tosuApiPort"] = "24050";
+
+        data.Sections.AddSection("Linux");
+        data["Linux"]["discordClient"] = "";
+        data.Sections["Linux"]
+            .GetKeyData("discordClient")
+            .Comments.Add(
+                "Leave this blank if you want osuautodeafen to just try using keybinds directly on Linux,"
+                + " otherwise, specify the discord client you use (e.g. vesktop, equibop, discord) and osuautodeafen will try dispatching the command directly through your compositor"
+                + " (only hyprland at the moment since I think other compositors you could just set a global keybind)"
+            );
+
+        data.Sections.AddSection("Updates");
+        data["Updates"]["LastSeenVersion"] = "0";
+
 
         return data;
     }
@@ -253,6 +304,25 @@ public class SettingsHandler : Control, INotifyPropertyChanged
             return "~/.config/osuautodeafen";
 
         return "%APPDATA%\\osuautodeafen";
+    }
+    
+    public bool ReloadFromDisk()
+    {
+        try
+        {
+            var info = new FileInfo(_iniPath);
+            
+            if (!info.Exists || info.Length == 0)
+                return false;
+
+            _mainData = _parser.ReadFile(_iniPath);
+            Data = _mainData;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>
@@ -282,10 +352,14 @@ public class SettingsHandler : Control, INotifyPropertyChanged
             double.TryParse(Data["General"]["MinCompletionPercentage"], out double mcp) ? mcp : 0;
         _starRating = double.TryParse(Data["General"]["StarRating"], out double sr) ? sr : 0;
         _performancePoints = double.TryParse(Data["General"]["PerformancePoints"], out double pp) ? pp : 0;
-        BlurRadius = double.TryParse(Data["UI"]["BlurRadius"], out double blur) ? blur : 0;
+        _blurRadius =
+            double.TryParse(Data["UI"]["BlurRadius"], out double blur) ? blur : 0;
 
-        IsBreakUndeafenToggleEnabled =
+        _isBreakUndeafenToggleEnabled =
             bool.TryParse(Data["Behavior"]["IsBreakUndeafenToggleEnabled"], out bool bu) && bu;
+
+        _isPauseUndeafenToggleEnabled =
+            bool.TryParse(Data["Behavior"]["IsPauseUndeafenToggleEnabled"], out bool pu) && pu;
         IsFCRequired = bool.TryParse(Data["Behavior"]["IsFCRequired"], out bool fc) && fc;
         UndeafenAfterMiss = bool.TryParse(Data["Behavior"]["UndeafenAfterMiss"], out bool uam) && uam;
 
@@ -305,6 +379,10 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         tosuApiIp = Data["Network"]["tosuApiIp"];
         tosuApiPort = Data["Network"]["tosuApiPort"];
 
+        _discordClient = Data["Linux"]["discordClient"];
+        
+        _lastSeenVersion = Data["Updates"]["LastSeenVersion"];
+
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MinCompletionPercentage)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StarRating)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PerformancePoints)));
@@ -315,6 +393,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BlurRadius)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybind)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsBreakUndeafenToggleEnabled)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsPauseUndeafenToggleEnabled)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsKiaiEffectEnabled)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(tosuApiIp)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(tosuApiPort)));

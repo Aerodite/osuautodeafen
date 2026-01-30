@@ -1,5 +1,6 @@
 ﻿using System;
 using Avalonia;
+using LibVLCSharp.Shared;
 using Velopack;
 
 namespace osuautodeafen;
@@ -14,6 +15,7 @@ internal class Program
     {
         VelopackApp.Build()
             .Run();
+        Core.Initialize();
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
     }

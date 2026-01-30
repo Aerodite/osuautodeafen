@@ -18,6 +18,8 @@ using LiveChartsCore.SkiaSharpView.Avalonia;
 using LiveChartsCore.SkiaSharpView.Painting;
 using osuautodeafen.cs.Tooltips;
 using osuautodeafen.cs.Tosu;
+using osuautodeafen.cs.ViewModels;
+using osuautodeafen.Views;
 using SkiaSharp;
 
 // ReSharper disable CompareOfFloatsByEqualityOperator
@@ -36,11 +38,11 @@ public class ChartManager
     private readonly BreakPeriodCalculator _breakPeriod = new();
     private readonly List<AnnotatedSection> _cachedBreakPeriods = [];
     private readonly List<AnnotatedSection> _cachedKiaiPeriods = [];
-
     private readonly KiaiTimes _kiaiTimes;
 
     private readonly LineSeries<ObservablePoint> _progressIndicator;
     private readonly Dictionary<string, List<int>> _seriesIndexMap = new();
+    private readonly SettingsView _settingsView;
 
     private readonly TooltipManager _tooltipManager;
     private readonly TosuApi _tosuApi;
@@ -66,13 +68,14 @@ public class ChartManager
     private List<double>? _lastXAxis;
 
     public ChartManager(CartesianChart plotView, TosuApi tosuApi, SharedViewModel viewModel, KiaiTimes kiaiTimes,
-        TooltipManager tooltipManager)
+        TooltipManager tooltipManager, SettingsView settingsView)
     {
         PlotView = plotView ?? throw new ArgumentNullException(nameof(plotView));
         _tosuApi = tosuApi ?? throw new ArgumentNullException(nameof(tosuApi));
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         _kiaiTimes = kiaiTimes ?? throw new ArgumentNullException(nameof(kiaiTimes));
         _tooltipManager = tooltipManager ?? throw new ArgumentNullException(nameof(tooltipManager));
+        _settingsView = settingsView ?? throw new ArgumentNullException(nameof(settingsView));
 
         _progressIndicator = new LineSeries<ObservablePoint>
         {
@@ -199,13 +202,9 @@ public class ChartManager
             double newPercentage = Math.Min(100.0, 100.0 * newXi / MaxLimit);
             _viewModel.MinCompletionPercentage = (int)newPercentage;
 
-            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
-                desktop.MainWindow is MainWindow { CompletionPercentageSlider: not null } mainWindow)
-            {
-                mainWindow.CompletionPercentageSlider.Value = newPercentage;
-                mainWindow.CompletionPercentageSlider_ValueChanged(null,
-                    new RangeBaseValueChangedEventArgs(newPercentage, newPercentage, null));
-            }
+            _settingsView.CompletionPercentageSlider.Value = newPercentage;
+            _settingsView.CompletionPercentageSlider_ValueChanged(null,
+                new RangeBaseValueChangedEventArgs(newPercentage, newPercentage, null));
 
             TimeSpan ts = currentTime.HasValue ? TimeSpan.FromMilliseconds(currentTime.Value) : TimeSpan.Zero;
             string timeText = ts.ToString(@"mm\:ss");
@@ -319,11 +318,11 @@ public class ChartManager
             _viewModel.MinCompletionPercentage = newPercentage;
 
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
-                desktop.MainWindow is MainWindow { CompletionPercentageSlider: not null } mainWindow)
+                desktop.MainWindow is MainWindow { SettingsView.CompletionPercentageSlider: not null })
             {
-                mainWindow.CompletionPercentageSlider.Value = newPercentage;
-                mainWindow.CompletionPercentageSlider_ValueChanged(
-                    null,
+                _settingsView.CompletionPercentageSlider.Value = newPercentage;
+                _settingsView.CompletionPercentageSlider_ValueChanged(
+                    this,
                     new RangeBaseValueChangedEventArgs(newPercentage, newPercentage, null)
                 );
             }

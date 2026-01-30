@@ -41,8 +41,10 @@ public class TosuApi : IDisposable
     private double _fullSR;
     private string? _gameDirectory;
     private JsonElement _graphData;
+    private bool _hasFailed;
     private bool _isBreakPeriod;
     public bool _isKiai;
+    private bool _isPaused;
     private string? _lastBeatmapChecksum = "abcdefghijklmnop";
     private double? _lastBpm;
     private double? _lastCompletionPercentage;
@@ -183,7 +185,7 @@ public class TosuApi : IDisposable
         }
         else
         {
-            Console.WriteLine("WebSocket is still connected, no need to reconnect.");
+            Console.WriteLine("No reconnection needed, WebSocket is open");
         }
     }
 
@@ -290,10 +292,6 @@ public class TosuApi : IDisposable
                             "{ \"key\": \"value\" }");
 
                     ////////////////////////////////////////////////////////////////////
-                    if (root.TryGetProperty("state", out JsonElement state))
-                        if (state.TryGetProperty("number", out JsonElement number))
-                            _rawBanchoStatus = number.GetInt32();
-
                     if (root.TryGetProperty("beatmap", out JsonElement beatmap))
                     {
                         if (beatmap.TryGetProperty("time", out JsonElement time))
@@ -396,6 +394,9 @@ public class TosuApi : IDisposable
                                 _modNumber = modNumber.GetInt32();
                         }
 
+                        if (play.TryGetProperty("failed", out JsonElement hasFailed))
+                            _hasFailed = hasFailed.GetBoolean();
+
                         if (root.TryGetProperty("settings", out JsonElement settings))
                             if (settings.TryGetProperty("keybinds", out JsonElement keybinds))
                                 if (keybinds.TryGetProperty("osu", out JsonElement osuKeybinds))
@@ -428,19 +429,11 @@ public class TosuApi : IDisposable
                         if (root.TryGetProperty("profile", out JsonElement profile))
                             if (profile.TryGetProperty("banchoStatus", out JsonElement banchoStatus))
                                 if (banchoStatus.TryGetProperty("number", out JsonElement banchoStatusNumber))
-                                    //using tosu beta b0bf580 for lazer this does not return the correct status
-                                    //hoping is fixed later by tosu devs
-                                    //if not we might just want to return local status as well?
-                                    //which would be possible by grabbing profile > userStatus > number
-                                    //instead of profile > banchoStatus > number)
-                                    //var rawBanchoStatus = banchoStatusNumber.GetInt32();
-                                    //StateChanged?.Invoke(rawBanchoStatus);
-                                    //_rawBanchoStatus = rawBanchoStatus;
-                                    //if (rawBanchoStatus == 2)
-                                {
-                                }
+                                    _rawBanchoStatus = banchoStatusNumber.GetInt32();
 
-
+                        if (root.TryGetProperty("game", out JsonElement gameElement))
+                            if (gameElement.TryGetProperty("paused", out JsonElement isPaused))
+                                _isPaused = isPaused.GetBoolean();
                         if (root.TryGetProperty("folders", out JsonElement folders) &&
                             folders.TryGetProperty("songs", out JsonElement songs))
                             _settingsSongsDirectory = songs.GetString();
@@ -594,6 +587,23 @@ public class TosuApi : IDisposable
     }
 
     /// <summary>
+    ///     Checks if the current play is paused
+    /// </summary>
+    public bool IsPaused()
+    {
+        return _isPaused;
+    }
+
+    /// <summary>
+    ///     Checks if the current play has failed
+    /// </summary>
+    /// <returns></returns>
+    public bool HasFailed()
+    {
+        return _hasFailed;
+    }
+
+    /// <summary>
     ///     Obtains the title of the current beatmap
     /// </summary>
     /// <returns></returns>
@@ -618,9 +628,9 @@ public class TosuApi : IDisposable
 
     public IEnumerable<Key> GetOsuKeybinds()
     {
-        if (Enum.TryParse<Key>(k1Bind, out Key key1))
+        if (Enum.TryParse(k1Bind, out Key key1))
             yield return key1;
-        if (Enum.TryParse<Key>(k2Bind, out Key key2))
+        if (Enum.TryParse(k2Bind, out Key key2))
             yield return key2;
     }
 
@@ -645,7 +655,7 @@ public class TosuApi : IDisposable
         string osuSongsFolder;
 
         if ((OperatingSystem.IsLinux() || OperatingSystem.IsMacOS()) &&
-            _client == "stable") // basically just wine linux
+            _client == "stable") // basically just wine
         {
             string home = Environment.GetEnvironmentVariable("HOME") ?? "";
             osuSongsFolder = Path.Combine(home, ".local", "share", "osu-wine", "osu!", "Songs");

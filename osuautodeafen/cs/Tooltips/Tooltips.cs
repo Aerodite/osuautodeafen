@@ -20,7 +20,8 @@ public abstract class Tooltips
         None,
         Section,
         Deafen,
-        Time
+        Time,
+        Information
     }
 
     /// <summary>

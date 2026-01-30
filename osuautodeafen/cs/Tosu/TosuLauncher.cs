@@ -4,7 +4,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
-namespace osuautodeafen.cs;
+namespace osuautodeafen.cs.Tosu;
 
 public class TosuLauncher
 {
@@ -92,7 +92,8 @@ public class TosuLauncher
     /// <returns></returns>
     public static string GetTosuPath()
     {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return string.Empty;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            return string.Empty;
 
         const string keyPath = @"SOFTWARE\tosu";
         using (RegistryKey? key = Registry.LocalMachine.OpenSubKey(keyPath))

@@ -13,13 +13,17 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using osuautodeafen.cs.Logo;
 using osuautodeafen.cs.Tosu;
+using osuautodeafen.cs.ViewModels;
+using osuautodeafen.Views;
 
 namespace osuautodeafen.cs.Background;
 
-public class BackgroundManager(MainWindow window, SharedViewModel viewModel, TosuApi tosuApi)
+public class BackgroundManager(MainWindow window, SharedViewModel viewModel, TosuApi tosuApi, SettingsView settingsView)
 {
     private readonly Dictionary<string, OpacityRequest> _opacityRequests = new();
     private readonly TimeSpan _parallaxInterval = TimeSpan.FromMilliseconds(16);
+
+    private readonly SettingsView _settingsView = settingsView;
 
     private PropertyChangedEventHandler? _backgroundPropertyChangedHandler;
     private double _cachedDownscale = 1.0;
@@ -349,6 +353,10 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             backgroundLayer.Children.Add(gpuBackground);
             backgroundLayer.Opacity = _currentBackgroundOpacity;
 
+            _cachedGpuBackground = backgroundLayer.Children
+                .OfType<GpuBackgroundControl>()
+                .FirstOrDefault();
+
             if (viewModel.IsParallaxEnabled && viewModel.IsBackgroundEnabled)
                 try
                 {
@@ -398,7 +406,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     /// </summary>
     /// <param name="mouseX"></param>
     /// <param name="mouseY"></param>
-    private void ApplyParallax(double mouseX, double mouseY)
+    public void ApplyParallax(double mouseX, double mouseY)
     {
         try
         {
@@ -412,7 +420,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             if (backgroundLayer == null)
                 return;
 
-            if (window.ParallaxToggle?.IsChecked == false || window.BackgroundToggle?.IsChecked == false)
+            if (!viewModel.IsParallaxEnabled || !viewModel.IsBackgroundEnabled)
             {
                 if (_cachedGpuBackground == null || !backgroundLayer.Children.Contains(_cachedGpuBackground))
                     _cachedGpuBackground = backgroundLayer.Children.OfType<GpuBackgroundControl>().FirstOrDefault();
@@ -429,9 +437,6 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             if (DateTime.UtcNow - _lastUpdate < _parallaxInterval)
                 return;
             _lastUpdate = DateTime.UtcNow;
-
-            if (_cachedGpuBackground == null || !backgroundLayer.Children.Contains(_cachedGpuBackground))
-                _cachedGpuBackground = backgroundLayer.Children.OfType<GpuBackgroundControl>().FirstOrDefault();
 
             if (_cachedGpuBackground == null)
                 return;
@@ -462,19 +467,19 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
-    public void OnMouseMove(object? sender, PointerEventArgs e)
+    public void OnWindowPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (window.ParallaxToggle?.IsChecked == false || window.BackgroundToggle?.IsChecked == false)
+        if (!viewModel.IsBackgroundEnabled || !viewModel.IsParallaxEnabled)
             return;
 
         Point position = e.GetPosition(window);
-        if (position.X < 0 || position.Y < 0 || position.X > window.Width || position.Y > window.Height)
+
+        if (position.X < 0 || position.Y < 0 ||
+            position.X > window.Bounds.Width ||
+            position.Y > window.Bounds.Height)
             return;
 
-        _mouseX = position.X;
-        _mouseY = position.Y;
-
-        ApplyParallax(_mouseX, _mouseY);
+        ApplyParallax(position.X, position.Y);
     }
 
     /// <summary>

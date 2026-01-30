@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -13,7 +13,6 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -22,12 +21,13 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
-using IniParser.Model;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Background;
+using osuautodeafen.cs.Changelog;
 using osuautodeafen.cs.Deafen;
+using osuautodeafen.cs.Helpers;
 using osuautodeafen.cs.Log;
 using osuautodeafen.cs.Logo;
 using osuautodeafen.cs.Settings;
@@ -38,6 +38,8 @@ using osuautodeafen.cs.StrainGraph.ProgressIndicator;
 using osuautodeafen.cs.Tooltips;
 using osuautodeafen.cs.Tosu;
 using osuautodeafen.cs.Update;
+using osuautodeafen.cs.ViewModels;
+using osuautodeafen.Views;
 using SkiaSharp;
 using Svg.Skia;
 using Animation = Avalonia.Animation.Animation;
@@ -47,45 +49,67 @@ namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
+    public static TooltipManager Tooltips { get; private set; } = null!;
+    
     private const double BeatsPerRotation = 4;
-    private readonly AnimationManager _animationManager = new();
+
+    private const double HoverAngle = 15;
+    private const double NormalAngle = 0;
+
+    private static Button? _updateNotificationBarButton;
+    private static ProgressBar? _updateProgressBar;
+
+    private static readonly HttpClient _http = new();
     private readonly BackgroundManager? _backgroundManager;
 
     private readonly BreakPeriodCalculator _breakPeriod;
     private readonly ChartManager _chartManager;
+
+    private readonly CancelableAnimator _cogAnimator = new();
     private readonly Lock _cogSpinLock = new();
     private readonly Stopwatch _frameStopwatch = new();
     private readonly GetLowResBackground? _getLowResBackground;
+
+    private readonly KeybindHelper _keybindHelper = new();
     private readonly KiaiTimes _kiaiTimes = new();
     private readonly LogImportant _logImportant = new();
+
+    private readonly SemaphoreSlim _logoAnimationLock = new(1, 1);
     private readonly DispatcherTimer _mainTimer;
     private readonly SemaphoreSlim _panelAnimationLock = new(1, 1);
 
     private readonly HashSet<Key> _pressedKeys = new();
     private readonly ProgressIndicatorHelper _progressIndicatorHelper;
-    private readonly Action _settingsButtonClicked;
+    private readonly Action? _settingsButtonClicked;
     private readonly SettingsHandler? _settingsHandler;
 
+    private readonly SettingsViewModel _settingsViewModel;
     private readonly Dictionary<Control, Task> _toggleQueues = new();
     private readonly TooltipManager _tooltipManager = new();
     private readonly TosuApi _tosuApi;
-    private readonly UpdateChecker _updateChecker = new();
-    private readonly SemaphoreSlim _updateCheckLock = new(1, 1);
+
+    private readonly UpdateChecker? _updateChecker;
+
+    private readonly CancelableAnimator _versionAnimator = new();
     private readonly SharedViewModel _viewModel;
+    private readonly HomeView HomeView;
+
+    public readonly SettingsView SettingsView;
     private CancellationTokenSource? _blurCts;
+    private CancellationTokenSource? _cogAnimationCts;
     private double _cogCurrentAngle;
     private double _cogSpinBpm = 140;
     private double _cogSpinStartAngle;
     private DateTime _cogSpinStartTime;
     private DispatcherTimer? _cogSpinTimer;
 
-    private DispatcherTimer? _completionPercentageSaveTimer;
-
     private CancellationTokenSource? _frameCts;
     private bool _isCogSpinning;
 
     private bool _isDebugConsoleOpen;
     private bool _isKiaiPulseHigh;
+
+    private bool _isLogoHovered;
     private bool _isSettingsPanelOpen;
     private DispatcherTimer? _kiaiBrightnessTimer;
     private List<string> _lastDisplayedLogs = [];
@@ -93,65 +117,23 @@ public partial class MainWindow : Window
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
 
-    private Point _lastMousePosition;
     private LogoControl? _logoControl;
     private DispatcherTimer? _logUpdateTimer;
 
     private DispatcherTimer? _modifierOnlyTimer;
     private double _opacity = 1.00;
-    private double _pendingCompletionPercentage;
-    private int _pendingPP;
-    private double _pendingStarRating;
-
-    private DispatcherTimer? _ppSaveTimer;
-
-    private DispatcherTimer? _starRatingSaveTimer;
+    
+    private FileSystemWatcher? _settingsFileWatcher;
 
     private bool _tooltipOutsideBounds;
 
-    private Button? _updateNotificationBarButton;
-    private ProgressBar? _updateProgressBar;
+    private bool _versionPanelShown;
 
     public Image? NormalBackground;
 
-    /// <summary>
-    ///     Primary Constructor for MainWindow
-    /// </summary>
-    /// <exception cref="FileNotFoundException"></exception>
+
     public MainWindow()
     {
-        InitializeComponent();
-
-        string appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen");
-        Directory.CreateDirectory(appPath);
-
-        string logFile = Path.Combine(appPath, "osuautodeafen.log");
-        LogFileManager.CreateLogFile(logFile);
-        LogFileManager.ClearLogFile(logFile);
-
-        LogFileManager.InitializeLogging(logFile);
-
-        _tosuApi = new TosuApi();
-
-        _viewModel = new SharedViewModel(_tosuApi, _tooltipManager);
-        ViewModel = _viewModel;
-        DataContext = _viewModel;
-
-        _settingsHandler = new SettingsHandler();
-        _settingsHandler.LoadSettings();
-        InitializeSettings();
-
-        PresetInfo presetInfo = new();
-
-        InitializeLogo();
-
-        Opened += async (_, __) =>
-        {
-            await _updateChecker.CheckForUpdatesAsync();
-            if (_updateChecker.UpdateInfo != null) ShowUpdateNotification();
-        };
-
         string resourceName = "osuautodeafen.Resources.favicon.ico";
         string deafenResourceName = "osuautodeafen.Resources.favicon_d.ico";
         string startupIconPath = Path.Combine(Path.GetTempPath(), "osuautodeafen_favicon.ico");
@@ -179,28 +161,92 @@ public partial class MainWindow : Window
             }
         }
 
-        TaskbarIconChanger.SetTaskbarIcon(this, startupIconPath);
-        Icon = new WindowIcon(startupIconPath);
+        InitializeComponent();
 
-        _getLowResBackground = new GetLowResBackground(_tosuApi);
+        _updateChecker = new UpdateChecker(UpdateNotificationBar, UpdateProgressBar);
 
-        _backgroundManager = new BackgroundManager(this, _viewModel, _tosuApi)
+        _updateNotificationBarButton = UpdateNotificationBar;
+        _updateProgressBar = UpdateProgressBar;
+
+        string appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen");
+        Directory.CreateDirectory(appPath);
+
+        string logFile = Path.Combine(appPath, "osuautodeafen.log");
+        LogFileManager.CreateLogFile(logFile);
+        LogFileManager.ClearLogFile(logFile);
+
+        LogFileManager.InitializeLogging(logFile);
+
+        _tosuApi = new TosuApi();
+
+        _settingsHandler = new SettingsHandler();
+        _settingsHandler.LoadSettings();
+
+        HomeView = new HomeView();
+        _settingsViewModel = new SettingsViewModel();
+
+        _viewModel = new SharedViewModel(
+            _tosuApi,
+            _tooltipManager,
+            null,
+            null
+        );
+
+        ViewModel = _viewModel;
+        DataContext = _viewModel;
+
+        SettingsView = new SettingsView(
+            _settingsHandler,
+            _tosuApi,
+            _viewModel,
+            null,
+            null,
+            _tooltipManager,
+            _settingsViewModel
+        );
+
+        _breakPeriod = new BreakPeriodCalculator();
+
+        _chartManager = new ChartManager(
+            PlotView,
+            _tosuApi,
+            _viewModel,
+            _kiaiTimes,
+            _tooltipManager,
+            SettingsView
+        );
+
+        _backgroundManager = new BackgroundManager(
+            this,
+            _viewModel,
+            _tosuApi,
+            SettingsView
+        )
         {
             LogoUpdater = null
         };
 
-        object? oldContent = Content;
-        Content = null;
-        Content = new Grid
-        {
-            Children = { new ContentControl { Content = oldContent } }
-        };
+        _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager);
+        _getLowResBackground = new GetLowResBackground(_tosuApi);
+
+        _viewModel.AttachViews(HomeView, SettingsView);
+        SettingsView.AttachManagers(_chartManager, _backgroundManager);
 
         InitializeViewModel();
 
-        _breakPeriod = new BreakPeriodCalculator();
-        _chartManager = new ChartManager(PlotView, _tosuApi, _viewModel, _kiaiTimes, _tooltipManager);
-        _progressIndicatorHelper = new ProgressIndicatorHelper(_chartManager);
+        _viewModel.CurrentPage = _viewModel.HomePage;
+
+        InitializeSettings();
+
+        InitializeLogo();
+
+        Opened += async (_, __) =>
+        {
+            await _updateChecker.CheckForUpdatesAsync();
+            if (_updateChecker.UpdateInfo != null)
+                await _updateChecker.ShowUpdateNotification();
+        };
 
         Deafen deafen = new(_tosuApi, _settingsHandler, _viewModel);
 
@@ -255,9 +301,6 @@ public partial class MainWindow : Window
                 _settingsHandler.LoadSettings();
             }
 
-            UpdateDeafenKeybindDisplay();
-            UpdateViewModel();
-
             _logImportant.logImportant("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false,
                 "Client");
             // thanks a lot take a hint for letting me figure this one out 😔
@@ -307,7 +350,7 @@ public partial class MainWindow : Window
         _tosuApi.HasPercentageChanged += async () =>
         {
             // might as well not update the debug menu if it isnt even visible
-            StackPanel? debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
+            StackPanel? debugConsolePanel = SettingsView.FindControl<StackPanel>("DebugConsolePanel");
             if (debugConsolePanel == null || !debugConsolePanel.IsVisible)
                 return;
             _logImportant.logImportant($"Progress %: {_tosuApi.GetCompletionPercentage():F2}%", false, "Map Progress");
@@ -331,7 +374,7 @@ public partial class MainWindow : Window
             _logImportant.logImportant("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
             _logImportant.logImportant("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
             _logImportant.logImportant("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
-            _logImportant.logImportant("isDeafened: " + deafen._deafened, false, "isDeafened");
+            _logImportant.logImportant("isDeafened: " + deafen.Deafened, false, "isDeafened");
             _logImportant.logImportant("Deafen Start Percentage: " + _viewModel.MinCompletionPercentage + "%", false,
                 "Min Deafen Percentage");
             _logImportant.logImportant("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");
@@ -354,7 +397,7 @@ public partial class MainWindow : Window
         {
             _logImportant.logImportant("State: " + _tosuApi.GetRawBanchoStatus(), false, "State");
         };
-        _tosuApi.HasKiaiChanged += async (sender, e) =>
+        /*_tosuApi.HasKiaiChanged += async (sender, e) =>
         {
             if (!_viewModel.IsBackgroundEnabled || !_viewModel.IsKiaiEffectEnabled)
             {
@@ -397,27 +440,13 @@ public partial class MainWindow : Window
 
                 _backgroundManager.RemoveBackgroundOpacityRequest("kiai");
             }
-        };
+        };*/
         _breakPeriod.BreakPeriodEntered += async () => { _logImportant.logImportant("Break: True", false, "Break"); };
         _breakPeriod.BreakPeriodExited += async () => { _logImportant.logImportant("Break: False", false, "Break"); };
         _kiaiTimes.KiaiPeriodEntered += async () => { _logImportant.logImportant("Kiai: True", false, "Kiai"); };
         _kiaiTimes.KiaiPeriodExited += async () => { _logImportant.logImportant("Kiai: False", false, "Kiai"); };
 
-        _settingsButtonClicked = async () =>
-        {
-            if (_isSettingsPanelOpen)
-            {
-                _opacity = 0;
-                _backgroundManager?.RemoveBackgroundOpacityRequest("settings");
-            }
-            else
-            {
-                _opacity = 0.5;
-                if (!_tosuApi._isKiai || !_viewModel.IsKiaiEffectEnabled)
-                    await _backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150);
-            }
-        };
-        DockPanel? settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
+        DockPanel? settingsPanel = SettingsView.FindControl<DockPanel>("SettingsPanel");
         settingsPanel.Transitions = new Transitions
         {
             new DoubleTransition
@@ -428,6 +457,25 @@ public partial class MainWindow : Window
             }
         };
 
+        SettingsView.SetViewControls(_tosuApi, _viewModel, _chartManager, _backgroundManager, _tooltipManager,
+            _settingsViewModel);
+        SettingsView.UpdateDeafenKeybindDisplay();
+        
+        var iniPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "osuautodeafen",
+            "settings.ini"
+        );
+
+        _settingsFileWatcher = new FileSystemWatcher
+        {
+            Path = Path.GetDirectoryName(iniPath)!,
+            Filter = Path.GetFileName(iniPath),
+            NotifyFilter = NotifyFilters.LastWrite
+        };
+
+        _settingsFileWatcher.Changed += OnSettingsFileChanged;
+        _settingsFileWatcher.EnableRaisingEvents = true;
 
         ExtendClientAreaToDecorationsHint = true;
         ExtendClientAreaTitleBarHeightHint = 32;
@@ -453,8 +501,10 @@ public partial class MainWindow : Window
         CanResize = false;
         Closing += MainWindow_Closing;
 
-        _tooltipManager.SetTooltipControls(CustomTooltip, TooltipText, _settingsHandler.WindowWidth,
+        _tooltipManager.SetTooltipControls(TooltipRoot, TooltipText, _settingsHandler.WindowWidth,
             _settingsHandler.WindowHeight);
+        
+        Tooltips = _tooltipManager;
 
         PointerPressed += (sender, e) =>
         {
@@ -463,8 +513,8 @@ public partial class MainWindow : Window
             if (point.Y <= titleBarHeight) BeginMoveDrag(e);
         };
 
-        CheckBox? FCToggle = this.FindControl<CheckBox>("FCToggle");
-        StackPanel? undeafenPanel = this.FindControl<StackPanel>("UndeafenOnMissPanel");
+        CheckBox? FCToggle = SettingsView.FindControl<CheckBox>("FCToggle");
+        StackPanel? undeafenPanel = SettingsView.FindControl<StackPanel>("UndeafenOnMissPanel");
 
         if (FCToggle != null && undeafenPanel != null)
         {
@@ -488,34 +538,38 @@ public partial class MainWindow : Window
             Console.WriteLine("FCToggle or UndeafenOnMissPanel not found in XAML");
         }
 
-        this.FindControl<StackPanel>("UndeafenOnMissPanel")!.IsVisible = false;
-        this.FindControl<StackPanel>("UndeafenOnMissPanel")!.Opacity = 0;
+        SettingsView.FindControl<StackPanel>("UndeafenOnMissPanel")!.IsVisible = false;
+        SettingsView.FindControl<StackPanel>("UndeafenOnMissPanel")!.Opacity = 0;
 
         if (_settingsHandler.IsFCRequired)
         {
-            UndeafenOnMissPanel.IsVisible = true;
-            UndeafenOnMissPanel.Opacity = 1;
-            ((TranslateTransform)UndeafenOnMissPanel.RenderTransform)!.Y = 0;
+            SettingsView.UndeafenOnMissPanel.IsVisible = true;
+            SettingsView.UndeafenOnMissPanel.Opacity = 1;
+            ((TranslateTransform)SettingsView.UndeafenOnMissPanel.RenderTransform)!.Y = 0;
         }
 
-        StackPanel? parallaxPanel = this.FindControl<StackPanel>("ParallaxTogglePanel");
-        StackPanel? kiaiPanel = this.FindControl<StackPanel>("KiaiTogglePanel");
-        StackPanel? blurPanel = this.FindControl<StackPanel>("BlurEffectPanel");
+        StackPanel? parallaxPanel = SettingsView.FindControl<StackPanel>("ParallaxTogglePanel");
+        StackPanel? kiaiPanel = SettingsView.FindControl<StackPanel>("KiaiTogglePanel");
+        StackPanel? blurPanel = SettingsView.FindControl<StackPanel>("BlurEffectPanel");
 
-        if (BackgroundToggle != null && parallaxPanel != null && kiaiPanel != null && blurPanel != null)
+        if (SettingsView.BackgroundToggle != null && parallaxPanel != null && kiaiPanel != null && blurPanel != null)
         {
-            if (parallaxPanel.RenderTransform == null) parallaxPanel.RenderTransform = new TranslateTransform();
-            if (kiaiPanel.RenderTransform == null) kiaiPanel.RenderTransform = new TranslateTransform();
-            if (blurPanel.RenderTransform == null) blurPanel.RenderTransform = new TranslateTransform();
+            if (parallaxPanel.RenderTransform == null)
+                parallaxPanel.RenderTransform = new TranslateTransform();
+            if (kiaiPanel.RenderTransform == null)
+                kiaiPanel.RenderTransform = new TranslateTransform();
+            if (blurPanel.RenderTransform == null)
+                blurPanel.RenderTransform = new TranslateTransform();
 
-            if (BackgroundToggle.IsChecked == true)
+            if (SettingsView.BackgroundToggle.IsChecked == true)
             {
                 parallaxPanel.IsVisible = true;
                 parallaxPanel.Opacity = 1;
                 ((TranslateTransform)parallaxPanel.RenderTransform).Y = 0;
 
-                kiaiPanel.IsVisible = true;
-                kiaiPanel.Opacity = 1;
+                //this effect is really bad imo im just disabling for now
+                kiaiPanel.IsVisible = false;
+                kiaiPanel.Opacity = 0;
                 ((TranslateTransform)kiaiPanel.RenderTransform).Y = 0;
 
                 blurPanel.IsVisible = true;
@@ -523,7 +577,7 @@ public partial class MainWindow : Window
                 ((TranslateTransform)blurPanel.RenderTransform).Y = 0;
             }
 
-            BackgroundToggle.IsCheckedChanged += async (sender, _) =>
+            SettingsView.BackgroundToggle.IsCheckedChanged += async (sender, _) =>
             {
                 CheckBox? check = sender as CheckBox;
                 bool isChecked = check?.IsChecked == true;
@@ -531,16 +585,20 @@ public partial class MainWindow : Window
                 if (isChecked)
                 {
                     await EnqueueShowSubToggle(parallaxPanel, true);
-                    await EnqueueShowSubToggle(kiaiPanel, true);
+                    //await EnqueueShowSubToggle(kiaiPanel, true);
                     await EnqueueShowSubToggle(blurPanel, true);
                 }
                 else
                 {
                     await EnqueueShowSubToggle(blurPanel, false);
-                    await EnqueueShowSubToggle(kiaiPanel, false);
+                    //await EnqueueShowSubToggle(kiaiPanel, false);
                     await EnqueueShowSubToggle(parallaxPanel, false);
                 }
             };
+
+            _toggleQueues.Remove(parallaxPanel);
+            //_toggleQueues.Remove(kiaiPanel);
+            _toggleQueues.Remove(blurPanel);
 
             if (_settingsHandler.IsBackgroundEnabled)
             {
@@ -548,8 +606,9 @@ public partial class MainWindow : Window
                 parallaxPanel.Opacity = 1;
                 ((TranslateTransform)parallaxPanel.RenderTransform).Y = 0;
 
-                kiaiPanel.IsVisible = true;
-                kiaiPanel.Opacity = 1;
+                // same as above
+                kiaiPanel.IsVisible = false;
+                kiaiPanel.Opacity = 0;
                 ((TranslateTransform)kiaiPanel.RenderTransform).Y = 0;
 
                 blurPanel.IsVisible = true;
@@ -574,32 +633,47 @@ public partial class MainWindow : Window
             Console.WriteLine("BackgroundToggle or ParallaxTogglePanel or KiaiTogglePanel not found in XAML");
         }
 
-
         PointerMoved += MainWindow_PointerMoved;
-
-        InitializeKeybindButtonText();
-        UpdateDeafenKeybindDisplay();
-        CompletionPercentageSlider.Value = ViewModel.MinCompletionPercentage;
-        StarRatingSlider.Value = ViewModel.StarRating;
-        PPSlider.Value = ViewModel.PerformancePoints;
-        BlurEffectSlider.Value = ViewModel.BlurRadius;
+        SettingsView.CompletionPercentageSlider.Value = ViewModel.MinCompletionPercentage;
+        SettingsView.StarRatingSlider.Value = ViewModel.StarRating;
+        SettingsView.PPSlider.Value = ViewModel.PerformancePoints;
+        SettingsView.BlurEffectSlider.Value = ViewModel.BlurRadius;
         _viewModel.RefreshPresets();
+        
+        KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape && _viewModel.Changelog.IsVisible)
+                _viewModel.Changelog.IsVisible = false;
+        };
     }
+    
+    private async void OnSettingsFileChanged(object? sender, FileSystemEventArgs e)
+    {
+        // let editor finish writing
+        await Task.Delay(300);
 
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (!_settingsHandler!.ReloadFromDisk())
+                return;
+
+            _settingsHandler.LoadSettings();
+
+            _settingsViewModel.IsKeybindCaptureEnabled =
+                string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient);
+        });
+    }
+    
     private SharedViewModel ViewModel { get; }
 
     private void MainWindow_PointerMoved(object? sender, PointerEventArgs e)
     {
-        _backgroundManager?.OnMouseMove(sender, e);
-
-        _lastMousePosition = e.GetPosition(PlotView);
-
         Point pixelPoint = e.GetPosition(PlotView);
         LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
 
         Tooltips.TooltipType currentTooltipType = _tooltipManager.CurrentTooltipType;
 
-        if (currentTooltipType == Tooltips.TooltipType.Deafen)
+        if (currentTooltipType == osuautodeafen.cs.Tooltips.Tooltips.TooltipType.Deafen)
         {
             _ = _chartManager.UpdateDeafenOverlayAsync(_viewModel.MinCompletionPercentage);
             e.Handled = true;
@@ -609,11 +683,13 @@ public partial class MainWindow : Window
         PixelPoint screenPoint = PlotView.PointToScreen(pixelPoint);
         Point windowPoint = new(screenPoint.X - window.Position.X, screenPoint.Y - window.Position.Y);
 
+        _backgroundManager.ApplyParallax(windowPoint.X, windowPoint.Y);
+
         // this is really stupid but it just prevents the case where the straingraph's tooltips attempt to show in areas outside of the straingraph
-        if (currentTooltipType == Tooltips.TooltipType.Time || currentTooltipType == Tooltips.TooltipType.Section)
+        if (currentTooltipType == osuautodeafen.cs.Tooltips.Tooltips.TooltipType.Time || currentTooltipType == osuautodeafen.cs.Tooltips.Tooltips.TooltipType.Section)
         {
             bool belowBottomLimit = pixelPoint.Y >= PlotView.Bounds.Height - 120;
-            bool withinRightLimit = !_isSettingsPanelOpen || pixelPoint.X <= PlotView.Bounds.Width - 200;
+            bool withinRightLimit = !_isSettingsPanelOpen || pixelPoint.X <= PlotView.Bounds.Width;
 
             if (!belowBottomLimit || !withinRightLimit)
             {
@@ -646,48 +722,6 @@ public partial class MainWindow : Window
         _chartManager.TryShowTooltip(dataPoint, windowPoint, _tooltipManager);
     }
 
-    private void UpdateViewModel()
-    {
-        if (_settingsHandler != null)
-        {
-            _viewModel.MinCompletionPercentage = _settingsHandler.MinCompletionPercentage;
-            _viewModel.StarRating = _settingsHandler.StarRating;
-            _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
-            _viewModel.BlurRadius = _settingsHandler.BlurRadius;
-
-            _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
-            _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
-            _viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
-
-            _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
-            _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
-            _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
-        }
-
-        CompletionPercentageSlider.ValueChanged -= CompletionPercentageSlider_ValueChanged;
-        StarRatingSlider.ValueChanged -= StarRatingSlider_ValueChanged;
-        PPSlider.ValueChanged -= PPSlider_ValueChanged;
-        BlurEffectSlider.ValueChanged -= BlurEffectSlider_ValueChanged;
-
-        CompletionPercentageSlider.Value = _viewModel.MinCompletionPercentage;
-        StarRatingSlider.Value = _viewModel.StarRating;
-        PPSlider.Value = _viewModel.PerformancePoints;
-        BlurEffectSlider.Value = _viewModel.BlurRadius;
-
-        CompletionPercentageSlider.ValueChanged += CompletionPercentageSlider_ValueChanged;
-        StarRatingSlider.ValueChanged += StarRatingSlider_ValueChanged;
-        PPSlider.ValueChanged += PPSlider_ValueChanged;
-        BlurEffectSlider.ValueChanged += BlurEffectSlider_ValueChanged;
-
-        FCToggle.IsChecked = _viewModel.IsFCRequired;
-        UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
-        BreakUndeafenToggle.IsChecked = _viewModel.IsBreakUndeafenToggleEnabled;
-
-        BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
-        ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
-        KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
-    }
-
     private void InitializeSettings()
     {
         _viewModel.MinCompletionPercentage = _settingsHandler.MinCompletionPercentage;
@@ -698,66 +732,48 @@ public partial class MainWindow : Window
         _viewModel.IsFCRequired = _settingsHandler.IsFCRequired;
         _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
         _viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
+        _viewModel.IsPauseUndeafenToggleEnabled = _settingsHandler.IsPauseUndeafenToggleEnabled;
 
         _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
         _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
         _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
 
-        CompletionPercentageSlider.ValueChanged -= CompletionPercentageSlider_ValueChanged;
-        StarRatingSlider.ValueChanged -= StarRatingSlider_ValueChanged;
-        PPSlider.ValueChanged -= PPSlider_ValueChanged;
-        BlurEffectSlider.ValueChanged -= BlurEffectSlider_ValueChanged;
+        SettingsView.CompletionPercentageSlider.ValueChanged -= SettingsView.CompletionPercentageSlider_ValueChanged;
+        SettingsView.StarRatingSlider.ValueChanged -= SettingsView.StarRatingSlider_ValueChanged;
+        SettingsView.PPSlider.ValueChanged -= SettingsView.PPSlider_ValueChanged;
+        SettingsView.BlurEffectSlider.ValueChanged -= SettingsView.BlurEffectSlider_ValueChanged;
 
-        CompletionPercentageSlider.Value = _viewModel.MinCompletionPercentage;
-        StarRatingSlider.Value = _viewModel.StarRating;
-        PPSlider.Value = _viewModel.PerformancePoints;
-        BlurEffectSlider.Value = _viewModel.BlurRadius;
+        SettingsView.CompletionPercentageSlider.Value = _viewModel.MinCompletionPercentage;
+        SettingsView.StarRatingSlider.Value = _viewModel.StarRating;
+        SettingsView.PPSlider.Value = _viewModel.PerformancePoints;
+        SettingsView.BlurEffectSlider.Value = _viewModel.BlurRadius;
 
-        CompletionPercentageSlider.ValueChanged += CompletionPercentageSlider_ValueChanged;
-        StarRatingSlider.ValueChanged += StarRatingSlider_ValueChanged;
-        PPSlider.ValueChanged += PPSlider_ValueChanged;
-        BlurEffectSlider.ValueChanged += BlurEffectSlider_ValueChanged;
+        SettingsView.CompletionPercentageSlider.ValueChanged += SettingsView.CompletionPercentageSlider_ValueChanged;
+        SettingsView.StarRatingSlider.ValueChanged += SettingsView.StarRatingSlider_ValueChanged;
+        SettingsView.PPSlider.ValueChanged += SettingsView.PPSlider_ValueChanged;
+        SettingsView.BlurEffectSlider.ValueChanged += SettingsView.BlurEffectSlider_ValueChanged;
 
-        FCToggle.IsChecked = _viewModel.IsFCRequired;
-        UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
-        BreakUndeafenToggle.IsChecked = _viewModel.IsBreakUndeafenToggleEnabled;
+        SettingsView.FCToggle.IsChecked = _viewModel.IsFCRequired;
+        SettingsView.UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
+        SettingsView.BreakUndeafenToggle.IsChecked = _viewModel.IsBreakUndeafenToggleEnabled;
+        SettingsView.PauseUndeafenToggle.IsChecked = _viewModel.IsPauseUndeafenToggleEnabled;
 
-        BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
-        ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
-        KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
+        SettingsView.BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
+        SettingsView.ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
+        SettingsView.KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
 
-        _viewModel.DeafenKeybind = new HotKey
+        _settingsViewModel.DeafenKeybind = new HotKey
         {
             Key = _settingsHandler.Data["Hotkeys"]["DeafenKeybindKey"] is { } keyStr &&
                   int.TryParse(keyStr, out int keyVal)
                 ? (Key)keyVal
                 : Key.None,
-            FriendlyName = GetFriendlyKeyName(
+            FriendlyName = _keybindHelper.GetFriendlyKeyName(
                 _settingsHandler.Data["Hotkeys"]["DeafenKeybindKey"] is { } keyStr2 &&
                 int.TryParse(keyStr2, out int keyVal2)
                     ? (Key)keyVal2
                     : Key.None)
         };
-    }
-
-    /// <summary>
-    ///     Resets all settings to their default values on click
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    private async void ResetButton_Click(object sender, RoutedEventArgs e)
-    {
-        _settingsHandler?.ResetToDefaults();
-        UpdateViewModel();
-        UpdateDeafenKeybindDisplay();
-        try
-        {
-            _chartManager.UpdateDeafenOverlaySection(_viewModel.MinCompletionPercentage);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("[ERROR] Exception when updating Deafen Section after reset: " + ex.Message);
-        }
     }
 
     /// <summary>
@@ -945,7 +961,7 @@ public partial class MainWindow : Window
     private void SettingsButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Border) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
+        Point point = osuautodeafen.cs.Tooltips.Tooltips.GetWindowRelativePointer(this, e);
         bool isOpen = _isSettingsPanelOpen;
         _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Settings" : "Open Settings");
     }
@@ -955,697 +971,26 @@ public partial class MainWindow : Window
         _tooltipManager.HideTooltip();
     }
 
-    private void CompletionPercentageImage_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not Avalonia.Svg.Svg) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Minimum Map \nProgress to Deafen");
-    }
-
-    private void CompletionPercentageImage_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void CompletionPercentageSlider_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not Slider slider) return;
-        Point point = Tooltips.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0.00}%");
-    }
-
-    private void CompletionPercentageSlider_PointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is not Slider slider) return;
-        Point point = Tooltips.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0.00}%");
-    }
-
-    private void CompletionPercentageSlider_PointerMove(object? sender, PointerEventArgs e)
-    {
-        if (sender is not Slider slider) return;
-        Point point = Tooltips.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0.00}%");
-    }
-
-    private void CompletionPercentageSlider_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void PPSlider_PointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is not Slider slider) return;
-        Point point = Tooltips.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0}pp");
-    }
-
-    private void PPSlider_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not Slider slider) return;
-        Point point = Tooltips.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0}pp");
-    }
-
-    private void PPSlider_PointerMove(object? sender, PointerEventArgs e)
-    {
-        if (sender is not Slider slider) return;
-        Point point = Tooltips.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0}pp");
-    }
-
-    private void PPSlider_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void PPImage_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not Avalonia.Svg.Svg) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point,
-            "Minimum SS PP to Deafen\n (" + _tosuApi.GetMaxPP() + "pp for this map)");
-    }
-
-    private void PPImage_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void StarRatingSlider_PointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is not Slider slider) return;
-        Point point = Tooltips.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value:F1}*");
-    }
-
-    private void StarRatingSlider_PointerMove(object? sender, PointerEventArgs e)
-    {
-        if (sender is not Slider slider) return;
-        Point point = Tooltips.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value:F1}*");
-    }
-
-    private void StarRatingSlider_PointerEnter(object? sender, PointerEventArgs e)
-    {
-        if (sender is not Slider slider) return;
-        Point point = Tooltips.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value:F1}*");
-    }
-
-    private void StarRatingSlider_PointerLeave(object? sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void StarRatingImage_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not Avalonia.Svg.Svg) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Minimum SR to Deafen\n(" + _tosuApi.GetFullSR() + "* for this map)");
-    }
-
-    private void StarRatingImage_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void BlurEffectImage_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not Avalonia.Svg.Svg) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Background Blur Radius\n(0-20 multiplied by 5)");
-    }
-
-    private void BlurEffectImage_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void BlurEffectSlider_PointerPressed(object sender, PointerPressedEventArgs e)
-    {
-        if (sender is not Slider slider) return;
-        Point point = Tooltips.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value * 5:F0}% Blur");
-    }
-
-    private void BlurEffectSlider_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not Slider slider) return;
-        Point point = Tooltips.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value * 5:F0}% Blur");
-    }
-
-    private void BlurEffectSlider_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void FCToggle_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not StackPanel) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        bool isEnabled = FCToggle.IsChecked ?? false;
-        _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " FC Requirement");
-    }
-
-    private void FCToggle_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void UndeafenOnMissToggle_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not StackPanel) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        bool isEnabled = UndeafenOnMissToggle.IsChecked ?? false;
-        _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Undeafening after a miss");
-    }
-
-    private void UndeafenOnMissToggle_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void BreakUndeafenToggle_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not StackPanel) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        bool isEnabled = BreakUndeafenToggle.IsChecked ?? false;
-        _tooltipManager.ShowTooltip(this, point,
-            "" + (isEnabled ? "Disable" : "Enable") + " Undeafening during breaks");
-    }
-
-    private void BreakUndeafenToggle_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void BlurEffectSlider_PointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (sender is not Slider slider) return;
-        Point point = Tooltips.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value * 5:F0}% Blur");
-    }
-
-    private void ResetButton_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not Button)
-            return;
-
-        Point pointerPosition = Tooltips.GetWindowRelativePointer(this, e);
-
-        string tooltipText = _settingsHandler!.IsPresetActive
-            ? "Reset current preset to default settings"
-            : "Reset global settings to default";
-
-        _tooltipManager.ShowTooltip(this, pointerPosition, tooltipText);
-    }
-
-    private void ResetButton_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void PresetCreate_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not Button) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Create Preset for\n" + _viewModel.FullBeatmapName);
-    }
-
-    private void PresetCreate_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void PresetDelete_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not Button) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Delete Preset for\n" + _viewModel.FullBeatmapName);
-    }
-
-    private void PresetDelete_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void LoadPresetButton_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not Button) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Load a different map's preset on to\n" + _viewModel.FullBeatmapName);
-    }
-
-    private void LoadPresetButton_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void DeleteAllPresetsButton_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not Button) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Delete All Presets\n(CAN NOT BE UNDONE)");
-    }
-
-    private void DeleteAllPresetsButton_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void DeafenKeybindPanel_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not StackPanel) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Set Deafen Keybind");
-    }
-
-    private void DeafenKeybindPanel_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void BGToggle_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not StackPanel) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        bool isEnabled = BackgroundToggle.IsChecked ?? false;
-        _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Beatmap Background");
-    }
-
-    private void BGToggle_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void ParallaxToggle_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not StackPanel) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        bool isEnabled = ParallaxToggle.IsChecked ?? false;
-        _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Parallax Effect");
-    }
-
-    private void ParallaxToggle_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void KiaiEffectToggle_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not StackPanel) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        bool isEnabled = KiaiEffectToggle.IsChecked ?? false;
-        _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Kiai Effect");
-    }
-
-    private void KiaiEffectToggle_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void CheckForUpdatesButton_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not Button) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Check for New Updates");
-    }
-
-    private void CheckForUpdatesButton_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void FileLocationButton_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not Button) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point,
-            "Open AppData File Location\n(" + _settingsHandler!.GetPath(true) + ")");
-        OpenFileLocationImage.Path = "Icons/folder-open.svg";
-    }
-
-    private void FileLocationButton_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-        OpenFileLocationImage.Path = "Icons/folder.svg";
-    }
-
-    private void ReportIssueButton_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not Button) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Report an Issue on GitHub");
-    }
-
-    private void ReportIssueButton_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    private void DebugConsoleButton_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not Button) return;
-        Point point = Tooltips.GetWindowRelativePointer(this, e);
-        bool isOpen = _isDebugConsoleOpen;
-        _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Debug Console" : "Open Debug Console");
-    }
-
-    private void DebugConsoleButton_PointerLeave(object sender, PointerEventArgs e)
-    {
-        _tooltipManager.HideTooltip();
-    }
-
-    public async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    private async Task UpdateSettingsOpacityAsync(string targetPage)
     {
         try
         {
-            if (DataContext is not SharedViewModel vm) return;
-            double roundedValue = Math.Round(e.NewValue, 2);
-            vm.MinCompletionPercentage = roundedValue;
-            _pendingCompletionPercentage = roundedValue;
-
-            _completionPercentageSaveTimer?.Stop();
-            _completionPercentageSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-            _completionPercentageSaveTimer.Tick += (s, args) =>
+            if (targetPage == "Home")
             {
-                _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", _pendingCompletionPercentage);
-                _completionPercentageSaveTimer?.Stop();
-            };
-            _completionPercentageSaveTimer.Start();
-
-            try
-            {
-                await _chartManager.UpdateDeafenOverlayAsync(roundedValue);
+                _opacity = 0;
+                _backgroundManager?.RemoveBackgroundOpacityRequest("settings");
             }
-            catch (TaskCanceledException)
+            else
             {
-                Console.WriteLine("Task was canceled while updating deafen overlay.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[ERROR] Exception in CompletionPercentageSlider_ValueChanged: {ex}");
+                _opacity = 0.5;
+                if (!_tosuApi._isKiai || !_viewModel.IsKiaiEffectEnabled)
+                    await _backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150)!;
             }
         }
         catch (Exception ex)
         {
-            throw new Exception($"Error in CompletionPercentageSlider_ValueChanged: {ex.Message}", ex);
+            Console.WriteLine($"[ERROR] in UpdateSettingsOpacityAsync: {ex}");
         }
-    }
-
-    private void StarRatingSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
-    {
-        if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
-        double roundedValue = Math.Round(slider.Value, 1);
-        Console.WriteLine($"Min SR Value: {roundedValue:F1}");
-        vm.StarRating = roundedValue;
-        _pendingStarRating = roundedValue;
-
-        _starRatingSaveTimer?.Stop();
-        _starRatingSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-        _starRatingSaveTimer.Tick += (s, args) =>
-        {
-            _settingsHandler?.SaveSetting("General", "StarRating", _pendingStarRating);
-            _starRatingSaveTimer?.Stop();
-        };
-        _starRatingSaveTimer.Start();
-    }
-
-
-    private void PPSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
-    {
-        if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
-        int roundedValue = (int)Math.Round(slider.Value);
-        Console.WriteLine($"Min PP Value: {roundedValue}");
-        vm.PerformancePoints = roundedValue;
-        _pendingPP = roundedValue;
-
-        _ppSaveTimer?.Stop();
-        _ppSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-        _ppSaveTimer.Tick += (s, args) =>
-        {
-            _settingsHandler?.SaveSetting("General", "PerformancePoints", _pendingPP);
-            _ppSaveTimer?.Stop();
-        };
-        _ppSaveTimer.Start();
-    }
-
-    private void BlurEffectSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
-    {
-        if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
-        double roundedValue = Math.Round(slider.Value, 1);
-        Console.WriteLine($"Blur Radius: {roundedValue:F1}");
-        vm.BlurRadius = roundedValue;
-        _settingsHandler?.SaveSetting("UI", "BlurRadius", roundedValue);
-    }
-
-    /// <summary>
-    ///     Deletes the preset for the current beatmap if "Yes" is clicked
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    private void PresetButtonDeleteYes_Click(object sender, RoutedEventArgs e)
-    {
-        DeletePresetButton.Flyout?.Hide();
-        string checksum = _tosuApi.GetBeatmapChecksum();
-        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "presets");
-        string presetFilePath = Path.Combine(presetsPath, $"{checksum}.preset");
-        if (File.Exists(presetFilePath))
-            File.Delete(presetFilePath);
-        _viewModel.PresetExistsForCurrentChecksum = false;
-        _settingsHandler?.DeactivatePreset();
-        CreatePresetButton.Flyout?.Hide();
-        UpdateViewModel();
-        UpdateDeafenKeybindDisplay();
-        try
-        {
-            _chartManager.UpdateDeafenOverlaySection(_viewModel.MinCompletionPercentage);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[ERROR] Exception while updating Deafen Section after deleting preset: {ex}");
-        }
-
-        DeletePresetData();
-        _viewModel.RefreshPresets();
-    }
-
-    /// <summary>
-    ///     Creates a preset for the current beatmap if "Yes" is clicked
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    private void PresetButtonYes_Click(object sender, RoutedEventArgs e)
-    {
-        CreatePresetButton.Flyout?.Hide();
-        string checksum = _tosuApi.GetBeatmapChecksum();
-        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "presets");
-        string presetFilePath = Path.Combine(presetsPath, $"{checksum}.preset");
-        string settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "settings.ini");
-        File.Copy(settingsPath, presetFilePath, true);
-        _viewModel.PresetExistsForCurrentChecksum = true;
-        _settingsHandler?.ActivatePreset(presetFilePath);
-        CreatePresetData();
-        _viewModel.RefreshPresets();
-    }
-
-    /// <summary>
-    ///     Closes the Create Preset flyout if the user clicked the button by mistake
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    private void PresetButtonNo_Click(object sender, RoutedEventArgs e)
-    {
-        CreatePresetButton.Flyout?.Hide();
-    }
-
-    /// <summary>
-    ///     Closes the Delete Preset flyout if the user clicked the button by mistake
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    private void PresetButtonDeleteNo_Click(object sender, RoutedEventArgs e)
-    {
-        DeletePresetButton.Flyout?.Hide();
-    }
-
-    /// <summary>
-    ///     Applies the selected preset when a preset item is clicked
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    private void PresetItem_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is Button btn && btn.DataContext is PresetInfo preset)
-        {
-            string selectedPresetPath = preset.FilePath;
-            Console.WriteLine($"Selected Preset Path: {selectedPresetPath}");
-            string currentChecksum = _tosuApi.GetBeatmapChecksum();
-            string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "osuautodeafen", "presets");
-            string currentPresetPath = Path.Combine(presetsPath, $"{currentChecksum}.preset");
-
-            // selectedPresetPath ends with .data because that is what is being used to display the background,
-            // this just ensures we copy from the right file
-            string presetSourcePath = selectedPresetPath.EndsWith(".data")
-                ? selectedPresetPath.Substring(0, selectedPresetPath.Length - 5)
-                : selectedPresetPath;
-
-            File.Copy(presetSourcePath, currentPresetPath, true);
-            _settingsHandler?.ActivatePreset(currentPresetPath);
-            _viewModel.PresetExistsForCurrentChecksum = true;
-
-            CreatePresetData();
-            UpdateViewModel();
-            UpdateDeafenKeybindDisplay();
-            try
-            {
-                _chartManager.UpdateDeafenOverlaySection(_viewModel.MinCompletionPercentage);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[ERROR] Exception while updating Deafen Section after applying preset: {ex}");
-            }
-
-            btn.Flyout?.Hide();
-        }
-    }
-
-    /// <summary>
-    ///     Opens the preset selection flyout and refreshes the presets list
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    private void LoadPresetButton_Click(object sender, RoutedEventArgs e)
-    {
-        _viewModel.RefreshPresets();
-        if (sender is Button btn) btn.Flyout?.ShowAt(btn);
-    }
-
-    /// <summary>
-    ///     Creates a .preset.data file that contains beatmap information for the current beatmap
-    /// </summary>
-    private void CreatePresetData()
-    {
-        string checksum = _tosuApi.GetBeatmapChecksum();
-        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "presets");
-        string presetDataFilePath = Path.Combine(presetsPath, $"{checksum}.preset.data");
-
-        string? artist = _tosuApi.GetBeatmapArtist();
-        string? beatmapName = _tosuApi.GetBeatmapTitle();
-        string fullBeatmapName = $"{artist} - {beatmapName}";
-        string beatmapDifficulty = _tosuApi.GetBeatmapDifficulty();
-        string backgroundPath = _tosuApi.GetBackgroundPath();
-        string beatmapId = _tosuApi.GetBeatmapId().ToString();
-        string rankedStatus = _tosuApi.GetRankedStatus().ToString(CultureInfo.InvariantCulture);
-        string starRating = _tosuApi.GetFullSR().ToString("F1", CultureInfo.InvariantCulture);
-        string mapper = _tosuApi.GetBeatmapMapper();
-
-
-        LogoUpdater? logoUpdater = _backgroundManager?.LogoUpdater;
-        string avgColor1 = logoUpdater?.AverageColor1.ToString() ?? "#000000";
-        string avgColor2 = logoUpdater?.AverageColor2.ToString() ?? "#000000";
-        string avgColor3 = logoUpdater?.AverageColor3.ToString() ?? "#000000";
-
-        var lines = new List<string>
-        {
-            "[Preset]",
-            $"FullBeatmapName={fullBeatmapName}",
-            $"Artist={artist}",
-            $"BeatmapName={beatmapName}",
-            $"BeatmapDifficulty={beatmapDifficulty}",
-            $"BeatmapID={beatmapId}",
-            $"RankedStatus={rankedStatus}",
-            $"BackgroundPath={backgroundPath}",
-            $"Mapper={mapper}",
-            $"Checksum={checksum}",
-            $"StarRating={starRating}",
-            $"AverageColor1={avgColor1}",
-            $"AverageColor2={avgColor2}",
-            $"AverageColor3={avgColor3}"
-        };
-
-        File.WriteAllLines(presetDataFilePath, lines);
-    }
-
-    /// <summary>
-    ///     Deletes the .preset.data file for the current beatmap if it exists
-    /// </summary>
-    private void DeletePresetData()
-    {
-        string checksum = _tosuApi.GetBeatmapChecksum();
-        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "presets");
-        string presetDataFilePath = Path.Combine(presetsPath, $"{checksum}.preset.data");
-
-        if (File.Exists(presetDataFilePath))
-            File.Delete(presetDataFilePath);
-    }
-
-    private void DeleteAllPresetData()
-    {
-        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "presets");
-        if (Directory.Exists(presetsPath))
-        {
-            string[] presetDataFiles = Directory.GetFiles(presetsPath, "*.preset.data");
-            foreach (string file in presetDataFiles)
-                try
-                {
-                    File.Delete(file);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[ERROR] Could not delete preset data file {file}: {ex}");
-                }
-        }
-
-        _viewModel.RefreshPresets();
-    }
-
-    private void DeleteAllPresetsButtonYes_Click(object sender, RoutedEventArgs e)
-    {
-        DeleteAllPresetsButton.Flyout?.Hide();
-        string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "osuautodeafen", "presets");
-        if (Directory.Exists(presetsPath))
-        {
-            string[] presetFiles = Directory.GetFiles(presetsPath, "*.preset");
-            foreach (string file in presetFiles)
-                try
-                {
-                    File.Delete(file);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[ERROR] Could not delete preset file {file}: {ex}");
-                }
-        }
-
-        DeleteAllPresetData();
-        _settingsHandler?.DeactivatePreset();
-        _viewModel.PresetExistsForCurrentChecksum = false;
-        UpdateViewModel();
-        UpdateDeafenKeybindDisplay();
-        try
-        {
-            _chartManager.UpdateDeafenOverlaySection(_viewModel.MinCompletionPercentage);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[ERROR] Exception while updating Deafen Section after deleting all presets: {ex}");
-        }
-    }
-
-    private void DeleteAllPresetsButtonNo_Click(object sender, RoutedEventArgs e)
-    {
-        DeleteAllPresetsButton.Flyout?.Hide();
     }
 
     private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -1701,7 +1046,7 @@ public partial class MainWindow : Window
                     {
                         await _backgroundManager?.UpdateBackground(null, null)!;
 
-                        if (_tosuApi._isKiai && _viewModel.IsKiaiEffectEnabled)
+                        /*if (_tosuApi._isKiai && _viewModel.IsKiaiEffectEnabled)
                         {
                             double bpm = _tosuApi.GetCurrentBpm();
                             double intervalMs = 60000.0 / bpm;
@@ -1719,7 +1064,7 @@ public partial class MainWindow : Window
                                     (int)(intervalMs / 4));
                             };
                             _kiaiBrightnessTimer.Start();
-                        }
+                        }*/
                     }
 
                     break;
@@ -1734,6 +1079,10 @@ public partial class MainWindow : Window
                 case nameof(SharedViewModel.IsBreakUndeafenToggleEnabled):
                     _settingsHandler?.SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled",
                         _viewModel.IsBreakUndeafenToggleEnabled);
+                    break;
+                case nameof(SharedViewModel.IsPauseUndeafenToggleEnabled):
+                    _settingsHandler?.SaveSetting("Behavior", "IsPauseUndeafenToggleEnabled",
+                        _viewModel.IsPauseUndeafenToggleEnabled);
                     break;
                 case nameof(SharedViewModel.UndeafenAfterMiss):
                     _settingsHandler?.SaveSetting("Behavior", "UndeafenAfterMiss", _viewModel.UndeafenAfterMiss);
@@ -1794,30 +1143,6 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///     Initializes the button with the selected keybind from settings
-    /// </summary>
-    private void UpdateDeafenKeybindDisplay()
-    {
-        string currentKeybind = RetrieveKeybindFromSettings();
-        DeafenKeybindButton.Content = currentKeybind;
-    }
-
-    /// <summary>
-    ///     Shows a flyout for the user to set a new deafen keybind
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    private void DeafenKeybindButton_Click(object sender, RoutedEventArgs e)
-    {
-        ViewModel.IsKeybindCaptureFlyoutOpen = !ViewModel.IsKeybindCaptureFlyoutOpen;
-        if (DeafenKeybindButton.Flyout is not Flyout flyout) return;
-        if (ViewModel.IsKeybindCaptureFlyoutOpen)
-            flyout.ShowAt(DeafenKeybindButton, true);
-        else
-            flyout.Hide();
-    }
-
-    /// <summary>
     ///     Captures key presses when the keybind capture flyout is open
     /// </summary>
     /// <param name="e"></param>
@@ -1826,12 +1151,12 @@ public partial class MainWindow : Window
         base.OnKeyDown(e);
         _pressedKeys.Add(e.Key);
 
-        if (ViewModel.IsKeybindCaptureFlyoutOpen)
+        if (_settingsViewModel.IsKeybindCaptureFlyoutOpen)
         {
-            Flyout? flyout = DeafenKeybindButton.Flyout as Flyout;
+            Flyout? flyout = SettingsView.DeafenKeybindButton.Flyout as Flyout;
             if (e.Key == Key.Escape)
             {
-                ViewModel.IsKeybindCaptureFlyoutOpen = false;
+                _settingsViewModel.IsKeybindCaptureFlyoutOpen = false;
                 flyout?.Hide();
                 return;
             }
@@ -1858,13 +1183,18 @@ public partial class MainWindow : Window
             Key k1 = keys.ElementAtOrDefault(0);
             Key k2 = keys.ElementAtOrDefault(1);
 
-            if (keys.Contains(e.Key))
+            bool isOsuKey = keys.Contains(e.Key);
+            bool hasModifiers = e.KeyModifiers != KeyModifiers.None;
+
+            if (isOsuKey && !hasModifiers)
             {
                 string keybind = e.Key == k1 ? "K1" :
                     e.Key == k2 ? "K2" : "osu! keybind";
 
-                ViewModel.KeybindPrompt =
-                    $"'{GetFriendlyKeyName(e.Key)}' is a disallowed keybind (it is your current osu! {keybind})\n(please use something else bro :sob:)";
+                _settingsViewModel.KeybindPrompt =
+                    $"'{_keybindHelper.GetFriendlyKeyName(e.Key)}' is a disallowed keybind (it is your current osu! {keybind})\n" +
+                    "(please use something else bro :sob:)";
+
                 e.Handled = true;
                 return;
             }
@@ -1898,7 +1228,7 @@ public partial class MainWindow : Window
             if (_pressedKeys.Contains(Key.LeftShift)) shiftSide = Modifiers.ModifierSide.Left;
             else if (_pressedKeys.Contains(Key.RightShift)) shiftSide = Modifiers.ModifierSide.Right;
 
-            string friendlyKeyName = GetFriendlyKeyName(e.Key);
+            string friendlyKeyName = _keybindHelper.GetFriendlyKeyName(e.Key);
             HotKey hotKey = new()
             {
                 Key = e.Key,
@@ -1908,15 +1238,15 @@ public partial class MainWindow : Window
                 ShiftSide = shiftSide,
                 FriendlyName = friendlyKeyName
             };
-            ViewModel.DeafenKeybind = hotKey;
+            _settingsViewModel.DeafenKeybind = hotKey;
 
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindKey", (int)e.Key);
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindControlSide", (int)controlSide);
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindAltSide", (int)altSide);
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindShiftSide", (int)shiftSide);
 
-            ViewModel.IsKeybindCaptureFlyoutOpen = false;
-            UpdateDeafenKeybindDisplay();
+            _settingsViewModel.IsKeybindCaptureFlyoutOpen = false;
+            SettingsView.UpdateDeafenKeybindDisplay();
 
             e.Handled = true;
             flyout?.Hide();
@@ -1925,7 +1255,7 @@ public partial class MainWindow : Window
 
         switch (e.Key)
         {
-            case Key.D when e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+            case Key.D when e.KeyModifiers.HasFlag(KeyModifiers.Shift):
                 Dispatcher.UIThread.InvokeAsync(() => ToggleDebugConsole(null, null!));
                 e.Handled = true;
                 return;
@@ -1945,11 +1275,12 @@ public partial class MainWindow : Window
         base.OnKeyUp(e);
         _pressedKeys.Remove(e.Key);
 
-        if (ViewModel.IsKeybindCaptureFlyoutOpen && _modifierOnlyTimer?.IsEnabled == true && IsModifierKey(e.Key))
+        if (_settingsViewModel.IsKeybindCaptureFlyoutOpen && _modifierOnlyTimer?.IsEnabled == true &&
+            IsModifierKey(e.Key))
         {
             _modifierOnlyTimer.Stop();
 
-            Flyout? flyout = DeafenKeybindButton.Flyout as Flyout;
+            Flyout? flyout = SettingsView.DeafenKeybindButton.Flyout as Flyout;
 
             var allModifiers = new HashSet<Key>(_pressedKeys) { e.Key };
 
@@ -1982,112 +1313,17 @@ public partial class MainWindow : Window
                 ShiftSide = shiftSide,
                 FriendlyName = modifiers.ToString()
             };
-            ViewModel.DeafenKeybind = hotKey;
+            _settingsViewModel.DeafenKeybind = hotKey;
 
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindKey", (int)Key.None);
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindControlSide", (int)controlSide);
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindAltSide", (int)altSide);
             _settingsHandler?.SaveSetting("Hotkeys", "DeafenKeybindShiftSide", (int)shiftSide);
 
-            ViewModel.IsKeybindCaptureFlyoutOpen = false;
-            UpdateDeafenKeybindDisplay();
+            _settingsViewModel.IsKeybindCaptureFlyoutOpen = false;
+            SettingsView.UpdateDeafenKeybindDisplay();
 
             flyout?.Hide();
-        }
-    }
-
-    /// <summary>
-    ///     Retrieves the currently set keybind from settings
-    /// </summary>
-    /// <returns></returns>
-    private string RetrieveKeybindFromSettings()
-    {
-        KeyDataCollection? hotkeys = _settingsHandler?.Data["Hotkeys"];
-        if (hotkeys == null)
-            return "Set Keybind";
-
-        string? keyStr = hotkeys["DeafenKeybindKey"];
-        string? controlSideStr = hotkeys["DeafenKeybindControlSide"];
-        string? altSideStr = hotkeys["DeafenKeybindAltSide"];
-        string? shiftSideStr = hotkeys["DeafenKeybindShiftSide"];
-
-        if (string.IsNullOrEmpty(keyStr))
-            return "Set Keybind";
-
-        if (!int.TryParse(keyStr, out int keyVal))
-            return "Set Keybind";
-
-        string display = "";
-
-        if (int.TryParse(controlSideStr, out int controlSide) && controlSide != 0)
-            display += controlSide == 2 ? "RCtrl+" : "LCtrl+";
-        if (int.TryParse(altSideStr, out int altSide) && altSide != 0)
-            display += altSide == 2 ? "RAlt+" : "LAlt+";
-        if (int.TryParse(shiftSideStr, out int shiftSide) && shiftSide != 0)
-            display += shiftSide == 2 ? "RShift+" : "LShift+";
-
-        if (keyVal == (int)Key.None)
-            // signifies that only modifiers are used, so we should remove the trailing +
-            return display.EndsWith('+') ? display[..^1] : display.Length > 0 ? display : "Set Keybind";
-
-        display += GetFriendlyKeyName((Key)keyVal);
-        return display;
-    }
-
-    /// <summary>
-    ///     Converts certain keys to more user-friendly names for display purposes
-    /// </summary>
-    /// <param name="key"></param>
-    /// <returns></returns>
-    private string GetFriendlyKeyName(Key key)
-    {
-        return key switch
-        {
-            Key.D0 => "0",
-            Key.D1 => "1",
-            Key.D2 => "2",
-            Key.D3 => "3",
-            Key.D4 => "4",
-            Key.D5 => "5",
-            Key.D6 => "6",
-            Key.D7 => "7",
-            Key.D8 => "8",
-            Key.D9 => "9",
-            Key.OemOpenBrackets => "[",
-            Key.OemCloseBrackets => "]",
-            Key.OemComma => ",",
-            Key.OemPeriod => ".",
-            Key.OemMinus => "-",
-            Key.OemPlus => "+",
-            Key.OemQuestion => "/",
-            Key.OemSemicolon => ";",
-            Key.OemQuotes => "'",
-            Key.OemBackslash => "\\",
-            Key.OemPipe => "|",
-            Key.OemTilde => "`",
-            Key.Oem8 => "`",
-            _ => key.ToString()
-        };
-    }
-
-    /// <summary>
-    ///     Displays the update notification bar and initializes progress bar
-    /// </summary>
-    public async void ShowUpdateNotification()
-    {
-        Console.WriteLine("Showing Update Notification");
-        _updateNotificationBarButton = this.FindControl<Button>("UpdateNotificationBar");
-        _updateProgressBar = this.FindControl<ProgressBar>("UpdateProgressBar");
-
-        if (_updateNotificationBarButton != null)
-            _updateNotificationBarButton.IsVisible = true;
-        else
-            Console.WriteLine("Notification bar control not found.");
-
-        if (_updateProgressBar != null)
-        {
-            _updateProgressBar.Value = 0;
-            _updateProgressBar.Foreground = Brushes.Green;
         }
     }
 
@@ -2149,15 +1385,81 @@ public partial class MainWindow : Window
         Console.WriteLine($"Update download completed in {sw.ElapsedMilliseconds} ms");
     }
 
-    /// <summary>
-    ///     Handles the click event on the update notification bar to start the update process
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
     private async void UpdateNotificationBar_Click(object sender, RoutedEventArgs e)
     {
         await DownloadUpdateWithProgressAsync();
-        _updateChecker.Mgr.ApplyUpdatesAndRestart(_updateChecker.UpdateInfo);
+        if (_updateChecker?.UpdateInfo != null)
+            _updateChecker?.Mgr.ApplyUpdatesAndRestart(_updateChecker.UpdateInfo);
+    }
+
+    private void SetVersionPanelState(bool show)
+    {
+        if (_versionPanelShown == show)
+            return;
+
+        _versionPanelShown = show;
+        AnimateVersionPanel(show);
+    }
+
+    private void LogoPanel_PointerEnter(object sender, PointerEventArgs e)
+    {
+        _isLogoHovered = true;
+        SetVersionPanelState(true);
+    }
+
+    private void LogoPanel_PointerExit(object sender, PointerEventArgs e)
+    {
+        _isLogoHovered = false;
+        SetVersionPanelState(false);
+    }
+
+    private async void AnimateVersionPanel(bool show)
+    {
+        TextBlock? versionPanel = this.FindControl<TextBlock>("VersionPanel");
+        if (versionPanel == null)
+            return;
+
+        versionPanel.RenderTransform ??= new TranslateTransform();
+        TranslateTransform? transform = (TranslateTransform)versionPanel.RenderTransform;
+
+        await _versionAnimator.RunAsync(async token =>
+        {
+            if (show)
+                versionPanel.IsVisible = true;
+
+            Animation anim = new()
+            {
+                Duration = TimeSpan.FromMilliseconds(180),
+                Easing = new CubicEaseInOut(),
+                FillMode = FillMode.Forward,
+                Children =
+                {
+                    new KeyFrame
+                    {
+                        Cue = new Cue(0),
+                        Setters =
+                        {
+                            new Setter(OpacityProperty, versionPanel.Opacity),
+                            new Setter(TranslateTransform.YProperty, transform.Y)
+                        }
+                    },
+                    new KeyFrame
+                    {
+                        Cue = new Cue(1),
+                        Setters =
+                        {
+                            new Setter(OpacityProperty, show ? 1.0 : 0.0),
+                            new Setter(TranslateTransform.YProperty, show ? 0.0 : -8.0)
+                        }
+                    }
+                }
+            };
+
+            await anim.RunAsync(versionPanel, token);
+
+            if (!show)
+                versionPanel.IsVisible = false;
+        });
     }
 
     /// <summary>
@@ -2176,54 +1478,8 @@ public partial class MainWindow : Window
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
         _tosuApi.CheckForPercentageChange();
         _kiaiTimes.UpdateKiaiPeriodState(_tosuApi.GetCurrentTime());
-        _logImportant.logImportant("Velopack: " + _updateChecker.Mgr.IsInstalled, false, "Velopack");
+        _logImportant.logImportant("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
         _logImportant.logImportant("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");
-    }
-
-    /// <summary>
-    ///     Checks for newer versions when the button is clicked
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    public async void CheckForUpdatesButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (!await _updateCheckLock.WaitAsync(0))
-            return; // already running
-
-        try
-        {
-            Button? button = this.FindControl<Button>("CheckForUpdatesButton");
-            if (button == null) return;
-
-            button.Content = "Checking for updates...";
-            await Task.Delay(1000);
-
-            await _updateChecker.CheckForUpdatesAsync();
-            if (_updateChecker?.Mgr.IsInstalled == false)
-            {
-                button.Content = "Velopack not installed...";
-                await Task.Delay(1000);
-                button.Content = "Please reinstall osuautodeafen";
-                await Task.Delay(1000);
-                button.Content = "Check for Updates";
-                return;
-            }
-
-            if (_updateChecker?.UpdateInfo == null)
-            {
-                button.Content = "No updates found";
-                await Task.Delay(1000);
-                button.Content = "Check for Updates";
-                return;
-            }
-
-            button.Content = "Update available!";
-            ShowUpdateNotification();
-        }
-        finally
-        {
-            _updateCheckLock.Release();
-        }
     }
 
     /// <summary>
@@ -2244,7 +1500,7 @@ public partial class MainWindow : Window
     /// <param name="resourceName"></param>
     /// <returns></returns>
     /// <exception cref="FileNotFoundException"></exception>
-    public SKSvg LoadSkSvgResource(string resourceName)
+    private SKSvg LoadSkSvgResource(string resourceName)
     {
         using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
                               ?? throw new FileNotFoundException("Resource not found: " + resourceName);
@@ -2357,7 +1613,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///     Retries loading the SVG logo multiple times in case of failure
+    ///     Retries loading the logo multiple times in case of failure
     /// </summary>
     /// <param name="resourceName"></param>
     private async Task RetryLoadLogoAsync(string resourceName)
@@ -2370,18 +1626,18 @@ public partial class MainWindow : Window
             try
             {
                 retryCount++;
-                Console.WriteLine($"Retrying to load SVG... Attempt {retryCount}");
+                Console.WriteLine($"Retrying to load logo... Attempt {retryCount}");
                 Bitmap logoImage = await LoadLogoAsync(resourceName);
                 UpdateViewModelWithLogo(logoImage);
                 success = true;
             }
             catch (Exception retryEx)
             {
-                Console.WriteLine($"[ERROR] Retry {retryCount} failed: {retryEx.Message}");
+                Console.WriteLine($"[ERROR] logo retry {retryCount} failed: {retryEx.Message}");
                 if (retryCount >= maxRetries)
                 {
                     Console.WriteLine(
-                        $"[ERROR] Exception while loading SVG after {maxRetries} attempts: {retryEx.Message}");
+                        $"[ERROR] Exception while loading logo after {maxRetries} attempts: {retryEx.Message}");
                     return;
                 }
             }
@@ -2423,16 +1679,13 @@ public partial class MainWindow : Window
     {
         try
         {
-            _settingsButtonClicked?.Invoke();
-            DockPanel? settingsPanel = this.FindControl<DockPanel>("SettingsPanel");
+            DockPanel? settingsPanel = SettingsView.FindControl<DockPanel>("SettingsPanel");
             Border? buttonContainer = this.FindControl<Border>("SettingsButtonContainer");
             Avalonia.Svg.Svg? cogImage = this.FindControl<Avalonia.Svg.Svg>("SettingsCogImage");
-            StackPanel? textBlockPanel = this.FindControl<StackPanel>("TextBlockPanel");
-            TextBlock? versionPanel = textBlockPanel?.FindControl<TextBlock>("VersionPanel");
             TextBlock? debugConsoleTextBlock = this.FindControl<TextBlock>("DebugConsoleTextBlock");
+
             if (settingsPanel == null || buttonContainer == null || cogImage == null ||
-                textBlockPanel == null || osuautodeafenLogoPanel == null || versionPanel == null ||
-                debugConsoleTextBlock == null)
+                debugConsoleTextBlock == null || osuautodeafenLogoPanel == null)
                 return;
 
             Thickness showMargin = new(0, 42, 0, 0);
@@ -2440,38 +1693,109 @@ public partial class MainWindow : Window
             Thickness buttonRightMargin = new(0, 42, 0, 10);
             Thickness buttonLeftMargin = new(0, 42, 200, 10);
 
-            if (!settingsPanel.IsVisible)
+            bool opening = !_isSettingsPanelOpen;
+
+            if (opening)
             {
-                await Task.WhenAll(
-                    EnsureCogCenterAsync(cogImage),
-                    SetupPanelTransitionsAsync(settingsPanel, buttonContainer, versionPanel)
-                );
+                await EnsureCogCenterAsync(cogImage);
+                await SetupPanelTransitionsAsync(settingsPanel, buttonContainer);
+
                 StartCogSpin(cogImage);
+
                 settingsPanel.IsVisible = true;
-                await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render).GetTask();
-                await AnimatePanelInAsync(settingsPanel, buttonContainer, versionPanel, showMargin, buttonLeftMargin);
+                _viewModel.SwitchPage("Settings");
+
+                await AnimatePanelInAsync(settingsPanel, buttonContainer, showMargin, buttonLeftMargin);
 
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
-
                 debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
+                await UpdateSettingsOpacityAsync("Settings");
+
+                _isSettingsPanelOpen = true;
             }
             else
             {
-                await Task.WhenAll(
-                    StopCogSpinAsync(cogImage),
-                    AnimatePanelOutAsync(settingsPanel, buttonContainer, versionPanel, hideMargin, buttonRightMargin)
-                );
+                if (cogImage.RenderTransform is RotateTransform)
+                {
+                    Task stopCogTask = StopCogSpinAsync(cogImage);
+                    Task panelOutTask =
+                        AnimatePanelOutAsync(settingsPanel, buttonContainer, hideMargin, buttonRightMargin);
+                    await Task.WhenAll(stopCogTask, panelOutTask);
+                }
+                else
+                {
+                    await AnimatePanelOutAsync(settingsPanel, buttonContainer, hideMargin, buttonRightMargin);
+                }
+
                 settingsPanel.IsVisible = false;
+                _viewModel.SwitchPage("Home");
 
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
-
                 debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
+                await UpdateSettingsOpacityAsync("Home");
+
+                _isSettingsPanelOpen = false;
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Exception in SettingsButton_Click: {ex.Message}");
+            Console.WriteLine($"[ERROR] Exception in SettingsButton_Click: {ex}");
         }
+    }
+
+    private async Task AnimateAngleAsync(
+        RotateTransform rotate,
+        double targetAngle,
+        CancellationToken token)
+    {
+        double start = rotate.Angle;
+        double durationMs = 150;
+        double elapsed = 0;
+
+        const int frameMs = 16;
+
+        while (elapsed < durationMs)
+        {
+            token.ThrowIfCancellationRequested();
+
+            elapsed += frameMs;
+            double t = elapsed / durationMs;
+            t = Math.Clamp(t, 0, 1);
+
+            rotate.Angle = start + (targetAngle - start) * t;
+
+            await Task.Delay(frameMs, token);
+        }
+
+        rotate.Angle = targetAngle;
+    }
+
+    private async void SettingsButtonImage_PointerEnter(object sender, PointerEventArgs e)
+    {
+        if (_isCogSpinning)
+            return;
+
+        await _cogAnimator.RunAsync(async token =>
+        {
+            await EnsureCogCenterAsync(SettingsCogImage);
+
+            if (SettingsCogImage.RenderTransform is RotateTransform rotate)
+                await AnimateAngleAsync(rotate, HoverAngle, token);
+        });
+    }
+
+    private async void SettingsButtonImage_PointerLeave(object sender, PointerEventArgs e)
+    {
+        if (_isCogSpinning)
+            return;
+
+        await _cogAnimator.RunAsync(async token =>
+        {
+            await EnsureCogCenterAsync(SettingsCogImage);
+
+            if (SettingsCogImage.RenderTransform is RotateTransform rotate)
+                await AnimateAngleAsync(rotate, NormalAngle, token);
+        });
     }
 
     /// <summary>
@@ -2479,9 +1803,7 @@ public partial class MainWindow : Window
     /// </summary>
     /// <param name="settingsPanel"></param>
     /// <param name="buttonContainer"></param>
-    /// <param name="versionPanel"></param>
-    private async Task SetupPanelTransitionsAsync(DockPanel settingsPanel, Border buttonContainer,
-        TextBlock versionPanel)
+    private async Task SetupPanelTransitionsAsync(DockPanel settingsPanel, Border buttonContainer)
     {
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -2514,12 +1836,12 @@ public partial class MainWindow : Window
                     Easing = new BackEaseOut()
                 }
             };
-            versionPanel.Transitions = new Transitions
+            VersionPanel.Transitions = new Transitions
             {
                 new ThicknessTransition
                 {
                     Property = MarginProperty,
-                    Duration = TimeSpan.FromMilliseconds(600),
+                    Duration = TimeSpan.FromMilliseconds(500),
                     Easing = new BackEaseOut()
                 }
             };
@@ -2531,10 +1853,9 @@ public partial class MainWindow : Window
     /// </summary>
     /// <param name="settingsPanel"></param>
     /// <param name="buttonContainer"></param>
-    /// <param name="versionPanel"></param>
     /// <param name="showMargin"></param>
     /// <param name="buttonLeftMargin"></param>
-    private async Task AnimatePanelInAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel,
+    private async Task AnimatePanelInAsync(DockPanel settingsPanel, Border buttonContainer,
         Thickness showMargin, Thickness buttonLeftMargin)
     {
         await _panelAnimationLock.WaitAsync();
@@ -2552,6 +1873,8 @@ public partial class MainWindow : Window
 
         tasks.Add(Dispatcher.UIThread.InvokeAsync(() =>
         {
+            _ = AnimateGridLength(_viewModel.SettingsPanelWidth, new GridLength(200, GridUnitType.Pixel),
+                TimeSpan.FromMilliseconds(250), w => _viewModel.SettingsPanelWidth = w);
             settingsPanel.Margin = showMargin;
             buttonContainer.Margin = buttonLeftMargin;
 
@@ -2566,7 +1889,16 @@ public partial class MainWindow : Window
             };
             osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
 
-            versionPanel.Margin = new Thickness(0, 0, 225, 0);
+            VersionPanel.Transitions = new Transitions
+            {
+                new ThicknessTransition
+                {
+                    Property = MarginProperty,
+                    Duration = TimeSpan.FromMilliseconds(500),
+                    Easing = new BackEaseOut()
+                }
+            };
+            VersionPanel.Margin = new Thickness(0, -10, 225, 0);
         }).GetTask());
 
         await Task.WhenAll(tasks);
@@ -2577,10 +1909,9 @@ public partial class MainWindow : Window
     /// </summary>
     /// <param name="settingsPanel"></param>
     /// <param name="buttonContainer"></param>
-    /// <param name="versionPanel"></param>
     /// <param name="hideMargin"></param>
     /// <param name="buttonRightMargin"></param>
-    private async Task AnimatePanelOutAsync(DockPanel settingsPanel, Border buttonContainer, TextBlock versionPanel,
+    private async Task AnimatePanelOutAsync(DockPanel settingsPanel, Border buttonContainer,
         Thickness hideMargin, Thickness buttonRightMargin)
     {
         await _panelAnimationLock.WaitAsync();
@@ -2597,6 +1928,8 @@ public partial class MainWindow : Window
         await Task.WhenAll(
             Dispatcher.UIThread.InvokeAsync(() =>
             {
+                _ = AnimateGridLength(_viewModel.SettingsPanelWidth, new GridLength(0, GridUnitType.Pixel),
+                    TimeSpan.FromMilliseconds(0), w => _viewModel.SettingsPanelWidth = w);
                 settingsPanel.Margin = hideMargin;
                 buttonContainer.Margin = buttonRightMargin;
 
@@ -2611,9 +1944,175 @@ public partial class MainWindow : Window
                 };
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
 
-                versionPanel.Margin = new Thickness(0, 0, 0, 0);
+                VersionPanel.Transitions = new Transitions
+                {
+                    new ThicknessTransition
+                    {
+                        Property = MarginProperty,
+                        Duration = TimeSpan.FromMilliseconds(500),
+                        Easing = new BackEaseOut()
+                    }
+                };
+                VersionPanel.Margin = new Thickness(0, -10, 0, 0);
             }).GetTask());
     }
+
+    private async Task AnimateGridLength(
+        GridLength from, GridLength to, TimeSpan duration, Action<GridLength> setter)
+    {
+        const int fps = 60;
+        int frames = (int)(duration.TotalSeconds * fps);
+
+        double current = from.Value;
+        double step = (to.Value - from.Value) / frames;
+
+        for (int i = 0; i < frames; i++)
+        {
+            current += step;
+            setter(new GridLength(current, GridUnitType.Pixel));
+            await Task.Delay(1000 / fps);
+        }
+
+        setter(to);
+    }
+
+
+    /// <summary>
+    ///     Changes the margin of any Avalonia control to a specified target margin
+    /// </summary>
+    /// <param name="control"></param>
+    /// <param name="target"></param>
+    /// <param name="durationMs"></param>
+    /// <param name="easing"></param>
+    private async Task AnimateMarginAsync(Control control, Thickness target, double durationMs, Easing easing)
+    {
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            control.Transitions =
+            [
+                new ThicknessTransition
+                {
+                    Property = MarginProperty,
+                    Duration = TimeSpan.FromMilliseconds(durationMs),
+                    Easing = easing
+                }
+            ];
+
+            control.Margin = target;
+        });
+    }
+
+    /// <summary>
+    ///     Animates and scales the osuautodeafen logo when switching to/from the settings page (based on JKyrix's figma)
+    /// </summary>
+    /// <param name="toSettings">Whether we're going to the settings page or not</param>
+    private async Task AnimateLogoAsync(bool toSettings)
+    {
+        await _logoAnimationLock.WaitAsync();
+        try
+        {
+            if (LogoStackPanel.RenderTransform is not TransformGroup group)
+            {
+                group = new TransformGroup();
+                group.Children.Add(new TranslateTransform());
+                group.Children.Add(new ScaleTransform());
+                LogoStackPanel.RenderTransform = group;
+            }
+
+            TranslateTransform translate = group.Children.OfType<TranslateTransform>().FirstOrDefault() ??
+                                           new TranslateTransform();
+            ScaleTransform scale = group.Children.OfType<ScaleTransform>().FirstOrDefault() ?? new ScaleTransform();
+
+            const int steps = 30;
+            const int delayMs = 10;
+
+            double startX = translate.X;
+            double startY = translate.Y;
+
+            double targetX = toSettings ? -235 : 0;
+            double targetY = toSettings ? -125 : 0;
+
+            double startScale = scale.ScaleX;
+            // 80% scale appears to be fine
+            double targetScale = toSettings ? 0.8 : 1.0;
+
+            _settingsButtonClicked?.Invoke();
+
+            for (int i = 1; i <= steps; i++)
+            {
+                double t = i / (double)steps;
+                double ease = t * t * (3 - 2 * t);
+
+                translate.X = startX + (targetX - startX) * ease;
+                translate.Y = startY + (targetY - startY) * ease;
+                scale.ScaleX = startScale + (targetScale - startScale) * ease;
+                scale.ScaleY = scale.ScaleX;
+
+                await Task.Delay(delayMs);
+            }
+
+            translate.X = targetX;
+            translate.Y = targetY;
+            scale.ScaleX = targetScale;
+            scale.ScaleY = targetScale;
+        }
+        finally
+        {
+            _logoAnimationLock.Release();
+        }
+    }
+
+
+    /// <summary>
+    ///     Animates the settings panel in or out based on the 'show' parameter
+    /// </summary>
+    /// <param name="show"></param>
+    private async Task AnimateSettingsPanelAsync(DockPanel settingsPanel, Border buttonContainer,
+        TextBlock versionPanel, bool show)
+    {
+        await _panelAnimationLock.WaitAsync();
+        bool shouldAnimate = show != _isSettingsPanelOpen;
+        if (shouldAnimate)
+            _isSettingsPanelOpen = show;
+        _panelAnimationLock.Release();
+
+        if (!shouldAnimate) return;
+
+        var tasks = new List<Task>();
+
+        if (!_tosuApi._isKiai || !_viewModel.IsBackgroundEnabled)
+        {
+            Task? backgroundTask = null;
+
+            if (!_tosuApi._isKiai || !_viewModel.IsBackgroundEnabled)
+            {
+                if (show)
+                    _backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150);
+                else
+                    _backgroundManager?.RemoveBackgroundOpacityRequest("settings");
+            }
+
+
+            if (backgroundTask != null)
+                tasks.Add(backgroundTask);
+        }
+
+        Thickness settingsMargin = show ? new Thickness(200, 42, -200, 0) : new Thickness(-200, 42, 0, 0);
+        Thickness buttonMargin = new(0, 42, 0, 10);
+        Thickness logoMargin = show ? new Thickness(0, 0, 225, 0) : new Thickness(0, 0, 0, 0);
+        Thickness versionMargin = logoMargin;
+
+        tasks.Add(Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            AnimateMarginAsync(settingsPanel, settingsMargin, 250, new QuarticEaseInOut());
+            AnimateMarginAsync(buttonContainer, buttonMargin, 250, new QuarticEaseInOut());
+            AnimateMarginAsync(osuautodeafenLogoPanel, logoMargin, 500, new BackEaseOut());
+            AnimateMarginAsync(versionPanel, versionMargin, 600, new BackEaseOut());
+        }).GetTask());
+
+        await Task.WhenAll(tasks);
+    }
+
 
     /// <summary>
     ///     Sets up the initial state and transitions for the debug console panel
@@ -2716,42 +2215,43 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    ///     Stops the cog spinning animation and returns it to the original position
-    /// </summary>
-    /// <param name="cogImage"></param>
     private async Task StopCogSpinAsync(Avalonia.Svg.Svg cogImage)
     {
+        RotateTransform? rotate = cogImage.RenderTransform as RotateTransform;
+        if (rotate == null)
+            return;
+
         lock (_cogSpinLock)
         {
             if (!_isCogSpinning)
                 return;
+
             _isCogSpinning = false;
             _cogSpinTimer?.Stop();
             _cogSpinTimer = null;
         }
 
-        if (cogImage.RenderTransform is RotateTransform rotate)
-        {
-            double start = _cogCurrentAngle;
-            double end = 0;
-            int duration = 250;
-            int steps = 20;
-            double step = (end - start) / steps;
-            await Task.Run(async () =>
-            {
-                for (int i = 1; i <= steps; i++)
-                {
-                    await Task.Delay(duration / steps);
-                    double angle = start + step * i;
-                    await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle).GetTask();
-                }
+        double start = 0;
+        await Dispatcher.UIThread.InvokeAsync(() => start = rotate.Angle);
 
-                await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = 0).GetTask();
-                _cogCurrentAngle = 0;
-            });
+        // tldr the fontawesome cog has 6 teeth so we should snap to the nearest 1/6
+        double target = Math.Round(start / 60.0) * 60.0;
+
+        int duration = 150;
+        int steps = 5;
+        double step = (target - start) / steps;
+
+        for (int i = 1; i <= steps; i++)
+        {
+            await Task.Delay(duration / steps);
+            double angle = start + step * i;
+            await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle);
         }
+
+        await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = target);
+        _cogCurrentAngle = target % 360;
     }
+
 
     /// <summary>
     ///     Update the cog spin BPM with the current beatmap BPM
@@ -2770,60 +2270,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private void InitializeKeybindButtonText()
-    {
-        string currentKeybind = RetrieveKeybindFromSettings();
-        Button? deafenKeybindButton = this.FindControl<Button>("DeafenKeybindButton");
-        if (deafenKeybindButton != null) deafenKeybindButton.Content = currentKeybind;
-    }
-
-    /// <summary>
-    ///     Opens the file location of the osuautodeafen appdata folder
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    private void OpenFileLocationButton_Click(object? sender, RoutedEventArgs e)
-    {
-        string? appPath = _settingsHandler?.GetPath();
-        if (appPath != null)
-        {
-            if (Directory.Exists(appPath))
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = appPath,
-                    UseShellExecute = true
-                });
-            else
-                Console.WriteLine($"[ERROR] Directory does not exist: {appPath}");
-        }
-        else
-        {
-            Console.WriteLine("[ERROR] App path is null.");
-        }
-    }
-
-    /// <summary>
-    ///     Opens the GitHub issues page in the default web browser with a default issue template
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
-    private void ReportIssueButton_Click(object? sender, RoutedEventArgs e)
-    {
-        string issueUrl =
-            "https://github.com/aerodite/osuautodeafen/issues/new?template=help.md&title=[BUG]%20Something%20Broke&body=help&labels=bug";
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = issueUrl,
-            UseShellExecute = true
-        });
-    }
-
     /// <summary>
     ///     Shows or hides the debug console panel
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
-    private async void ToggleDebugConsole(object? sender, RoutedEventArgs e)
+    public async void ToggleDebugConsole(object? sender, RoutedEventArgs e)
     {
         try
         {
