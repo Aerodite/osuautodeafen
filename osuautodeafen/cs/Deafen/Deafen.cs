@@ -94,7 +94,7 @@ public class Deafen : IDisposable
             if (process == null)
                 return false;
 
-            process.WaitForExit(200);
+            process.WaitForExit(600);
 
             return process.ExitCode == 0;
         }
