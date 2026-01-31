@@ -659,7 +659,7 @@ public partial class MainWindow : Window
             _settingsHandler.LoadSettings();
 
             _settingsViewModel.IsKeybindCaptureEnabled =
-                string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient);
+                string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient) && PlatformHelper.IsLinux;
         });
     }
     

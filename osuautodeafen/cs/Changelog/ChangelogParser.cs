@@ -152,8 +152,12 @@ public static class ChangelogParser
                     inlines.Add(new Run(
                         literal.Content.Text.Substring(
                             literal.Content.Start,
-                            literal.Content.Length)));
+                            literal.Content.Length))
+                    {
+                        Foreground = Brushes.White
+                    });
                     break;
+
 
                 case EmphasisInline emphasis:
                     foreach (AvaloniaInline sub in ParseInlineParts(emphasis))
@@ -362,6 +366,7 @@ public static class ChangelogParser
                url.EndsWith(".jpg") ||
                url.EndsWith(".jpeg") ||
                url.EndsWith(".gif") ||
-               url.Contains("github.com/user-attachments");
+               url.Contains("github.com/user-attachments") || 
+               url.EndsWith(".webp");
     }
 }

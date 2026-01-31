@@ -558,7 +558,7 @@ public partial class SettingsView : UserControl
         if (sender is not StackPanel panel)
             return;
 
-        var button = panel.FindControl<Button>("DeafenKeybindButton");
+        Button? button = panel.FindControl<Button>("DeafenKeybindButton");
         if (button == null)
             return;
 

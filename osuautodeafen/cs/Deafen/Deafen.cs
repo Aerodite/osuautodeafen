@@ -178,10 +178,20 @@ public class Deafen : IDisposable
             Console.WriteLine($"[SimulateDeafenKey] Exception: {ex}");
         }
     }
+    
+    private int ClientBanchoStatus()
+    {
+        bool isLazer = _tosuAPI.GetClient() == "lazer";
+
+        return isLazer
+            ? _tosuAPI.GetLazerRawBanchoStatus()
+            : _tosuAPI.GetRawBanchoStatus();
+    }
 
     private bool ComputeDeafenState()
     {
-        bool isPlaying = _tosuAPI.GetRawBanchoStatus() == 2;
+        int status = ClientBanchoStatus();
+        bool isPlaying = status == 2;
         bool isSpectating = _tosuAPI.GetRawBanchoStatus() == 6;
         bool hasHitObjects = _tosuAPI.GetMaxPlayCombo() != 0;
 
