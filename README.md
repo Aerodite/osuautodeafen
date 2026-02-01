@@ -15,12 +15,12 @@
 ##
 
 osuautodeafen is a tool that uses osu! memory data from [Tosu](https://github.com/KotRikD/tosu) to automatically Toggle
-Deafen on Discord when your defined criteria are reached
+Deafen on Discord when certain criteria are reached
 
 # Installation Steps
 
 > [!IMPORTANT]
-> Both osu! and Tosu are __required__ to be open while osuautodeafen is running
+> Tosu is required to be open while osuautodeafen is running
 
 ## Windows
 
@@ -35,12 +35,14 @@ Deafen on Discord when your defined criteria are reached
 
 1. Download the [latest release](https://github.com/Aerodite/osuautodeafen/releases/latest) (osuautodeafen.AppImage)
 3. Launch the AppImage
-4. Set the Deafen Keybind in the app to your Discord "Toggle Deafen" keybind
+4. Set the Deafen Keybind in the app to your Discord "Toggle Deafen" keybind*
 5. Modify the settings in the app to what you want!
+
+*If you're on Hyprland, you could set the discordClient line in the ~/.config/osuautodeafen/settings.ini to your Discord client and it will instead send the Toggle Deafen keybind straight through the compositor, which should allow the same behavior as Windows or X11.
 
 <details>
   <summary>Linux Info</summary>
-Linux was tested on Linux 6.16.4 CachyOS x86_64 (Hyprland) on osu!lazer with Tosu running from the latest GitHub Release being ran with sudo ./tosu
+Tested on Linux 6.16.4 (CachyOS x86_64, Hyprland) using osu!lazer and osu!stable (through osu-winello) with Tosu from the latest GitHub release running with 'sudo ./tosu'
 </details>
 
 # Features
@@ -60,7 +62,7 @@ Linux was tested on Linux 6.16.4 CachyOS x86_64 (Hyprland) on osu!lazer with Tos
 
 # Credits
 
-Thank you [Jurme](https://osu.ppy.sh/users/6282195) & [InfernoJonk](https://osu.ppy.sh/users/9537557) for testing (and
+Thank you [Jurme](https://osu.ppy.sh/users/6282195), [InfernoJonk](https://osu.ppy.sh/users/9537557), and [Jarran](https://osu.ppy.sh/users/11417993/osu) for testing (and
 discovering) a bunch of edge cases
 
 ##
