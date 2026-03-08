@@ -16,26 +16,26 @@ public class TosuLauncher
         string tosuPath = GetTosuPath();
         if (string.IsNullOrEmpty(tosuPath))
         {
-            Console.WriteLine("Tosu path could not be determined.");
+            Serilog.Log.Warning("Tosu path could not be determined.");
             return;
         }
 
         if (!IsTosuRunning())
         {
-            Console.WriteLine("Tosu is not running. Attempting to start Tosu...");
+            Serilog.Log.Information("Tosu is not running. Attempting to start Tosu...");
             try
             {
                 Process.Start(tosuPath);
-                Console.WriteLine("Tosu started successfully.");
+                Serilog.Log.Information("Tosu started successfully.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to start Tosu: {ex.Message}");
+                Serilog.Log.Error("Failed to start Tosu: {ExMessage}", ex.Message);
             }
         }
         else
         {
-            Console.WriteLine("Tosu is already running.");
+            Serilog.Log.Debug("Tosu is already running.");
         }
     }
 

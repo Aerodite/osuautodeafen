@@ -41,10 +41,18 @@ public partial class SettingsView : UserControl
     private DispatcherTimer? _completionPercentageSaveTimer;
 
     private double _pendingCompletionPercentage;
-    private int _pendingPP;
+    private double _pendingBe;
     private double _pendingStarRating;
+    
+    private DispatcherTimer? _debounceSaveTimer;
+    
+    private int _pendingPP;
+    private double _pendingSR;
+    private double _pendingCompletion;
+    private double _pendingBlur;
 
     private DispatcherTimer? _ppSaveTimer;
+    private DispatcherTimer? _BESaveTimer;
     private SettingsViewModel _settingsViewModel;
     private DispatcherTimer? _starRatingSaveTimer;
     private TooltipManager _tooltipManager;
@@ -226,7 +234,7 @@ public partial class SettingsView : UserControl
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[ERROR] Could not delete preset data file {file}: {ex}");
+                    Serilog.Log.Error("Could not delete preset data file {File}: {Exception}", file, ex);
                 }
         }
 
@@ -672,87 +680,83 @@ public partial class SettingsView : UserControl
         MainWindow? window = this.GetVisualRoot() as MainWindow;
         window?.ToggleDebugConsole(sender, e);
     }
+    
+    private CancellationTokenSource? _saveCts;
 
-    public async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    private void ScheduleSave(int settingId)
     {
-        try
-        {
-            if (DataContext is not SharedViewModel vm) return;
-            double roundedValue = Math.Round(e.NewValue, 2);
-            vm.MinCompletionPercentage = roundedValue;
-            _pendingCompletionPercentage = roundedValue;
+        _debounceSaveTimer?.Stop();
 
-            _completionPercentageSaveTimer?.Stop();
-            _completionPercentageSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-            _completionPercentageSaveTimer.Tick += (s, args) =>
-            {
-                _settingsHandler?.SaveSetting("General", "MinCompletionPercentage", _pendingCompletionPercentage);
-                _completionPercentageSaveTimer?.Stop();
-            };
-            _completionPercentageSaveTimer.Start();
-
-            try
-            {
-                await _chartManager.UpdateDeafenOverlayAsync(roundedValue);
-            }
-            catch (TaskCanceledException)
-            {
-                Console.WriteLine("Task was canceled while updating deafen overlay.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[ERROR] Exception in CompletionPercentageSlider_ValueChanged: {ex}");
-            }
-        }
-        catch (Exception ex)
+        _debounceSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        _debounceSaveTimer.Tick += (s, e) =>
         {
-            throw new Exception($"Error in CompletionPercentageSlider_ValueChanged: {ex.Message}", ex);
-        }
+            _debounceSaveTimer.Stop();
+
+            switch (settingId)
+            {
+                case 1:
+                    _settingsHandler.SaveSetting("General", "MinCompletionPercentage", _pendingCompletion);
+                    Serilog.Log.Information("Saved new Completion Percentage to settings: " + _pendingCompletion + "%");
+                    break;
+                case 2:
+                    _settingsHandler.SaveSetting("General", "StarRating", _pendingSR);
+                    Serilog.Log.Information("Saved new Star Rating to settings: " + _pendingSR + "*");
+                    break;
+                case 3:
+                    _settingsHandler.SaveSetting("General", "PerformancePoints", _pendingPP);
+                    Serilog.Log.Information("Saved new pp value to settings: " + _pendingPP + "pp");
+                    break;
+                case 4:
+                    _settingsHandler.SaveSetting("UI", "BlurRadius", _pendingBlur);
+                    Serilog.Log.Information("Saved new BlurRadius to settings: " + _pendingBlur*5 + "%");
+                    break;
+            }
+        };
+        _debounceSaveTimer.Start();
     }
+    
+    public void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
 
+        double roundedValue = Math.Round(slider.Value, 2);
+        vm.MinCompletionPercentage = roundedValue;
+        _pendingCompletion = roundedValue;
+
+        ScheduleSave(1);
+    }
+    
     public void StarRatingSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
+
         double roundedValue = Math.Round(slider.Value, 1);
-        Console.WriteLine($"Min SR Value: {roundedValue:F1}");
         vm.StarRating = roundedValue;
-        _pendingStarRating = roundedValue;
+        _pendingSR = roundedValue;
 
-        _starRatingSaveTimer?.Stop();
-        _starRatingSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-        _starRatingSaveTimer.Tick += (s, args) =>
-        {
-            _settingsHandler?.SaveSetting("General", "StarRating", _pendingStarRating);
-            _starRatingSaveTimer?.Stop();
-        };
-        _starRatingSaveTimer.Start();
+        ScheduleSave(2);
     }
-
+    
     public void PPSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
+
         int roundedValue = (int)Math.Round(slider.Value);
-        Console.WriteLine($"Min PP Value: {roundedValue}");
         vm.PerformancePoints = roundedValue;
         _pendingPP = roundedValue;
 
-        _ppSaveTimer?.Stop();
-        _ppSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-        _ppSaveTimer.Tick += (s, args) =>
-        {
-            _settingsHandler?.SaveSetting("General", "PerformancePoints", _pendingPP);
-            _ppSaveTimer?.Stop();
-        };
-        _ppSaveTimer.Start();
+        ScheduleSave(3);
     }
 
     public void BlurEffectSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
+
         double roundedValue = Math.Round(slider.Value, 1);
-        Console.WriteLine($"Blur Radius: {roundedValue:F1}");
         vm.BlurRadius = roundedValue;
-        _settingsHandler?.SaveSetting("UI", "BlurRadius", roundedValue);
+        _pendingBlur = roundedValue;
+
+        ScheduleSave(4);
     }
 
     /// <summary>
@@ -771,7 +775,7 @@ public partial class SettingsView : UserControl
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[ERROR] Exception when updating Deafen Section after reset: " + ex.Message);
+            Serilog.Log.Error("Exception when updating Deafen Section after reset: " + ex.Message);
         }
     }
 
@@ -800,7 +804,7 @@ public partial class SettingsView : UserControl
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Exception while updating Deafen Section after deleting preset: {ex}");
+            Serilog.Log.Error("Exception while updating Deafen Section after deleting preset: {Exception}", ex);
         }
 
         DeletePresetData();
@@ -848,7 +852,7 @@ public partial class SettingsView : UserControl
         if (sender is Button btn && btn.DataContext is PresetInfo preset)
         {
             string selectedPresetPath = preset.FilePath;
-            Console.WriteLine($"Selected Preset Path: {selectedPresetPath}");
+            Serilog.Log.Information("Selected Preset Path: {SelectedPresetPath}", selectedPresetPath);
             string currentChecksum = _tosuApi.GetBeatmapChecksum();
             string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "osuautodeafen", "presets");
@@ -873,7 +877,7 @@ public partial class SettingsView : UserControl
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ERROR] Exception while updating Deafen Section after applying preset: {ex}");
+                Serilog.Log.Error("Exception while updating Deafen Section after applying preset: {Exception}", ex);
             }
 
             btn.Flyout?.Hide();
@@ -906,7 +910,7 @@ public partial class SettingsView : UserControl
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[ERROR] Could not delete preset file {file}: {ex}");
+                    Serilog.Log.Error("Could not delete preset file {File}: {Exception}", file, ex);
                 }
         }
 
@@ -921,7 +925,7 @@ public partial class SettingsView : UserControl
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Exception while updating Deafen Section after deleting all presets: {ex}");
+            Serilog.Log.Error("Exception while updating Deafen Section after deleting all presets: {Exception}", ex);
         }
     }
 
@@ -1003,11 +1007,11 @@ public partial class SettingsView : UserControl
                     UseShellExecute = true
                 });
             else
-                Console.WriteLine($"[ERROR] Directory does not exist: {appPath}");
+                Serilog.Log.Error("Directory does not exist: {AppPath}", appPath);
         }
         else
         {
-            Console.WriteLine("[ERROR] App path is null.");
+            Serilog.Log.Error("App path is null.");
         }
     }
 

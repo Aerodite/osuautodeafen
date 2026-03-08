@@ -60,7 +60,7 @@ public class Deafen : IDisposable
     /// </summary>
     public void Dispose()
     {
-        Console.WriteLine("Disposing Deafen resources.");
+        Serilog.Log.Debug("Disposing Deafen resources.");
         _hook.Dispose();
         _timer.Dispose();
         GC.SuppressFinalize(this);
@@ -93,7 +93,7 @@ public class Deafen : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Hyprland] sendshortcut failed: {ex.Message}");
+            Serilog.Log.Error("sendshortcut failed: {ExMessage}", ex.Message);
             return false;
         }
     }
@@ -117,7 +117,7 @@ public class Deafen : IDisposable
 
             if (!hasAnyModifier && keys.Contains(configuredKey))
             {
-                Console.WriteLine("Nice try.");
+                Serilog.Log.Error("Nice try.");
                 return;
             }
 
@@ -129,8 +129,7 @@ public class Deafen : IDisposable
             int altSide = _settingsHandler.DeafenKeybindAltSide;
             int shiftSide = _settingsHandler.DeafenKeybindShiftSide;
 
-            Console.WriteLine(
-                $"[SimulateDeafenKey] Retrieved keybind from settings: Key={key}, ControlSide={controlSide}, AltSide={altSide}, ShiftSide={shiftSide}");
+            Serilog.Log.Debug("[SimulateDeafenKey] Retrieved keybind from settings: Key={KeyCode}, ControlSide={ControlSide}, AltSide={AltSide}, ShiftSide={ShiftSide}", key, controlSide, altSide, shiftSide);
 
             if (controlSide != 0)
                 modifiers.Add(new ModifierWithSide
@@ -151,24 +150,22 @@ public class Deafen : IDisposable
                     Side = shiftSide == 2 ? Modifiers.ModifierSide.Right : Modifiers.ModifierSide.Left
                 });
 
-            Console.WriteLine(
-                $"[SimulateDeafenKey] Pressing modifiers: {string.Join(", ", modifiers.Select(m => m.Modifier + (m.Side != Modifiers.ModifierSide.None ? $"({m.Side})" : "")))}");
+            Serilog.Log.Information("Simulating modifier keys: {Join}", string.Join(", ", modifiers.Select(m => m.Modifier + (m.Side != Modifiers.ModifierSide.None ? $"({m.Side})" : ""))));
             foreach (ModifierWithSide mod in modifiers) _eventSimulator.SimulateKeyPress(mod.Modifier);
 
-            Console.WriteLine($"[SimulateDeafenKey] Pressing main key: {key}");
+            Serilog.Log.Information("Simulating main key: {KeyCode}", key);
             _eventSimulator.SimulateKeyPress(key);
 
             _eventSimulator.SimulateKeyRelease(key);
-            Console.WriteLine($"[SimulateDeafenKey] Released main key: {key}");
+            Serilog.Log.Information("Released main key: {KeyCode}", key);
 
             foreach (ModifierWithSide mod in modifiers.AsEnumerable().Reverse())
                 _eventSimulator.SimulateKeyRelease(mod.Modifier);
-            Console.WriteLine(
-                $"[SimulateDeafenKey] Released modifiers: {string.Join(", ", modifiers.AsEnumerable().Reverse().Select(m => m.Modifier + (m.Side != Modifiers.ModifierSide.None ? $"({m.Side})" : "")))}");
+            Serilog.Log.Information("Released modifiers: {Join}", string.Join(", ", modifiers.AsEnumerable().Reverse().Select(m => m.Modifier + (m.Side != Modifiers.ModifierSide.None ? $"({m.Side})" : ""))));
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[SimulateDeafenKey] Exception: {ex}");
+            Serilog.Log.Error("Exception while simulating deafen keybind: {Exception}", ex);
         }
     }
     
@@ -276,7 +273,7 @@ public class Deafen : IDisposable
 
             if (_isDeafened)
             {
-                Console.WriteLine("Undeafening due to spectating");
+                Serilog.Log.Information("Undeafening due to spectating (how did this happen?)");
                 ApplyDeafenToggle();
             }
 
@@ -306,10 +303,10 @@ public class Deafen : IDisposable
         if (nextState == _isDeafened)
             return;
 
-        Console.WriteLine(
+        Serilog.Log.Information(
             nextState
-                ? "[Deafen] deafening"
-                : "[Deafen] undeafening"
+                ? "Deafening"
+                : "Undeafening"
         );
 
         ApplyDeafenToggle();

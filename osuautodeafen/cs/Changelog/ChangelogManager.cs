@@ -42,7 +42,7 @@ public sealed class ChangelogManager
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Changelog] Failed to show changelog: {ex}");
+            Serilog.Log.Error("Failed to show changelog: {Exception}", ex);
         }
     }
     
@@ -65,7 +65,7 @@ public sealed class ChangelogManager
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Changelog] Failed to dismiss changelog: {ex}");
+            Serilog.Log.Error("Failed to dismiss changelog: {Exception}", ex);
         }
     }
     public event Action? ChangelogDestroyed;

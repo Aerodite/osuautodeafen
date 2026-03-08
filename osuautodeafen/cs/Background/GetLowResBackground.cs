@@ -3,7 +3,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using osuautodeafen.cs.Tosu;
 
-namespace osuautodeafen.cs;
+namespace osuautodeafen.cs.Background;
 
 public class GetLowResBackground
 {
@@ -32,40 +32,40 @@ public class GetLowResBackground
 
         if (string.IsNullOrEmpty(osuFolderPath))
         {
-            Console.WriteLine("osuFolderPath is null or empty");
+            Serilog.Log.Debug("osuFolderPath is null or empty");
             return null;
         }
 
-        Console.WriteLine($"Osu Folder Path: {osuFolderPath}");
+        Serilog.Log.Debug($"osu! folder path: {osuFolderPath}");
 
         string beatmapId = _tosuApi.GetBeatmapId().ToString();
         if (string.IsNullOrEmpty(beatmapId))
         {
-            Console.WriteLine("[ERROR] beatmapId is null or empty");
+            Serilog.Log.Warning("beatmapId is null or empty");
             return null;
         }
 
         string path1 = Path.Combine(osuFolderPath, "Data", "bt", beatmapId + ".jpg");
         string path2 = Path.Combine(osuFolderPath, "Data", "bt", beatmapId + "l.jpg");
 
-        Console.WriteLine($"Path 1: {path1}");
-        Console.WriteLine($"Path 2: {path2}");
+        Serilog.Log.Debug("Path 1: {Path1}", path1);
+        Serilog.Log.Debug("Path 2: {Path2}", path2);
 
         if (File.Exists(path2))
         {
-            Console.WriteLine($"Path exists: {path2}");
+            Serilog.Log.Debug("Path exists: {Path2}", path2);
             return path2;
         }
 
         if (File.Exists(path1))
         {
-            Console.WriteLine($"Path exists: {path1}");
+            Serilog.Log.Debug("Path exists: {Path1}", path1);
             return path1;
         }
 
         //just return the normal background (really only affects lazer)
-        Console.WriteLine("No path exists, just using high res background");
-        string _backgroundPath = _tosuApi.GetBackgroundPath();
-        return _backgroundPath;
+        Serilog.Log.Debug("No path exists, just using high res background");
+        string backgroundPath = _tosuApi.GetBackgroundPath();
+        return backgroundPath;
     }
 }

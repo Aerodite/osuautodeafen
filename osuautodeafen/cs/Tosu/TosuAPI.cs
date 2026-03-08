@@ -114,7 +114,7 @@ public class TosuApi : IDisposable
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Exception while closing WebSocket: {ex.Message}");
+                Serilog.Log.Error("Exception while closing WebSocket: {ExMessage}", ex.Message);
             }
 
         _webSocket.Dispose();
@@ -176,17 +176,17 @@ public class TosuApi : IDisposable
 
             try
             {
-                Console.WriteLine("Attempting to reconnect...");
+                Serilog.Log.Information("Attempting to reconnect to Tosu...");
                 await ConnectAsync();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to reconnect: {ex.Message}");
+                Serilog.Log.Error("Failed to reconnect: {ExMessage}", ex.Message);
             }
         }
         else
         {
-            Console.WriteLine("No reconnection needed, WebSocket is open");
+            Serilog.Log.Debug("No reconnection needed, WebSocket is open");
         }
     }
 
@@ -215,8 +215,8 @@ public class TosuApi : IDisposable
             string counterPath = "osuautodeafen";
             string uriWithParam = $"ws://{ip}:{port}/websocket/v2?l={Uri.EscapeDataString(counterPath)}";
 
-            Console.WriteLine($"WebSocket URI: {uriWithParam}");
-            Console.WriteLine($"WebSocket State: {_webSocket.State}");
+            Serilog.Log.Debug("WebSocket URI: {UriWithParam}", uriWithParam);
+            Serilog.Log.Debug("WebSocket State: {WebSocketState}", _webSocket.State);
 
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -229,7 +229,7 @@ public class TosuApi : IDisposable
                     _webSocket = new ClientWebSocket();
 
                     await _webSocket.ConnectAsync(new Uri(uriWithParam), cancellationToken);
-                    Console.WriteLine("Connected to WebSocket.");
+                    Serilog.Log.Information("Connected to WebSocket.");
 
                     _reconnectTimer.Change(600000, 600000);
 
@@ -239,7 +239,7 @@ public class TosuApi : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Failed to connect: {ex.Message}. Retrying in 2 seconds...");
+                    Serilog.Log.Error("Failed to connect: {ExMessage}. Retrying in 2 seconds...", ex.Message);
                     TosuLauncher.EnsureTosuRunning();
 
                     try
@@ -371,7 +371,7 @@ public class TosuApi : IDisposable
                                     _missCount = missElement.GetDouble();
                                     if (_missCount > 0)
                                     {
-                                        //Console.WriteLine($"Miss count: {_missCount}");
+                                        //Serilog.Log.Debug($"Miss count: {_missCount}");
                                     }
                                 }
 
@@ -382,7 +382,7 @@ public class TosuApi : IDisposable
                                     _sbCount = sbElement.GetDouble();
                                     if (_sbCount > 0)
                                     {
-                                        //Console.WriteLine($"Slider break count: {_sbCount}");
+                                        //Serilog.Log.Debug($"Slider break count: {_sbCount}");
                                     }
                                 }
                         }
@@ -460,11 +460,11 @@ public class TosuApi : IDisposable
                 }
                 catch (JsonReaderException ex)
                 {
-                    Console.WriteLine($@"Failed to parse JSON: {ex.Message}");
+                    Serilog.Log.Error("Failed to parse JSON: {ExMessage}", ex.Message);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($@"An error occurred in the TosuAPI: {ex.Message}");
+                    Serilog.Log.Error($"An error occurred in the TosuAPI: {ex.Message}");
                 }
                 finally
                 {
@@ -513,7 +513,7 @@ public class TosuApi : IDisposable
         else
             _completionPercentage = (_current - _firstObj) / (_full - _firstObj) * 100;
 
-        //Console.WriteLine($"Completion Percentage: {_completionPercentage}");
+        //Serilog.Log.Debug($"Completion Percentage: {_completionPercentage}");
         return _completionPercentage;
     }
 
@@ -679,8 +679,8 @@ public class TosuApi : IDisposable
 
         if (!File.Exists(fullPath))
         {
-            Console.WriteLine($"Songs folder: {osuSongsFolder}");
-            Console.WriteLine($"File not found: {fullPath}");
+            Serilog.Log.Debug("Songs folder: {OsuSongsFolder}", osuSongsFolder);
+            Serilog.Log.Warning("File not found: {FullPath}", fullPath);
             return null;
         }
 
@@ -976,7 +976,7 @@ public class TosuApi : IDisposable
         _lastModNames = currentMods;
         Action? handler = HasModsChanged;
         handler?.Invoke();
-        Console.WriteLine($"Mods changed to: {currentMods}");
+        Serilog.Log.Debug("Mods changed to: {CurrentMods}", currentMods);
     }
 
     /// <summary>
@@ -1002,7 +1002,7 @@ public class TosuApi : IDisposable
         _lastBpm = bpm;
         Action? handler = HasBPMChanged;
         handler?.Invoke();
-        Console.WriteLine($"BPM changed to: {bpm}");
+        Serilog.Log.Debug("BPM changed to: {Bpm}", bpm);
     }
 
     /// <summary>

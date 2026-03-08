@@ -668,7 +668,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         foreach (PresetInfo preset in Presets ?? Enumerable.Empty<PresetInfo>())
         {
             preset.IsCurrentPreset = preset.Checksum == _tosuApi.GetBeatmapChecksum();
-            Console.WriteLine($"Preset {preset.BeatmapName} IsCurrentPreset: {preset.IsCurrentPreset}");
+            Serilog.Log.Debug("Preset {PresetBeatmapName} IsCurrentPreset: {PresetIsCurrentPreset}", preset.BeatmapName, preset.IsCurrentPreset);
         }
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasAnyPresetsNotCurrent)));

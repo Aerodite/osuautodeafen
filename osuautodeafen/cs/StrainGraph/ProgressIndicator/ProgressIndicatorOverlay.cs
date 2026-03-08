@@ -100,20 +100,20 @@ public class ProgressIndicatorOverlay : Control
     private double MapChartXToCanvas(double chartX)
     {
         if (ChartXMax == ChartXMin)
-            //Console.WriteLine($"[MapChartXToCanvas] ChartXMax == ChartXMin ({ChartXMax}), returning 0");
+            //Serilog.Log.Debug($"[MapChartXToCanvas] ChartXMax == ChartXMin ({ChartXMax}), returning 0");
             return 0;
         double result = (chartX - ChartXMin) / (ChartXMax - ChartXMin) * Bounds.Width;
-        //Console.WriteLine($"[MapChartXToCanvas] chartX={chartX}, ChartXMin={ChartXMin}, ChartXMax={ChartXMax}, Bounds.Width={Bounds.Width} => {result}");
+        //Serilog.Log.Debug($"[MapChartXToCanvas] chartX={chartX}, ChartXMin={ChartXMin}, ChartXMax={ChartXMax}, Bounds.Width={Bounds.Width} => {result}");
         return result;
     }
 
     private double MapChartYToCanvas(double chartY, double localYMax)
     {
         if (localYMax == ChartYMin)
-            //Console.WriteLine($"[MapChartYToCanvas] localYMax == ChartYMin ({ChartYMin}), returning 0");
+            //Serilog.Log.Debug($"[MapChartYToCanvas] localYMax == ChartYMin ({ChartYMin}), returning 0");
             return 0;
         double result = Bounds.Height - (chartY - ChartYMin) / (localYMax - ChartYMin) * Bounds.Height;
-        //Console.WriteLine($"[MapChartYToCanvas] chartY={chartY}, ChartYMin={ChartYMin}, localYMax={localYMax}, Bounds.Height={Bounds.Height} => {result}");
+        //Serilog.Log.Debug($"[MapChartYToCanvas] chartY={chartY}, ChartYMin={ChartYMin}, localYMax={localYMax}, Bounds.Height={Bounds.Height} => {result}");
         return result;
     }
 }

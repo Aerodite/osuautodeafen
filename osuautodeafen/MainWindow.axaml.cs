@@ -40,6 +40,7 @@ using osuautodeafen.cs.Tosu;
 using osuautodeafen.cs.Update;
 using osuautodeafen.cs.ViewModels;
 using osuautodeafen.Views;
+using Serilog;
 using SkiaSharp;
 using Svg.Skia;
 using Animation = Avalonia.Animation.Animation;
@@ -170,12 +171,15 @@ public partial class MainWindow : Window
         string appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen");
         Directory.CreateDirectory(appPath);
-
-        string logFile = Path.Combine(appPath, "osuautodeafen.log");
-        LogFileManager.CreateLogFile(logFile);
-        LogFileManager.ClearLogFile(logFile);
-
-        LogFileManager.InitializeLogging(logFile);
+        
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.Console()
+            .WriteTo.File(Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "osuautodeafen",
+                "osuautodeafen.log"), rollingInterval: RollingInterval.Day)
+            .CreateLogger();
 
         _tosuApi = new TosuApi();
 
@@ -291,7 +295,7 @@ public partial class MainWindow : Window
             _viewModel.PresetExistsForCurrentChecksum = File.Exists(presetFilePath);
             foreach (PresetInfo preset in _viewModel.Presets ?? Enumerable.Empty<PresetInfo>())
                 preset.IsCurrentPreset = preset.Checksum == _tosuApi.GetBeatmapChecksum();
-            //Console.WriteLine($"Preset {preset.BeatmapName} IsCurrentPreset: {preset.IsCurrentPreset}");
+            //Log.Information($"Preset {preset.BeatmapName} IsCurrentPreset: {preset.IsCurrentPreset}");
             if (_viewModel.PresetExistsForCurrentChecksum)
             {
                 _settingsHandler.ActivatePreset(presetFilePath);
@@ -302,7 +306,7 @@ public partial class MainWindow : Window
                 _settingsHandler.LoadSettings();
             }
 
-            _logImportant.logImportant("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false,
+            _logImportant.logToInfoPanel("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false,
                 "Client");
             // thanks a lot take a hint for letting me figure this one out 😔
             // if a map is over 70 characters it overflows to the next line (on 630 width)
@@ -314,18 +318,18 @@ public partial class MainWindow : Window
             if (mapInfo.Length > 67)
                 mapInfo = mapInfo.Substring(0, 67) + "...";
 
-            _logImportant.logImportant("Mapset: " + mapInfo, false, "Beatmap changed",
+            _logImportant.logToInfoPanel("Mapset: " + mapInfo, false, "Beatmap changed",
                 $"https://osu.ppy.sh/b/{_tosuApi.GetBeatmapId()}");
-            _logImportant.logImportant("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
-            _logImportant.logImportant("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-            _logImportant.logImportant("Max Combo: " + _tosuApi.GetMaxCombo(), false, "Max Combo");
-            _logImportant.logImportant("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
-            _logImportant.logImportant("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
-            _logImportant.logImportant("Ranked Status: " + _tosuApi.GetRankedStatus(), false, "Ranked Status");
-            _logImportant.logImportant("Beatmap ID: " + _tosuApi.GetBeatmapId(), false, "Beatmap ID");
-            _logImportant.logImportant("Beatmap Set ID: " + _tosuApi.GetBeatmapSetId(), false, "Beatmap Set ID");
-            _logImportant.logImportant("Break: " + _tosuApi.IsBreakPeriod(), false, "Break");
-            _logImportant.logImportant("Kiai: " + _kiaiTimes.IsKiaiPeriod(_tosuApi.GetCurrentTime()), false, "Kiai");
+            _logImportant.logToInfoPanel("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
+            _logImportant.logToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
+            _logImportant.logToInfoPanel("Max Combo: " + _tosuApi.GetMaxCombo(), false, "Max Combo");
+            _logImportant.logToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
+            _logImportant.logToInfoPanel("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
+            _logImportant.logToInfoPanel("Ranked Status: " + _tosuApi.GetRankedStatus(), false, "Ranked Status");
+            _logImportant.logToInfoPanel("Beatmap ID: " + _tosuApi.GetBeatmapId(), false, "Beatmap ID");
+            _logImportant.logToInfoPanel("Beatmap Set ID: " + _tosuApi.GetBeatmapSetId(), false, "Beatmap Set ID");
+            _logImportant.logToInfoPanel("Break: " + _tosuApi.IsBreakPeriod(), false, "Break");
+            _logImportant.logToInfoPanel("Kiai: " + _kiaiTimes.IsKiaiPeriod(_tosuApi.GetCurrentTime()), false, "Kiai");
             Task graphTask = Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()))
                 .GetTask();
             Task bgTask = _backgroundManager != null
@@ -335,15 +339,15 @@ public partial class MainWindow : Window
         };
         _tosuApi.HasRateChanged += async () =>
         {
-            _logImportant.logImportant("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-            _logImportant.logImportant("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
+            _logImportant.logToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
+            _logImportant.logToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
             await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
         };
         _tosuApi.HasModsChanged += async () =>
         {
-            _logImportant.logImportant("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-            _logImportant.logImportant("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
-            _logImportant.logImportant("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
+            _logImportant.logToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
+            _logImportant.logToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
+            _logImportant.logToInfoPanel("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
             _viewModel.UpdateMinPPValue();
             _viewModel.UpdateMinSRValue();
             await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
@@ -354,7 +358,7 @@ public partial class MainWindow : Window
             StackPanel? debugConsolePanel = SettingsView.FindControl<StackPanel>("DebugConsolePanel");
             if (debugConsolePanel == null || !debugConsolePanel.IsVisible)
                 return;
-            _logImportant.logImportant($"Progress %: {_tosuApi.GetCompletionPercentage():F2}%", false, "Map Progress");
+            _logImportant.logToInfoPanel($"Progress %: {_tosuApi.GetCompletionPercentage():F2}%", false, "Map Progress");
             double rate = _tosuApi.GetRateAdjustRate();
             if (rate <= 0 || double.IsNaN(rate) || double.IsInfinity(rate))
                 rate = 1;
@@ -367,19 +371,19 @@ public partial class MainWindow : Window
             if (double.IsNaN(fullMs) || double.IsInfinity(fullMs) || fullMs < 0)
                 fullMs = 0;
 
-            _logImportant.logImportant(
+            _logImportant.logToInfoPanel(
                 $"Progress (mm:ss): {TimeSpan.FromMilliseconds(currentMs):mm\\:ss}/{TimeSpan.FromMilliseconds(fullMs):mm\\:ss}",
                 false,
                 "Current Time"
             );
-            _logImportant.logImportant("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-            _logImportant.logImportant("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
-            _logImportant.logImportant("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
-            _logImportant.logImportant("isDeafened: " + deafen.Deafened, false, "isDeafened");
-            _logImportant.logImportant("Deafen Start Percentage: " + _viewModel.MinCompletionPercentage + "%", false,
+            _logImportant.logToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
+            _logImportant.logToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
+            _logImportant.logToInfoPanel("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
+            _logImportant.logToInfoPanel("isDeafened: " + deafen.Deafened, false, "isDeafened");
+            _logImportant.logToInfoPanel("Deafen Start Percentage: " + _viewModel.MinCompletionPercentage + "%", false,
                 "Min Deafen Percentage");
-            _logImportant.logImportant("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");
-            _logImportant.logImportant("Min SS PP: " + _viewModel.PerformancePoints, false,
+            _logImportant.logToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");
+            _logImportant.logToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false,
                 "Min SS PP");
         };
         _tosuApi.HasBPMChanged += async () =>
@@ -392,11 +396,11 @@ public partial class MainWindow : Window
                 double bpm = _tosuApi.GetCurrentBpm();
             }
 
-            _logImportant.logImportant("BPM: " + _tosuApi.GetCurrentBpm(), false, "BPM Changed");
+            _logImportant.logToInfoPanel("BPM: " + _tosuApi.GetCurrentBpm(), false, "BPM Changed");
         };
         _tosuApi.HasStateChanged += async () =>
         {
-            _logImportant.logImportant("State: " + _tosuApi.GetRawBanchoStatus(), false, "State");
+            _logImportant.logToInfoPanel("State: " + _tosuApi.GetRawBanchoStatus(), false, "State");
         };
         /*_tosuApi.HasKiaiChanged += async (sender, e) =>
         {
@@ -442,10 +446,10 @@ public partial class MainWindow : Window
                 _backgroundManager.RemoveBackgroundOpacityRequest("kiai");
             }
         };*/
-        _breakPeriod.BreakPeriodEntered += async () => { _logImportant.logImportant("Break: True", false, "Break"); };
-        _breakPeriod.BreakPeriodExited += async () => { _logImportant.logImportant("Break: False", false, "Break"); };
-        _kiaiTimes.KiaiPeriodEntered += async () => { _logImportant.logImportant("Kiai: True", false, "Kiai"); };
-        _kiaiTimes.KiaiPeriodExited += async () => { _logImportant.logImportant("Kiai: False", false, "Kiai"); };
+        _breakPeriod.BreakPeriodEntered += async () => { _logImportant.logToInfoPanel("Break: True", false, "Break"); };
+        _breakPeriod.BreakPeriodExited += async () => { _logImportant.logToInfoPanel("Break: False", false, "Break"); };
+        _kiaiTimes.KiaiPeriodEntered += async () => { _logImportant.logToInfoPanel("Kiai: True", false, "Kiai"); };
+        _kiaiTimes.KiaiPeriodExited += async () => { _logImportant.logToInfoPanel("Kiai: False", false, "Kiai"); };
 
         DockPanel? settingsPanel = SettingsView.FindControl<DockPanel>("SettingsPanel");
         settingsPanel.Transitions = new Transitions
@@ -536,7 +540,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            Console.WriteLine("FCToggle or UndeafenOnMissPanel not found in XAML");
+            Log.Warning("FCToggle or UndeafenOnMissPanel not found in XAML");
         }
 
         SettingsView.FindControl<StackPanel>("UndeafenOnMissPanel")!.IsVisible = false;
@@ -631,7 +635,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            Console.WriteLine("BackgroundToggle or ParallaxTogglePanel or KiaiTogglePanel not found in XAML");
+            Log.Warning("BackgroundToggle or ParallaxTogglePanel or KiaiTogglePanel not found in XAML");
         }
 
         PointerMoved += MainWindow_PointerMoved;
@@ -908,10 +912,10 @@ public partial class MainWindow : Window
                         double avgFrame = sumFrame / frameCount;
                         await Dispatcher.UIThread.InvokeAsync(() =>
                         {
-                            _logImportant.logImportant(
+                            _logImportant.logToInfoPanel(
                                 $"Frame: {frameInterval:F3}ms/{1000.0 / avgFrame:F0}fps",
                                 false, "FrameLatency");
-                            _logImportant.logImportant(
+                            _logImportant.logToInfoPanel(
                                 $"Min/Max/Avg: {minFrame:F3}/{maxFrame:F3}/{avgFrame:F3}ms",
                                 false, "FrameStats");
                         });
@@ -1000,7 +1004,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] in UpdateSettingsOpacityAsync: {ex}");
+            Log.Error("SettingsPanel opacity failed to change with exception: {Exception}", ex);
         }
     }
 
@@ -1105,7 +1109,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Exception in ViewModel_PropertyChanged: {ex}");
+            Log.Error("Exception in ViewModel_PropertyChanged: {Exception}", ex);
         }
     }
 
@@ -1345,8 +1349,8 @@ public partial class MainWindow : Window
     {
         int minDisplayMs = 1500;
         Stopwatch sw = Stopwatch.StartNew();
-        Console.WriteLine("Starting update download...");
-        if (_updateChecker.UpdateInfo == null)
+        Log.Information("Starting update download...");
+        if (_updateChecker?.UpdateInfo == null)
             return;
 
         if (_updateProgressBar != null)
@@ -1393,7 +1397,7 @@ public partial class MainWindow : Window
         }
 
         sw.Stop();
-        Console.WriteLine($"Update download completed in {sw.ElapsedMilliseconds} ms");
+        Log.Information("Update download completed in {SwElapsedMilliseconds}ms", sw.ElapsedMilliseconds);
     }
 
     private async void UpdateNotificationBar_Click(object sender, RoutedEventArgs e)
@@ -1489,8 +1493,8 @@ public partial class MainWindow : Window
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
         _tosuApi.CheckForPercentageChange();
         _kiaiTimes.UpdateKiaiPeriodState(_tosuApi.GetCurrentTime());
-        _logImportant.logImportant("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
-        _logImportant.logImportant("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");
+        _logImportant.logToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
+        _logImportant.logToInfoPanel("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");
     }
 
     /// <summary>
@@ -1547,18 +1551,18 @@ public partial class MainWindow : Window
             _backgroundManager!.LogoUpdater =
                 new LogoUpdater(_getLowResBackground, _logoControl, ViewModel, LoadSkSvgResource);
 
-            Console.WriteLine("SVG loaded successfully.");
+            Log.Information("SVG loaded successfully.");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Exception while loading logo image: {ex.Message}");
+            Log.Error("Exception while loading logo image: {ExMessage}", ex.Message);
             try
             {
                 await RetryLoadLogoAsync(resourceName);
             }
             catch (Exception retryEx)
             {
-                Console.WriteLine($"RetryLoadLogoAsync failed: {retryEx.Message}");
+                Log.Error("RetryLoadLogoAsync failed: {RetryExMessage}", retryEx.Message);
             }
         }
     }
@@ -1618,7 +1622,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] ConvertSvgToBitmap failed: {ex.Message}");
+            Log.Error("ConvertSvgToBitmap failed: {ExMessage}", ex.Message);
             throw;
         }
     }
@@ -1637,18 +1641,17 @@ public partial class MainWindow : Window
             try
             {
                 retryCount++;
-                Console.WriteLine($"Retrying to load logo... Attempt {retryCount}");
+                Log.Debug($"Retrying to load logo... Attempt {retryCount}");
                 Bitmap logoImage = await LoadLogoAsync(resourceName);
                 UpdateViewModelWithLogo(logoImage);
                 success = true;
             }
             catch (Exception retryEx)
             {
-                Console.WriteLine($"[ERROR] logo retry {retryCount} failed: {retryEx.Message}");
+                Log.Error("Logo load retry {RetryCount} failed: {RetryExMessage}", retryCount, retryEx.Message);
                 if (retryCount >= maxRetries)
                 {
-                    Console.WriteLine(
-                        $"[ERROR] Exception while loading logo after {maxRetries} attempts: {retryEx.Message}");
+                    Log.Error("Exception while loading logo after {MaxRetries} attempts: {RetryExMessage}", maxRetries, retryEx.Message);
                     return;
                 }
             }
@@ -1664,7 +1667,7 @@ public partial class MainWindow : Window
         if (viewModel != null)
         {
             viewModel.ModifiedLogoImage = logoImage;
-            Console.WriteLine("ModifiedLogoImage property set.");
+            Log.Debug("ViewModel Logo Updated");
         }
     }
 
@@ -1750,7 +1753,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Exception in SettingsButton_Click: {ex}");
+            Log.Error("Exception in SettingsButton_Click: {Exception}", ex);
         }
     }
 
@@ -2300,7 +2303,7 @@ public partial class MainWindow : Window
                 _logUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
                 _logUpdateTimer.Tick += (_, __) =>
                 {
-                    var currentLogs = _logImportant._importantLogs.Values.ToList();
+                    var currentLogs = _logImportant.Logs.Values.ToList();
                     UpdateDebugConsolePanel(debugConsolePanel, currentLogs);
                 };
                 _logUpdateTimer.Start();
@@ -2320,12 +2323,12 @@ public partial class MainWindow : Window
             }
             else
             {
-                Console.WriteLine("[ERROR] Debug console not found.");
+                Log.Error("Debug console not found.");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Exception in ToggleDebugConsole: {ex.Message}");
+            Log.Error("Exception in ToggleDebugConsole: {ExMessage}", ex.Message);
         }
     }
 

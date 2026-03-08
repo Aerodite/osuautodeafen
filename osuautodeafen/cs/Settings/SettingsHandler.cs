@@ -180,7 +180,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     {
         if (!File.Exists(presetFilePath))
         {
-            Console.WriteLine($"Preset file not found: {presetFilePath}");
+            Serilog.Log.Warning("Preset file not found: {PresetFilePath}", presetFilePath);
             return;
         }
 
@@ -195,7 +195,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     {
         if (_activePresetPath == null)
         {
-            Console.WriteLine("No preset is currently active.");
+            Serilog.Log.Warning("No preset is currently active.");
             return;
         }
 
@@ -416,7 +416,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         targetData[section][key] = value?.ToString();
 
         string path = IsPresetActive ? _activePresetPath! : _iniPath;
-        Console.WriteLine($"Writing to: {path}");
+        Serilog.Log.Information("Writing new settings to: {Path}", path);
         _parser.WriteFile(path, targetData);
 
         DeafenKeybindKey = int.TryParse(targetData["Hotkeys"]["DeafenKeybindKey"], out int keyVal) ? keyVal : 0;
