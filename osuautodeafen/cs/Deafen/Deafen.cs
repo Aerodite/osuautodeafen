@@ -28,9 +28,9 @@ public class Deafen : IDisposable
 
     private DateTime _deafenEnteredAt = DateTime.MinValue;
     private bool _desiredDeafenState;
-    private bool _hasAppliedFirstDeafen = false;
+    private bool _hasAppliedFirstDeafen;
+    private bool _hasFirstHyprlandDeafenOccured;
     private bool _isDeafened;
-    private bool _isInBreakPeriod;
     private DateTime _lastToggleAt = DateTime.MinValue;
 
     private DateTime _nextStateChangedAt = DateTime.MinValue;
@@ -63,12 +63,12 @@ public class Deafen : IDisposable
     }
 
     // this is kinda just for me (and anyone else on hyprland not using the official discord client)
-    private bool IsHyprland()
+    private static bool IsHyprland()
     {
         return Environment.GetEnvironmentVariable("HYPRLAND_INSTANCE_SIGNATURE") != null;
     }
 
-    private bool IsWayland()
+    private static bool IsWayland()
     {
         return Environment.GetEnvironmentVariable("WAYLAND_DISPLAY") != null;
     }
@@ -188,17 +188,46 @@ public class Deafen : IDisposable
             : _tosuAPI.GetRawBanchoStatus();
     }
 
+    /// <summary>
+    /// Function for the first time deafen event on hyprland, this is neccessary
+    /// so that the app starts off at the right deafen state because of weird bugs with the dispatcher and such
+    /// </summary>
+    /// <remarks>
+    /// (thanks discord for not allowing toggle deafens through the ipc 🙄)
+    /// </remarks>
+    private void TryFirstHyprlandDeafenEvent()
+    {
+        if (_hasFirstHyprlandDeafenOccured)
+            return;
+        
+        // without this it will just go from undeafen -> deafened -> undeafened for whatever reason
+        bool initialEvent = TryHyprlandSendShortcut();
+        Thread.Sleep(150);
+        bool deafenEvent = TryHyprlandSendShortcut();
+
+        if (initialEvent || deafenEvent)
+        {
+            _isDeafened = _desiredDeafenState;
+            _deafenEnteredAt = DateTime.Now;
+            _lastToggleAt = DateTime.Now;
+        }
+
+        _hasFirstHyprlandDeafenOccured = true;
+    }
+
     private bool ComputeDeafenState()
     {
         int status = ClientBanchoStatus();
         bool isPlaying = status == 2;
         bool isSpectating = _tosuAPI.GetRawBanchoStatus() == 6;
         bool hasHitObjects = _tosuAPI.GetMaxPlayCombo() != 0;
+        bool isHoldingFC = _tosuAPI.IsHoldingFullCombo();
+        double completionPercentage = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
 
         if (isSpectating)
             return false;
         
-        // prevents deafening on like first tick (just makes sure you've actually hit atleast 1 circle)
+        // prevents deafening on like first tick (just makes sure you've actually hit at least 1 circle)
         if (!isPlaying || !hasHitObjects)
             return false;
 
@@ -207,18 +236,17 @@ public class Deafen : IDisposable
             return false;
 
         // undeafen if in break period and the toggle is enabled
-        _isInBreakPeriod = _tosuAPI.IsBreakPeriod();
-        if (IsBreakUndeafenToggleEnabled && _isInBreakPeriod)
+        if (IsBreakUndeafenToggleEnabled && _tosuAPI.IsBreakPeriod())
             return false;
 
         // fc logic or something
-        if (_sharedViewModel.IsFCRequired && !_tosuAPI.IsFullCombo())
-            if (IsUndeafenAfterMissEnabled)
-                return false;
+        bool fcRequirementMet = !_sharedViewModel.IsFCRequired || isHoldingFC;
+        bool missConditionMet = !IsUndeafenAfterMissEnabled || isHoldingFC;
+        if (!fcRequirementMet || !missConditionMet)
+            return false;
 
         // the main conditions
-        double completion = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
-        if (completion < _sharedViewModel.MinCompletionPercentage)
+        if (completionPercentage < _sharedViewModel.MinCompletionPercentage)
             return false;
 
         if (_tosuAPI.GetFullSR() < _sharedViewModel.StarRating)
@@ -245,6 +273,7 @@ public class Deafen : IDisposable
         {
             _hasAppliedFirstDeafen = true;
             _desiredDeafenState = false;
+            _nextStateChangedAt = DateTime.Now;
             return;
         }
         
@@ -300,27 +329,28 @@ public class Deafen : IDisposable
     {
         lock (_deafenLock)
         {
-            if ((DateTime.Now - _lastToggleAt).TotalMilliseconds < 50)
+            if ((DateTime.Now - _lastToggleAt).TotalMilliseconds < 200)
                 return;
 
             _lastToggleAt = DateTime.Now;
 
             if (IsWayland() && IsHyprland() && !string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient))
+            {
+                // ensures that the state will be correct first time it deafens
+                // (more explanation in the function)
+                TryFirstHyprlandDeafenEvent();
+
                 if (TryHyprlandSendShortcut())
                 {
                     _isDeafened = !_isDeafened;
-
-                    if (_isDeafened)
-                        _deafenEnteredAt = DateTime.Now;
-
+                    if (_isDeafened) _deafenEnteredAt = DateTime.Now;
                     return;
                 }
+            }
 
             SimulateDeafenKey();
             _isDeafened = !_isDeafened;
-
-            if (_isDeafened)
-                _deafenEnteredAt = DateTime.Now;
+            if (_isDeafened) _deafenEnteredAt = DateTime.Now;
         }
     }
 

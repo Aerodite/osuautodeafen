@@ -1025,7 +1025,7 @@ public class TosuApi : IDisposable
     ///     Checks if the current play is a full combo (no misses or slider breaks)
     /// </summary>
     /// <returns></returns>
-    public bool IsFullCombo()
+    public bool IsHoldingFullCombo()
     {
         // if there are any misses or slider breaks, return false
         if (GetMissCount() > 0 || GetSBCount() > 0) return false;
