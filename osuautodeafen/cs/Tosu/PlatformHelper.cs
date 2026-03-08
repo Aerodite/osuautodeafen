@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace osuautodeafen.cs;
+namespace osuautodeafen.cs.Tosu;
 
 public static class PlatformHelper
 {

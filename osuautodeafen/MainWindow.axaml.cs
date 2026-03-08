@@ -184,6 +184,8 @@ public partial class MainWindow : Window
 
         HomeView = new HomeView();
         _settingsViewModel = new SettingsViewModel();
+        
+        UpdateKeybindCaptureState(_settingsHandler);
 
         _viewModel = new SharedViewModel(
             _tosuApi,
@@ -645,6 +647,19 @@ public partial class MainWindow : Window
                 _viewModel.Changelog.IsVisible = false;
         };
     }
+
+    private void UpdateKeybindCaptureState(SettingsHandler settingsHandler)
+    {
+        if (PlatformHelper.IsLinux)
+        {
+            _settingsViewModel.IsKeybindCaptureEnabled =
+                string.IsNullOrWhiteSpace(settingsHandler.DiscordClient);
+        }
+        else
+        {
+            _settingsViewModel.IsKeybindCaptureEnabled = true;
+        }
+    }
     
     private async void OnSettingsFileChanged(object? sender, FileSystemEventArgs e)
     {
@@ -658,8 +673,7 @@ public partial class MainWindow : Window
 
             _settingsHandler.LoadSettings();
 
-            _settingsViewModel.IsKeybindCaptureEnabled =
-                string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient) && PlatformHelper.IsLinux;
+            UpdateKeybindCaptureState(_settingsHandler);
         });
     }
     
