@@ -211,8 +211,7 @@
                 </TextBlock>
             </StackPanel>
         </Grid>
-
-        <!-- Main content -->
+        
         <Grid Grid.Column="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />

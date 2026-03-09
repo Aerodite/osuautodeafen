@@ -9,6 +9,7 @@
              DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
 
     <UserControl.Resources>
+        <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
         <presets:AverageColorCycleConverter x:Key="AverageColorCycleConverter" />
         <presets:BackgroundPathToBrushConverter x:Key="BackgroundPathToBrushConverter" />
         <osuautodeafen:InverseBooleanConverter x:Key="InverseBooleanConverter" />
@@ -25,9 +26,9 @@
                          x:DataType="viewModels:SharedViewModel" />
 
         <ExperimentalAcrylicMaterial x:Key="AcrylicMaterial"
-                                     MaterialOpacity="0.10"
+                                     MaterialOpacity="0.2"
                                      TintColor="{Binding Source={StaticResource BaseBackgroundBrush}, Path=Color}"
-                                     TintOpacity="1" />
+                                     TintOpacity="0.25" />
     </UserControl.Resources>
 
     <UserControl.Styles>
@@ -111,7 +112,22 @@
             <Border Width="200" CornerRadius="0,16,16,16" ClipToBounds="True">
                 <controls:BackdropBlurControl Width="200"
                                               Material="{StaticResource AcrylicMaterial}">
-                    <ScrollViewer VerticalScrollBarVisibility="Visible" Margin="0,0,0,0">
+                    <Grid>
+                        <Border IsHitTestVisible="False" Opacity="0.25">
+                            <Border.Background>
+                                <MultiBinding Converter="{StaticResource ColorBlendConverter}">
+            
+                                    <Binding Path="Color"
+                                             Source="{StaticResource BaseBackgroundBrush}" />
+
+                                    <Binding Path="AverageColorBrush.Color"/>
+
+                                </MultiBinding>
+                            </Border.Background>
+                        </Border>
+
+                        <!-- actual UI -->
+                        <ScrollViewer VerticalScrollBarVisibility="Visible">
                         <StackPanel HorizontalAlignment="Center">
                             <StackPanel Margin="0,5,0,0">
                                 <Border Height="20" Background="Transparent">
@@ -749,7 +765,8 @@
                                 </Button>
                             </StackPanel>
                         </StackPanel>
-                    </ScrollViewer>
+                        </ScrollViewer>
+                    </Grid>
                 </controls:BackdropBlurControl>
             </Border>
         </DockPanel>
