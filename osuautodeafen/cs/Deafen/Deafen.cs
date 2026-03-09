@@ -16,15 +16,77 @@ namespace osuautodeafen.cs.Deafen;
 
 public class Deafen : IDisposable
 {
+    private static readonly bool IsHyprland = Environment.GetEnvironmentVariable("HYPRLAND_INSTANCE_SIGNATURE") != null;
+    private static readonly bool IsWayland = Environment.GetEnvironmentVariable("WAYLAND_DISPLAY") != null;
+
+    private static readonly Dictionary<Key, KeyCode> AvaloniaToSharpHookMap = new()
+    {
+        { Key.LeftCtrl, KeyCode.VcLeftControl },
+        { Key.RightCtrl, KeyCode.VcRightControl },
+        { Key.LeftAlt, KeyCode.VcLeftAlt },
+        { Key.RightAlt, KeyCode.VcRightAlt },
+        { Key.LeftShift, KeyCode.VcLeftShift },
+        { Key.RightShift, KeyCode.VcRightShift },
+        { Key.CapsLock, KeyCode.VcCapsLock },
+        { Key.NumLock, KeyCode.VcNumLock },
+        { Key.Scroll, KeyCode.VcScrollLock },
+
+        { Key.A, KeyCode.VcA }, { Key.B, KeyCode.VcB }, { Key.C, KeyCode.VcC }, { Key.D, KeyCode.VcD },
+        { Key.E, KeyCode.VcE }, { Key.F, KeyCode.VcF }, { Key.G, KeyCode.VcG }, { Key.H, KeyCode.VcH },
+        { Key.I, KeyCode.VcI }, { Key.J, KeyCode.VcJ }, { Key.K, KeyCode.VcK }, { Key.L, KeyCode.VcL },
+        { Key.M, KeyCode.VcM }, { Key.N, KeyCode.VcN }, { Key.O, KeyCode.VcO }, { Key.P, KeyCode.VcP },
+        { Key.Q, KeyCode.VcQ }, { Key.R, KeyCode.VcR }, { Key.S, KeyCode.VcS }, { Key.T, KeyCode.VcT },
+        { Key.U, KeyCode.VcU }, { Key.V, KeyCode.VcV }, { Key.W, KeyCode.VcW }, { Key.X, KeyCode.VcX },
+        { Key.Y, KeyCode.VcY }, { Key.Z, KeyCode.VcZ },
+
+        { Key.F1, KeyCode.VcF1 }, { Key.F2, KeyCode.VcF2 }, { Key.F3, KeyCode.VcF3 },
+        { Key.F4, KeyCode.VcF4 }, { Key.F5, KeyCode.VcF5 }, { Key.F6, KeyCode.VcF6 },
+        { Key.F7, KeyCode.VcF7 }, { Key.F8, KeyCode.VcF8 }, { Key.F9, KeyCode.VcF9 },
+        { Key.F10, KeyCode.VcF10 }, { Key.F11, KeyCode.VcF11 }, { Key.F12, KeyCode.VcF12 },
+        { Key.F13, KeyCode.VcF13 }, { Key.F14, KeyCode.VcF14 }, { Key.F15, KeyCode.VcF15 },
+        { Key.F16, KeyCode.VcF16 }, { Key.F17, KeyCode.VcF17 }, { Key.F18, KeyCode.VcF18 },
+        { Key.F19, KeyCode.VcF19 }, { Key.F20, KeyCode.VcF20 }, { Key.F21, KeyCode.VcF21 },
+        { Key.F22, KeyCode.VcF22 }, { Key.F23, KeyCode.VcF23 }, { Key.F24, KeyCode.VcF24 },
+
+        { Key.Tab, KeyCode.VcTab }, { Key.Enter, KeyCode.VcEnter }, { Key.Space, KeyCode.VcSpace },
+        { Key.Back, KeyCode.VcBackspace }, { Key.Delete, KeyCode.VcDelete }, { Key.Insert, KeyCode.VcInsert },
+        { Key.Home, KeyCode.VcHome }, { Key.End, KeyCode.VcEnd }, { Key.PageUp, KeyCode.VcPageUp },
+        { Key.PageDown, KeyCode.VcPageDown }, { Key.Up, KeyCode.VcUp }, { Key.Down, KeyCode.VcDown },
+        { Key.Left, KeyCode.VcLeft }, { Key.Right, KeyCode.VcRight }, { Key.Escape, KeyCode.VcEscape },
+        { Key.PrintScreen, KeyCode.VcPrintScreen }, { Key.Pause, KeyCode.VcPause },
+
+        { Key.OemMinus, KeyCode.VcMinus }, { Key.OemPlus, KeyCode.VcEquals },
+        { Key.OemComma, KeyCode.VcComma }, { Key.OemPeriod, KeyCode.VcPeriod },
+        { Key.Oem2, KeyCode.VcSlash }, { Key.Oem5, KeyCode.VcBackslash },
+        { Key.Oem1, KeyCode.VcSemicolon }, { Key.Oem7, KeyCode.VcQuote },
+        { Key.Oem3, KeyCode.VcBackQuote }, { Key.Oem4, KeyCode.VcOpenBracket },
+        { Key.Oem6, KeyCode.VcCloseBracket },
+
+        { Key.NumPad0, KeyCode.VcNumPad0 }, { Key.NumPad1, KeyCode.VcNumPad1 }, { Key.NumPad2, KeyCode.VcNumPad2 },
+        { Key.NumPad3, KeyCode.VcNumPad3 }, { Key.NumPad4, KeyCode.VcNumPad4 }, { Key.NumPad5, KeyCode.VcNumPad5 },
+        { Key.NumPad6, KeyCode.VcNumPad6 }, { Key.NumPad7, KeyCode.VcNumPad7 }, { Key.NumPad8, KeyCode.VcNumPad8 },
+        { Key.NumPad9, KeyCode.VcNumPad9 }, { Key.Add, KeyCode.VcNumPadAdd },
+        { Key.Subtract, KeyCode.VcNumPadSubtract },
+        { Key.Multiply, KeyCode.VcNumPadMultiply }, { Key.Divide, KeyCode.VcNumPadDivide },
+        { Key.Decimal, KeyCode.VcNumPadDecimal },
+
+        { Key.D0, KeyCode.Vc0 }, { Key.D1, KeyCode.Vc1 }, { Key.D2, KeyCode.Vc2 }, { Key.D3, KeyCode.Vc3 },
+        { Key.D4, KeyCode.Vc4 }, { Key.D5, KeyCode.Vc5 }, { Key.D6, KeyCode.Vc6 }, { Key.D7, KeyCode.Vc7 },
+        { Key.D8, KeyCode.Vc8 }, { Key.D9, KeyCode.Vc9 }
+    };
+
+    private static readonly Dictionary<KeyCode, Key> SharpHookToAvaloniaMap =
+        AvaloniaToSharpHookMap.ToDictionary(kv => kv.Value, kv => kv.Key);
+
     private readonly Lock _deafenLock = new();
     private readonly EventSimulator _eventSimulator = new();
     private readonly SimpleGlobalHook _hook;
     private readonly SettingsHandler _settingsHandler;
     private readonly SharedViewModel _sharedViewModel;
-    private readonly Timer _timer;
-    private readonly TosuApi _tosuAPI;
 
     private readonly DateTime _startedAt = DateTime.Now;
+    private readonly Timer _timer;
+    private readonly TosuApi _tosuAPI;
 
     private DateTime _deafenEnteredAt = DateTime.MinValue;
     private bool _desiredDeafenState;
@@ -35,9 +97,6 @@ public class Deafen : IDisposable
 
     private DateTime _nextStateChangedAt = DateTime.MinValue;
     public bool Deafened;
-    
-    private static readonly bool IsHyprland = Environment.GetEnvironmentVariable("HYPRLAND_INSTANCE_SIGNATURE") != null;
-    private static readonly bool IsWayland = Environment.GetEnvironmentVariable("WAYLAND_DISPLAY") != null;
 
     public Deafen(TosuApi tosuAPI, SettingsHandler settingsHandler, SharedViewModel sharedViewModel)
     {
@@ -129,7 +188,9 @@ public class Deafen : IDisposable
             int altSide = _settingsHandler.DeafenKeybindAltSide;
             int shiftSide = _settingsHandler.DeafenKeybindShiftSide;
 
-            Serilog.Log.Debug("[SimulateDeafenKey] Retrieved keybind from settings: Key={KeyCode}, ControlSide={ControlSide}, AltSide={AltSide}, ShiftSide={ShiftSide}", key, controlSide, altSide, shiftSide);
+            Serilog.Log.Debug(
+                "[SimulateDeafenKey] Retrieved keybind from settings: Key={KeyCode}, ControlSide={ControlSide}, AltSide={AltSide}, ShiftSide={ShiftSide}",
+                key, controlSide, altSide, shiftSide);
 
             if (controlSide != 0)
                 modifiers.Add(new ModifierWithSide
@@ -150,7 +211,9 @@ public class Deafen : IDisposable
                     Side = shiftSide == 2 ? Modifiers.ModifierSide.Right : Modifiers.ModifierSide.Left
                 });
 
-            Serilog.Log.Information("Simulating modifier keys: {Join}", string.Join(", ", modifiers.Select(m => m.Modifier + (m.Side != Modifiers.ModifierSide.None ? $"({m.Side})" : ""))));
+            Serilog.Log.Information("Simulating modifier keys: {Join}",
+                string.Join(", ",
+                    modifiers.Select(m => m.Modifier + (m.Side != Modifiers.ModifierSide.None ? $"({m.Side})" : ""))));
             foreach (ModifierWithSide mod in modifiers) _eventSimulator.SimulateKeyPress(mod.Modifier);
 
             Serilog.Log.Information("Simulating main key: {KeyCode}", key);
@@ -161,14 +224,17 @@ public class Deafen : IDisposable
 
             foreach (ModifierWithSide mod in modifiers.AsEnumerable().Reverse())
                 _eventSimulator.SimulateKeyRelease(mod.Modifier);
-            Serilog.Log.Information("Released modifiers: {Join}", string.Join(", ", modifiers.AsEnumerable().Reverse().Select(m => m.Modifier + (m.Side != Modifiers.ModifierSide.None ? $"({m.Side})" : ""))));
+            Serilog.Log.Information("Released modifiers: {Join}",
+                string.Join(", ",
+                    modifiers.AsEnumerable().Reverse().Select(m =>
+                        m.Modifier + (m.Side != Modifiers.ModifierSide.None ? $"({m.Side})" : ""))));
         }
         catch (Exception ex)
         {
             Serilog.Log.Error("Exception while simulating deafen keybind: {Exception}", ex);
         }
     }
-    
+
     private int ClientBanchoStatus()
     {
         bool isLazer = _tosuAPI.GetClient() == "lazer";
@@ -179,17 +245,17 @@ public class Deafen : IDisposable
     }
 
     /// <summary>
-    /// Function for the first time deafen event on hyprland, this is neccessary
-    /// so that the app starts off at the right deafen state because of weird bugs with the dispatcher and such
+    ///     Function for the first time deafen event on hyprland, this is neccessary
+    ///     so that the app starts off at the right deafen state because of weird bugs with the dispatcher and such
     /// </summary>
     /// <remarks>
-    /// (thanks discord for not allowing toggle deafens through the ipc 🙄)
+    ///     (thanks discord for not allowing toggle deafens through the ipc 🙄)
     /// </remarks>
     private void TryFirstHyprlandDeafenEvent()
     {
         if (_hasFirstHyprlandDeafenOccured)
             return;
-        
+
         // without this it will just go from undeafen -> deafened -> undeafened for whatever reason
         bool initialEvent = TryHyprlandSendShortcut();
         Thread.Sleep(150);
@@ -216,7 +282,7 @@ public class Deafen : IDisposable
 
         if (isSpectating)
             return false;
-        
+
         // prevents deafening on like first tick (just makes sure you've actually hit at least 1 circle)
         if (!isPlaying || !hasHitObjects)
             return false;
@@ -258,7 +324,7 @@ public class Deafen : IDisposable
             return;
 
         bool isSpectating = _tosuAPI.GetRawBanchoStatus() == 6;
-        
+
         if (!_hasAppliedFirstDeafen)
         {
             _hasAppliedFirstDeafen = true;
@@ -266,7 +332,7 @@ public class Deafen : IDisposable
             _nextStateChangedAt = DateTime.Now;
             return;
         }
-        
+
         if (isSpectating)
         {
             _desiredDeafenState = false;
@@ -279,7 +345,7 @@ public class Deafen : IDisposable
 
             return;
         }
-        
+
         // real deafen shi
 
         bool nextState = ComputeDeafenState();
@@ -288,9 +354,7 @@ public class Deafen : IDisposable
         {
             if (_isDeafened && !nextState)
                 if ((DateTime.Now - _deafenEnteredAt).TotalMilliseconds < 500)
-                {
                     return;
-                }
 
             _desiredDeafenState = nextState;
             _nextStateChangedAt = DateTime.Now;
@@ -344,69 +408,16 @@ public class Deafen : IDisposable
         }
     }
 
-    private static readonly Dictionary<Key, KeyCode> AvaloniaToSharpHookMap = new()
-    {
-        { Key.LeftCtrl, KeyCode.VcLeftControl },
-        { Key.RightCtrl, KeyCode.VcRightControl },
-        { Key.LeftAlt, KeyCode.VcLeftAlt },
-        { Key.RightAlt, KeyCode.VcRightAlt },
-        { Key.LeftShift, KeyCode.VcLeftShift },
-        { Key.RightShift, KeyCode.VcRightShift },
-        { Key.CapsLock, KeyCode.VcCapsLock },
-        { Key.NumLock, KeyCode.VcNumLock },
-        { Key.Scroll, KeyCode.VcScrollLock },
-        
-        { Key.A, KeyCode.VcA }, { Key.B, KeyCode.VcB }, { Key.C, KeyCode.VcC }, { Key.D, KeyCode.VcD },
-        { Key.E, KeyCode.VcE }, { Key.F, KeyCode.VcF }, { Key.G, KeyCode.VcG }, { Key.H, KeyCode.VcH },
-        { Key.I, KeyCode.VcI }, { Key.J, KeyCode.VcJ }, { Key.K, KeyCode.VcK }, { Key.L, KeyCode.VcL },
-        { Key.M, KeyCode.VcM }, { Key.N, KeyCode.VcN }, { Key.O, KeyCode.VcO }, { Key.P, KeyCode.VcP },
-        { Key.Q, KeyCode.VcQ }, { Key.R, KeyCode.VcR }, { Key.S, KeyCode.VcS }, { Key.T, KeyCode.VcT },
-        { Key.U, KeyCode.VcU }, { Key.V, KeyCode.VcV }, { Key.W, KeyCode.VcW }, { Key.X, KeyCode.VcX },
-        { Key.Y, KeyCode.VcY }, { Key.Z, KeyCode.VcZ },
-
-        { Key.F1, KeyCode.VcF1 }, { Key.F2, KeyCode.VcF2 }, { Key.F3, KeyCode.VcF3 },
-        { Key.F4, KeyCode.VcF4 }, { Key.F5, KeyCode.VcF5 }, { Key.F6, KeyCode.VcF6 },
-        { Key.F7, KeyCode.VcF7 }, { Key.F8, KeyCode.VcF8 }, { Key.F9, KeyCode.VcF9 },
-        { Key.F10, KeyCode.VcF10 }, { Key.F11, KeyCode.VcF11 }, { Key.F12, KeyCode.VcF12 },
-        { Key.F13, KeyCode.VcF13 }, { Key.F14, KeyCode.VcF14 }, { Key.F15, KeyCode.VcF15 },
-        { Key.F16, KeyCode.VcF16 }, { Key.F17, KeyCode.VcF17 }, { Key.F18, KeyCode.VcF18 },
-        { Key.F19, KeyCode.VcF19 }, { Key.F20, KeyCode.VcF20 }, { Key.F21, KeyCode.VcF21 },
-        { Key.F22, KeyCode.VcF22 }, { Key.F23, KeyCode.VcF23 }, { Key.F24, KeyCode.VcF24 },
-        
-        { Key.Tab, KeyCode.VcTab }, { Key.Enter, KeyCode.VcEnter }, { Key.Space, KeyCode.VcSpace },
-        { Key.Back, KeyCode.VcBackspace }, { Key.Delete, KeyCode.VcDelete }, { Key.Insert, KeyCode.VcInsert },
-        { Key.Home, KeyCode.VcHome }, { Key.End, KeyCode.VcEnd }, { Key.PageUp, KeyCode.VcPageUp },
-        { Key.PageDown, KeyCode.VcPageDown }, { Key.Up, KeyCode.VcUp }, { Key.Down, KeyCode.VcDown },
-        { Key.Left, KeyCode.VcLeft }, { Key.Right, KeyCode.VcRight }, { Key.Escape, KeyCode.VcEscape },
-        { Key.PrintScreen, KeyCode.VcPrintScreen }, { Key.Pause, KeyCode.VcPause },
-        
-        { Key.OemMinus, KeyCode.VcMinus }, { Key.OemPlus, KeyCode.VcEquals },
-        { Key.OemComma, KeyCode.VcComma }, { Key.OemPeriod, KeyCode.VcPeriod },
-        { Key.Oem2, KeyCode.VcSlash }, { Key.Oem5, KeyCode.VcBackslash },
-        { Key.Oem1, KeyCode.VcSemicolon }, { Key.Oem7, KeyCode.VcQuote },
-        { Key.Oem3, KeyCode.VcBackQuote }, { Key.Oem4, KeyCode.VcOpenBracket },
-        { Key.Oem6, KeyCode.VcCloseBracket },
-        
-        { Key.NumPad0, KeyCode.VcNumPad0 }, { Key.NumPad1, KeyCode.VcNumPad1 }, { Key.NumPad2, KeyCode.VcNumPad2 },
-        { Key.NumPad3, KeyCode.VcNumPad3 }, { Key.NumPad4, KeyCode.VcNumPad4 }, { Key.NumPad5, KeyCode.VcNumPad5 },
-        { Key.NumPad6, KeyCode.VcNumPad6 }, { Key.NumPad7, KeyCode.VcNumPad7 }, { Key.NumPad8, KeyCode.VcNumPad8 },
-        { Key.NumPad9, KeyCode.VcNumPad9 }, { Key.Add, KeyCode.VcNumPadAdd }, { Key.Subtract, KeyCode.VcNumPadSubtract },
-        { Key.Multiply, KeyCode.VcNumPadMultiply }, { Key.Divide, KeyCode.VcNumPadDivide },
-        { Key.Decimal, KeyCode.VcNumPadDecimal },
-        
-        { Key.D0, KeyCode.Vc0 }, { Key.D1, KeyCode.Vc1 }, { Key.D2, KeyCode.Vc2 }, { Key.D3, KeyCode.Vc3 },
-        { Key.D4, KeyCode.Vc4 }, { Key.D5, KeyCode.Vc5 }, { Key.D6, KeyCode.Vc6 }, { Key.D7, KeyCode.Vc7 },
-        { Key.D8, KeyCode.Vc8 }, { Key.D9, KeyCode.Vc9 }
-    };
-
-    private static readonly Dictionary<KeyCode, Key> SharpHookToAvaloniaMap = AvaloniaToSharpHookMap.ToDictionary(kv => kv.Value, kv => kv.Key);
-
     private KeyCode MapAvaloniaKeyToSharpHook(Key key)
-        => AvaloniaToSharpHookMap.GetValueOrDefault(key, KeyCode.VcUndefined);
+    {
+        return AvaloniaToSharpHookMap.GetValueOrDefault(key, KeyCode.VcUndefined);
+    }
 
     private Key MapSharpHookKeyToAvaloniaKey(KeyCode keyCode)
-        => SharpHookToAvaloniaMap.GetValueOrDefault(keyCode, Key.None);
-    
+    {
+        return SharpHookToAvaloniaMap.GetValueOrDefault(keyCode, Key.None);
+    }
+
     private struct ModifierWithSide
     {
         public KeyCode Modifier;

@@ -98,11 +98,9 @@ public static class ChangelogParser
             string url = match.Groups["url"].Value;
 
             if (IsImageUrl(url))
-            {
                 section.Blocks.Add(
                     new ChangelogViewModel.ImageBlockModel(url)
                 );
-            }
         }
     }
 
@@ -111,7 +109,7 @@ public static class ChangelogParser
         ChangelogViewModel.ChangelogSection section,
         string changelogVersion)
     {
-        var image = p.Inline?
+        LinkInline? image = p.Inline?
             .Descendants<LinkInline>()
             .FirstOrDefault(l => l.IsImage && l.Url != null);
 
@@ -366,7 +364,7 @@ public static class ChangelogParser
                url.EndsWith(".jpg") ||
                url.EndsWith(".jpeg") ||
                url.EndsWith(".gif") ||
-               url.Contains("github.com/user-attachments") || 
+               url.Contains("github.com/user-attachments") ||
                url.EndsWith(".webp");
     }
 }

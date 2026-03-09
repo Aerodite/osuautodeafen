@@ -38,7 +38,9 @@ Deafen on Discord when certain criteria are reached
 4. Set the Deafen Keybind in the app to your Discord "Toggle Deafen" keybind*
 5. Modify the settings in the app to what you want!
 
-*If you're on Hyprland, you could set the discordClient line in the ~/.config/osuautodeafen/settings.ini to your Discord client and it will instead send the Toggle Deafen keybind straight through the compositor, which should allow the same behavior as Windows or X11.
+*If you're on Hyprland, you could set the discordClient line in the ~/.config/osuautodeafen/settings.ini to your Discord
+client and it will instead send the Toggle Deafen keybind straight through the compositor, which should allow the same
+behavior as Windows or X11.
 
 <details>
   <summary>Linux Info</summary>
@@ -62,7 +64,8 @@ Tested on Linux 6.16.4 (CachyOS x86_64, Hyprland) using osu!lazer and osu!stable
 
 # Credits
 
-Thank you [Jurme](https://osu.ppy.sh/users/6282195), [InfernoJonk](https://osu.ppy.sh/users/9537557), and [Jarran](https://osu.ppy.sh/users/11417993/osu) for testing (and
+Thank you [Jurme](https://osu.ppy.sh/users/6282195), [InfernoJonk](https://osu.ppy.sh/users/9537557),
+and [Jarran](https://osu.ppy.sh/users/11417993/osu) for testing (and
 discovering) a bunch of edge cases
 
 ##

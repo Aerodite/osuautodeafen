@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using osuautodeafen.cs.Tooltips;
@@ -19,13 +18,13 @@ public partial class ChangelogView : UserControl
     public static readonly StyledProperty<IBrush> BackgroundBrushProperty =
         AvaloniaProperty.Register<ChangelogView, IBrush>(nameof(BackgroundBrush));
 
-    private static TooltipManager Tooltips =>
-        MainWindow.Tooltips;
-
     public ChangelogView()
     {
         InitializeComponent();
     }
+
+    private static TooltipManager Tooltips =>
+        MainWindow.Tooltips;
 
     public IBrush BackgroundBrush
     {
@@ -50,7 +49,7 @@ public partial class ChangelogView : UserControl
         if (tb.Inlines == null) return;
         tb.Inlines.Clear();
 
-        foreach (var inline in inlines)
+        foreach (Inline inline in inlines)
         {
             Inline cloned = CloneInline(inline);
             tb.Inlines.Add(cloned);
@@ -64,12 +63,12 @@ public partial class ChangelogView : UserControl
             }
         }
     }
-    
+
     private static string FormatUrlForTooltip(string url)
     {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
             return url;
-        
+
         string host = uri.Host;
         string lastSegment = uri.Segments.LastOrDefault()?.TrimEnd('/') ?? "";
 
@@ -108,7 +107,7 @@ public partial class ChangelogView : UserControl
         if (control is Button button &&
             button.Content is TextBlock text)
         {
-            var clone = new Button
+            Button clone = new()
             {
                 Padding = button.Padding,
                 Background = button.Background,
@@ -124,24 +123,21 @@ public partial class ChangelogView : UserControl
                     TextDecorations = text.TextDecorations
                 }
             };
-            
-            if (clone.Command == null && clone.Tag is string url)
-            {
-                clone.Click += (_, _) => OpenUrl(url);
-            }
+
+            if (clone.Command == null && clone.Tag is string url) clone.Click += (_, _) => OpenUrl(url);
 
             return clone;
         }
 
         throw new NotSupportedException($"Unsupported control: {control.GetType()}");
     }
-    
+
     private static void OpenUrl(string url)
     {
         try
         {
-            using var _ = System.Diagnostics.Process.Start(
-                new System.Diagnostics.ProcessStartInfo
+            using Process? _ = Process.Start(
+                new ProcessStartInfo
                 {
                     FileName = url,
                     UseShellExecute = true
@@ -156,36 +152,36 @@ public partial class ChangelogView : UserControl
 
     private void ShowLinkTooltip(Control target, PointerEventArgs e, string url)
     {
-        var window = target.GetVisualRoot() as Window;
+        Window? window = target.GetVisualRoot() as Window;
         if (window == null)
             return;
 
-        Point point = osuautodeafen.cs.Tooltips.Tooltips
+        Point point = cs.Tooltips.Tooltips
             .GetWindowRelativePointer(window, e);
         Tooltips.ShowTooltip(target, point, url);
     }
 
     private void MoveLinkTooltip(Control target, PointerEventArgs e)
     {
-        var window = target.GetVisualRoot() as Window;
+        Window? window = target.GetVisualRoot() as Window;
         if (window == null)
             return;
 
-        Point point = osuautodeafen.cs.Tooltips.Tooltips
+        Point point = cs.Tooltips.Tooltips
             .GetWindowRelativePointer(window, e);
         Tooltips.MoveTooltipToPosition(point);
     }
-       
+
     private void VideoRedirect_PointerEntered(object? sender, PointerEventArgs e)
     {
         if (sender is not Control c)
             return;
 
-        var window = c.GetVisualRoot() as Window;
+        Window? window = c.GetVisualRoot() as Window;
         if (window == null)
             return;
 
-        Point point = osuautodeafen.cs.Tooltips.Tooltips
+        Point point = cs.Tooltips.Tooltips
             .GetWindowRelativePointer(window, e);
         Tooltips.ShowTooltip(c, point, "Open Video in Browser");
     }
@@ -194,31 +190,31 @@ public partial class ChangelogView : UserControl
     {
         Tooltips.HideTooltip();
     }
-    
+
     private void VideoRedirect_PointerMoved(object? sender, PointerEventArgs e)
     {
         if (sender is not Control c)
             return;
 
-        var window = c.GetVisualRoot() as Window;
+        Window? window = c.GetVisualRoot() as Window;
         if (window == null)
             return;
 
-        Point point = osuautodeafen.cs.Tooltips.Tooltips
+        Point point = cs.Tooltips.Tooltips
             .GetWindowRelativePointer(window, e);
         Tooltips.MoveTooltipToPosition(point);
     }
-    
+
     private void PrButton_PointerEntered(object? sender, PointerEventArgs e)
     {
         if (sender is not Control c)
             return;
 
-        var window = c.GetVisualRoot() as Window;
+        Window? window = c.GetVisualRoot() as Window;
         if (window == null)
             return;
 
-        Point point = osuautodeafen.cs.Tooltips.Tooltips
+        Point point = cs.Tooltips.Tooltips
             .GetWindowRelativePointer(window, e);
         Tooltips.ShowTooltip(c, point, "Open Pull Request in Browser");
     }
@@ -227,16 +223,17 @@ public partial class ChangelogView : UserControl
     {
         Tooltips.HideTooltip();
     }
+
     private void PrButton_PointerMoved(object? sender, PointerEventArgs e)
     {
         if (sender is not Control c)
             return;
 
-        var window = c.GetVisualRoot() as Window;
+        Window? window = c.GetVisualRoot() as Window;
         if (window == null)
             return;
 
-        Point point = osuautodeafen.cs.Tooltips.Tooltips
+        Point point = cs.Tooltips.Tooltips
             .GetWindowRelativePointer(window, e);
         Tooltips.MoveTooltipToPosition(point);
     }

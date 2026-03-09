@@ -39,6 +39,8 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     private double _blurRadius;
 
+    private ChangelogManager? _changelogManager;
+
     private double _completionPercentage;
 
 
@@ -100,65 +102,13 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         _tosuApi = tosuApi;
         _tooltipManager = tooltipManager;
         Task.Run(UpdateCompletionPercentageAsync);
-        
+
         CreateAndShowChangelog();
-        
+
         _settingsHandler.SettingsReloaded += SyncSettingsFromHandler;
-    }
-    
-    private void SyncSettingsFromHandler()
-    {
-        MinCompletionPercentage = _settingsHandler.MinCompletionPercentage;
-        StarRating = _settingsHandler.StarRating;
-        PerformancePoints = (int)_settingsHandler.PerformancePoints;
-
-        BlurRadius = _settingsHandler.BlurRadius;
-
-        IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
-        IsPauseUndeafenToggleEnabled = _settingsHandler.IsPauseUndeafenToggleEnabled;
-
-        IsFCRequired = _settingsHandler.IsFCRequired;
-        UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
-
-        IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
-        IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
-        IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
-    }
-    
-    public void OpenChangelog()
-    {
-        if (_changelogManager != null)
-            return;
-
-        Changelog = new ChangelogViewModel
-        {
-            ChangelogVersion = UpdateChecker.CurrentVersion
-        };
-
-        _changelogManager = new ChangelogManager(
-            new HttpClient(),
-            _settingsHandler,
-            Changelog
-        );
-
-        _changelogManager.ChangelogDestroyed += OnChangelogDestroyed;
-
-        Changelog.DismissRequested += () =>
-            _changelogManager.DismissChangelog(UpdateChecker.CurrentVersion);
-
-        _ = _changelogManager.ForceShowChangelogAsync();
-
-        OnPropertyChanged(nameof(Changelog));
     }
 
     public ChangelogViewModel? Changelog { get; private set; }
-
-    private void OnChangelogDestroyed()
-    {
-        Changelog = null;
-        _changelogManager = null;
-        OnPropertyChanged(nameof(Changelog));
-    }
 
     public bool CanCreatePreset => !PresetExistsForCurrentChecksum;
     public bool HasAnyPresets => Presets != null && Presets.Any();
@@ -182,38 +132,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             }
         }
     }
-    
-    private ChangelogManager? _changelogManager;
-    
-    public void CreateAndShowChangelog()
-    {
-        if (_changelogManager != null)
-            return;
 
-        if (_settingsHandler.LastSeenVersion == UpdateChecker.CurrentVersion)
-            return;
-
-        Changelog = new ChangelogViewModel
-        {
-            ChangelogVersion = UpdateChecker.CurrentVersion
-        };
-
-        _changelogManager = new ChangelogManager(
-            new HttpClient(),
-            _settingsHandler,
-            Changelog
-        );
-
-        _changelogManager.ChangelogDestroyed += OnChangelogDestroyed;
-
-        Changelog.DismissRequested += () =>
-            _changelogManager.DismissChangelog(UpdateChecker.CurrentVersion);
-
-        _ = _changelogManager.TryShowChangelogAsync(UpdateChecker.CurrentVersion);
-
-        OnPropertyChanged(nameof(Changelog));
-    }
-    
     public string? BeatmapName
     {
         get => _beatmapName;
@@ -336,7 +255,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     }
 
     public string CurrentAppVersion => $"v{UpdateChecker.CurrentVersion}";
-    
+
     public string LongAppVersion => $"Version {UpdateChecker.CurrentVersion}";
 
     public SolidColorBrush AverageColorBrush
@@ -654,6 +573,87 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     public object MinSRValue => _tosuApi.GetFullSR();
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void SyncSettingsFromHandler()
+    {
+        MinCompletionPercentage = _settingsHandler.MinCompletionPercentage;
+        StarRating = _settingsHandler.StarRating;
+        PerformancePoints = (int)_settingsHandler.PerformancePoints;
+
+        BlurRadius = _settingsHandler.BlurRadius;
+
+        IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
+        IsPauseUndeafenToggleEnabled = _settingsHandler.IsPauseUndeafenToggleEnabled;
+
+        IsFCRequired = _settingsHandler.IsFCRequired;
+        UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
+
+        IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
+        IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
+        IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
+    }
+
+    public void OpenChangelog()
+    {
+        if (_changelogManager != null)
+            return;
+
+        Changelog = new ChangelogViewModel
+        {
+            ChangelogVersion = UpdateChecker.CurrentVersion
+        };
+
+        _changelogManager = new ChangelogManager(
+            new HttpClient(),
+            _settingsHandler,
+            Changelog
+        );
+
+        _changelogManager.ChangelogDestroyed += OnChangelogDestroyed;
+
+        Changelog.DismissRequested += () =>
+            _changelogManager.DismissChangelog(UpdateChecker.CurrentVersion);
+
+        _ = _changelogManager.ForceShowChangelogAsync();
+
+        OnPropertyChanged(nameof(Changelog));
+    }
+
+    private void OnChangelogDestroyed()
+    {
+        Changelog = null;
+        _changelogManager = null;
+        OnPropertyChanged(nameof(Changelog));
+    }
+
+    public void CreateAndShowChangelog()
+    {
+        if (_changelogManager != null)
+            return;
+
+        if (_settingsHandler.LastSeenVersion == UpdateChecker.CurrentVersion)
+            return;
+
+        Changelog = new ChangelogViewModel
+        {
+            ChangelogVersion = UpdateChecker.CurrentVersion
+        };
+
+        _changelogManager = new ChangelogManager(
+            new HttpClient(),
+            _settingsHandler,
+            Changelog
+        );
+
+        _changelogManager.ChangelogDestroyed += OnChangelogDestroyed;
+
+        Changelog.DismissRequested += () =>
+            _changelogManager.DismissChangelog(UpdateChecker.CurrentVersion);
+
+        _ = _changelogManager.TryShowChangelogAsync(UpdateChecker.CurrentVersion);
+
+        OnPropertyChanged(nameof(Changelog));
+    }
 
     public void AttachViews(HomeView homeView, SettingsView settingsView)
     {

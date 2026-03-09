@@ -416,11 +416,9 @@ public class TosuApi : IDisposable
                                 _graphData = graphs;
                             }
 
-                        if(root.TryGetProperty("state", out JsonElement state))
-                            if(state.TryGetProperty("number", out JsonElement stateNumber))
-                            {
+                        if (root.TryGetProperty("state", out JsonElement state))
+                            if (state.TryGetProperty("number", out JsonElement stateNumber))
                                 _rawLazerBanchoStatus = stateNumber.GetInt32();
-                            }
                         if (root.TryGetProperty("server", out JsonElement server))
                             _server = server.GetString();
                         if (root.TryGetProperty("client", out JsonElement client))

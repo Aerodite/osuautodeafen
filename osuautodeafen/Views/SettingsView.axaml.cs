@@ -23,6 +23,7 @@ using osuautodeafen.cs.Tooltips;
 using osuautodeafen.cs.Tosu;
 using osuautodeafen.cs.Update;
 using osuautodeafen.cs.ViewModels;
+using Serilog;
 
 namespace osuautodeafen.Views;
 
@@ -37,23 +38,23 @@ public partial class SettingsView : UserControl
 
     private readonly SemaphoreSlim _updateCheckLock = new(1, 1);
     private BackgroundManager? _backgroundManager;
+    private DispatcherTimer? _BESaveTimer;
     private ChartManager _chartManager;
     private DispatcherTimer? _completionPercentageSaveTimer;
 
-    private double _pendingCompletionPercentage;
-    private double _pendingBe;
-    private double _pendingStarRating;
-    private CancellationTokenSource? _saveCts;
-    
     private DispatcherTimer? _debounceSaveTimer;
-    
+    private double _pendingBe;
+    private double _pendingBlur;
+    private double _pendingCompletion;
+
+    private double _pendingCompletionPercentage;
+
     private int _pendingPP;
     private double _pendingSR;
-    private double _pendingCompletion;
-    private double _pendingBlur;
+    private double _pendingStarRating;
 
     private DispatcherTimer? _ppSaveTimer;
-    private DispatcherTimer? _BESaveTimer;
+    private CancellationTokenSource? _saveCts;
     private SettingsViewModel _settingsViewModel;
     private DispatcherTimer? _starRatingSaveTimer;
     private TooltipManager _tooltipManager;
@@ -80,14 +81,14 @@ public partial class SettingsView : UserControl
         _settingsViewModel = settingsViewModel;
 
         DataContext = _viewModel;
-        
+
         _settingsHandler.SettingsReloaded += UpdateViewModel;
 
         DeafenKeybindButton.DataContext = _settingsViewModel;
         if (DeafenKeybindButton.Flyout is Flyout { Content: Control content })
             content.DataContext = _settingsViewModel;
-        
-        _settingsHandler.DeafenKeybindChanged += () => 
+
+        _settingsHandler.DeafenKeybindChanged += () =>
         {
             _settingsViewModel.DeafenKeybindDisplay = RetrieveKeybindFromSettings();
         };
@@ -242,7 +243,7 @@ public partial class SettingsView : UserControl
                 }
                 catch (Exception ex)
                 {
-                    Serilog.Log.Error("Could not delete preset data file {File}: {Exception}", file, ex);
+                    Log.Error("Could not delete preset data file {File}: {Exception}", file, ex);
                 }
         }
 
@@ -703,25 +704,26 @@ public partial class SettingsView : UserControl
             {
                 case 1:
                     _settingsHandler.SaveSetting("General", "MinCompletionPercentage", _pendingCompletion);
-                    Serilog.Log.Information("Saved new Completion Percentage to " + contextDependentSetting + _pendingCompletion + "%");
+                    Log.Information("Saved new Completion Percentage to " + contextDependentSetting +
+                                    _pendingCompletion + "%");
                     break;
                 case 2:
                     _settingsHandler.SaveSetting("General", "StarRating", _pendingSR);
-                    Serilog.Log.Information("Saved new Star Rating to " + contextDependentSetting + _pendingSR + "*");
+                    Log.Information("Saved new Star Rating to " + contextDependentSetting + _pendingSR + "*");
                     break;
                 case 3:
                     _settingsHandler.SaveSetting("General", "PerformancePoints", _pendingPP);
-                    Serilog.Log.Information("Saved new pp value to " + contextDependentSetting + _pendingPP + "pp");
+                    Log.Information("Saved new pp value to " + contextDependentSetting + _pendingPP + "pp");
                     break;
                 case 4:
                     _settingsHandler.SaveSetting("UI", "BlurRadius", _pendingBlur);
-                    Serilog.Log.Information("Saved new BlurRadius to " + contextDependentSetting + _pendingBlur*5 + "%");
+                    Log.Information("Saved new BlurRadius to " + contextDependentSetting + _pendingBlur * 5 + "%");
                     break;
             }
         };
         _debounceSaveTimer.Start();
     }
-    
+
     public async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
@@ -729,12 +731,12 @@ public partial class SettingsView : UserControl
         double roundedValue = Math.Round(slider.Value, 2);
         vm.MinCompletionPercentage = roundedValue;
         _pendingCompletion = roundedValue;
-        
+
         await _chartManager.UpdateDeafenOverlayAsync(roundedValue);
-        
+
         ScheduleSave(1);
     }
-    
+
     public void StarRatingSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
@@ -745,7 +747,7 @@ public partial class SettingsView : UserControl
 
         ScheduleSave(2);
     }
-    
+
     public void PPSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
@@ -784,7 +786,7 @@ public partial class SettingsView : UserControl
         }
         catch (Exception ex)
         {
-            Serilog.Log.Error("Exception when updating Deafen Section after reset: " + ex.Message);
+            Log.Error("Exception when updating Deafen Section after reset: " + ex.Message);
         }
     }
 
@@ -813,7 +815,7 @@ public partial class SettingsView : UserControl
         }
         catch (Exception ex)
         {
-            Serilog.Log.Error("Exception while updating Deafen Section after deleting preset: {Exception}", ex);
+            Log.Error("Exception while updating Deafen Section after deleting preset: {Exception}", ex);
         }
 
         DeletePresetData();
@@ -861,7 +863,7 @@ public partial class SettingsView : UserControl
         if (sender is Button btn && btn.DataContext is PresetInfo preset)
         {
             string selectedPresetPath = preset.FilePath;
-            Serilog.Log.Information("Selected Preset Path: {SelectedPresetPath}", selectedPresetPath);
+            Log.Information("Selected Preset Path: {SelectedPresetPath}", selectedPresetPath);
             string currentChecksum = _tosuApi.GetBeatmapChecksum();
             string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "osuautodeafen", "presets");
@@ -886,7 +888,7 @@ public partial class SettingsView : UserControl
             }
             catch (Exception ex)
             {
-                Serilog.Log.Error("Exception while updating Deafen Section after applying preset: {Exception}", ex);
+                Log.Error("Exception while updating Deafen Section after applying preset: {Exception}", ex);
             }
 
             btn.Flyout?.Hide();
@@ -919,7 +921,7 @@ public partial class SettingsView : UserControl
                 }
                 catch (Exception ex)
                 {
-                    Serilog.Log.Error("Could not delete preset file {File}: {Exception}", file, ex);
+                    Log.Error("Could not delete preset file {File}: {Exception}", file, ex);
                 }
         }
 
@@ -934,7 +936,7 @@ public partial class SettingsView : UserControl
         }
         catch (Exception ex)
         {
-            Serilog.Log.Error("Exception while updating Deafen Section after deleting all presets: {Exception}", ex);
+            Log.Error("Exception while updating Deafen Section after deleting all presets: {Exception}", ex);
         }
     }
 
@@ -1016,11 +1018,11 @@ public partial class SettingsView : UserControl
                     UseShellExecute = true
                 });
             else
-                Serilog.Log.Error("Directory does not exist: {AppPath}", appPath);
+                Log.Error("Directory does not exist: {AppPath}", appPath);
         }
         else
         {
-            Serilog.Log.Error("App path is null.");
+            Log.Error("App path is null.");
         }
     }
 
@@ -1028,14 +1030,14 @@ public partial class SettingsView : UserControl
     {
         _viewModel.OpenChangelog();
     }
-    
+
     private void OpenChangelogButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
         Point point = Tooltips.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "View Changelog for v" + UpdateChecker.CurrentVersion);
     }
-    
+
     private void OpenChangelogButton_PointerLeave(object sender, PointerEventArgs e)
     {
         _tooltipManager.HideTooltip();

@@ -9,12 +9,12 @@ namespace osuautodeafen.cs.Changelog;
 
 public sealed class ChangelogManager
 {
-    private readonly HttpClient _http;
-    private readonly SettingsHandler _settingsHandler;
-    private readonly ChangelogViewModel _changelogViewModel;
-
     private const string ChangelogUrl =
         "https://i.cdn.aerodite.dev/osuautodeafen/changelog-" + UpdateChecker.CurrentVersionNumeric + ".md";
+
+    private readonly ChangelogViewModel _changelogViewModel;
+    private readonly HttpClient _http;
+    private readonly SettingsHandler _settingsHandler;
 
     public ChangelogManager(
         HttpClient http,
@@ -32,7 +32,7 @@ public sealed class ChangelogManager
         {
             if (_settingsHandler.LastSeenVersion == currentVersion)
                 return;
-            
+
             VideoPreviewCache.DeleteOldChangelogCaches(currentVersion);
 
             string markdown = await _http.GetStringAsync(ChangelogUrl);
@@ -45,14 +45,14 @@ public sealed class ChangelogManager
             Serilog.Log.Error("Failed to show changelog: {Exception}", ex);
         }
     }
-    
+
     public async Task ForceShowChangelogAsync()
     {
         string markdown = await _http.GetStringAsync(ChangelogUrl);
         _changelogViewModel.LoadFromMarkdown(markdown);
         _changelogViewModel.IsVisible = true;
     }
-    
+
     public void DismissChangelog(string currentVersion)
     {
         try
@@ -68,5 +68,6 @@ public sealed class ChangelogManager
             Serilog.Log.Error("Failed to dismiss changelog: {Exception}", ex);
         }
     }
+
     public event Action? ChangelogDestroyed;
 }

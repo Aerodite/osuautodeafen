@@ -25,7 +25,6 @@ using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
 using osuautodeafen.cs;
 using osuautodeafen.cs.Background;
-using osuautodeafen.cs.Changelog;
 using osuautodeafen.cs.Deafen;
 using osuautodeafen.cs.Helpers;
 using osuautodeafen.cs.Log;
@@ -50,8 +49,6 @@ namespace osuautodeafen;
 
 public partial class MainWindow : Window
 {
-    public static TooltipManager Tooltips { get; private set; } = null!;
-    
     private const double BeatsPerRotation = 4;
 
     private const double HoverAngle = 15;
@@ -82,6 +79,8 @@ public partial class MainWindow : Window
     private readonly HashSet<Key> _pressedKeys = new();
     private readonly ProgressIndicatorHelper _progressIndicatorHelper;
     private readonly Action? _settingsButtonClicked;
+
+    private readonly FileSystemWatcher? _settingsFileWatcher;
     private readonly SettingsHandler? _settingsHandler;
 
     private readonly SettingsViewModel _settingsViewModel;
@@ -123,8 +122,6 @@ public partial class MainWindow : Window
 
     private DispatcherTimer? _modifierOnlyTimer;
     private double _opacity = 1.00;
-    
-    private FileSystemWatcher? _settingsFileWatcher;
 
     private bool _tooltipOutsideBounds;
 
@@ -171,7 +168,7 @@ public partial class MainWindow : Window
         string appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen");
         Directory.CreateDirectory(appPath);
-        
+
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
             .WriteTo.Console()
@@ -188,7 +185,7 @@ public partial class MainWindow : Window
 
         HomeView = new HomeView();
         _settingsViewModel = new SettingsViewModel();
-        
+
         UpdateKeybindCaptureState(_settingsHandler);
 
         _viewModel = new SharedViewModel(
@@ -296,7 +293,8 @@ public partial class MainWindow : Window
             foreach (PresetInfo preset in _viewModel.Presets ?? Enumerable.Empty<PresetInfo>())
             {
                 preset.IsCurrentPreset = preset.Checksum == _tosuApi.GetBeatmapChecksum();
-                Log.Debug("Preset {PresetBeatmapName} IsCurrentPreset: {PresetIsCurrentPreset}", preset.BeatmapName, preset.IsCurrentPreset);
+                Log.Debug("Preset {PresetBeatmapName} IsCurrentPreset: {PresetIsCurrentPreset}", preset.BeatmapName,
+                    preset.IsCurrentPreset);
             }
 
             if (_viewModel.PresetExistsForCurrentChecksum)
@@ -361,7 +359,8 @@ public partial class MainWindow : Window
             StackPanel? debugConsolePanel = SettingsView.FindControl<StackPanel>("DebugConsolePanel");
             if (debugConsolePanel == null || !debugConsolePanel.IsVisible)
                 return;
-            _logImportant.logToInfoPanel($"Progress %: {_tosuApi.GetCompletionPercentage():F2}%", false, "Map Progress");
+            _logImportant.logToInfoPanel($"Progress %: {_tosuApi.GetCompletionPercentage():F2}%", false,
+                "Map Progress");
             double rate = _tosuApi.GetRateAdjustRate();
             if (rate <= 0 || double.IsNaN(rate) || double.IsInfinity(rate))
                 rate = 1;
@@ -468,8 +467,8 @@ public partial class MainWindow : Window
         SettingsView.SetViewControls(_tosuApi, _viewModel, _chartManager, _backgroundManager, _tooltipManager,
             _settingsViewModel);
         SettingsView.UpdateDeafenKeybindDisplay();
-        
-        var iniPath = Path.Combine(
+
+        string iniPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen",
             "settings.ini"
@@ -511,7 +510,7 @@ public partial class MainWindow : Window
 
         _tooltipManager.SetTooltipControls(TooltipRoot, TooltipText, _settingsHandler.WindowWidth,
             _settingsHandler.WindowHeight);
-        
+
         Tooltips = _tooltipManager;
 
         PointerPressed += (sender, e) =>
@@ -647,7 +646,7 @@ public partial class MainWindow : Window
         SettingsView.PPSlider.Value = ViewModel.PerformancePoints;
         SettingsView.BlurEffectSlider.Value = ViewModel.BlurRadius;
         _viewModel.RefreshPresets();
-        
+
         KeyDown += (_, e) =>
         {
             if (e.Key == Key.Escape && _viewModel.Changelog.IsVisible)
@@ -655,19 +654,19 @@ public partial class MainWindow : Window
         };
     }
 
+    public static TooltipManager Tooltips { get; private set; } = null!;
+
+    private SharedViewModel ViewModel { get; }
+
     private void UpdateKeybindCaptureState(SettingsHandler settingsHandler)
     {
         if (PlatformHelper.IsLinux)
-        {
             _settingsViewModel.IsKeybindCaptureEnabled =
                 string.IsNullOrWhiteSpace(settingsHandler.DiscordClient);
-        }
         else
-        {
             _settingsViewModel.IsKeybindCaptureEnabled = true;
-        }
     }
-    
+
     private async void OnSettingsFileChanged(object? sender, FileSystemEventArgs e)
     {
         // let editor finish writing
@@ -683,8 +682,6 @@ public partial class MainWindow : Window
             UpdateKeybindCaptureState(_settingsHandler);
         });
     }
-    
-    private SharedViewModel ViewModel { get; }
 
     private void MainWindow_PointerMoved(object? sender, PointerEventArgs e)
     {
@@ -693,7 +690,7 @@ public partial class MainWindow : Window
 
         Tooltips.TooltipType currentTooltipType = _tooltipManager.CurrentTooltipType;
 
-        if (currentTooltipType == osuautodeafen.cs.Tooltips.Tooltips.TooltipType.Deafen)
+        if (currentTooltipType == cs.Tooltips.Tooltips.TooltipType.Deafen)
         {
             _ = _chartManager.UpdateDeafenOverlayAsync(_viewModel.MinCompletionPercentage);
             e.Handled = true;
@@ -706,7 +703,8 @@ public partial class MainWindow : Window
         _backgroundManager.ApplyParallax(windowPoint.X, windowPoint.Y);
 
         // this is really stupid but it just prevents the case where the straingraph's tooltips attempt to show in areas outside of the straingraph
-        if (currentTooltipType == osuautodeafen.cs.Tooltips.Tooltips.TooltipType.Time || currentTooltipType == osuautodeafen.cs.Tooltips.Tooltips.TooltipType.Section)
+        if (currentTooltipType == cs.Tooltips.Tooltips.TooltipType.Time ||
+            currentTooltipType == cs.Tooltips.Tooltips.TooltipType.Section)
         {
             bool belowBottomLimit = pixelPoint.Y >= PlotView.Bounds.Height - 120;
             bool withinRightLimit = !_isSettingsPanelOpen || pixelPoint.X <= PlotView.Bounds.Width;
@@ -979,7 +977,7 @@ public partial class MainWindow : Window
     private void SettingsButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Border) return;
-        Point point = osuautodeafen.cs.Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = cs.Tooltips.Tooltips.GetWindowRelativePointer(this, e);
         bool isOpen = _isSettingsPanelOpen;
         _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Settings" : "Open Settings");
     }
@@ -1054,7 +1052,8 @@ public partial class MainWindow : Window
                 case nameof(SharedViewModel.IsBackgroundEnabled):
                 {
                     _settingsHandler?.SaveSetting("UI", "IsBackgroundEnabled", _viewModel.IsBackgroundEnabled);
-                    Log.Information("Saved new BackgroundToggle state " + _viewModel.IsBackgroundEnabled + logFinishingText);
+                    Log.Information("Saved new BackgroundToggle state " + _viewModel.IsBackgroundEnabled +
+                                    logFinishingText);
                     if (!_viewModel.IsBackgroundEnabled)
                     {
                         _kiaiBrightnessTimer?.Stop();
@@ -1090,30 +1089,35 @@ public partial class MainWindow : Window
                 }
                 case nameof(SharedViewModel.IsParallaxEnabled):
                     _settingsHandler?.SaveSetting("UI", "IsParallaxEnabled", _viewModel.IsParallaxEnabled);
-                    Log.Information("Saved new ParallaxToggle state " + _viewModel.IsParallaxEnabled + logFinishingText);
+                    Log.Information("Saved new ParallaxToggle state " + _viewModel.IsParallaxEnabled +
+                                    logFinishingText);
                     break;
                 case nameof(SharedViewModel.IsKiaiEffectEnabled):
                     _settingsHandler?.SaveSetting("UI", "IsKiaiEffectEnabled", _viewModel.IsKiaiEffectEnabled);
-                    Log.Information("Saved new KiaiEffect state "  + _viewModel.IsKiaiEffectEnabled + logFinishingText);
+                    Log.Information("Saved new KiaiEffect state " + _viewModel.IsKiaiEffectEnabled + logFinishingText);
                     _tosuApi.RaiseKiaiChanged();
                     break;
                 case nameof(SharedViewModel.IsBreakUndeafenToggleEnabled):
                     _settingsHandler?.SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled",
                         _viewModel.IsBreakUndeafenToggleEnabled);
-                    Log.Information("Saved new BreakToggle state "  + _viewModel.IsBreakUndeafenToggleEnabled + logFinishingText);
+                    Log.Information("Saved new BreakToggle state " + _viewModel.IsBreakUndeafenToggleEnabled +
+                                    logFinishingText);
                     break;
                 case nameof(SharedViewModel.IsPauseUndeafenToggleEnabled):
                     _settingsHandler?.SaveSetting("Behavior", "IsPauseUndeafenToggleEnabled",
                         _viewModel.IsPauseUndeafenToggleEnabled);
-                    Log.Information("Saved new UndeafenOnPauseToggle state "   + _viewModel.IsPauseUndeafenToggleEnabled + logFinishingText);
+                    Log.Information("Saved new UndeafenOnPauseToggle state " + _viewModel.IsPauseUndeafenToggleEnabled +
+                                    logFinishingText);
                     break;
                 case nameof(SharedViewModel.UndeafenAfterMiss):
                     _settingsHandler?.SaveSetting("Behavior", "UndeafenAfterMiss", _viewModel.UndeafenAfterMiss);
-                    Log.Information("Saved new UndeafenAfterMissToggle state " + _viewModel.UndeafenAfterMiss + logFinishingText);
+                    Log.Information("Saved new UndeafenAfterMissToggle state " + _viewModel.UndeafenAfterMiss +
+                                    logFinishingText);
                     break;
                 case nameof(SharedViewModel.IsFCRequired):
                     _settingsHandler?.SaveSetting("Behavior", "IsFCRequired", _viewModel.IsFCRequired);
-                    Log.Information("Saved new FCRequirementToggle state "  + _viewModel.IsFCRequired + logFinishingText);
+                    Log.Information("Saved new FCRequirementToggle state " + _viewModel.IsFCRequired +
+                                    logFinishingText);
                     break;
             }
         }
@@ -1391,7 +1395,7 @@ public partial class MainWindow : Window
 
             for (int i = 1; i <= steps; i++)
             {
-                _updateProgressBar.Value = start + ((end - start) * i / steps);
+                _updateProgressBar.Value = start + (end - start) * i / steps;
                 await Task.Delay(delayPerStep);
             }
         }
@@ -1662,7 +1666,8 @@ public partial class MainWindow : Window
                 Log.Error("Logo load retry {RetryCount} failed: {RetryExMessage}", retryCount, retryEx.Message);
                 if (retryCount >= maxRetries)
                 {
-                    Log.Error("Exception while loading logo after {MaxRetries} attempts: {RetryExMessage}", maxRetries, retryEx.Message);
+                    Log.Error("Exception while loading logo after {MaxRetries} attempts: {RetryExMessage}", maxRetries,
+                        retryEx.Message);
                     return;
                 }
             }
@@ -1787,7 +1792,7 @@ public partial class MainWindow : Window
             double t = elapsed / durationMs;
             t = Math.Clamp(t, 0, 1);
 
-            rotate.Angle = start + ((targetAngle - start) * t);
+            rotate.Angle = start + (targetAngle - start) * t;
 
             await Task.Delay(frameMs, token);
         }
@@ -2065,11 +2070,11 @@ public partial class MainWindow : Window
             for (int i = 1; i <= steps; i++)
             {
                 double t = i / (double)steps;
-                double ease = t * t * (3 - (2 * t));
+                double ease = t * t * (3 - 2 * t);
 
-                translate.X = startX + ((targetX - startX) * ease);
-                translate.Y = startY + ((targetY - startY) * ease);
-                scale.ScaleX = startScale + ((targetScale - startScale) * ease);
+                translate.X = startX + (targetX - startX) * ease;
+                translate.Y = startY + (targetY - startY) * ease;
+                scale.ScaleX = startScale + (targetScale - startScale) * ease;
                 scale.ScaleY = scale.ScaleX;
 
                 await Task.Delay(delayMs);
@@ -2228,7 +2233,7 @@ public partial class MainWindow : Window
             _cogSpinTimer.Tick += (s, ev) =>
             {
                 double elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
-                double angle = (_cogSpinStartAngle + (elapsed * _cogSpinBpm * 360 / BeatsPerRotation)) % 360;
+                double angle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / BeatsPerRotation) % 360;
                 _cogCurrentAngle = angle;
                 rotate.Angle = angle;
             };
@@ -2265,7 +2270,7 @@ public partial class MainWindow : Window
         for (int i = 1; i <= steps; i++)
         {
             await Task.Delay(duration / steps);
-            double angle = start + (step * i);
+            double angle = start + step * i;
             await Dispatcher.UIThread.InvokeAsync(() => rotate.Angle = angle);
         }
 
@@ -2281,7 +2286,7 @@ public partial class MainWindow : Window
         if (_cogSpinTimer != null && _cogSpinTimer.IsEnabled)
         {
             double elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
-            _cogSpinStartAngle = (_cogSpinStartAngle + (elapsed * _cogSpinBpm * 360 / BeatsPerRotation)) % 360;
+            _cogSpinStartAngle = (_cogSpinStartAngle + elapsed * _cogSpinBpm * 360 / BeatsPerRotation) % 360;
             _cogSpinStartTime = DateTime.UtcNow;
             _cogSpinBpm = _tosuApi.GetCurrentBpm() > 0 ? _tosuApi.GetCurrentBpm() : 140;
 

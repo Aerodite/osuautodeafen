@@ -19,6 +19,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private string _discordClient;
 
     private bool _isBreakUndeafenToggleEnabled;
+    private bool _isPauseUndeafenToggleEnabled;
 
     private string? _lastSeenVersion;
 
@@ -28,13 +29,10 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private double _performancePoints;
     private IniData? _presetData;
     private double _starRating;
-    private bool _isPauseUndeafenToggleEnabled;
 
 
     private double _windowHeight;
     private double _windowWidth;
-    public event Action? SettingsReloaded;
-    public event Action? DeafenKeybindChanged;
 
     public IniData Data;
 
@@ -177,6 +175,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     }
 
     public new event PropertyChangedEventHandler? PropertyChanged;
+    public event Action? SettingsReloaded;
+    public event Action? DeafenKeybindChanged;
 
     public void ActivatePreset(string presetFilePath)
     {
@@ -303,13 +303,13 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
         return "%APPDATA%\\osuautodeafen";
     }
-    
+
     public bool ReloadFromDisk()
     {
         try
         {
-            var info = new FileInfo(_iniPath);
-            
+            FileInfo info = new(_iniPath);
+
             if (!info.Exists || info.Length == 0)
                 return false;
 
@@ -378,7 +378,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         tosuApiPort = Data["Network"]["tosuApiPort"];
 
         _discordClient = Data["Linux"]["discordClient"];
-        
+
         _lastSeenVersion = Data["Updates"]["LastSeenVersion"];
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MinCompletionPercentage)));
@@ -398,7 +398,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindControlSide)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindAltSide)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindShiftSide)));
-        
+
         SettingsReloaded?.Invoke();
         DeafenKeybindChanged?.Invoke();
     }
