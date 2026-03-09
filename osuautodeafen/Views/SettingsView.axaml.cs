@@ -43,6 +43,7 @@ public partial class SettingsView : UserControl
     private double _pendingCompletionPercentage;
     private double _pendingBe;
     private double _pendingStarRating;
+    private CancellationTokenSource? _saveCts;
     
     private DispatcherTimer? _debounceSaveTimer;
     
@@ -680,12 +681,11 @@ public partial class SettingsView : UserControl
         MainWindow? window = this.GetVisualRoot() as MainWindow;
         window?.ToggleDebugConsole(sender, e);
     }
-    
-    private CancellationTokenSource? _saveCts;
 
     private void ScheduleSave(int settingId)
     {
         _debounceSaveTimer?.Stop();
+        string contextDependentSetting = _viewModel.PresetExistsForCurrentChecksum ? "preset: " : "settings: ";
 
         _debounceSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _debounceSaveTimer.Tick += (s, e) =>
@@ -696,19 +696,19 @@ public partial class SettingsView : UserControl
             {
                 case 1:
                     _settingsHandler.SaveSetting("General", "MinCompletionPercentage", _pendingCompletion);
-                    Serilog.Log.Information("Saved new Completion Percentage to settings: " + _pendingCompletion + "%");
+                    Serilog.Log.Information("Saved new Completion Percentage to " + contextDependentSetting + _pendingCompletion + "%");
                     break;
                 case 2:
                     _settingsHandler.SaveSetting("General", "StarRating", _pendingSR);
-                    Serilog.Log.Information("Saved new Star Rating to settings: " + _pendingSR + "*");
+                    Serilog.Log.Information("Saved new Star Rating to " + contextDependentSetting + _pendingSR + "*");
                     break;
                 case 3:
                     _settingsHandler.SaveSetting("General", "PerformancePoints", _pendingPP);
-                    Serilog.Log.Information("Saved new pp value to settings: " + _pendingPP + "pp");
+                    Serilog.Log.Information("Saved new pp value to " + contextDependentSetting + _pendingPP + "pp");
                     break;
                 case 4:
                     _settingsHandler.SaveSetting("UI", "BlurRadius", _pendingBlur);
-                    Serilog.Log.Information("Saved new BlurRadius to settings: " + _pendingBlur*5 + "%");
+                    Serilog.Log.Information("Saved new BlurRadius to " + contextDependentSetting + _pendingBlur*5 + "%");
                     break;
             }
         };

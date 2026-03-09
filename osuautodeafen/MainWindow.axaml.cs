@@ -1010,6 +1010,7 @@ public partial class MainWindow : Window
 
     private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        string logFinishingText = _viewModel.PresetExistsForCurrentChecksum ? " to preset" : " to settings";
         try
         {
             switch (e.PropertyName)
@@ -1050,7 +1051,7 @@ public partial class MainWindow : Window
                 case nameof(SharedViewModel.IsBackgroundEnabled):
                 {
                     _settingsHandler?.SaveSetting("UI", "IsBackgroundEnabled", _viewModel.IsBackgroundEnabled);
-
+                    Log.Information("Saved new BackgroundToggle state " + _viewModel.IsBackgroundEnabled + logFinishingText);
                     if (!_viewModel.IsBackgroundEnabled)
                     {
                         _kiaiBrightnessTimer?.Stop();
@@ -1086,24 +1087,30 @@ public partial class MainWindow : Window
                 }
                 case nameof(SharedViewModel.IsParallaxEnabled):
                     _settingsHandler?.SaveSetting("UI", "IsParallaxEnabled", _viewModel.IsParallaxEnabled);
+                    Log.Information("Saved new ParallaxToggle state " + _viewModel.IsParallaxEnabled + logFinishingText);
                     break;
                 case nameof(SharedViewModel.IsKiaiEffectEnabled):
                     _settingsHandler?.SaveSetting("UI", "IsKiaiEffectEnabled", _viewModel.IsKiaiEffectEnabled);
+                    Log.Information("Saved new KiaiEffect state "  + _viewModel.IsKiaiEffectEnabled + logFinishingText);
                     _tosuApi.RaiseKiaiChanged();
                     break;
                 case nameof(SharedViewModel.IsBreakUndeafenToggleEnabled):
                     _settingsHandler?.SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled",
                         _viewModel.IsBreakUndeafenToggleEnabled);
+                    Log.Information("Saved new BreakToggle state "  + _viewModel.IsBreakUndeafenToggleEnabled + logFinishingText);
                     break;
                 case nameof(SharedViewModel.IsPauseUndeafenToggleEnabled):
                     _settingsHandler?.SaveSetting("Behavior", "IsPauseUndeafenToggleEnabled",
                         _viewModel.IsPauseUndeafenToggleEnabled);
+                    Log.Information("Saved new UndeafenOnPauseToggle state "   + _viewModel.IsPauseUndeafenToggleEnabled + logFinishingText);
                     break;
                 case nameof(SharedViewModel.UndeafenAfterMiss):
                     _settingsHandler?.SaveSetting("Behavior", "UndeafenAfterMiss", _viewModel.UndeafenAfterMiss);
+                    Log.Information("Saved new UndeafenAfterMissToggle state " + _viewModel.UndeafenAfterMiss + logFinishingText);
                     break;
                 case nameof(SharedViewModel.IsFCRequired):
                     _settingsHandler?.SaveSetting("Behavior", "IsFCRequired", _viewModel.IsFCRequired);
+                    Log.Information("Saved new FCRequirementToggle state "  + _viewModel.IsFCRequired + logFinishingText);
                     break;
             }
         }

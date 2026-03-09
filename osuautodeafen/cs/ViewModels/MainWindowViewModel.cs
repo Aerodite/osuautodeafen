@@ -140,7 +140,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     }
 
     public bool CanCreatePreset => !PresetExistsForCurrentChecksum;
-
     public bool HasAnyPresets => Presets != null && Presets.Any();
     public bool HasAnyPresetsNotCurrent => Presets != null && Presets.Any(p => !p.IsCurrentPreset);
     public ObservableCollection<PresetInfo>? Presets { get; } = [];
