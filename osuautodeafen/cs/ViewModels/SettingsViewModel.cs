@@ -5,6 +5,8 @@ public class SettingsViewModel : ViewModelBase
     private MainWindow.HotKey? _deafenKeybind;
     private string _deafenKeybindDisplay = "LCtrl + D";
 
+    private bool _isKeybindCaptureEnabled;
+
     private bool _isKeybindCaptureFlyoutOpen;
 
     private string _keybindPrompt = "Press any key(s) for the keybind...";
@@ -57,8 +59,6 @@ public class SettingsViewModel : ViewModelBase
             OnPropertyChanged();
         }
     }
-
-    private bool _isKeybindCaptureEnabled;
 
     public bool IsKeybindCaptureEnabled
     {

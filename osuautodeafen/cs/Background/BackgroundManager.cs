@@ -113,7 +113,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 Bitmap? newBitmap = await LoadBitmapAsync(backgroundPath);
                 if (newBitmap == null || newBitmap.PixelSize.Width == 0 || newBitmap.PixelSize.Height == 0)
                 {
-                    Console.WriteLine($"Failed to load valid background: {backgroundPath}");
+                    Serilog.Log.Error("Failed to load valid background: {BackgroundPath}", backgroundPath);
                     return;
                 }
 
@@ -129,7 +129,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 if (_currentBitmap == null || _currentBitmap.PixelSize.Width == 0 ||
                     _currentBitmap.PixelSize.Height == 0)
                 {
-                    Console.WriteLine("Current bitmap is null or invalid.");
+                    Serilog.Log.Warning("Current bitmap is null or invalid.");
                     return;
                 }
 
@@ -168,7 +168,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine("[ERROR] Exception in background property changed handler: " + ex);
+                        Serilog.Log.Error($"{nameof(Exception)} in background property changed handler: " + ex);
                     }
                 };
                 viewModel.PropertyChanged += _backgroundPropertyChangedHandler;
@@ -176,7 +176,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[ERROR] Exception in UpdateBackground: " + ex);
+            Serilog.Log.Error($"{nameof(Exception)} in UpdateBackground: " + ex);
         }
     }
 
@@ -189,7 +189,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     {
         if (string.IsNullOrWhiteSpace(path))
         {
-            Console.WriteLine("LoadBitmapAsync: Provided path is null or empty.");
+            Serilog.Log.Warning("Provided Bitmap path is null or empty.");
             return null;
         }
 
@@ -197,7 +197,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         {
             if (!File.Exists(path))
             {
-                Console.WriteLine($"Background file not found: {path}");
+                Serilog.Log.Error("Background file not found: {Path}", path);
                 return null;
             }
 
@@ -208,7 +208,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to load bitmap from {path}: {ex.Message}");
+                Serilog.Log.Error("Failed to load bitmap from {Path}: {ExMessage}", path, ex.Message);
                 return null;
             }
         });
@@ -364,7 +364,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("[ERROR] Exception in ApplyParallax: " + ex);
+                    Serilog.Log.Debug("Exception in ApplyParallax: " + ex);
                 }
             else
                 ApplyParallax(315, 315);
@@ -458,7 +458,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         }
         catch (Exception ex)
         {
-            Console.WriteLine("[ERROR] Exception in ApplyParallax: " + ex);
+            Serilog.Log.Error("Exception in ApplyParallax: " + ex);
         }
     }
 

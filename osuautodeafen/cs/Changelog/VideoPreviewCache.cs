@@ -56,7 +56,7 @@ public static class VideoPreviewCache
 
             try
             {
-                using var response = await Http.GetAsync(
+                using HttpResponseMessage response = await Http.GetAsync(
                     url,
                     HttpCompletionOption.ResponseHeadersRead,
                     GlobalCts.Token);
@@ -65,8 +65,8 @@ public static class VideoPreviewCache
 
                 long? contentLength = response.Content.Headers.ContentLength;
 
-                await using var input = await response.Content.ReadAsStreamAsync(GlobalCts.Token);
-                await using var outputFs = File.Create(output);
+                await using Stream input = await response.Content.ReadAsStreamAsync(GlobalCts.Token);
+                await using FileStream outputFs = File.Create(output);
 
                 byte[] buffer = new byte[81920];
                 long readTotal = 0;
@@ -105,7 +105,10 @@ public static class VideoPreviewCache
             if (Path.GetFileName(dir) == currentVersion)
                 continue;
 
-            try { Directory.Delete(dir, true); }
+            try
+            {
+                Directory.Delete(dir, true);
+            }
             catch
             {
                 // ignore
@@ -125,7 +128,7 @@ public static class VideoPreviewCache
             if (!Directory.Exists(root))
                 return;
 
-            FileInfo[] files = new DirectoryInfo(root).GetFiles("*.webp");
+            var files = new DirectoryInfo(root).GetFiles("*.webp");
             long total = 0;
 
             foreach (FileInfo f in files)

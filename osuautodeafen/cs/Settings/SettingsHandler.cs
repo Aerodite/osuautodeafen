@@ -19,6 +19,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private string _discordClient;
 
     private bool _isBreakUndeafenToggleEnabled;
+    private bool _isPauseUndeafenToggleEnabled;
 
     private string? _lastSeenVersion;
 
@@ -28,7 +29,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private double _performancePoints;
     private IniData? _presetData;
     private double _starRating;
-    private bool _isPauseUndeafenToggleEnabled;
 
 
     private double _windowHeight;
@@ -175,35 +175,33 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     }
 
     public new event PropertyChangedEventHandler? PropertyChanged;
+    public event Action? SettingsReloaded;
+    public event Action? DeafenKeybindChanged;
 
     public void ActivatePreset(string presetFilePath)
     {
-        if (!File.Exists(presetFilePath))
-        {
-            Console.WriteLine($"Preset file not found: {presetFilePath}");
-            return;
-        }
+        if (!File.Exists(presetFilePath)) return;
 
         _activePresetPath = presetFilePath;
         _presetData = _parser.ReadFile(presetFilePath);
         Data = _presetData;
         EnsureSectionsExist();
         LoadSettings();
+
+        SettingsReloaded?.Invoke();
+        DeafenKeybindChanged?.Invoke();
     }
 
     public void DeactivatePreset()
     {
-        if (_activePresetPath == null)
-        {
-            Console.WriteLine("No preset is currently active.");
-            return;
-        }
-
         _activePresetPath = null;
         _presetData = null;
         Data = _mainData;
         EnsureSectionsExist();
         LoadSettings();
+
+        SettingsReloaded?.Invoke();
+        DeafenKeybindChanged?.Invoke();
     }
 
     /// <summary>
@@ -305,13 +303,13 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
         return "%APPDATA%\\osuautodeafen";
     }
-    
+
     public bool ReloadFromDisk()
     {
         try
         {
-            var info = new FileInfo(_iniPath);
-            
+            FileInfo info = new(_iniPath);
+
             if (!info.Exists || info.Length == 0)
                 return false;
 
@@ -380,7 +378,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         tosuApiPort = Data["Network"]["tosuApiPort"];
 
         _discordClient = Data["Linux"]["discordClient"];
-        
+
         _lastSeenVersion = Data["Updates"]["LastSeenVersion"];
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MinCompletionPercentage)));
@@ -400,6 +398,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindControlSide)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindAltSide)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindShiftSide)));
+
+        SettingsReloaded?.Invoke();
+        DeafenKeybindChanged?.Invoke();
     }
 
     /// <summary>
@@ -416,7 +417,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         targetData[section][key] = value?.ToString();
 
         string path = IsPresetActive ? _activePresetPath! : _iniPath;
-        Console.WriteLine($"Writing to: {path}");
+        Serilog.Log.Information("Writing new settings to: {Path}", path);
         _parser.WriteFile(path, targetData);
 
         DeafenKeybindKey = int.TryParse(targetData["Hotkeys"]["DeafenKeybindKey"], out int keyVal) ? keyVal : 0;

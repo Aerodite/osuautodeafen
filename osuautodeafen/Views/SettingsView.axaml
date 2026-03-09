@@ -623,7 +623,7 @@
                                 VerticalAlignment="Bottom"
                                 Spacing="8"
                                 Margin="0,16,0,10">
-                        
+
                         <Button x:Name="CheckForUpdatesButton"
                                 Content="Check for Updates"
                                 Width="180"
@@ -640,20 +640,20 @@
                               HorizontalAlignment="Center"
                               Opacity="0.85"
                               ColumnDefinitions="*,Auto,*">
-                            
+
                             <TextBlock Grid.Column="0"
                                        Text="{Binding LongAppVersion}"
                                        Foreground="#CCFFFFFF"
                                        FontSize="12"
                                        VerticalAlignment="Center"
                                        HorizontalAlignment="Center" />
-                            
+
                             <Border Grid.Column="1"
                                     Width="1"
                                     Height="12"
                                     Background="#40FFFFFF"
                                     VerticalAlignment="Center" />
-                            
+
                             <Button Grid.Column="2"
                                     x:Name="OpenChangelogButton"
                                     Background="Transparent"

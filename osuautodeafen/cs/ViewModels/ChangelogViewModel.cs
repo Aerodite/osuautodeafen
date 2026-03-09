@@ -16,9 +16,9 @@ namespace osuautodeafen.cs.ViewModels;
 
 public class ChangelogViewModel : ViewModelBase
 {
-    private bool _isVisible;
     private bool _isDisposed;
-    
+    private bool _isVisible;
+
     public string ChangelogVersion { get; init; } = "";
     public ObservableCollection<ChangelogEntry> Entries { get; } = new();
     public IBrush? BackgroundBrush { get; set; }
@@ -28,19 +28,37 @@ public class ChangelogViewModel : ViewModelBase
         get => _isVisible;
         set => SetProperty(ref _isVisible, value);
     }
-    
-    public ICommand DismissCommand => new RelayCommand(() =>
-    {
-        DismissRequested?.Invoke();
-    });
+
+    public ICommand DismissCommand => new RelayCommand(() => { DismissRequested?.Invoke(); });
 
     public event Action? DismissRequested;
-    
+
     public void LoadFromMarkdown(string markdown)
     {
         Entries.Clear();
         foreach (ChangelogEntry entry in ChangelogParser.Parse(markdown, ChangelogVersion))
             Entries.Add(entry);
+    }
+
+    public void Dispose()
+    {
+        if (_isDisposed)
+            return;
+
+        _isDisposed = true;
+
+        // Stop rendering
+        IsVisible = false;
+
+        // Dispose entries
+        foreach (ChangelogEntry entry in Entries)
+        foreach (ChangelogSection section in entry.Sections)
+        foreach (ChangelogBlock block in section.Blocks)
+            if (block is IDisposable d)
+                d.Dispose();
+
+        Entries.Clear();
+        BackgroundBrush = null;
     }
 
     public record ChangelogEntry(string Version, List<ChangelogSection> Sections);
@@ -50,7 +68,7 @@ public class ChangelogViewModel : ViewModelBase
     public abstract class ChangelogBlock : ViewModelBase
     {
     }
-    
+
     public sealed class TextBlockModel(string text) : ChangelogBlock
     {
         public string Text { get; } = text;
@@ -61,12 +79,18 @@ public class ChangelogViewModel : ViewModelBase
         private static readonly HttpClient Http = new();
 
         private IImage? _source;
+
+        public ImageBlockModel(string url)
+        {
+            _ = LoadAsync(url);
+        }
+
         public IImage? Source
         {
             get => _source;
             private set => SetProperty(ref _source, value);
         }
-        
+
         public void Dispose()
         {
             if (_source is Bitmap bitmap)
@@ -74,22 +98,18 @@ public class ChangelogViewModel : ViewModelBase
 
             _source = null;
         }
-        public ImageBlockModel(string url)
-        {
-            _ = LoadAsync(url);
-        }
 
         private async Task LoadAsync(string url)
         {
             try
             {
-                await using var httpStream = await Http.GetStreamAsync(url);
+                await using Stream httpStream = await Http.GetStreamAsync(url);
 
-                var ms = new MemoryStream();
+                MemoryStream ms = new();
                 await httpStream.CopyToAsync(ms);
                 ms.Position = 0;
 
-                var bitmap = new Bitmap(ms);
+                Bitmap bitmap = new(ms);
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                     Source = bitmap);
@@ -116,20 +136,14 @@ public class ChangelogViewModel : ViewModelBase
 
     public sealed class VideoPreviewBlockModel : ChangelogBlock, IDisposable
     {
-        private readonly string _videoUrl;
         private readonly string _changelogVersion;
+        private readonly string _videoUrl;
+        private bool _disposed;
 
         private string? _previewPath;
         private double _progress;
         private bool _started;
-        private bool _disposed;
 
-
-        public void Dispose()
-        {
-            _disposed = true;
-        }
-        
         public VideoPreviewBlockModel(string videoUrl, string changelogVersion)
         {
             _videoUrl = videoUrl;
@@ -157,8 +171,14 @@ public class ChangelogViewModel : ViewModelBase
             get => _progress;
             private set => SetProperty(ref _progress, value);
         }
-        
+
         public ICommand OpenVideoCommand { get; }
+
+
+        public void Dispose()
+        {
+            _disposed = true;
+        }
 
         public void OnAttached()
         {
@@ -253,31 +273,5 @@ public class ChangelogViewModel : ViewModelBase
         }
 
         public IReadOnlyList<Inline> Inlines { get; }
-    }
-    public void Dispose()
-    {
-        if (_isDisposed)
-            return;
-
-        _isDisposed = true;
-
-        // Stop rendering
-        IsVisible = false;
-
-        // Dispose entries
-        foreach (var entry in Entries)
-        {
-            foreach (var section in entry.Sections)
-            {
-                foreach (var block in section.Blocks)
-                {
-                    if (block is IDisposable d)
-                        d.Dispose();
-                }
-            }
-        }
-
-        Entries.Clear();
-        BackgroundBrush = null;
     }
 }

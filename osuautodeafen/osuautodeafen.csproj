@@ -26,6 +26,9 @@
         <PackageReference Include="Markdig" Version="0.44.0"/>
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4-beta1"/>
         <PackageReference Include="ReactiveUI" Version="21.0.1"/>
+        <PackageReference Include="Serilog" Version="4.3.1"/>
+        <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1"/>
+        <PackageReference Include="Serilog.Sinks.File" Version="7.0.0"/>
         <PackageReference Include="SharpHook" Version="7.0.1"/>
         <PackageReference Include="SkiaSharp" Version="3.119.0"/>
         <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.0"/>
@@ -88,8 +91,8 @@
         <AvaloniaResource Include="Icons\star-half.svg"/>
         <None Remove="Icons\pause.svg"/>
         <AvaloniaResource Include="Icons\pause.svg"/>
-        <None Remove="Icons\book.svg" />
-        <AvaloniaResource Include="Icons\book.svg" />
+        <None Remove="Icons\book.svg"/>
+        <AvaloniaResource Include="Icons\book.svg"/>
     </ItemGroup>
 
     <ItemGroup>

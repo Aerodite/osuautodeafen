@@ -450,7 +450,7 @@ public class ChartManager
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error updating deafen overlay: {ex.Message}");
+            Serilog.Log.Error("Error updating deafen overlay: {ExMessage}", ex.Message);
         }
     }
 
@@ -532,7 +532,7 @@ public class ChartManager
         PlotView.TooltipPosition = TooltipPosition.Hidden;
         PlotView.InvalidateVisual();
         sw.Stop();
-        Console.WriteLine($"Chart updated in {sw.ElapsedMilliseconds} ms");
+        Serilog.Log.Information("Chart updated in {SwElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
     }
 
     /// <summary>
@@ -646,7 +646,7 @@ public class ChartManager
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Exception: {ex}");
+            Serilog.Log.Error("Exception updating series: {Exception}", ex);
         }
 
         var allSections = PlotView.Sections.ToList();
