@@ -1,4 +1,4 @@
-namespace osuautodeafen.cs.ViewModels;
+namespace osuautodeafen.ViewModels;
 
 public class SettingsViewModel : ViewModelBase
 {

@@ -1,7 +1,8 @@
 using System.Diagnostics;
 using System.Windows.Input;
+using osuautodeafen.Web;
 
-namespace osuautodeafen.cs.Changelog;
+namespace osuautodeafen.Changelog;
 
 public abstract record InlinePart(string Text)
 {

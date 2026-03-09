@@ -1,6 +1,8 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
+namespace osuautodeafen.Update;
+
 public class UpdateNotificationBar : UserControl
 {
     public UpdateNotificationBar()

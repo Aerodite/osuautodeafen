@@ -4,7 +4,7 @@ using Avalonia.Media;
 using Velopack;
 using Velopack.Sources;
 
-namespace osuautodeafen.cs.Update;
+namespace osuautodeafen.Update;
 
 public class UpdateChecker
 {

@@ -5,6 +5,8 @@ using System.Linq;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 
+namespace osuautodeafen.Settings.Presets;
+
 public class AverageColorCycleConverter : IMultiValueConverter
 {
     /// <summary>

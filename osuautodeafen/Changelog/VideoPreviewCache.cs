@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace osuautodeafen.cs.Changelog;
+namespace osuautodeafen.Changelog;
 
 public static class VideoPreviewCache
 {

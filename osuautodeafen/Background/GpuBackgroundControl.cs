@@ -5,6 +5,8 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 
+namespace osuautodeafen.Background;
+
 public sealed class GpuBackgroundControl : Control
 {
     public Bitmap? Bitmap;

@@ -6,7 +6,7 @@ using Avalonia.Controls;
 using IniParser;
 using IniParser.Model;
 
-namespace osuautodeafen.cs.Settings;
+namespace osuautodeafen.Settings;
 
 public class SettingsHandler : Control, INotifyPropertyChanged
 {

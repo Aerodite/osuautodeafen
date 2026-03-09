@@ -1,4 +1,4 @@
-namespace osuautodeafen.cs.Settings.Keybinds;
+namespace osuautodeafen.Settings.Keybinds;
 
 public abstract class Modifiers
 {

@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace osuautodeafen.cs;
+namespace osuautodeafen.StrainGraph;
 
 public class GraphData
 {

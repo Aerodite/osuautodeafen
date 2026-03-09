@@ -1,10 +1,10 @@
 <UserControl
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:vm="clr-namespace:osuautodeafen.cs.ViewModels"
     xmlns:anim="https://github.com/whistyun/AnimatedImage.Avalonia"
-    xmlns:helpers="clr-namespace:osuautodeafen.cs.Helpers"
-    xmlns:changelog="clr-namespace:osuautodeafen.cs.Changelog"
+    xmlns:vm="clr-namespace:osuautodeafen.ViewModels"
+    xmlns:helpers="clr-namespace:osuautodeafen.Helpers"
+    xmlns:changelog="clr-namespace:osuautodeafen.Changelog"
     x:Class="osuautodeafen.Views.ChangelogView"
     x:DataType="vm:ChangelogViewModel">
 

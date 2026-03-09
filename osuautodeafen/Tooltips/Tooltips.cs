@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 
-namespace osuautodeafen.cs.Tooltips;
+namespace osuautodeafen.Tooltips;
 
 public abstract class Tooltips
 {

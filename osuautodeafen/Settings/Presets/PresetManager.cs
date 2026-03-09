@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace osuautodeafen.cs.Settings.Presets;
+namespace osuautodeafen.Settings.Presets;
 
 public static class PresetManager
 {

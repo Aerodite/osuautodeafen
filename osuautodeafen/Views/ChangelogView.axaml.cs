@@ -8,8 +8,8 @@ using Avalonia.Controls.Documents;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.VisualTree;
-using osuautodeafen.cs.Tooltips;
-using osuautodeafen.cs.ViewModels;
+using osuautodeafen.Tooltips;
+using osuautodeafen.ViewModels;
 
 namespace osuautodeafen.Views;
 
@@ -156,7 +156,7 @@ public partial class ChangelogView : UserControl
         if (window == null)
             return;
 
-        Point point = cs.Tooltips.Tooltips
+        Point point = osuautodeafen.Tooltips.Tooltips
             .GetWindowRelativePointer(window, e);
         Tooltips.ShowTooltip(target, point, url);
     }
@@ -167,7 +167,7 @@ public partial class ChangelogView : UserControl
         if (window == null)
             return;
 
-        Point point = cs.Tooltips.Tooltips
+        Point point = osuautodeafen.Tooltips.Tooltips
             .GetWindowRelativePointer(window, e);
         Tooltips.MoveTooltipToPosition(point);
     }
@@ -181,7 +181,7 @@ public partial class ChangelogView : UserControl
         if (window == null)
             return;
 
-        Point point = cs.Tooltips.Tooltips
+        Point point = osuautodeafen.Tooltips.Tooltips
             .GetWindowRelativePointer(window, e);
         Tooltips.ShowTooltip(c, point, "Open Video in Browser");
     }
@@ -200,7 +200,7 @@ public partial class ChangelogView : UserControl
         if (window == null)
             return;
 
-        Point point = cs.Tooltips.Tooltips
+        Point point = osuautodeafen.Tooltips.Tooltips
             .GetWindowRelativePointer(window, e);
         Tooltips.MoveTooltipToPosition(point);
     }
@@ -214,7 +214,7 @@ public partial class ChangelogView : UserControl
         if (window == null)
             return;
 
-        Point point = cs.Tooltips.Tooltips
+        Point point = osuautodeafen.Tooltips.Tooltips
             .GetWindowRelativePointer(window, e);
         Tooltips.ShowTooltip(c, point, "Open Pull Request in Browser");
     }
@@ -233,7 +233,7 @@ public partial class ChangelogView : UserControl
         if (window == null)
             return;
 
-        Point point = cs.Tooltips.Tooltips
+        Point point = osuautodeafen.Tooltips.Tooltips
             .GetWindowRelativePointer(window, e);
         Tooltips.MoveTooltipToPosition(point);
     }

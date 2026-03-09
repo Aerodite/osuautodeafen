@@ -12,11 +12,11 @@ using Avalonia.Media;
 using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
-using osuautodeafen.cs.ViewModels;
+using osuautodeafen.ViewModels;
 using AvaloniaInline = Avalonia.Controls.Documents.Inline;
 using Inline = Markdig.Syntax.Inlines.Inline;
 
-namespace osuautodeafen.cs.Changelog;
+namespace osuautodeafen.Changelog;
 
 public static class ChangelogParser
 {

@@ -9,9 +9,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Input;
 using Newtonsoft.Json;
-using osuautodeafen.cs.Settings;
+using osuautodeafen.Settings;
+using osuautodeafen.StrainGraph;
 
-namespace osuautodeafen.cs.Tosu;
+namespace osuautodeafen.Tosu;
 
 public class TosuApi : IDisposable
 {

@@ -1,9 +1,9 @@
 ﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using osuautodeafen.cs.Tosu;
+using osuautodeafen.Tosu;
 
-namespace osuautodeafen.cs.Background;
+namespace osuautodeafen.Background;
 
 public class GetLowResBackground
 {

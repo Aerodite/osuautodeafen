@@ -1,6 +1,6 @@
 using Avalonia.Input;
 
-namespace osuautodeafen.cs.Settings.Keybinds;
+namespace osuautodeafen.Settings.Keybinds;
 
 public class KeybindHelper
 {

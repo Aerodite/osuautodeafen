@@ -1,6 +1,6 @@
 ﻿using Avalonia.Controls;
 
-namespace osuautodeafen.cs.Settings;
+namespace osuautodeafen.Settings;
 
 public class SettingsPanel : Control
 {

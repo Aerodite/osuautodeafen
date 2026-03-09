@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace osuautodeafen.cs.Log;
+namespace osuautodeafen.Logging;
 
 public class LogImportant
 {
@@ -10,7 +10,7 @@ public class LogImportant
     /// <summary>
     ///     Logs a message to be displayed only in the info panel
     /// </summary>
-    public void logToInfoPanel(string message, bool includeTimestamp = true, string? keyword = null,
+    public void LogToInfoPanel(string message, bool includeTimestamp = true, string? keyword = null,
         string? hyperLink = null)
     {
         string newLine = includeTimestamp

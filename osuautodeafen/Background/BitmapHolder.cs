@@ -1,7 +1,7 @@
 ﻿using System;
 using Avalonia.Media.Imaging;
 
-namespace osuautodeafen;
+namespace osuautodeafen.Background;
 
 public class BitmapHolder : IDisposable
 {

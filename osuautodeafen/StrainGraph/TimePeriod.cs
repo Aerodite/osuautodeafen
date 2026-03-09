@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using osuautodeafen.cs.Tosu;
+using osuautodeafen.Tosu;
 
-namespace osuautodeafen.cs.StrainGraph;
+namespace osuautodeafen.StrainGraph;
 
 /// <summary>
 ///     Represents a generic time period with start and end times

@@ -1,6 +1,6 @@
 using System.ComponentModel;
 
-namespace osuautodeafen.cs.Settings.Presets;
+namespace osuautodeafen.Settings.Presets;
 
 public class PresetInfo
 {

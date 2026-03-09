@@ -11,12 +11,12 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using osuautodeafen.cs.Logo;
-using osuautodeafen.cs.Tosu;
-using osuautodeafen.cs.ViewModels;
+using osuautodeafen.Logo;
+using osuautodeafen.Tosu;
+using osuautodeafen.ViewModels;
 using osuautodeafen.Views;
 
-namespace osuautodeafen.cs.Background;
+namespace osuautodeafen.Background;
 
 public class BackgroundManager(MainWindow window, SharedViewModel viewModel, TosuApi tosuApi, SettingsView settingsView)
 {

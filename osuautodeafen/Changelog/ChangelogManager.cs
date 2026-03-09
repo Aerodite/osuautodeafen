@@ -1,11 +1,11 @@
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
-using osuautodeafen.cs.Settings;
-using osuautodeafen.cs.Update;
-using osuautodeafen.cs.ViewModels;
+using osuautodeafen.Settings;
+using osuautodeafen.Update;
+using osuautodeafen.ViewModels;
 
-namespace osuautodeafen.cs.Changelog;
+namespace osuautodeafen.Changelog;
 
 public sealed class ChangelogManager
 {

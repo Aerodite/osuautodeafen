@@ -4,7 +4,7 @@ using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 
-namespace osuautodeafen.cs.Settings;
+namespace osuautodeafen.Settings;
 
 public class ColorBlendConverter : IMultiValueConverter
 {

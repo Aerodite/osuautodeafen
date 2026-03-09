@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using LiveChartsCore.SkiaSharpView;
 
-namespace osuautodeafen.cs.StrainGraph;
+namespace osuautodeafen.StrainGraph.Sections;
 
 public class RectangularSectionComparer : IEqualityComparer<RectangularSection>
 {

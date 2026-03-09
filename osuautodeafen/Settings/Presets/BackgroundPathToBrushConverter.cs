@@ -7,7 +7,7 @@ using Avalonia.Data.Converters;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 
-namespace osuautodeafen.cs.Settings.Presets;
+namespace osuautodeafen.Settings.Presets;
 
 public class BackgroundPathToBrushConverter : IValueConverter
 {

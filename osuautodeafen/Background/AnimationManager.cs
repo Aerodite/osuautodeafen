@@ -2,6 +2,8 @@
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 
+namespace osuautodeafen.Background;
+
 public class AnimationManager
 {
     private readonly ConcurrentQueue<Func<Task>> _animationQueue = new();

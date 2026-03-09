@@ -11,15 +11,16 @@ using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using osuautodeafen.cs.Changelog;
-using osuautodeafen.cs.Settings;
-using osuautodeafen.cs.Settings.Presets;
-using osuautodeafen.cs.Tooltips;
-using osuautodeafen.cs.Tosu;
-using osuautodeafen.cs.Update;
+using osuautodeafen.Changelog;
+using osuautodeafen.Settings;
+using osuautodeafen.Settings.Presets;
+using osuautodeafen.Tooltips;
+using osuautodeafen.Tosu;
+using osuautodeafen.Update;
 using osuautodeafen.Views;
+using osuautodeafen.Web;
 
-namespace osuautodeafen.cs.ViewModels;
+namespace osuautodeafen.ViewModels;
 
 public sealed class SharedViewModel : INotifyPropertyChanged
 {

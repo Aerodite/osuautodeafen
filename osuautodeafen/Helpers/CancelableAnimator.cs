@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace osuautodeafen.cs.Helpers;
+namespace osuautodeafen.Helpers;
 
 public sealed class CancelableAnimator : IDisposable
 {

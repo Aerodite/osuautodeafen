@@ -3,16 +3,15 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:osuautodeafen"
-        xmlns:cs="clr-namespace:osuautodeafen.cs"
         xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
-        xmlns:settings="clr-namespace:osuautodeafen.cs.Settings"
         xmlns:global="clr-namespace:"
-        xmlns:presets="clr-namespace:osuautodeafen.cs.Settings.Presets"
         xmlns:transitions="clr-namespace:Avalonia.Animation;assembly=Avalonia.Animation"
-        xmlns:progressIndicator="clr-namespace:osuautodeafen.cs.StrainGraph.ProgressIndicator"
-        xmlns:viewModels="clr-namespace:osuautodeafen.cs.ViewModels"
         xmlns:views="clr-namespace:osuautodeafen.Views"
-        xmlns:helpers="clr-namespace:osuautodeafen.cs.Helpers"
+        xmlns:viewModels="clr-namespace:osuautodeafen.ViewModels"
+        xmlns:helpers="clr-namespace:osuautodeafen.Helpers"
+        xmlns:presets="clr-namespace:osuautodeafen.Settings.Presets"
+        xmlns:settings="clr-namespace:osuautodeafen.Settings"
+        xmlns:progressIndicator="clr-namespace:osuautodeafen.StrainGraph.ProgressIndicator"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osuautodeafen"
@@ -26,9 +25,9 @@
     
     <Window.Resources>
         <helpers:NullToBoolConverter x:Key="NullToBoolConverter" />
-        <global:AverageColorCycleConverter x:Key="AverageColorCycleConverter" />
+        <presets:AverageColorCycleConverter x:Key="AverageColorCycleConverter" />
         <presets:BackgroundPathToBrushConverter x:Key="BackgroundPathToBrushConverter" />
-        <global:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+        <local:InverseBooleanConverter x:Key="InverseBooleanConverter" />
         <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
         <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />

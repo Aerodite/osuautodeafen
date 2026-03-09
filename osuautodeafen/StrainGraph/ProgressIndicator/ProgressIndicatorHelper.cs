@@ -4,7 +4,7 @@ using System.Linq;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.SkiaSharpView;
 
-namespace osuautodeafen.cs.StrainGraph.ProgressIndicator;
+namespace osuautodeafen.StrainGraph.ProgressIndicator;
 
 public class ProgressIndicatorHelper(ChartManager chartManager)
 {

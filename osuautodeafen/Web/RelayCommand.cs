@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Windows.Input;
 
+namespace osuautodeafen.Web;
+
 public class RelayCommand : ICommand
 {
     private readonly Func<bool> _canExecute;

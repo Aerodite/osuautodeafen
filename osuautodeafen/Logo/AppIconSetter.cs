@@ -3,6 +3,8 @@ using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Threading;
 
+namespace osuautodeafen.Logo;
+
 public static class AppIconSetter
 {
     private static Stream? _previousIconStream;

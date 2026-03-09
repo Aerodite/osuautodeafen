@@ -7,7 +7,7 @@ using LiveChartsCore.Defaults;
 
 // ReSharper disable CompareOfFloatsByEqualityOperator
 
-namespace osuautodeafen.cs.StrainGraph.ProgressIndicator;
+namespace osuautodeafen.StrainGraph.ProgressIndicator;
 
 public class ProgressIndicatorOverlay : Control
 {

@@ -16,15 +16,15 @@ using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Avalonia;
 using LiveChartsCore.SkiaSharpView.Painting;
-using osuautodeafen.cs.Tooltips;
-using osuautodeafen.cs.Tosu;
-using osuautodeafen.cs.ViewModels;
+using osuautodeafen.Tooltips;
+using osuautodeafen.Tosu;
+using osuautodeafen.ViewModels;
 using osuautodeafen.Views;
 using SkiaSharp;
 
 // ReSharper disable CompareOfFloatsByEqualityOperator
 
-namespace osuautodeafen.cs.StrainGraph;
+namespace osuautodeafen.StrainGraph;
 
 public class ChartManager
 {

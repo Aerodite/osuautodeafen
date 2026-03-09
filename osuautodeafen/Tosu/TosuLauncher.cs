@@ -4,7 +4,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
-namespace osuautodeafen.cs.Tosu;
+namespace osuautodeafen.Tosu;
 
 public class TosuLauncher
 {

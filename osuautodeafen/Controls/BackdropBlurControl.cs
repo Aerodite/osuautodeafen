@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -10,13 +11,31 @@ using SkiaSharp;
 // basically commpletely taken from https://github.com/rocksdanister/weather/blob/200d11ac9599ae10887d95175d5cd37a4046ea11/src/Drizzle.UI.Avalonia/UserControls/BackdropBlurControl.cs 
 // (thanks)
 
-namespace osuautodeafen.cs;
+namespace osuautodeafen.Controls;
 
 // Ref: https://gist.github.com/kekekeks/ac06098a74fe87d49a9ff9ea37fa67bc
 public class BackdropBlurControl : ContentControl
 {
-    public static readonly StyledProperty<ExperimentalAcrylicMaterial> MaterialProperty = AvaloniaProperty.Register<BackdropBlurControl, ExperimentalAcrylicMaterial>(
-        "Material");
+    public static readonly StyledProperty<ExperimentalAcrylicMaterial> MaterialProperty =
+        AvaloniaProperty.Register<BackdropBlurControl, ExperimentalAcrylicMaterial>(
+            "Material");
+
+    // Same as #10ffffff for UWP CardBackgroundBrush.
+    private static readonly ImmutableExperimentalAcrylicMaterial DefaultAcrylicMaterial =
+        (ImmutableExperimentalAcrylicMaterial)new ExperimentalAcrylicMaterial
+        {
+            MaterialOpacity = 0.1,
+            TintColor = Colors.White,
+            TintOpacity = 0.1,
+            PlatformTransparencyCompensationLevel = 0
+        }.ToImmutable();
+
+    private static SKShader s_acrylicNoiseShader;
+
+    static BackdropBlurControl()
+    {
+        AffectsRender<BackdropBlurControl>(MaterialProperty);
+    }
 
     public ExperimentalAcrylicMaterial Material
     {
@@ -24,26 +43,18 @@ public class BackdropBlurControl : ContentControl
         set => SetValue(MaterialProperty, value);
     }
 
-    // Same as #10ffffff for UWP CardBackgroundBrush.
-    static ImmutableExperimentalAcrylicMaterial DefaultAcrylicMaterial = (ImmutableExperimentalAcrylicMaterial)new ExperimentalAcrylicMaterial()
+    public override void Render(DrawingContext context)
     {
-        MaterialOpacity = 0.1,
-        TintColor = Colors.White,
-        TintOpacity = 0.1,
-        PlatformTransparencyCompensationLevel = 0
-    }.ToImmutable();
-
-    static BackdropBlurControl()
-    {
-        AffectsRender<BackdropBlurControl>(MaterialProperty);
+        ImmutableExperimentalAcrylicMaterial mat = Material != null
+            ? (ImmutableExperimentalAcrylicMaterial)Material.ToImmutable()
+            : DefaultAcrylicMaterial;
+        context.Custom(new BlurBehindRenderOperation(mat, new Rect(default, Bounds.Size)));
     }
 
-    private static SKShader s_acrylicNoiseShader;
-
-    class BlurBehindRenderOperation : ICustomDrawOperation
+    private class BlurBehindRenderOperation : ICustomDrawOperation
     {
-        private readonly ImmutableExperimentalAcrylicMaterial _material;
         private readonly Rect _bounds;
+        private readonly ImmutableExperimentalAcrylicMaterial _material;
 
         public BlurBehindRenderOperation(ImmutableExperimentalAcrylicMaterial material, Rect bounds)
         {
@@ -55,83 +66,78 @@ public class BackdropBlurControl : ContentControl
         {
         }
 
-        public bool HitTest(Point p) => _bounds.Contains(p);
-
-        static SKColorFilter CreateAlphaColorFilter(double opacity)
+        public bool HitTest(Point p)
         {
-            opacity = Math.Clamp(opacity, 0, 1);
-            var c = new byte[256];
-            var a = new byte[256];
-            for (var i = 0; i < 256; i++)
-            {
-                c[i] = (byte)i;
-                a[i] = (byte)(i * opacity);
-            }
-
-            return SKColorFilter.CreateTable(a, c, c, c);
+            return _bounds.Contains(p);
         }
 
         public void Render(ImmediateDrawingContext context)
         {
-            var leaseFeature = context.TryGetFeature<ISkiaSharpApiLeaseFeature>();
+            ISkiaSharpApiLeaseFeature? leaseFeature = context.TryGetFeature<ISkiaSharpApiLeaseFeature>();
             if (leaseFeature == null)
                 return;
-            using var lease = leaseFeature.Lease();
+            using ISkiaSharpApiLease lease = leaseFeature.Lease();
 
-            var skiaContext = lease;
+            ISkiaSharpApiLease? skiaContext = lease;
             if (skiaContext == null)
                 return;
 
-            if (!skiaContext.SkCanvas.TotalMatrix.TryInvert(out var currentInvertedTransform))
+            if (!skiaContext.SkCanvas.TotalMatrix.TryInvert(out SKMatrix currentInvertedTransform))
                 return;
 
-            using var backgroundSnapshot = skiaContext.SkSurface.Snapshot();
-            using var backdropShader = SKShader.CreateImage(backgroundSnapshot, SKShaderTileMode.Clamp,
+            using SKImage? backgroundSnapshot = skiaContext.SkSurface.Snapshot();
+            using SKShader? backdropShader = SKShader.CreateImage(backgroundSnapshot, SKShaderTileMode.Clamp,
                 SKShaderTileMode.Clamp, currentInvertedTransform);
 
-            using var blurred = SKSurface.Create(skiaContext.GrContext, false, new SKImageInfo(
+            using SKSurface? blurred = SKSurface.Create(skiaContext.GrContext, false, new SKImageInfo(
                 (int)Math.Ceiling(_bounds.Width),
                 (int)Math.Ceiling(_bounds.Height), SKImageInfo.PlatformColorType, SKAlphaType.Premul));
 
-            using (var filter = SKImageFilter.CreateBlur(10, 10, SKShaderTileMode.Clamp))
-            using (var blurPaint = new SKPaint
+            using (SKImageFilter filter = SKImageFilter.CreateBlur(10, 10, SKShaderTileMode.Clamp))
+            using (SKPaint blurPaint = new()
+                   {
+                       Shader = backdropShader,
+                       ImageFilter = filter
+                   })
             {
-                Shader = backdropShader,
-                ImageFilter = filter
-            })
-            blurred.Canvas.DrawRect(0, 0, (float)_bounds.Width, (float)_bounds.Height, blurPaint);
+                blurred.Canvas.DrawRect(0, 0, (float)_bounds.Width, (float)_bounds.Height, blurPaint);
+            }
 
-            using (var blurSnap = blurred.Snapshot())
-            using (var blurSnapShader = SKShader.CreateImage(blurSnap))
-            using (var blurSnapPaint = new SKPaint
+            using (SKImage? blurSnap = blurred.Snapshot())
+            using (SKShader? blurSnapShader = SKShader.CreateImage(blurSnap))
+            using (SKPaint blurSnapPaint = new()
+                   {
+                       Shader = blurSnapShader,
+                       IsAntialias = true
+                   })
             {
-                Shader = blurSnapShader,
-                IsAntialias = true
-            })
                 skiaContext.SkCanvas.DrawRect(0, 0, (float)_bounds.Width, (float)_bounds.Height, blurSnapPaint);
+            }
 
-            using var acrylicPaint = new SKPaint();
+            using SKPaint acrylicPaint = new();
             acrylicPaint.IsAntialias = true;
 
             const double noiseOpacity = 0.0225;
 
-            var tintColor = _material.TintColor;
-            var tint = new SKColor(tintColor.R, tintColor.G, tintColor.B, tintColor.A);
+            Color tintColor = _material.TintColor;
+            SKColor tint = new(tintColor.R, tintColor.G, tintColor.B, tintColor.A);
 
             if (s_acrylicNoiseShader == null)
-            {
-                using (var stream = typeof(SkiaPlatform).Assembly.GetManifestResourceStream("Avalonia.Skia.Assets.NoiseAsset_256X256_PNG.png"))
-                using (var bitmap = SKBitmap.Decode(stream))
+                using (Stream? stream =
+                       typeof(SkiaPlatform).Assembly.GetManifestResourceStream(
+                           "Avalonia.Skia.Assets.NoiseAsset_256X256_PNG.png"))
+                using (SKBitmap? bitmap = SKBitmap.Decode(stream))
                 {
-                    s_acrylicNoiseShader = SKShader.CreateBitmap(bitmap, SKShaderTileMode.Repeat, SKShaderTileMode.Repeat)
+                    s_acrylicNoiseShader = SKShader
+                        .CreateBitmap(bitmap, SKShaderTileMode.Repeat, SKShaderTileMode.Repeat)
                         .WithColorFilter(CreateAlphaColorFilter(noiseOpacity));
                 }
-            }
 
-            using (var backdrop = SKShader.CreateColor(new SKColor(_material.MaterialColor.R, _material.MaterialColor.G, _material.MaterialColor.B, _material.MaterialColor.A)))
-            using (var tintShader = SKShader.CreateColor(tint))
-            using (var effectiveTint = SKShader.CreateCompose(backdrop, tintShader))
-            using (var compose = SKShader.CreateCompose(effectiveTint, s_acrylicNoiseShader))
+            using (SKShader? backdrop = SKShader.CreateColor(new SKColor(_material.MaterialColor.R,
+                       _material.MaterialColor.G, _material.MaterialColor.B, _material.MaterialColor.A)))
+            using (SKShader? tintShader = SKShader.CreateColor(tint))
+            using (SKShader? effectiveTint = SKShader.CreateCompose(backdrop, tintShader))
+            using (SKShader? compose = SKShader.CreateCompose(effectiveTint, s_acrylicNoiseShader))
             {
                 acrylicPaint.Shader = compose;
                 acrylicPaint.IsAntialias = true;
@@ -145,13 +151,19 @@ public class BackdropBlurControl : ContentControl
         {
             return other is BlurBehindRenderOperation op && op._bounds == _bounds && op._material.Equals(_material);
         }
-    }
 
-    public override void Render(DrawingContext context)
-    {
-        var mat = Material != null
-            ? (ImmutableExperimentalAcrylicMaterial)Material.ToImmutable()
-            : DefaultAcrylicMaterial;
-        context.Custom(new BlurBehindRenderOperation(mat, new Rect(default, Bounds.Size)));
+        private static SKColorFilter CreateAlphaColorFilter(double opacity)
+        {
+            opacity = Math.Clamp(opacity, 0, 1);
+            byte[] c = new byte[256];
+            byte[] a = new byte[256];
+            for (int i = 0; i < 256; i++)
+            {
+                c[i] = (byte)i;
+                a[i] = (byte)(i * opacity);
+            }
+
+            return SKColorFilter.CreateTable(a, c, c, c);
+        }
     }
 }

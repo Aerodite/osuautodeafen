@@ -6,7 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
 
-namespace osuautodeafen.cs.Tooltips;
+namespace osuautodeafen.Tooltips;
 
 public class TooltipManager
 {

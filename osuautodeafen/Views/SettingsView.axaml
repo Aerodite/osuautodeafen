@@ -1,18 +1,17 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="osuautodeafen.Views.SettingsView"
-             xmlns:settings="clr-namespace:osuautodeafen.cs.Settings"
-             xmlns:global="clr-namespace:"
-             xmlns:presets="clr-namespace:osuautodeafen.cs.Settings.Presets"
-             xmlns:viewModels="clr-namespace:osuautodeafen.cs.ViewModels"
-             xmlns:controls="clr-namespace:osuautodeafen.cs"
+             xmlns:settings="clr-namespace:osuautodeafen.Settings"
+             xmlns:presets="clr-namespace:osuautodeafen.Settings.Presets"
+             xmlns:viewModels="clr-namespace:osuautodeafen.ViewModels"
+             xmlns:controls="clr-namespace:osuautodeafen.Controls"
+             xmlns:osuautodeafen="clr-namespace:osuautodeafen"
              DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
 
     <UserControl.Resources>
-        <global:AverageColorCycleConverter x:Key="AverageColorCycleConverter" />
+        <presets:AverageColorCycleConverter x:Key="AverageColorCycleConverter" />
         <presets:BackgroundPathToBrushConverter x:Key="BackgroundPathToBrushConverter" />
-        <global:InverseBooleanConverter x:Key="InverseBooleanConverter" />
-        <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
+        <osuautodeafen:InverseBooleanConverter x:Key="InverseBooleanConverter" />
         <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
 

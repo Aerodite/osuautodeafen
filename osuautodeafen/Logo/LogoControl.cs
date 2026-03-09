@@ -7,7 +7,7 @@ using Avalonia.Skia;
 using SkiaSharp;
 using Svg.Skia;
 
-namespace osuautodeafen.cs;
+namespace osuautodeafen.Logo;
 
 public sealed class LogoControl : Control
 {

@@ -1,4 +1,4 @@
-﻿namespace osuautodeafen.cs;
+﻿namespace osuautodeafen.Settings;
 
 public class KeybindCaptureDialog
 {

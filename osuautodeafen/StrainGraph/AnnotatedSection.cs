@@ -1,6 +1,6 @@
 ﻿using LiveChartsCore.SkiaSharpView;
 
-namespace osuautodeafen.cs.StrainGraph;
+namespace osuautodeafen.StrainGraph;
 
 /// <summary>
 ///     An extended class of RectangularSection but with additional metadata for annotations (tooltips)

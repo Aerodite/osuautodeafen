@@ -8,12 +8,12 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using osuautodeafen.cs.Background;
-using osuautodeafen.cs.ViewModels;
+using osuautodeafen.Background;
+using osuautodeafen.ViewModels;
 using SkiaSharp;
 using Svg.Skia;
 
-namespace osuautodeafen.cs.Logo;
+namespace osuautodeafen.Logo;
 
 public class LogoUpdater(
     GetLowResBackground getLowResBackground,

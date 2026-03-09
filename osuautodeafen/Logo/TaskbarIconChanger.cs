@@ -2,6 +2,8 @@
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
 
+namespace osuautodeafen.Logo;
+
 public static class TaskbarIconChanger
 {
     private const int WM_SETICON = 0x0080;

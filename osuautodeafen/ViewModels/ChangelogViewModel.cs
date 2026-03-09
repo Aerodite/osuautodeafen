@@ -10,9 +10,10 @@ using Avalonia.Controls.Documents;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using osuautodeafen.cs.Changelog;
+using osuautodeafen.Changelog;
+using osuautodeafen.Web;
 
-namespace osuautodeafen.cs.ViewModels;
+namespace osuautodeafen.ViewModels;
 
 public class ChangelogViewModel : ViewModelBase
 {

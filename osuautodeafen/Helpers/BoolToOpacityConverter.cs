@@ -2,7 +2,7 @@ using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
 
-namespace osuautodeafen.cs.Helpers;
+namespace osuautodeafen.Helpers;
 
 public sealed class BoolToOpacityConverter : IValueConverter
 {

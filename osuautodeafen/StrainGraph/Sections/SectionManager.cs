@@ -6,7 +6,7 @@ using LiveChartsCore.Painting;
 using LiveChartsCore.SkiaSharpView.Painting;
 using SkiaSharp;
 
-namespace osuautodeafen.cs.StrainGraph.Sections;
+namespace osuautodeafen.StrainGraph.Sections;
 
 public class SectionManager
 {

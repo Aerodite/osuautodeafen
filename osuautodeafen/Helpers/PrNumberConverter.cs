@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using Avalonia.Data.Converters;
 
-namespace osuautodeafen.cs.Helpers;
+namespace osuautodeafen.Helpers;
 
 public class PrNumberConverter : IValueConverter
 {
