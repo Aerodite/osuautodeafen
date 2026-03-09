@@ -60,6 +60,14 @@ public class LogoUpdater(
                 viewModel.AverageColorBrush = new SolidColorBrush(
                     Color.FromArgb(interpolatedColor.Alpha, interpolatedColor.Red, interpolatedColor.Green,
                         interpolatedColor.Blue));
+
+                viewModel.TooltipAcrylicMaterial = new ExperimentalAcrylicMaterial
+                {
+                    TintColor = Color.FromArgb(interpolatedColor.Alpha, interpolatedColor.Red, interpolatedColor.Green,
+                        interpolatedColor.Blue),
+                    TintOpacity = 0.25,
+                    MaterialOpacity = 0.2
+                };
                 _lastRenderedColor = interpolatedColor;
             }, DispatcherPriority.Render);
 

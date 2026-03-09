@@ -258,6 +258,21 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     public string CurrentAppVersion => $"v{UpdateChecker.CurrentVersion}";
 
     public string LongAppVersion => $"Version {UpdateChecker.CurrentVersion}";
+    
+    private ExperimentalAcrylicMaterial _tooltipAcrylicMaterial;
+
+    public ExperimentalAcrylicMaterial TooltipAcrylicMaterial
+    {
+        get => _tooltipAcrylicMaterial;
+        set
+        {
+            if (_tooltipAcrylicMaterial != value)
+            {
+                _tooltipAcrylicMaterial = value;
+                OnPropertyChanged(nameof(TooltipAcrylicMaterial));
+            }
+        }
+    }
 
     public SolidColorBrush AverageColorBrush
     {

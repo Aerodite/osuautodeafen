@@ -93,20 +93,6 @@ public partial class SettingsView : UserControl
         {
             _settingsViewModel.DeafenKeybindDisplay = RetrieveKeybindFromSettings();
         };
-
-        SolidColorBrush? baseBrush = Resources["BaseBackgroundBrush"] as SolidColorBrush;
-
-        if (baseBrush != null)
-        {
-            IExperimentalAcrylicMaterial acrylic = new ExperimentalAcrylicMaterial
-            {
-                MaterialOpacity = 1,
-                TintOpacity = 1,
-                TintColor = baseBrush.Color
-            }.ToImmutable();
-
-            Resources["AcrylicMaterial"] = acrylic;
-        }
     }
 
     public void AttachManagers(
