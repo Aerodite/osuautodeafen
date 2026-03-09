@@ -722,14 +722,16 @@ public partial class SettingsView : UserControl
         _debounceSaveTimer.Start();
     }
     
-    public void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    public async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (sender is not Slider slider || DataContext is not SharedViewModel vm) return;
 
         double roundedValue = Math.Round(slider.Value, 2);
         vm.MinCompletionPercentage = roundedValue;
         _pendingCompletion = roundedValue;
-
+        
+        await _chartManager.UpdateDeafenOverlayAsync(roundedValue);
+        
         ScheduleSave(1);
     }
     
