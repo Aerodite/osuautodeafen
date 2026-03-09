@@ -10,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using IniParser.Model;
@@ -92,6 +93,20 @@ public partial class SettingsView : UserControl
         {
             _settingsViewModel.DeafenKeybindDisplay = RetrieveKeybindFromSettings();
         };
+        
+        var baseBrush = Resources["BaseBackgroundBrush"] as SolidColorBrush;
+
+        if (baseBrush != null)
+        {
+            var acrylic = new ExperimentalAcrylicMaterial()
+            {
+                MaterialOpacity = 1,
+                TintOpacity = 1,
+                TintColor = baseBrush.Color
+            }.ToImmutable();
+
+            this.Resources["AcrylicMaterial"] = acrylic;
+        }
     }
 
     public void AttachManagers(
