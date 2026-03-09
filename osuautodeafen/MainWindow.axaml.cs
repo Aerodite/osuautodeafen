@@ -294,8 +294,11 @@ public partial class MainWindow : Window
             string presetFilePath = Path.Combine(presetsPath, $"{checksum}.preset");
             _viewModel.PresetExistsForCurrentChecksum = File.Exists(presetFilePath);
             foreach (PresetInfo preset in _viewModel.Presets ?? Enumerable.Empty<PresetInfo>())
+            {
                 preset.IsCurrentPreset = preset.Checksum == _tosuApi.GetBeatmapChecksum();
-            //Log.Information($"Preset {preset.BeatmapName} IsCurrentPreset: {preset.IsCurrentPreset}");
+                Log.Debug("Preset {PresetBeatmapName} IsCurrentPreset: {PresetIsCurrentPreset}", preset.BeatmapName, preset.IsCurrentPreset);
+            }
+
             if (_viewModel.PresetExistsForCurrentChecksum)
             {
                 _settingsHandler.ActivatePreset(presetFilePath);
@@ -1175,6 +1178,7 @@ public partial class MainWindow : Window
 
         if (_settingsViewModel.IsKeybindCaptureFlyoutOpen)
         {
+            _settingsViewModel.KeybindPrompt = "Press any key(s) for the keybind...";
             Flyout? flyout = SettingsView.DeafenKeybindButton.Flyout as Flyout;
             if (e.Key == Key.Escape)
             {

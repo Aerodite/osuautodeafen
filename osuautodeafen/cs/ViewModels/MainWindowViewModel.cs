@@ -102,6 +102,27 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         Task.Run(UpdateCompletionPercentageAsync);
         
         CreateAndShowChangelog();
+        
+        _settingsHandler.SettingsReloaded += SyncSettingsFromHandler;
+    }
+    
+    private void SyncSettingsFromHandler()
+    {
+        MinCompletionPercentage = _settingsHandler.MinCompletionPercentage;
+        StarRating = _settingsHandler.StarRating;
+        PerformancePoints = (int)_settingsHandler.PerformancePoints;
+
+        BlurRadius = _settingsHandler.BlurRadius;
+
+        IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
+        IsPauseUndeafenToggleEnabled = _settingsHandler.IsPauseUndeafenToggleEnabled;
+
+        IsFCRequired = _settingsHandler.IsFCRequired;
+        UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
+
+        IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
+        IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
+        IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
     }
     
     public void OpenChangelog()
@@ -658,6 +679,7 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     public void RefreshPresets()
     {
         Presets?.Clear();
+
         foreach (PresetInfo preset in PresetManager.LoadAllPresets())
         {
             preset.PropertyChanged += Preset_PropertyChanged;
@@ -667,10 +689,14 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         foreach (PresetInfo preset in Presets ?? Enumerable.Empty<PresetInfo>())
         {
             preset.IsCurrentPreset = preset.Checksum == _tosuApi.GetBeatmapChecksum();
-            Serilog.Log.Debug("Preset {PresetBeatmapName} IsCurrentPreset: {PresetIsCurrentPreset}", preset.BeatmapName, preset.IsCurrentPreset);
+            Serilog.Log.Debug(
+                "Preset {PresetBeatmapName} IsCurrentPreset: {PresetIsCurrentPreset}",
+                preset.BeatmapName,
+                PresetExistsForCurrentChecksum);
         }
 
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasAnyPresetsNotCurrent)));
+        OnPropertyChanged(nameof(HasAnyPresets));
+        OnPropertyChanged(nameof(HasAnyPresetsNotCurrent));
     }
 
     private void Preset_PropertyChanged(object? sender, PropertyChangedEventArgs e)

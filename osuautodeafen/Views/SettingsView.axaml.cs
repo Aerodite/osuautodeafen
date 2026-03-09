@@ -80,10 +80,17 @@ public partial class SettingsView : UserControl
         _settingsViewModel = settingsViewModel;
 
         DataContext = _viewModel;
+        
+        _settingsHandler.SettingsReloaded += UpdateViewModel;
 
         DeafenKeybindButton.DataContext = _settingsViewModel;
         if (DeafenKeybindButton.Flyout is Flyout { Content: Control content })
             content.DataContext = _settingsViewModel;
+        
+        _settingsHandler.DeafenKeybindChanged += () => 
+        {
+            _settingsViewModel.DeafenKeybindDisplay = RetrieveKeybindFromSettings();
+        };
     }
 
     public void AttachManagers(

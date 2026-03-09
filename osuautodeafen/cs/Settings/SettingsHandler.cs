@@ -33,6 +33,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     private double _windowHeight;
     private double _windowWidth;
+    public event Action? SettingsReloaded;
+    public event Action? DeafenKeybindChanged;
 
     public IniData Data;
 
@@ -178,32 +180,28 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     public void ActivatePreset(string presetFilePath)
     {
-        if (!File.Exists(presetFilePath))
-        {
-            Serilog.Log.Warning("Preset file not found: {PresetFilePath}", presetFilePath);
-            return;
-        }
+        if (!File.Exists(presetFilePath)) return;
 
         _activePresetPath = presetFilePath;
         _presetData = _parser.ReadFile(presetFilePath);
         Data = _presetData;
         EnsureSectionsExist();
         LoadSettings();
+
+        SettingsReloaded?.Invoke();
+        DeafenKeybindChanged?.Invoke();
     }
 
     public void DeactivatePreset()
     {
-        if (_activePresetPath == null)
-        {
-            Serilog.Log.Warning("No preset is currently active.");
-            return;
-        }
-
         _activePresetPath = null;
         _presetData = null;
         Data = _mainData;
         EnsureSectionsExist();
         LoadSettings();
+
+        SettingsReloaded?.Invoke();
+        DeafenKeybindChanged?.Invoke();
     }
 
     /// <summary>
@@ -400,6 +398,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindControlSide)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindAltSide)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindShiftSide)));
+        
+        SettingsReloaded?.Invoke();
+        DeafenKeybindChanged?.Invoke();
     }
 
     /// <summary>
