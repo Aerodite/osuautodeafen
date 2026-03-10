@@ -21,6 +21,7 @@ using osuautodeafen.Tosu;
 using osuautodeafen.ViewModels;
 using osuautodeafen.Views;
 using SkiaSharp;
+using static osuautodeafen.Tooltips.Tooltips;
 
 // ReSharper disable CompareOfFloatsByEqualityOperator
 
@@ -211,7 +212,7 @@ public class ChartManager
             tooltipManager.ShowTooltip(PlotView, pixelPoint, $"Deafen Min %:\n{newPercentage:F2}% ({timeText})");
 
             PlotView.InvalidateVisual();
-            _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.Deafen;
+            _tooltipManager.CurrentTooltipType = TooltipType.Deafen;
             return;
         }
 
@@ -234,7 +235,7 @@ public class ChartManager
             tooltipManager.ShowTooltip(PlotView, pixelPoint, tooltipText);
             _lastTooltipSection = activeSection;
             _lastTooltipText = tooltipText;
-            _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.Section;
+            _tooltipManager.CurrentTooltipType = TooltipType.Section;
             return;
         }
 
@@ -245,13 +246,13 @@ public class ChartManager
             tooltipManager.ShowTooltip(PlotView, pixelPoint, timeText);
             _lastTooltipSection = null;
             _lastTooltipText = null;
-            _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.Time;
+            _tooltipManager.CurrentTooltipType = TooltipType.Time;
             return;
         }
 
         _lastTooltipSection = null;
         _lastTooltipText = null;
-        _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.None;
+        _tooltipManager.CurrentTooltipType = TooltipType.None;
     }
 
 
@@ -329,7 +330,7 @@ public class ChartManager
 
             PlotView.InvalidateVisual();
 
-            _tooltipManager.CurrentTooltipType = Tooltips.Tooltips.TooltipType.Deafen;
+            _tooltipManager.CurrentTooltipType = TooltipType.Deafen;
             TryShowTooltip(dataPoint, pixelPoint, _tooltipManager);
         }
 
