@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:osuautodeafen.Controls"
+             xmlns:viewModels="clr-namespace:osuautodeafen.ViewModels"
+             x:Class="osuautodeafen.Controls.AcrylicPanel"
+             x:DataType="viewModels:SharedViewModel">
+    
+    <Border ClipToBounds="True"
+            CornerRadius="{Binding CornerRadius, RelativeSource={RelativeSource AncestorType=UserControl}}">
+
+        <controls:BackdropBlurControl
+            Material="{Binding TooltipAcrylicMaterial}">
+
+            <Border Opacity="0.25">
+                <Border.Background>
+                    <MultiBinding Converter="{StaticResource ColorBlendConverter}">
+                        <Binding Source="{StaticResource BaseBackgroundColor}" />
+                        <Binding Path="AverageColorBrushDark"/>
+                    </MultiBinding>
+                </Border.Background>
+            </Border>
+
+        </controls:BackdropBlurControl>
+
+    </Border>
+
+</UserControl>

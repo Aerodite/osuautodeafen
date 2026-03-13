@@ -22,7 +22,7 @@ using osuautodeafen.Web;
 
 namespace osuautodeafen.ViewModels;
 
-public sealed class SharedViewModel : INotifyPropertyChanged
+public sealed class SharedViewModel : ViewModelBase
 {
     private readonly bool _canUpdateSettings = true;
 
@@ -276,69 +276,27 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     public SolidColorBrush AverageColorBrush
     {
-        get => _averageColorBrush;
+        get => CreateBrush(1f, 1f);
         set
         {
-            if (_averageColorBrush != value)
-            {
-                _averageColorBrush = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(AverageColorBrushDim));
-                OnPropertyChanged(nameof(AverageColorBrushDimmer));
-                OnPropertyChanged(nameof(AverageColorBrushDark));
-                OnPropertyChanged(nameof(AverageColorBrushLight));
-            }
+            if (_averageColorBrush == value) return;
+            _averageColorBrush = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(AverageColorBrushDim));
+            OnPropertyChanged(nameof(AverageColorBrushDark));
+            OnPropertyChanged(nameof(AverageColorBrushLight));
         }
     }
 
-    public SolidColorBrush AverageColorBrushDim
-    {
-        get
-        {
-            Color color = _averageColorBrush.Color;
-            Color lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.75f, 0.85f);
-            return new SolidColorBrush(lessVibrantColor);
-        }
-    }
+    public SolidColorBrush AverageColorBrushDim => CreateBrush(0.75f, 0.75f);
+    public SolidColorBrush AverageColorBrushDark => CreateBrush(0.6f, 0.3f);
+    public SolidColorBrush AverageColorBrushLight => CreateBrush(0.3f, 0.6f);
 
-    public SolidColorBrush AverageColorBrushDimmer
+    private SolidColorBrush CreateBrush(float saturation, float lightness)
     {
-        get
-        {
-            Color color = _averageColorBrush.Color;
-            Color lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.8f, 0.35f);
-            return new SolidColorBrush(lessVibrantColor);
-        }
-    }
-
-    public SolidColorBrush AverageColorBrushDark
-    {
-        get
-        {
-            Color color = _averageColorBrush.Color;
-            Color lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.75f, 0.25f);
-            return new SolidColorBrush(lessVibrantColor);
-        }
-    }
-
-    public SolidColorBrush AverageColorBrushDarker
-    {
-        get
-        {
-            Color color = _averageColorBrush.Color;
-            Color lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.85f, 0.12f);
-            return new SolidColorBrush(lessVibrantColor);
-        }
-    }
-
-    public SolidColorBrush AverageColorBrushLight
-    {
-        get
-        {
-            Color color = _averageColorBrush.Color;
-            Color lessVibrantColor = DesaturateAndLightenColorHsl(color, 0.15f, 0.60f);
-            return new SolidColorBrush(lessVibrantColor);
-        }
+        Color color = _averageColorBrush.Color;
+        Color adjusted = DesaturateAndLightenColorHsl(color, saturation, lightness);
+        return new SolidColorBrush(adjusted);
     }
 
     public bool IsBackgroundEnabled
@@ -535,19 +493,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
 
     public ICommand OpenUpdateUrlCommand { get; private set; }
 
-    public string UpdateStatusMessage
-    {
-        get => _updateStatusMessage;
-        set
-        {
-            if (_updateStatusMessage != value)
-            {
-                _updateStatusMessage = value;
-                OnPropertyChanged();
-            }
-        }
-    }
-
     public Bitmap? ModifiedLogoImage
     {
         get => _modifiedLogoImage;
@@ -558,37 +503,9 @@ public sealed class SharedViewModel : INotifyPropertyChanged
         }
     }
 
-    public bool IsSliderTooltipOpen
-    {
-        get => _isSliderTooltipOpen;
-        set
-        {
-            if (_isSliderTooltipOpen != value)
-            {
-                _isSliderTooltipOpen = value;
-                OnPropertyChanged();
-            }
-        }
-    }
-
-    public double SliderTooltipOffsetX
-    {
-        get => _sliderTooltipOffsetX;
-        set
-        {
-            if (Math.Abs(_sliderTooltipOffsetX - value) > 0.01)
-            {
-                _sliderTooltipOffsetX = value;
-                OnPropertyChanged();
-            }
-        }
-    }
-
     public object MinPPValue => _tosuApi.GetMaxPP();
 
     public object MinSRValue => _tosuApi.GetFullSR();
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     private void SyncSettingsFromHandler()
     {
@@ -675,9 +592,6 @@ public sealed class SharedViewModel : INotifyPropertyChanged
     {
         HomePage = homeView;
         SettingsPage = settingsView;
-
-        if (CurrentPage == null)
-            CurrentPage = HomePage;
 
         OnPropertyChanged(nameof(CurrentPage));
     }
@@ -819,25 +733,13 @@ public sealed class SharedViewModel : INotifyPropertyChanged
             CompletionPercentage = newCompletionPercentage;
             await Task.Delay(50);
         }
+
+        return;
     }
 
     private Task InitializeAsync()
     {
         return Task.CompletedTask;
-    }
-
-    private void UpdateChecker_UpdateCheckCompleted(bool updateFound)
-    {
-        CheckAndUpdateStatusMessage();
-    }
-
-    public void CheckAndUpdateStatusMessage()
-    {
-        Version currentVersionObj = new(UpdateChecker.CurrentVersion);
-        Version latestVersionObj;
-
-        string message;
-        string url;
     }
 
     private void OpenUpdateUrl()
@@ -848,11 +750,5 @@ public sealed class SharedViewModel : INotifyPropertyChanged
                 FileName = UpdateUrl,
                 UseShellExecute = true
             });
-    }
-
-
-    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }

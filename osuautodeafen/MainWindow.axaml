@@ -24,14 +24,9 @@
         </DataTemplate>
     </Window.DataTemplates>
     
-    <Window.Resources>
-        <helpers:NullToBoolConverter x:Key="NullToBoolConverter" />
-        <presets:AverageColorCycleConverter x:Key="AverageColorCycleConverter" />
-        <presets:BackgroundPathToBrushConverter x:Key="BackgroundPathToBrushConverter" />
-        <local:InverseBooleanConverter x:Key="InverseBooleanConverter" />
-        <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
+    
+     <Window.Resources>
         <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
-        <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
         <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrushDim.Color}"
                          x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}"
@@ -44,7 +39,6 @@
                          x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}"
                          x:DataType="viewModels:SharedViewModel" />
-
         <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
                          x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonBackgroundBrushPointerOver" Color="{Binding AverageColorBrush.Color}"
@@ -61,13 +55,10 @@
                          x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="CheckBoxBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
                          x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="TooltipColorBrush" Color="{Binding AverageColorBrushDimmer.Color}"
+        <SolidColorBrush x:Key="TooltipColorBrush" Color="{Binding AverageColorBrushDim.Color}"
                          x:DataType="viewModels:SharedViewModel" />
-        <ExperimentalAcrylicMaterial x:Key="AcrylicMaterial"
-                                     MaterialOpacity="0.2"
-                                     TintColor="{Binding Source={StaticResource BaseBackgroundBrush}, Path=Color}"
-                                     TintOpacity="0.25" />
     </Window.Resources>
+
     <Window.Styles>
 
         <Style Selector="Button">
@@ -240,35 +231,25 @@
                     PointerExited="SettingsButton_PointerLeave">
                 <Grid HorizontalAlignment="Right" VerticalAlignment="Top">
 
-                    <Image Source="avares://osuautodeafen/Icons/outline.png"
-                           Width="50" Height="50">
-                        <Image.OpacityMask>
-                            <MultiBinding Converter="{StaticResource ColorBlendConverter}"
-                                          x:DataType="viewModels:SharedViewModel">
-                                <Binding Path="Color" Source="{StaticResource BaseBackgroundBrush}" />
-                                <Binding Path="AverageColorBrush.Color" />
-                            </MultiBinding>
-                        </Image.OpacityMask>
-                    </Image>
                     <Button x:Name="SettingsButton"
-                            Width="50" Height="50"
+                            Width="50"
+                            Height="50"
                             Background="{x:Null}"
                             BorderBrush="{x:Null}"
                             BorderThickness="0"
-                            CornerRadius="0"
                             Click="SettingsButton_Click"
-                            PointerEntered="SettingsButtonImage_PointerEnter"
-                            PointerExited="SettingsButtonImage_PointerLeave"
-                            IsVisible="True"
                             ZIndex="1">
-                        <Svg x:Name="SettingsCogImage"
-                             Path="Icons/gear.svg"
+                        <Svg Path="Icons/gear.svg"
+                             x:Name="SettingsCogImage"
                              Width="50"
-                             Height="50"
-                             HorizontalAlignment="Center"
-                             VerticalAlignment="Center"
-                             RenderTransformOrigin="0.5,0.5" />
+                             Height="50"/>
                     </Button>
+                    
+                    <controls:AcrylicPanel
+                        Width="50"
+                        Height="50"
+                        CornerRadius="12,0,0,12"/>
+
                 </Grid>
             </Border>
         </Grid>
