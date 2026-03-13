@@ -291,8 +291,7 @@
                                                               Width="130">
                                                     <TextBlock Text="{Binding BeatmapName}"
                                                                Foreground="{Binding AverageColorBrush}"
-                                                               TextAlignment="Center"
-                                                               Classes="beatmap-name" />
+                                                               TextAlignment="Center"/>
                                                 </ScrollViewer>
                                             </StackPanel>
                                         </Button.Content>
@@ -342,7 +341,6 @@
                                     </Button>
                                     <Button x:Name="DeletePresetButton"
                                             Width="135"
-                                            Classes="DeletePresetButton"
                                             HorizontalAlignment="Left"
                                             FontSize="11"
                                             Margin="0"
@@ -363,8 +361,7 @@
                                                               Width="130">
                                                     <TextBlock Text="{Binding BeatmapName}"
                                                                Foreground="{Binding AverageColorBrush}"
-                                                               TextAlignment="Center"
-                                                               Classes="beatmap-name" />
+                                                               TextAlignment="Center"/>
                                                 </ScrollViewer>
                                             </StackPanel>
                                         </Button.Content>

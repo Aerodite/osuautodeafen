@@ -35,7 +35,7 @@ public class TosuApi : IDisposable
     private double _completionPercentage;
     private double _current;
     private double _currentPP;
-    private double _DTRate;
+    private double _dtRate;
     private double _firstObj;
     private double _full;
     private string? _fullPath;
@@ -68,8 +68,8 @@ public class TosuApi : IDisposable
     private string _server;
     private string? _settingsSongsDirectory;
     private ClientWebSocket _webSocket;
-    private string k1Bind = "";
-    private string k2Bind = "";
+    private string _k1Bind = "";
+    private string _k2Bind = "";
 
     public TosuApi()
     {
@@ -88,8 +88,6 @@ public class TosuApi : IDisposable
         _dynamicBuffer = new List<byte>();
         _reconnectTimer = new Timer(_ => { _ = Task.Run(() => ReconnectTimerCallback()); }, null, 600000,
             600000);
-
-        TosuLauncher.EnsureTosuRunning();
         lock (ConnectionLock)
         {
             _ = ConnectAsync();
@@ -187,7 +185,7 @@ public class TosuApi : IDisposable
         }
         else
         {
-            Serilog.Log.Debug("No reconnection needed, WebSocket is open");
+           // Serilog.Log.Debug("No reconnection needed, WebSocket is open");
         }
     }
 
@@ -241,8 +239,6 @@ public class TosuApi : IDisposable
                 catch (Exception ex)
                 {
                     Serilog.Log.Error("Failed to connect: {ExMessage}. Retrying in 2 seconds...", ex.Message);
-                    TosuLauncher.EnsureTosuRunning();
-
                     try
                     {
                         await Task.Delay(2000, cancellationToken);
@@ -265,7 +261,7 @@ public class TosuApi : IDisposable
     /// </summary>
     /// <returns></returns>
     /// <exception cref="InvalidOperationException"></exception>
-    public async Task<JsonDocument?> ReceiveAsync()
+    public async Task ReceiveAsync()
     {
         const int bufferSize = 4096;
         byte[] buffer = new byte[bufferSize];
@@ -391,7 +387,7 @@ public class TosuApi : IDisposable
                         if (play.TryGetProperty("mods", out JsonElement mods))
                         {
                             if (mods.TryGetProperty("name", out JsonElement modNames)) _modNames = modNames.GetString();
-                            if (mods.TryGetProperty("rate", out JsonElement rate)) _DTRate = rate.GetDouble();
+                            if (mods.TryGetProperty("rate", out JsonElement rate)) _dtRate = rate.GetDouble();
                             if (mods.TryGetProperty("number", out JsonElement modNumber))
                                 _modNumber = modNumber.GetInt32();
                         }
@@ -404,10 +400,10 @@ public class TosuApi : IDisposable
                                 if (keybinds.TryGetProperty("osu", out JsonElement osuKeybinds))
                                 {
                                     if (osuKeybinds.TryGetProperty("k1", out JsonElement k1))
-                                        k1Bind = k1.GetString() ?? "";
+                                        _k1Bind = k1.GetString() ?? "";
 
                                     if (osuKeybinds.TryGetProperty("k2", out JsonElement k2))
-                                        k2Bind = k2.GetString() ?? "";
+                                        _k2Bind = k2.GetString() ?? "";
                                 }
 
                         if (root.TryGetProperty("performance", out JsonElement performance))
@@ -477,8 +473,6 @@ public class TosuApi : IDisposable
                 _dynamicBuffer.Clear();
             }
         }
-
-        return null;
     }
 
     /// <summary>
@@ -523,7 +517,7 @@ public class TosuApi : IDisposable
     ///     Server as a string
     /// </returns>
     /// <remarks>
-    ///     Info only seen with the debug console (Ctrl + D)
+    ///     Info only seen in the debug console (Ctrl + D)
     /// </remarks>
     public string GetServer()
     {
@@ -537,7 +531,7 @@ public class TosuApi : IDisposable
     ///     Client as a string
     /// </returns>
     /// <remarks>
-    ///     Info only seen with the debug console (Ctrl + D)
+    ///     Info only seen on the debug console (Ctrl + D)
     /// </remarks>
     public string GetClient()
     {
@@ -545,7 +539,7 @@ public class TosuApi : IDisposable
     }
 
     /// <summary>
-    ///     Obtains the current time progress of the beatmap in milliseconds
+    ///     Gets the current progress of the beatmap in milliseconds
     /// </summary>
     /// <returns></returns>
     public int GetCurrentTime()
@@ -558,10 +552,10 @@ public class TosuApi : IDisposable
     }
 
     /// <summary>
-    ///     Obtains the full time length of the beatmap in milliseconds
+    ///     Gets the full length of the beatmap in milliseconds
     /// </summary>
     /// <remarks>
-    ///     As far as I can tell this seems to be as accurate as I can get,
+    ///     as far as I can tell this seems to be as accurate as I can get,
     ///     because this uses both the mp3 time and first object to determine the beatmap length.
     /// </remarks>
     public int GetFullTime()
@@ -572,16 +566,16 @@ public class TosuApi : IDisposable
     }
 
     /// <summary>
-    ///     Obtains the full star rating of the beatmap including mods
+    ///     Get full star rating of the beatmap including mods
     /// </summary>
     /// <returns></returns>
     public double GetFullSR()
     {
         return _fullSR;
     }
-
+    
     /// <summary>
-    ///     Obtains the current BPM of the beatmap, accounting for poly-rhythm changes
+    /// Gets BPM of the map at current point in time
     /// </summary>
     /// <returns></returns>
     public double GetCurrentBpm()
@@ -633,9 +627,9 @@ public class TosuApi : IDisposable
 
     public IEnumerable<Key> GetOsuKeybinds()
     {
-        if (Enum.TryParse(k1Bind, out Key key1))
+        if (Enum.TryParse(_k1Bind, out Key key1))
             yield return key1;
-        if (Enum.TryParse(k2Bind, out Key key2))
+        if (Enum.TryParse(_k2Bind, out Key key2))
             yield return key2;
     }
 
@@ -696,7 +690,7 @@ public class TosuApi : IDisposable
     }
 
     /// <summary>
-    ///     Obtains the current combo of the player
+    ///     Obtains the current combo of the play
     /// </summary>
     /// <returns></returns>
     public double GetCombo()
@@ -725,7 +719,7 @@ public class TosuApi : IDisposable
     }
 
     /// <summary>
-    ///     Obtains the current miss count of the player
+    ///     Obtains the current miss count of the play
     /// </summary>
     /// <returns></returns>
     public double GetMissCount()
@@ -787,7 +781,7 @@ public class TosuApi : IDisposable
     /// <returns></returns>
     public string? GetSelectedMods()
     {
-        if (_modNames == null || _modNames.Length == 0)
+        if (string.IsNullOrEmpty(_modNames))
         {
             _modNames = "NM";
             return _modNames;
@@ -819,7 +813,7 @@ public class TosuApi : IDisposable
     /// <returns></returns>
     public double GetRateAdjustRate()
     {
-        return _DTRate;
+        return _dtRate;
     }
 
     /// <summary>
@@ -966,7 +960,6 @@ public class TosuApi : IDisposable
     /// </summary>
     public void CheckForModChange()
     {
-        // Normalize to "NM" if null or empty
         string? currentMods = string.IsNullOrEmpty(_modNames) ? "NM" : _modNames;
 
         if (currentMods == _lastModNames)
@@ -1031,10 +1024,7 @@ public class TosuApi : IDisposable
         // if there are no misses and no slider breaks, return true
         return true;
     }
-
-    /// <summary>
-    ///     Raises the KiaiChanged event
-    /// </summary>
+    
     public void RaiseKiaiChanged()
     {
         HasKiaiChanged?.Invoke(this, EventArgs.Empty);
