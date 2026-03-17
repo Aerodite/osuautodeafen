@@ -3,16 +3,16 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:osuautodeafen"
-        xmlns:cs="clr-namespace:osuautodeafen.cs"
         xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
-        xmlns:settings="clr-namespace:osuautodeafen.cs.Settings"
         xmlns:global="clr-namespace:"
-        xmlns:presets="clr-namespace:osuautodeafen.cs.Settings.Presets"
         xmlns:transitions="clr-namespace:Avalonia.Animation;assembly=Avalonia.Animation"
-        xmlns:progressIndicator="clr-namespace:osuautodeafen.cs.StrainGraph.ProgressIndicator"
-        xmlns:viewModels="clr-namespace:osuautodeafen.cs.ViewModels"
         xmlns:views="clr-namespace:osuautodeafen.Views"
-        xmlns:helpers="clr-namespace:osuautodeafen.cs.Helpers"
+        xmlns:viewModels="clr-namespace:osuautodeafen.ViewModels"
+        xmlns:helpers="clr-namespace:osuautodeafen.Helpers"
+        xmlns:presets="clr-namespace:osuautodeafen.Settings.Presets"
+        xmlns:settings="clr-namespace:osuautodeafen.Settings"
+        xmlns:progressIndicator="clr-namespace:osuautodeafen.StrainGraph.ProgressIndicator"
+        xmlns:controls="clr-namespace:osuautodeafen.Controls"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osuautodeafen"
@@ -24,14 +24,9 @@
         </DataTemplate>
     </Window.DataTemplates>
     
-    <Window.Resources>
-        <helpers:NullToBoolConverter x:Key="NullToBoolConverter" />
-        <global:AverageColorCycleConverter x:Key="AverageColorCycleConverter" />
-        <presets:BackgroundPathToBrushConverter x:Key="BackgroundPathToBrushConverter" />
-        <global:InverseBooleanConverter x:Key="InverseBooleanConverter" />
-        <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
+    
+     <Window.Resources>
         <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
-        <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
         <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrushDim.Color}"
                          x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}"
@@ -44,7 +39,6 @@
                          x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}"
                          x:DataType="viewModels:SharedViewModel" />
-
         <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
                          x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonBackgroundBrushPointerOver" Color="{Binding AverageColorBrush.Color}"
@@ -61,9 +55,10 @@
                          x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="CheckBoxBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
                          x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="TooltipColorBrush" Color="{Binding AverageColorBrushDimmer.Color}"
+        <SolidColorBrush x:Key="TooltipColorBrush" Color="{Binding AverageColorBrushDim.Color}"
                          x:DataType="viewModels:SharedViewModel" />
     </Window.Resources>
+
     <Window.Styles>
 
         <Style Selector="Button">
@@ -138,23 +133,28 @@
         
         <ContentControl Content="{Binding CurrentPage}" x:DataType="viewModels:SharedViewModel"/>
         
-        <Canvas ZIndex="99" IsHitTestVisible="False">
+        <Canvas Grid.Column="0" ZIndex="99" IsHitTestVisible="False">
+
             <Grid x:Name="TooltipRoot"
                   ClipToBounds="True"
                   Opacity="0"
                   IsVisible="False"
                   Background="Transparent">
-
+                
                 <Border x:Name="TooltipBackground"
-                        Background="{Binding Source={StaticResource TooltipColorBrush}}"
                         CornerRadius="8"
-                        Opacity="0.8"
-                        Padding="8">
-                    <Border.Effect>
-                        <BlurEffect Radius="1"/>
-                    </Border.Effect>
-                </Border>
+                        Padding="0"
+                        ClipToBounds="True">
 
+                    <controls:BackdropBlurControl
+                        Material="{Binding TooltipAcrylicMaterial}">
+
+                        <Border Background="{Binding Source={StaticResource TooltipColorBrush}}"
+                                Opacity="0.25"/>
+
+                    </controls:BackdropBlurControl>
+                </Border>
+                
                 <TextBlock x:Name="TooltipText"
                            TextWrapping="Wrap"
                            Foreground="White"
@@ -162,7 +162,8 @@
                            FontWeight="Regular"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
-                           TextAlignment="Center"/>
+                           TextAlignment="Center"
+                           Margin="8"/>
             </Grid>
         </Canvas>
 
@@ -201,8 +202,7 @@
                 </TextBlock>
             </StackPanel>
         </Grid>
-
-        <!-- Main content -->
+        
         <Grid Grid.Column="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -231,35 +231,27 @@
                     PointerExited="SettingsButton_PointerLeave">
                 <Grid HorizontalAlignment="Right" VerticalAlignment="Top">
 
-                    <Image Source="avares://osuautodeafen/Icons/outline.png"
-                           Width="50" Height="50">
-                        <Image.OpacityMask>
-                            <MultiBinding Converter="{StaticResource ColorBlendConverter}"
-                                          x:DataType="viewModels:SharedViewModel">
-                                <Binding Path="Color" Source="{StaticResource BaseBackgroundBrush}" />
-                                <Binding Path="AverageColorBrush.Color" />
-                            </MultiBinding>
-                        </Image.OpacityMask>
-                    </Image>
                     <Button x:Name="SettingsButton"
-                            Width="50" Height="50"
+                            Width="50"
+                            Height="50"
                             Background="{x:Null}"
                             BorderBrush="{x:Null}"
                             BorderThickness="0"
-                            CornerRadius="0"
                             Click="SettingsButton_Click"
                             PointerEntered="SettingsButtonImage_PointerEnter"
                             PointerExited="SettingsButtonImage_PointerLeave"
-                            IsVisible="True"
                             ZIndex="1">
-                        <Svg x:Name="SettingsCogImage"
-                             Path="Icons/gear.svg"
+                        <Svg Path="Icons/gear.svg"
+                             x:Name="SettingsCogImage"
                              Width="50"
-                             Height="50"
-                             HorizontalAlignment="Center"
-                             VerticalAlignment="Center"
-                             RenderTransformOrigin="0.5,0.5" />
+                             Height="50"/>
                     </Button>
+                    
+                    <controls:AcrylicPanel
+                        Width="50"
+                        Height="50"
+                        CornerRadius="12,0,0,12"/>
+
                 </Grid>
             </Border>
         </Grid>

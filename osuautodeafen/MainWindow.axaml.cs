@@ -23,21 +23,19 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.Drawing;
-using osuautodeafen.cs;
-using osuautodeafen.cs.Background;
-using osuautodeafen.cs.Deafen;
-using osuautodeafen.cs.Helpers;
-using osuautodeafen.cs.Log;
-using osuautodeafen.cs.Logo;
-using osuautodeafen.cs.Settings;
-using osuautodeafen.cs.Settings.Keybinds;
-using osuautodeafen.cs.Settings.Presets;
-using osuautodeafen.cs.StrainGraph;
-using osuautodeafen.cs.StrainGraph.ProgressIndicator;
-using osuautodeafen.cs.Tooltips;
-using osuautodeafen.cs.Tosu;
-using osuautodeafen.cs.Update;
-using osuautodeafen.cs.ViewModels;
+using osuautodeafen.Background;
+using osuautodeafen.Helpers;
+using osuautodeafen.Logging;
+using osuautodeafen.Logo;
+using osuautodeafen.Settings;
+using osuautodeafen.Settings.Keybinds;
+using osuautodeafen.Settings.Presets;
+using osuautodeafen.StrainGraph;
+using osuautodeafen.StrainGraph.ProgressIndicator;
+using osuautodeafen.Tooltips;
+using osuautodeafen.Tosu;
+using osuautodeafen.Update;
+using osuautodeafen.ViewModels;
 using osuautodeafen.Views;
 using Serilog;
 using SkiaSharp;
@@ -250,7 +248,7 @@ public partial class MainWindow : Window
                 await _updateChecker.ShowUpdateNotification();
         };
 
-        Deafen deafen = new(_tosuApi, _settingsHandler, _viewModel);
+        Deafen.Deafen deafen = new(_tosuApi, _settingsHandler, _viewModel);
 
         // im d1 lazy so ill do this in 1.0.9 :tf:
         // deafen.Deafened += () =>
@@ -307,7 +305,7 @@ public partial class MainWindow : Window
                 _settingsHandler.LoadSettings();
             }
 
-            _logImportant.logToInfoPanel("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false,
+            _logImportant.LogToInfoPanel("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false,
                 "Client");
             // thanks a lot take a hint for letting me figure this one out 😔
             // if a map is over 70 characters it overflows to the next line (on 630 width)
@@ -319,18 +317,18 @@ public partial class MainWindow : Window
             if (mapInfo.Length > 67)
                 mapInfo = mapInfo.Substring(0, 67) + "...";
 
-            _logImportant.logToInfoPanel("Mapset: " + mapInfo, false, "Beatmap changed",
+            _logImportant.LogToInfoPanel("Mapset: " + mapInfo, false, "Beatmap changed",
                 $"https://osu.ppy.sh/b/{_tosuApi.GetBeatmapId()}");
-            _logImportant.logToInfoPanel("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
-            _logImportant.logToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-            _logImportant.logToInfoPanel("Max Combo: " + _tosuApi.GetMaxCombo(), false, "Max Combo");
-            _logImportant.logToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
-            _logImportant.logToInfoPanel("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
-            _logImportant.logToInfoPanel("Ranked Status: " + _tosuApi.GetRankedStatus(), false, "Ranked Status");
-            _logImportant.logToInfoPanel("Beatmap ID: " + _tosuApi.GetBeatmapId(), false, "Beatmap ID");
-            _logImportant.logToInfoPanel("Beatmap Set ID: " + _tosuApi.GetBeatmapSetId(), false, "Beatmap Set ID");
-            _logImportant.logToInfoPanel("Break: " + _tosuApi.IsBreakPeriod(), false, "Break");
-            _logImportant.logToInfoPanel("Kiai: " + _kiaiTimes.IsKiaiPeriod(_tosuApi.GetCurrentTime()), false, "Kiai");
+            _logImportant.LogToInfoPanel("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
+            _logImportant.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
+            _logImportant.LogToInfoPanel("Max Combo: " + _tosuApi.GetMaxCombo(), false, "Max Combo");
+            _logImportant.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
+            _logImportant.LogToInfoPanel("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
+            _logImportant.LogToInfoPanel("Ranked Status: " + _tosuApi.GetRankedStatus(), false, "Ranked Status");
+            _logImportant.LogToInfoPanel("Beatmap ID: " + _tosuApi.GetBeatmapId(), false, "Beatmap ID");
+            _logImportant.LogToInfoPanel("Beatmap Set ID: " + _tosuApi.GetBeatmapSetId(), false, "Beatmap Set ID");
+            _logImportant.LogToInfoPanel("Break: " + _tosuApi.IsBreakPeriod(), false, "Break");
+            _logImportant.LogToInfoPanel("Kiai: " + _kiaiTimes.IsKiaiPeriod(_tosuApi.GetCurrentTime()), false, "Kiai");
             Task graphTask = Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()))
                 .GetTask();
             Task bgTask = _backgroundManager != null
@@ -340,15 +338,15 @@ public partial class MainWindow : Window
         };
         _tosuApi.HasRateChanged += async () =>
         {
-            _logImportant.logToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-            _logImportant.logToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
+            _logImportant.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
+            _logImportant.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
             await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
         };
         _tosuApi.HasModsChanged += async () =>
         {
-            _logImportant.logToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-            _logImportant.logToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
-            _logImportant.logToInfoPanel("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
+            _logImportant.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
+            _logImportant.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
+            _logImportant.LogToInfoPanel("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
             _viewModel.UpdateMinPPValue();
             _viewModel.UpdateMinSRValue();
             await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
@@ -359,7 +357,7 @@ public partial class MainWindow : Window
             StackPanel? debugConsolePanel = SettingsView.FindControl<StackPanel>("DebugConsolePanel");
             if (debugConsolePanel == null || !debugConsolePanel.IsVisible)
                 return;
-            _logImportant.logToInfoPanel($"Progress %: {_tosuApi.GetCompletionPercentage():F2}%", false,
+            _logImportant.LogToInfoPanel($"Progress %: {_tosuApi.GetCompletionPercentage():F2}%", false,
                 "Map Progress");
             double rate = _tosuApi.GetRateAdjustRate();
             if (rate <= 0 || double.IsNaN(rate) || double.IsInfinity(rate))
@@ -373,19 +371,19 @@ public partial class MainWindow : Window
             if (double.IsNaN(fullMs) || double.IsInfinity(fullMs) || fullMs < 0)
                 fullMs = 0;
 
-            _logImportant.logToInfoPanel(
+            _logImportant.LogToInfoPanel(
                 $"Progress (mm:ss): {TimeSpan.FromMilliseconds(currentMs):mm\\:ss}/{TimeSpan.FromMilliseconds(fullMs):mm\\:ss}",
                 false,
                 "Current Time"
             );
-            _logImportant.logToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-            _logImportant.logToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
-            _logImportant.logToInfoPanel("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
-            _logImportant.logToInfoPanel("isDeafened: " + deafen.Deafened, false, "isDeafened");
-            _logImportant.logToInfoPanel("Deafen Start Percentage: " + _viewModel.MinCompletionPercentage + "%", false,
+            _logImportant.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
+            _logImportant.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
+            _logImportant.LogToInfoPanel("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
+            _logImportant.LogToInfoPanel("isDeafened: " + deafen.Deafened, false, "isDeafened");
+            _logImportant.LogToInfoPanel("Deafen Start Percentage: " + _viewModel.MinCompletionPercentage + "%", false,
                 "Min Deafen Percentage");
-            _logImportant.logToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");
-            _logImportant.logToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false,
+            _logImportant.LogToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");
+            _logImportant.LogToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false,
                 "Min SS PP");
         };
         _tosuApi.HasBPMChanged += async () =>
@@ -398,11 +396,11 @@ public partial class MainWindow : Window
                 double bpm = _tosuApi.GetCurrentBpm();
             }
 
-            _logImportant.logToInfoPanel("BPM: " + _tosuApi.GetCurrentBpm(), false, "BPM Changed");
+            _logImportant.LogToInfoPanel("BPM: " + _tosuApi.GetCurrentBpm(), false, "BPM Changed");
         };
         _tosuApi.HasStateChanged += async () =>
         {
-            _logImportant.logToInfoPanel("State: " + _tosuApi.GetRawBanchoStatus(), false, "State");
+            _logImportant.LogToInfoPanel("State: " + _tosuApi.GetRawBanchoStatus(), false, "State");
         };
         /*_tosuApi.HasKiaiChanged += async (sender, e) =>
         {
@@ -448,10 +446,10 @@ public partial class MainWindow : Window
                 _backgroundManager.RemoveBackgroundOpacityRequest("kiai");
             }
         };*/
-        _breakPeriod.BreakPeriodEntered += async () => { _logImportant.logToInfoPanel("Break: True", false, "Break"); };
-        _breakPeriod.BreakPeriodExited += async () => { _logImportant.logToInfoPanel("Break: False", false, "Break"); };
-        _kiaiTimes.KiaiPeriodEntered += async () => { _logImportant.logToInfoPanel("Kiai: True", false, "Kiai"); };
-        _kiaiTimes.KiaiPeriodExited += async () => { _logImportant.logToInfoPanel("Kiai: False", false, "Kiai"); };
+        _breakPeriod.BreakPeriodEntered += async () => { _logImportant.LogToInfoPanel("Break: True", false, "Break"); };
+        _breakPeriod.BreakPeriodExited += async () => { _logImportant.LogToInfoPanel("Break: False", false, "Break"); };
+        _kiaiTimes.KiaiPeriodEntered += async () => { _logImportant.LogToInfoPanel("Kiai: True", false, "Kiai"); };
+        _kiaiTimes.KiaiPeriodExited += async () => { _logImportant.LogToInfoPanel("Kiai: False", false, "Kiai"); };
 
         DockPanel? settingsPanel = SettingsView.FindControl<DockPanel>("SettingsPanel");
         settingsPanel.Transitions = new Transitions
@@ -688,9 +686,9 @@ public partial class MainWindow : Window
         Point pixelPoint = e.GetPosition(PlotView);
         LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
 
-        Tooltips.TooltipType currentTooltipType = _tooltipManager.CurrentTooltipType;
+        Tooltips.Tooltips.TooltipType currentTooltipType = _tooltipManager.CurrentTooltipType;
 
-        if (currentTooltipType == cs.Tooltips.Tooltips.TooltipType.Deafen)
+        if (currentTooltipType == osuautodeafen.Tooltips.Tooltips.TooltipType.Deafen)
         {
             _ = _chartManager.UpdateDeafenOverlayAsync(_viewModel.MinCompletionPercentage);
             e.Handled = true;
@@ -703,8 +701,8 @@ public partial class MainWindow : Window
         _backgroundManager.ApplyParallax(windowPoint.X, windowPoint.Y);
 
         // this is really stupid but it just prevents the case where the straingraph's tooltips attempt to show in areas outside of the straingraph
-        if (currentTooltipType == cs.Tooltips.Tooltips.TooltipType.Time ||
-            currentTooltipType == cs.Tooltips.Tooltips.TooltipType.Section)
+        if (currentTooltipType == osuautodeafen.Tooltips.Tooltips.TooltipType.Time ||
+            currentTooltipType == osuautodeafen.Tooltips.Tooltips.TooltipType.Section)
         {
             bool belowBottomLimit = pixelPoint.Y >= PlotView.Bounds.Height - 120;
             bool withinRightLimit = !_isSettingsPanelOpen || pixelPoint.X <= PlotView.Bounds.Width;
@@ -913,10 +911,10 @@ public partial class MainWindow : Window
                         double avgFrame = sumFrame / frameCount;
                         await Dispatcher.UIThread.InvokeAsync(() =>
                         {
-                            _logImportant.logToInfoPanel(
+                            _logImportant.LogToInfoPanel(
                                 $"Frame: {frameInterval:F3}ms/{1000.0 / avgFrame:F0}fps",
                                 false, "FrameLatency");
-                            _logImportant.logToInfoPanel(
+                            _logImportant.LogToInfoPanel(
                                 $"Min/Max/Avg: {minFrame:F3}/{maxFrame:F3}/{avgFrame:F3}ms",
                                 false, "FrameStats");
                         });
@@ -977,7 +975,7 @@ public partial class MainWindow : Window
     private void SettingsButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Border) return;
-        Point point = cs.Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = osuautodeafen.Tooltips.Tooltips.GetWindowRelativePointer(this, e);
         bool isOpen = _isSettingsPanelOpen;
         _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Settings" : "Open Settings");
     }
@@ -1508,8 +1506,8 @@ public partial class MainWindow : Window
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
         _tosuApi.CheckForPercentageChange();
         _kiaiTimes.UpdateKiaiPeriodState(_tosuApi.GetCurrentTime());
-        _logImportant.logToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
-        _logImportant.logToInfoPanel("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");
+        _logImportant.LogToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
+        _logImportant.LogToInfoPanel("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");
     }
 
     /// <summary>
@@ -2062,7 +2060,7 @@ public partial class MainWindow : Window
             double targetY = toSettings ? -125 : 0;
 
             double startScale = scale.ScaleX;
-            // 80% scale appears to be fine
+            // 80% scale appears to be fine?
             double targetScale = toSettings ? 0.8 : 1.0;
 
             _settingsButtonClicked?.Invoke();
@@ -2094,7 +2092,10 @@ public partial class MainWindow : Window
     /// <summary>
     ///     Animates the settings panel in or out based on the 'show' parameter
     /// </summary>
+    /// <param name="versionPanel"></param>
     /// <param name="show"></param>
+    /// <param name="settingsPanel"></param>
+    /// <param name="buttonContainer"></param>
     private async Task AnimateSettingsPanelAsync(DockPanel settingsPanel, Border buttonContainer,
         TextBlock versionPanel, bool show)
     {
