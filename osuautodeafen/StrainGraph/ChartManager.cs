@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -16,6 +17,7 @@ using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Avalonia;
 using LiveChartsCore.SkiaSharpView.Painting;
+using osuautodeafen.Settings;
 using osuautodeafen.Tooltips;
 using osuautodeafen.Tosu;
 using osuautodeafen.ViewModels;
@@ -317,15 +319,31 @@ public class ChartManager
             double newPercentage = Math.Min(100.0, 100.0 * (_draggedDeafenSection.Xi ?? 0) / MaxLimit);
 
             _viewModel.MinCompletionPercentage = newPercentage;
-
+            
+            // holy mother of hack.
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
                 desktop.MainWindow is MainWindow { SettingsView.CompletionPercentageSlider: not null })
             {
-                _settingsView.CompletionPercentageSlider.Value = newPercentage;
-                _settingsView.CompletionPercentageSlider_ValueChanged(
-                    this,
-                    new RangeBaseValueChangedEventArgs(newPercentage, newPercentage, null)
-                );
+                if(_viewModel.CurrentPage != _viewModel.SettingsPage)
+                {
+                    // if we aren't on the settings page we can't write this change to settings
+                    // (yes this is super retarded i know)
+                    _viewModel.SwitchPage("Settings");
+                    _settingsView.CompletionPercentageSlider.Value = newPercentage;
+                    _settingsView.CompletionPercentageSlider_ValueChanged(
+                        this,
+                        new RangeBaseValueChangedEventArgs(newPercentage, newPercentage, null)
+                    );
+                    _viewModel.SwitchPage("Home");
+                }
+                else
+                {
+                    _settingsView.CompletionPercentageSlider.Value = newPercentage;
+                    _settingsView.CompletionPercentageSlider_ValueChanged(
+                        this,
+                        new RangeBaseValueChangedEventArgs(newPercentage, newPercentage, null)
+                    );
+                }
             }
 
             PlotView.InvalidateVisual();

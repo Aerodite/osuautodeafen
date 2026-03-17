@@ -240,7 +240,7 @@ public sealed class SharedViewModel : ViewModelBase
 
     public UserControl HomePage { get; private set; }
 
-    private UserControl SettingsPage { get; set; }
+    public UserControl SettingsPage { get; set; }
 
     public UserControl CurrentPage
     {
