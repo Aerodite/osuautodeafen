@@ -238,6 +238,8 @@
                             BorderBrush="{x:Null}"
                             BorderThickness="0"
                             Click="SettingsButton_Click"
+                            PointerEntered="SettingsButtonImage_PointerEnter"
+                            PointerExited="SettingsButtonImage_PointerLeave"
                             ZIndex="1">
                         <Svg Path="Icons/gear.svg"
                              x:Name="SettingsCogImage"

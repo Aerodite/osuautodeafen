@@ -2060,7 +2060,7 @@ public partial class MainWindow : Window
             double targetY = toSettings ? -125 : 0;
 
             double startScale = scale.ScaleX;
-            // 80% scale appears to be fine
+            // 80% scale appears to be fine?
             double targetScale = toSettings ? 0.8 : 1.0;
 
             _settingsButtonClicked?.Invoke();
@@ -2092,7 +2092,10 @@ public partial class MainWindow : Window
     /// <summary>
     ///     Animates the settings panel in or out based on the 'show' parameter
     /// </summary>
+    /// <param name="versionPanel"></param>
     /// <param name="show"></param>
+    /// <param name="settingsPanel"></param>
+    /// <param name="buttonContainer"></param>
     private async Task AnimateSettingsPanelAsync(DockPanel settingsPanel, Border buttonContainer,
         TextBlock versionPanel, bool show)
     {
