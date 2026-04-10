@@ -16,7 +16,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private string? _activePresetPath;
     private double _blurRadius;
 
-    private string _discordClient;
+    private string? _discordClient;
 
     private bool _isBreakUndeafenToggleEnabled;
     private bool _isPauseUndeafenToggleEnabled;
@@ -70,7 +70,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private IniData CurrentData => IsPresetActive ? _presetData! : _mainData;
     private string ActivePath => _activePresetPath ?? _iniPath;
 
-    public string DiscordClient
+    public string? DiscordClient
     {
         get => _discordClient;
         set
