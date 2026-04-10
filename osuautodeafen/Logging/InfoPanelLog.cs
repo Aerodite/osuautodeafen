@@ -3,12 +3,12 @@ using System.Collections.Generic;
 
 namespace osuautodeafen.Logging;
 
-public class LogImportant
+public class InfoPanelLog
 {
     public readonly Dictionary<string, string> Logs = new();
 
     /// <summary>
-    ///     Logs a message to be displayed only in the info panel
+    /// Creates or updates an info panel entry
     /// </summary>
     public void LogToInfoPanel(string message, bool includeTimestamp = true, string? keyword = null,
         string? hyperLink = null)
@@ -26,7 +26,10 @@ public class LogImportant
             Logs[Guid.NewGuid().ToString()] = newLine;
     }
 
-    public void ClearLogs()
+    /// <summary>
+    /// Erases all entries from the info panel
+    /// </summary>
+    public void ClearInfoPanelLogs()
     {
         Logs.Clear();
     }

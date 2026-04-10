@@ -68,7 +68,7 @@ public partial class MainWindow : Window
 
     private readonly KeybindHelper _keybindHelper = new();
     private readonly KiaiTimes _kiaiTimes = new();
-    private readonly LogImportant _logImportant = new();
+    private readonly InfoPanelLog _infoPanelLog = new();
 
     private readonly SemaphoreSlim _logoAnimationLock = new(1, 1);
     private readonly DispatcherTimer _mainTimer;
@@ -172,8 +172,10 @@ public partial class MainWindow : Window
             .WriteTo.Console()
             .WriteTo.File(Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "osuautodeafen",
-                "osuautodeafen.log"), rollingInterval: RollingInterval.Day)
+                "osuautodeafen", "Logs",
+                "osuautodeafen.log"), 
+                rollingInterval: RollingInterval.Day, 
+                retainedFileCountLimit: 5)
             .CreateLogger();
 
         _tosuApi = new TosuApi();
@@ -217,12 +219,7 @@ public partial class MainWindow : Window
             SettingsView
         );
 
-        _backgroundManager = new BackgroundManager(
-            this,
-            _viewModel,
-            _tosuApi,
-            SettingsView
-        )
+        _backgroundManager = new BackgroundManager(this, _viewModel, _tosuApi, SettingsView) 
         {
             LogoUpdater = null
         };
@@ -261,10 +258,7 @@ public partial class MainWindow : Window
         //     TaskbarIconChanger.SetTaskbarIcon(this, startupIconPath);
         //     Icon = new WindowIcon(startupIconPath);
         // };
-
-        // ideally we could use no timers whatsoever but for now this works fine
-        // because it really only checks if events should be triggered
-        // updated to 16ms from 100ms since apparently it takes 1ms to run anyways
+        
         _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
@@ -305,7 +299,7 @@ public partial class MainWindow : Window
                 _settingsHandler.LoadSettings();
             }
 
-            _logImportant.LogToInfoPanel("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false,
+            _infoPanelLog.LogToInfoPanel("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false,
                 "Client");
             // thanks a lot take a hint for letting me figure this one out 😔
             // if a map is over 70 characters it overflows to the next line (on 630 width)
@@ -317,18 +311,18 @@ public partial class MainWindow : Window
             if (mapInfo.Length > 67)
                 mapInfo = mapInfo.Substring(0, 67) + "...";
 
-            _logImportant.LogToInfoPanel("Mapset: " + mapInfo, false, "Beatmap changed",
+            _infoPanelLog.LogToInfoPanel("Mapset: " + mapInfo, false, "Beatmap changed",
                 $"https://osu.ppy.sh/b/{_tosuApi.GetBeatmapId()}");
-            _logImportant.LogToInfoPanel("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
-            _logImportant.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-            _logImportant.LogToInfoPanel("Max Combo: " + _tosuApi.GetMaxCombo(), false, "Max Combo");
-            _logImportant.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
-            _logImportant.LogToInfoPanel("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
-            _logImportant.LogToInfoPanel("Ranked Status: " + _tosuApi.GetRankedStatus(), false, "Ranked Status");
-            _logImportant.LogToInfoPanel("Beatmap ID: " + _tosuApi.GetBeatmapId(), false, "Beatmap ID");
-            _logImportant.LogToInfoPanel("Beatmap Set ID: " + _tosuApi.GetBeatmapSetId(), false, "Beatmap Set ID");
-            _logImportant.LogToInfoPanel("Break: " + _tosuApi.IsBreakPeriod(), false, "Break");
-            _logImportant.LogToInfoPanel("Kiai: " + _kiaiTimes.IsKiaiPeriod(_tosuApi.GetCurrentTime()), false, "Kiai");
+            _infoPanelLog.LogToInfoPanel("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
+            _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
+            _infoPanelLog.LogToInfoPanel("Max Combo: " + _tosuApi.GetMaxCombo(), false, "Max Combo");
+            _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
+            _infoPanelLog.LogToInfoPanel("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
+            _infoPanelLog.LogToInfoPanel("Ranked Status: " + _tosuApi.GetRankedStatus(), false, "Ranked Status");
+            _infoPanelLog.LogToInfoPanel("Beatmap ID: " + _tosuApi.GetBeatmapId(), false, "Beatmap ID");
+            _infoPanelLog.LogToInfoPanel("Beatmap Set ID: " + _tosuApi.GetBeatmapSetId(), false, "Beatmap Set ID");
+            _infoPanelLog.LogToInfoPanel("Break: " + _tosuApi.IsBreakPeriod(), false, "Break");
+            _infoPanelLog.LogToInfoPanel("Kiai: " + _kiaiTimes.IsKiaiPeriod(_tosuApi.GetCurrentTime()), false, "Kiai");
             Task graphTask = Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()))
                 .GetTask();
             Task bgTask = _backgroundManager != null
@@ -338,15 +332,15 @@ public partial class MainWindow : Window
         };
         _tosuApi.HasRateChanged += async () =>
         {
-            _logImportant.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-            _logImportant.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
+            _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
+            _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
             await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
         };
         _tosuApi.HasModsChanged += async () =>
         {
-            _logImportant.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-            _logImportant.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
-            _logImportant.LogToInfoPanel("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
+            _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
+            _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
+            _infoPanelLog.LogToInfoPanel("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
             _viewModel.UpdateMinPPValue();
             _viewModel.UpdateMinSRValue();
             await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
@@ -357,7 +351,7 @@ public partial class MainWindow : Window
             StackPanel? debugConsolePanel = SettingsView.FindControl<StackPanel>("DebugConsolePanel");
             if (debugConsolePanel == null || !debugConsolePanel.IsVisible)
                 return;
-            _logImportant.LogToInfoPanel($"Progress %: {_tosuApi.GetCompletionPercentage():F2}%", false,
+            _infoPanelLog.LogToInfoPanel($"Progress %: {_tosuApi.GetCompletionPercentage():F2}%", false,
                 "Map Progress");
             double rate = _tosuApi.GetRateAdjustRate();
             if (rate <= 0 || double.IsNaN(rate) || double.IsInfinity(rate))
@@ -371,19 +365,19 @@ public partial class MainWindow : Window
             if (double.IsNaN(fullMs) || double.IsInfinity(fullMs) || fullMs < 0)
                 fullMs = 0;
 
-            _logImportant.LogToInfoPanel(
+            _infoPanelLog.LogToInfoPanel(
                 $"Progress (mm:ss): {TimeSpan.FromMilliseconds(currentMs):mm\\:ss}/{TimeSpan.FromMilliseconds(fullMs):mm\\:ss}",
                 false,
                 "Current Time"
             );
-            _logImportant.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-            _logImportant.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
-            _logImportant.LogToInfoPanel("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
-            _logImportant.LogToInfoPanel("isDeafened: " + deafen.Deafened, false, "isDeafened");
-            _logImportant.LogToInfoPanel("Deafen Start Percentage: " + _viewModel.MinCompletionPercentage + "%", false,
+            _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
+            _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
+            _infoPanelLog.LogToInfoPanel("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
+            _infoPanelLog.LogToInfoPanel("isDeafened: " + deafen.Deafened, false, "isDeafened");
+            _infoPanelLog.LogToInfoPanel("Deafen Start Percentage: " + _viewModel.MinCompletionPercentage + "%", false,
                 "Min Deafen Percentage");
-            _logImportant.LogToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");
-            _logImportant.LogToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false,
+            _infoPanelLog.LogToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");
+            _infoPanelLog.LogToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false,
                 "Min SS PP");
         };
         _tosuApi.HasBPMChanged += async () =>
@@ -396,11 +390,11 @@ public partial class MainWindow : Window
                 double bpm = _tosuApi.GetCurrentBpm();
             }
 
-            _logImportant.LogToInfoPanel("BPM: " + _tosuApi.GetCurrentBpm(), false, "BPM Changed");
+            _infoPanelLog.LogToInfoPanel("BPM: " + _tosuApi.GetCurrentBpm(), false, "BPM Changed");
         };
         _tosuApi.HasStateChanged += async () =>
         {
-            _logImportant.LogToInfoPanel("State: " + _tosuApi.GetRawBanchoStatus(), false, "State");
+            _infoPanelLog.LogToInfoPanel("State: " + _tosuApi.GetRawBanchoStatus(), false, "State");
         };
         /*_tosuApi.HasKiaiChanged += async (sender, e) =>
         {
@@ -446,10 +440,10 @@ public partial class MainWindow : Window
                 _backgroundManager.RemoveBackgroundOpacityRequest("kiai");
             }
         };*/
-        _breakPeriod.BreakPeriodEntered += async () => { _logImportant.LogToInfoPanel("Break: True", false, "Break"); };
-        _breakPeriod.BreakPeriodExited += async () => { _logImportant.LogToInfoPanel("Break: False", false, "Break"); };
-        _kiaiTimes.KiaiPeriodEntered += async () => { _logImportant.LogToInfoPanel("Kiai: True", false, "Kiai"); };
-        _kiaiTimes.KiaiPeriodExited += async () => { _logImportant.LogToInfoPanel("Kiai: False", false, "Kiai"); };
+        _breakPeriod.BreakPeriodEntered += async () => { _infoPanelLog.LogToInfoPanel("Break: True", false, "Break"); };
+        _breakPeriod.BreakPeriodExited += async () => { _infoPanelLog.LogToInfoPanel("Break: False", false, "Break"); };
+        _kiaiTimes.KiaiPeriodEntered += async () => { _infoPanelLog.LogToInfoPanel("Kiai: True", false, "Kiai"); };
+        _kiaiTimes.KiaiPeriodExited += async () => { _infoPanelLog.LogToInfoPanel("Kiai: False", false, "Kiai"); };
 
         DockPanel? settingsPanel = SettingsView.FindControl<DockPanel>("SettingsPanel");
         settingsPanel.Transitions = new Transitions
@@ -911,10 +905,10 @@ public partial class MainWindow : Window
                         double avgFrame = sumFrame / frameCount;
                         await Dispatcher.UIThread.InvokeAsync(() =>
                         {
-                            _logImportant.LogToInfoPanel(
+                            _infoPanelLog.LogToInfoPanel(
                                 $"Frame: {frameInterval:F3}ms/{1000.0 / avgFrame:F0}fps",
                                 false, "FrameLatency");
-                            _logImportant.LogToInfoPanel(
+                            _infoPanelLog.LogToInfoPanel(
                                 $"Min/Max/Avg: {minFrame:F3}/{maxFrame:F3}/{avgFrame:F3}ms",
                                 false, "FrameStats");
                         });
@@ -1506,8 +1500,8 @@ public partial class MainWindow : Window
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
         _tosuApi.CheckForPercentageChange();
         _kiaiTimes.UpdateKiaiPeriodState(_tosuApi.GetCurrentTime());
-        _logImportant.LogToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
-        _logImportant.LogToInfoPanel("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");
+        _infoPanelLog.LogToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
+        _infoPanelLog.LogToInfoPanel("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");
     }
 
     /// <summary>
@@ -2320,7 +2314,7 @@ public partial class MainWindow : Window
                 _logUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
                 _logUpdateTimer.Tick += (_, __) =>
                 {
-                    var currentLogs = _logImportant.Logs.Values.ToList();
+                    var currentLogs = _infoPanelLog.Logs.Values.ToList();
                     UpdateDebugConsolePanel(debugConsolePanel, currentLogs);
                 };
                 _logUpdateTimer.Start();
