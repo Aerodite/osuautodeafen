@@ -448,7 +448,7 @@ public partial class SettingsView : UserControl
         if (sender is not StackPanel) return;
         Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
         bool isEnabled = FCToggle.IsChecked ?? false;
-        _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " FC Requirement");
+        _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " an FC being required to deafen");
     }
 
     private void FCToggle_PointerLeave(object sender, PointerEventArgs e)
@@ -994,7 +994,7 @@ public partial class SettingsView : UserControl
             }
 
             button.Content = "Update available!";
-            await _updateChecker.ShowUpdateNotification();
+            _updateChecker.ShowUpdateNotification();
         }
         finally
         {

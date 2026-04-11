@@ -30,11 +30,6 @@ public class UpdateChecker
         _updateProgressBar = progressBar;
     }
 
-    private bool ShouldShowChangelog(string lastSeen)
-    {
-        return lastSeen != CurrentVersion;
-    }
-
     /// <summary>
     ///     Checks for updates and downloads them if a new version is available
     /// </summary>
@@ -60,9 +55,9 @@ public class UpdateChecker
     }
 
     /// <summary>
-    ///     Displays the update notification bar and initializes progress bar
+    ///     Attempts to show the update prompt
     /// </summary>
-    public async Task ShowUpdateNotification()
+    public void ShowUpdateNotification()
     {
         Serilog.Log.Debug("Showing Update Notification");
 
