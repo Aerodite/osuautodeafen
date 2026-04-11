@@ -1,15 +1,22 @@
 using System;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
 using Avalonia.Threading;
+using osuautodeafen.Settings;
+using Serilog;
 
 namespace osuautodeafen.Tooltips;
 
 public class TooltipManager
 {
+    private Window? _mainWindow = (Application.Current?.ApplicationLifetime 
+        as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+    
     private const double TooltipOffset = 4;
 
     private const double TooltipTargetOpacity = 0.78;
@@ -26,11 +33,9 @@ public class TooltipManager
     private TextBlock? _tooltipText;
 
     private CancellationTokenSource? _visibilityCts;
-    private double _windowHeight;
-
-    private double _windowWidth;
-
+    
     public Tooltips.TooltipType CurrentTooltipType;
+
     private Grid? Tooltip { get; set; }
 
     private Border? TooltipBackground { get; set; }
@@ -42,14 +47,12 @@ public class TooltipManager
     /// </summary>
     /// <param name="tooltipRoot"></param>
     /// <param name="tooltipText"></param>
-    /// <param name="windowWidth"></param>
-    /// <param name="windowHeight"></param>
-    public void SetTooltipControls(Grid tooltipRoot, TextBlock tooltipText, double windowWidth, double windowHeight)
+    /// <param name="mainWindow"></param>
+    public void SetTooltipControls(Grid tooltipRoot, TextBlock tooltipText, Window mainWindow)
     {
         Tooltip = tooltipRoot;
         _tooltipText = tooltipText;
-        _windowWidth = windowWidth;
-        _windowHeight = windowHeight;
+        _mainWindow = mainWindow;
 
         TooltipBackground = Tooltip.FindControl<Border>("TooltipBackground");
         Tooltip.FindControl<TextBlock>("TooltipText");
@@ -111,8 +114,8 @@ public class TooltipManager
         _lastTooltipText ??= "";
         _tooltipText.Text = text;
         _tooltipText.Width = double.NaN;
-
-        _tooltipText.Measure(new Size(_windowWidth * 0.5, double.PositiveInfinity));
+        
+        _tooltipText.Measure(new Size(_mainWindow.ClientSize.Width * 0.5, double.PositiveInfinity));
         if (TooltipBackground != null)
         {
             double tooltipWidth = _tooltipText.DesiredSize.Width + TooltipBackground.Padding.Left +
@@ -153,12 +156,12 @@ public class TooltipManager
 
         double left, top;
 
-        double distanceToRight = _windowWidth - (position.X + width + TooltipOffset);
+        double distanceToRight = _mainWindow.ClientSize.Width - (position.X + width + TooltipOffset);
 
         // tldr we're moving the cursor from bottom right to top left if we're too close to the right edge
         // so we don't obfuscate text
         double factor = Math.Clamp(-distanceToRight / (width + TooltipOffset), 0, 1);
-        if (position.X + width + TooltipOffset > _windowWidth)
+        if (position.X + width + TooltipOffset > _mainWindow.ClientSize.Width)
         {
             left = position.X - width - TooltipOffset;
             top = position.Y - height - TooltipOffset;
@@ -174,8 +177,8 @@ public class TooltipManager
             top = position.Y + TooltipOffset;
         }
 
-        left = Math.Clamp(left, 0, _windowWidth - width);
-        top = Math.Clamp(top, 0, _windowHeight - height);
+        left = Math.Clamp(left, 0, _mainWindow.ClientSize.Width - width);
+        top = Math.Clamp(top, 0, _mainWindow.ClientSize.Height - height);
 
         double currentLeft = Canvas.GetLeft(Tooltip);
         if (double.IsNaN(currentLeft)) currentLeft = 0;
@@ -224,7 +227,7 @@ public class TooltipManager
             return;
 
         _tooltipText.Width = double.NaN;
-        _tooltipText.Measure(new Size(_windowWidth * 0.5, double.PositiveInfinity));
+        _tooltipText.Measure(new Size(_mainWindow.ClientSize.Width * 0.5, double.PositiveInfinity));
         if (TooltipBackground != null)
         {
             double tooltipWidth = _tooltipText.DesiredSize.Width + TooltipBackground.Padding.Left +

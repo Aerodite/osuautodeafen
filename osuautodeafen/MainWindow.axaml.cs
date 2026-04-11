@@ -452,8 +452,7 @@ public partial class MainWindow : Window
         CanResize = true;
         Closing += MainWindow_Closing;
 
-        _tooltipManager.SetTooltipControls(TooltipRoot, TooltipText, _settingsHandler.WindowWidth,
-            _settingsHandler.WindowHeight);
+        _tooltipManager.SetTooltipControls(TooltipRoot, TooltipText, this);
 
         Tooltips = _tooltipManager;
 
