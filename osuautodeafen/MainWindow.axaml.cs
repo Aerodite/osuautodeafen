@@ -4,7 +4,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -54,8 +53,7 @@ public partial class MainWindow : Window
 
     private static Button? _updateNotificationBarButton;
     private static ProgressBar? _updateProgressBar;
-
-    private static readonly HttpClient _http = new();
+    
     private readonly BackgroundManager? _backgroundManager;
 
     private readonly BreakPeriodCalculator _breakPeriod;
@@ -247,17 +245,20 @@ public partial class MainWindow : Window
 
         Deafen.Deafen deafen = new(_tosuApi, _settingsHandler, _viewModel);
 
-        // im d1 lazy so ill do this in 1.0.9 :tf:
-        // deafen.Deafened += () =>
-        // {
-        //     TaskbarIconChanger.SetTaskbarIcon(this, deafenIconPath);
-        //     Icon = new WindowIcon(deafenIconPath);
-        // };
-        // deafen.Undeafened += () =>
-        // {
-        //     TaskbarIconChanger.SetTaskbarIcon(this, startupIconPath);
-        //     Icon = new WindowIcon(startupIconPath);
-        // };
+         //im d1 lazy so ill do this in 1.0.9 :tf:
+         // nvm on hold forever i guess
+         /*
+         deafen.Deafened += () =>
+         {
+             TaskbarIconChanger.SetTaskbarIcon(this, deafenIconPath);
+             Icon = new WindowIcon(deafenIconPath);
+         };
+         deafen.Undeafened += () =>
+         {
+             TaskbarIconChanger.SetTaskbarIcon(this, startupIconPath);
+             Icon = new WindowIcon(startupIconPath);
+        };
+        */
         
         _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _mainTimer.Tick += MainTimer_Tick;
@@ -396,50 +397,6 @@ public partial class MainWindow : Window
         {
             _infoPanelLog.LogToInfoPanel("State: " + _tosuApi.GetRawBanchoStatus(), false, "State");
         };
-        /*_tosuApi.HasKiaiChanged += async (sender, e) =>
-        {
-            if (!_viewModel.IsBackgroundEnabled || !_viewModel.IsKiaiEffectEnabled)
-            {
-                _kiaiBrightnessTimer?.Stop();
-                _kiaiBrightnessTimer = null;
-                _backgroundManager.RemoveBackgroundOpacityRequest("kiai");
-                return;
-            }
-
-            _opacity = _isSettingsPanelOpen ? 0.50 : 0;
-
-            if (_tosuApi._isKiai)
-            {
-                double bpm = _tosuApi.GetCurrentBpm();
-                double intervalMs = 60000.0 / bpm;
-
-                _kiaiBrightnessTimer?.Stop();
-                _kiaiBrightnessTimer = new DispatcherTimer
-                {
-                    Interval = TimeSpan.FromMilliseconds(intervalMs)
-                };
-                _kiaiBrightnessTimer.Tick += async (_, _) =>
-                {
-                    _isKiaiPulseHigh = !_isKiaiPulseHigh;
-                    if (_isKiaiPulseHigh)
-                        await _backgroundManager.RequestBackgroundOpacity("kiai", 1.0 - _opacity, 10000,
-                            (int)(intervalMs / 4));
-                    else
-                        await _backgroundManager.RequestBackgroundOpacity("kiai", 0.95 - _opacity, 10000,
-                            (int)(intervalMs / 4));
-                };
-                _kiaiBrightnessTimer.Start();
-            }
-            else
-            {
-                _kiaiBrightnessTimer?.Stop();
-                _kiaiBrightnessTimer = null;
-
-                if (_isSettingsPanelOpen) await _backgroundManager.RequestBackgroundOpacity("settings", 0.5, 10, 150);
-
-                _backgroundManager.RemoveBackgroundOpacityRequest("kiai");
-            }
-        };*/
         _breakPeriod.BreakPeriodEntered += async () => { _infoPanelLog.LogToInfoPanel("Break: True", false, "Break"); };
         _breakPeriod.BreakPeriodExited += async () => { _infoPanelLog.LogToInfoPanel("Break: False", false, "Break"); };
         _kiaiTimes.KiaiPeriodEntered += async () => { _infoPanelLog.LogToInfoPanel("Kiai: True", false, "Kiai"); };
@@ -482,26 +439,20 @@ public partial class MainWindow : Window
 
         Background = Brushes.Black;
         BorderBrush = Brushes.Black;
-
-        /*
-        to anyone looking through the code yes you can make the window width and height
-        anything you want between 400x550 and 800x800, i was going to make this resizable
-        but that ended up being a massive pita because of the debug menu and the background didn't
-        really play nice with being resized (unless it started off at 800x800 (but thats stupid)
-        anyways have fun it should still technically work if you manually set this in the settings.ini
-        */
+        
         Width = _settingsHandler.WindowWidth;
         Height = _settingsHandler.WindowHeight;
         Title = "osuautodeafen";
-        MaxHeight = 800;
-        MaxWidth = 800;
+        // This shoould hopefully prevent tiling in most cases (idk why you would want oad to be tiled)
+        MaxHeight = 1000;
+        MaxWidth = 1000;
         MinHeight = 400;
-        MinWidth = 550;
-        CanResize = false;
+        MinWidth = 560;
+        // I think everything is set up correctly to allow this now (hopefully 😅)
+        CanResize = true;
         Closing += MainWindow_Closing;
 
-        _tooltipManager.SetTooltipControls(TooltipRoot, TooltipText, _settingsHandler.WindowWidth,
-            _settingsHandler.WindowHeight);
+        _tooltipManager.SetTooltipControls(TooltipRoot, TooltipText, this);
 
         Tooltips = _tooltipManager;
 
@@ -644,6 +595,19 @@ public partial class MainWindow : Window
             if (e.Key == Key.Escape && _viewModel.Changelog.IsVisible)
                 _viewModel.Changelog.IsVisible = false;
         };
+    }
+    
+    protected override void OnSizeChanged(SizeChangedEventArgs e)
+    {
+        if (_settingsHandler == null) return;
+        if (e.WidthChanged)
+        {
+            _settingsHandler.WindowWidth = e.NewSize.Width;
+        }
+        else
+        {
+            _settingsHandler.WindowHeight = e.NewSize.Height;
+        }
     }
 
     public static TooltipManager Tooltips { get; private set; } = null!;

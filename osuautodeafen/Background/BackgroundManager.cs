@@ -335,7 +335,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 ZIndex = -1,
                 Stretch = Stretch.UniformToFill,
                 Effect = BackgroundBlurEffect,
-                Clip = new RectangleGeometry(new Rect(0, 0, 800 * 1.05, 800 * 1.05))
+                Clip = new RectangleGeometry(new Rect(0, 0, bitmap.PixelSize.Width * 1.05, bitmap.PixelSize.Height * 1.05))
             };
 
             Grid backgroundLayer = mainGrid.Children.Count > 0 && mainGrid.Children[0] is Grid g &&
