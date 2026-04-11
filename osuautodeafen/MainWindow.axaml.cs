@@ -447,7 +447,7 @@ public partial class MainWindow : Window
         MaxHeight = 1000;
         MaxWidth = 1000;
         MinHeight = 400;
-        MinWidth = 400;
+        MinWidth = 560;
         // I think everything is set up correctly to allow this now (hopefully 😅)
         CanResize = true;
         Closing += MainWindow_Closing;
