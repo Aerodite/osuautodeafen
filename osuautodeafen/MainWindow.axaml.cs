@@ -603,13 +603,12 @@ public partial class MainWindow : Window
     protected override void OnSizeChanged(SizeChangedEventArgs e)
     {
         if (_settingsHandler == null) return;
-        if (e.WidthChanged)
+        if (e.WidthChanged || e.HeightChanged)
         {
             _settingsHandler.WindowWidth = e.NewSize.Width;
-        }
-        else if (e.HeightChanged)
-        {
             _settingsHandler.WindowHeight = e.NewSize.Height;
+            _settingsHandler.SaveSetting("UI", "WindowWidth", e.NewSize.Width);
+            _settingsHandler.SaveSetting("UI", "WindowHeight", e.NewSize.Height);
         }
     }
 

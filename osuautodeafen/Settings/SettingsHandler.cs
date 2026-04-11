@@ -2,7 +2,9 @@
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using IniParser;
 using IniParser.Model;
 
@@ -10,6 +12,17 @@ namespace osuautodeafen.Settings;
 
 public class SettingsHandler : Control, INotifyPropertyChanged
 {
+    /// <summary>
+    /// The last time SaveSettings was called
+    /// </summary>
+    private DateTime _lastSettingSaveTime = DateTime.MinValue;
+    /// <summary>
+    /// The last setting that was changed in the ini
+    /// </summary>
+    private string _lastSettingWrittenTo = new("");
+
+    private DispatcherTimer _debounceSaveTimer;
+    
     private readonly string _appPath;
     private readonly string _iniPath;
     private readonly FileIniDataParser _parser = new();
@@ -411,24 +424,42 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     /// <param name="value"></param>
     public void SaveSetting(string section, string key, object? value)
     {
-        IniData targetData = CurrentData;
-        if (!targetData.Sections.ContainsSection(section))
-            targetData.Sections.AddSection(section);
-        targetData[section][key] = value?.ToString();
+        try
+        {
+            _debounceSaveTimer?.Stop();
+            _debounceSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+            _debounceSaveTimer.Tick += (s, e) =>
+            {
+                _debounceSaveTimer.Stop();
+                IniData targetData = CurrentData;
+                if (!targetData.Sections.ContainsSection(section))
+                    targetData.Sections.AddSection(section);
+                targetData[section][key] = value?.ToString();
 
-        string path = IsPresetActive ? _activePresetPath! : _iniPath;
-        Serilog.Log.Information("Writing new settings to: {Path}", path);
-        _parser.WriteFile(path, targetData);
+                string path = IsPresetActive ? _activePresetPath! : _iniPath;
+                Serilog.Log.Information("Writing new settings to: {Path}", path);
+                _parser.WriteFile(path, targetData);
 
-        DeafenKeybindKey = int.TryParse(targetData["Hotkeys"]["DeafenKeybindKey"], out int keyVal) ? keyVal : 0;
-        DeafenKeybindControlSide = int.TryParse(targetData["Hotkeys"]["DeafenKeybindControlSide"], out int ctrlSide)
-            ? ctrlSide
-            : 0;
-        DeafenKeybindAltSide =
-            int.TryParse(targetData["Hotkeys"]["DeafenKeybindAltSide"], out int altSide) ? altSide : 0;
-        DeafenKeybindShiftSide = int.TryParse(targetData["Hotkeys"]["DeafenKeybindShiftSide"], out int shiftSide)
-            ? shiftSide
-            : 0;
+                DeafenKeybindKey = int.TryParse(targetData["Hotkeys"]["DeafenKeybindKey"], out int keyVal) ? keyVal : 0;
+                DeafenKeybindControlSide =
+                    int.TryParse(targetData["Hotkeys"]["DeafenKeybindControlSide"], out int ctrlSide)
+                        ? ctrlSide
+                        : 0;
+                DeafenKeybindAltSide =
+                    int.TryParse(targetData["Hotkeys"]["DeafenKeybindAltSide"], out int altSide) ? altSide : 0;
+                DeafenKeybindShiftSide =
+                    int.TryParse(targetData["Hotkeys"]["DeafenKeybindShiftSide"], out int shiftSide)
+                        ? shiftSide
+                        : 0;
+                _lastSettingSaveTime = DateTime.Now;
+                _lastSettingWrittenTo = key;
+            };
+            _debounceSaveTimer.Start();
+        }
+        catch (Exception e)
+        {
+            throw new InvalidOperationException("Failed to save setting due to exception: " + e);
+        }
     }
 
     /// <summary>
