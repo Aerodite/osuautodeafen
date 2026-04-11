@@ -2,11 +2,11 @@
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
-using System.Threading;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using IniParser;
 using IniParser.Model;
+using Serilog;
 
 namespace osuautodeafen.Settings;
 
@@ -426,40 +426,52 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     {
         try
         {
-            _debounceSaveTimer?.Stop();
-            _debounceSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
-            _debounceSaveTimer.Tick += (s, e) =>
+            if (key == "IsBackgroundEnabled" || _lastSettingWrittenTo != key)
             {
-                _debounceSaveTimer.Stop();
-                IniData targetData = CurrentData;
-                if (!targetData.Sections.ContainsSection(section))
-                    targetData.Sections.AddSection(section);
-                targetData[section][key] = value?.ToString();
-
-                string path = IsPresetActive ? _activePresetPath! : _iniPath;
-                Serilog.Log.Information("Writing new settings to: {Path}", path);
-                _parser.WriteFile(path, targetData);
-
-                DeafenKeybindKey = int.TryParse(targetData["Hotkeys"]["DeafenKeybindKey"], out int keyVal) ? keyVal : 0;
-                DeafenKeybindControlSide =
-                    int.TryParse(targetData["Hotkeys"]["DeafenKeybindControlSide"], out int ctrlSide)
-                        ? ctrlSide
-                        : 0;
-                DeafenKeybindAltSide =
-                    int.TryParse(targetData["Hotkeys"]["DeafenKeybindAltSide"], out int altSide) ? altSide : 0;
-                DeafenKeybindShiftSide =
-                    int.TryParse(targetData["Hotkeys"]["DeafenKeybindShiftSide"], out int shiftSide)
-                        ? shiftSide
-                        : 0;
-                _lastSettingSaveTime = DateTime.Now;
-                _lastSettingWrittenTo = key;
-            };
-            _debounceSaveTimer.Start();
+                WriteToSettings(section, key, value);
+            }
+            else
+            {
+                _debounceSaveTimer?.Stop();
+                _debounceSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+                _debounceSaveTimer.Tick += (s, e) =>
+                {
+                    _debounceSaveTimer.Stop();
+                    WriteToSettings(section, key, value);
+                    _debounceSaveTimer.Start();
+                };
+            }
         }
         catch (Exception e)
         {
             throw new InvalidOperationException("Failed to save setting due to exception: " + e);
         }
+    }
+
+    private void WriteToSettings(string section, string key, object? value)
+    {
+        IniData targetData = CurrentData;
+        if (!targetData.Sections.ContainsSection(section))
+            targetData.Sections.AddSection(section);
+        targetData[section][key] = value?.ToString();
+
+        string path = IsPresetActive ? _activePresetPath! : _iniPath;
+        Serilog.Log.Information("Writing new settings to: {Path}", path);
+        _parser.WriteFile(path, targetData);
+
+        DeafenKeybindKey = int.TryParse(targetData["Hotkeys"]["DeafenKeybindKey"], out int keyVal) ? keyVal : 0;
+        DeafenKeybindControlSide =
+            int.TryParse(targetData["Hotkeys"]["DeafenKeybindControlSide"], out int ctrlSide)
+                ? ctrlSide
+                : 0;
+        DeafenKeybindAltSide =
+            int.TryParse(targetData["Hotkeys"]["DeafenKeybindAltSide"], out int altSide) ? altSide : 0;
+        DeafenKeybindShiftSide =
+            int.TryParse(targetData["Hotkeys"]["DeafenKeybindShiftSide"], out int shiftSide)
+                ? shiftSide
+                : 0;
+        _lastSettingSaveTime = DateTime.Now;
+        _lastSettingWrittenTo = key;
     }
 
     /// <summary>

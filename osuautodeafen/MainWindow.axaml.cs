@@ -4,7 +4,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -40,7 +39,6 @@ using osuautodeafen.Views;
 using Serilog;
 using SkiaSharp;
 using Svg.Skia;
-using WebSocketSharp;
 using Animation = Avalonia.Animation.Animation;
 using KeyFrame = Avalonia.Animation.KeyFrame;
 
@@ -55,8 +53,7 @@ public partial class MainWindow : Window
 
     private static Button? _updateNotificationBarButton;
     private static ProgressBar? _updateProgressBar;
-
-    private static readonly HttpClient _http = new();
+    
     private readonly BackgroundManager? _backgroundManager;
 
     private readonly BreakPeriodCalculator _breakPeriod;
@@ -446,11 +443,12 @@ public partial class MainWindow : Window
         Width = _settingsHandler.WindowWidth;
         Height = _settingsHandler.WindowHeight;
         Title = "osuautodeafen";
-        // I think everything is set up correctly to allow this now (hopefully 😅)
-        //MaxHeight = 800;
-        //MaxWidth = 800;
+        // This shoould hopefully prevent tiling in most cases (idk why you would want oad to be tiled)
+        MaxHeight = 1000;
+        MaxWidth = 1000;
         MinHeight = 400;
         MinWidth = 400;
+        // I think everything is set up correctly to allow this now (hopefully 😅)
         CanResize = true;
         Closing += MainWindow_Closing;
 
@@ -603,12 +601,13 @@ public partial class MainWindow : Window
     protected override void OnSizeChanged(SizeChangedEventArgs e)
     {
         if (_settingsHandler == null) return;
-        if (e.WidthChanged || e.HeightChanged)
+        if (e.WidthChanged)
         {
             _settingsHandler.WindowWidth = e.NewSize.Width;
+        }
+        else
+        {
             _settingsHandler.WindowHeight = e.NewSize.Height;
-            _settingsHandler.SaveSetting("UI", "WindowWidth", e.NewSize.Width);
-            _settingsHandler.SaveSetting("UI", "WindowHeight", e.NewSize.Height);
         }
     }
 
