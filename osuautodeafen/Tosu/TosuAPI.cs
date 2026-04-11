@@ -937,7 +937,7 @@ public class TosuApi : IDisposable
     public void CheckForPercentageChange()
     {
         double percentage = GetCompletionPercentage();
-        if (_lastCompletionPercentage.HasValue && percentage == _lastCompletionPercentage.Value)
+        if (percentage == _lastCompletionPercentage)
             return;
         _lastCompletionPercentage = percentage;
         HasPercentageChanged?.Invoke();

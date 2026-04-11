@@ -398,7 +398,7 @@ public sealed class SharedViewModel : ViewModelBase
             {
                 _isFCRequired = value;
                 OnPropertyChanged();
-                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " FC Requirement", true);
+                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " an FC being required to deafen", true);
             }
         }
     }

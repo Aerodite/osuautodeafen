@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -240,7 +241,7 @@ public partial class MainWindow : Window
         {
             await _updateChecker.CheckForUpdatesAsync();
             if (_updateChecker.UpdateInfo != null)
-                await _updateChecker.ShowUpdateNotification();
+                _updateChecker.ShowUpdateNotification();
         };
 
         Deafen.Deafen deafen = new(_tosuApi, _settingsHandler, _viewModel);
@@ -595,19 +596,15 @@ public partial class MainWindow : Window
             if (e.Key == Key.Escape && _viewModel.Changelog.IsVisible)
                 _viewModel.Changelog.IsVisible = false;
         };
-    }
-    
-    protected override void OnSizeChanged(SizeChangedEventArgs e)
-    {
-        if (_settingsHandler == null) return;
-        if (e.WidthChanged)
-        {
-            _settingsHandler.WindowWidth = e.NewSize.Width;
-        }
-        else
-        {
-            _settingsHandler.WindowHeight = e.NewSize.Height;
-        }
+        this.GetObservable(BoundsProperty)
+            .Throttle(TimeSpan.FromMilliseconds(200))
+            .Subscribe(bounds =>
+            {
+                if (_settingsHandler == null) return;
+
+                _settingsHandler.WindowWidth = bounds.Width;
+                _settingsHandler.WindowHeight = bounds.Height;
+            });
     }
 
     public static TooltipManager Tooltips { get; private set; } = null!;
@@ -1455,6 +1452,7 @@ public partial class MainWindow : Window
     /// <param name="e"></param>
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
+        _tosuApi.CheckForPercentageChange();
         _tosuApi.CheckForBeatmapChange();
         _tosuApi.CheckForModChange();
         _tosuApi.CheckForBPMChange();
@@ -1462,7 +1460,6 @@ public partial class MainWindow : Window
         _tosuApi.CheckForRateAdjustChange();
         _tosuApi.CheckForStateChange();
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
-        _tosuApi.CheckForPercentageChange();
         _kiaiTimes.UpdateKiaiPeriodState(_tosuApi.GetCurrentTime());
         _infoPanelLog.LogToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
         _infoPanelLog.LogToInfoPanel("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");

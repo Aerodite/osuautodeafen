@@ -6,13 +6,14 @@
              xmlns:viewModels="clr-namespace:osuautodeafen.ViewModels"
              xmlns:controls="clr-namespace:osuautodeafen.Controls"
              xmlns:osuautodeafen="clr-namespace:osuautodeafen"
+             xmlns:helpers="clr-namespace:osuautodeafen.Helpers"
              DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
 
     <UserControl.Resources>
         <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
         <presets:AverageColorCycleConverter x:Key="AverageColorCycleConverter" />
         <presets:BackgroundPathToBrushConverter x:Key="BackgroundPathToBrushConverter" />
-        <osuautodeafen:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+        <helpers:InverseBooleanConverter x:Key="InverseBooleanConverter" />
         <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
 
