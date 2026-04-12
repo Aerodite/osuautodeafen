@@ -4,6 +4,8 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.WebSockets;
+using System.Reactive;
 using System.Reactive.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -37,6 +39,7 @@ using osuautodeafen.Tosu;
 using osuautodeafen.Update;
 using osuautodeafen.ViewModels;
 using osuautodeafen.Views;
+using ReactiveUI;
 using Serilog;
 using SkiaSharp;
 using Svg.Skia;
@@ -51,6 +54,8 @@ public partial class MainWindow : Window
 
     private const double HoverAngle = 15;
     private const double NormalAngle = 0;
+
+    private Deafen.Deafen _deafenController;
 
     private static Button? _updateNotificationBarButton;
     private static ProgressBar? _updateProgressBar;
@@ -93,7 +98,6 @@ public partial class MainWindow : Window
 
     public readonly SettingsView SettingsView;
     private CancellationTokenSource? _blurCts;
-    private CancellationTokenSource? _cogAnimationCts;
     private double _cogCurrentAngle;
     private double _cogSpinBpm = 140;
     private double _cogSpinStartAngle;
@@ -128,10 +132,11 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
-        string resourceName = "osuautodeafen.Resources.favicon.ico";
-        string deafenResourceName = "osuautodeafen.Resources.favicon_d.ico";
+        const string resourceName = "osuautodeafen.Resources.favicon.ico";
+        const string deafenResourceName = "osuautodeafen.Resources.favicon_d.ico";
         string startupIconPath = Path.Combine(Path.GetTempPath(), "osuautodeafen_favicon.ico");
         string deafenIconPath = Path.Combine(Path.GetTempPath(), "osuautodeafen_favicon_d.ico");
+        
         using (Stream? resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
         {
             if (resourceStream == null)
@@ -170,9 +175,9 @@ public partial class MainWindow : Window
             .MinimumLevel.Debug()
             .WriteTo.Console()
             .WriteTo.File(Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "osuautodeafen", "Logs",
-                "osuautodeafen.log"), 
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "osuautodeafen", "Logs",
+                    "osuautodeafen.log"), 
                 rollingInterval: RollingInterval.Day, 
                 retainedFileCountLimit: 5)
             .CreateLogger();
@@ -244,22 +249,22 @@ public partial class MainWindow : Window
                 _updateChecker.ShowUpdateNotification();
         };
 
-        Deafen.Deafen deafen = new(_tosuApi, _settingsHandler, _viewModel);
+        _deafenController = new(_tosuApi, _settingsHandler, _viewModel);
 
-         //im d1 lazy so ill do this in 1.0.9 :tf:
-         // nvm on hold forever i guess
-         /*
-         deafen.Deafened += () =>
-         {
-             TaskbarIconChanger.SetTaskbarIcon(this, deafenIconPath);
-             Icon = new WindowIcon(deafenIconPath);
-         };
-         deafen.Undeafened += () =>
-         {
-             TaskbarIconChanger.SetTaskbarIcon(this, startupIconPath);
-             Icon = new WindowIcon(startupIconPath);
+        //im d1 lazy so ill do this in 1.0.9 :tf:
+        // nvm on hold forever i guess
+        /*
+        deafen.Deafened += () =>
+        {
+            TaskbarIconChanger.SetTaskbarIcon(this, deafenIconPath);
+            Icon = new WindowIcon(deafenIconPath);
         };
-        */
+        deafen.Undeafened += () =>
+        {
+            TaskbarIconChanger.SetTaskbarIcon(this, startupIconPath);
+            Icon = new WindowIcon(startupIconPath);
+       };
+       */
         
         _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _mainTimer.Tick += MainTimer_Tick;
@@ -276,143 +281,22 @@ public partial class MainWindow : Window
 
         ProgressOverlay.Points =
             _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage());
-
-        _tosuApi.BeatmapChanged += async () =>
-        {
-            string checksum = _tosuApi.GetBeatmapChecksum();
-            string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "osuautodeafen", "presets");
-            string presetFilePath = Path.Combine(presetsPath, $"{checksum}.preset");
-            _viewModel.PresetExistsForCurrentChecksum = File.Exists(presetFilePath);
-            foreach (PresetInfo preset in _viewModel.Presets ?? Enumerable.Empty<PresetInfo>())
-            {
-                preset.IsCurrentPreset = preset.Checksum == _tosuApi.GetBeatmapChecksum();
-                Log.Debug("Preset {PresetBeatmapName} IsCurrentPreset: {PresetIsCurrentPreset}", preset.BeatmapName,
-                    preset.IsCurrentPreset);
-            }
-
-            if (_viewModel.PresetExistsForCurrentChecksum)
-            {
-                _settingsHandler.ActivatePreset(presetFilePath);
-            }
-            else
-            {
-                _settingsHandler.DeactivatePreset();
-                _settingsHandler.LoadSettings();
-            }
-
-            _infoPanelLog.LogToInfoPanel("Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(), false,
-                "Client");
-            // thanks a lot take a hint for letting me figure this one out 😔
-            // if a map is over 70 characters it overflows to the next line (on 630 width)
-            // so this just ensures its not ugly for people (me) looking at the debug menu
-            _viewModel.BeatmapName = _tosuApi.GetBeatmapTitle();
-            _viewModel.FullBeatmapName = _tosuApi.GetBeatmapArtist() + " - " + _tosuApi.GetBeatmapTitle();
-            _viewModel.BeatmapDifficulty = _tosuApi.GetBeatmapDifficulty();
-            string mapInfo = _tosuApi.GetBeatmapArtist() + " - " + _tosuApi.GetBeatmapTitle();
-            if (mapInfo.Length > 67)
-                mapInfo = mapInfo.Substring(0, 67) + "...";
-
-            _infoPanelLog.LogToInfoPanel("Mapset: " + mapInfo, false, "Beatmap changed",
-                $"https://osu.ppy.sh/b/{_tosuApi.GetBeatmapId()}");
-            _infoPanelLog.LogToInfoPanel("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
-            _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-            _infoPanelLog.LogToInfoPanel("Max Combo: " + _tosuApi.GetMaxCombo(), false, "Max Combo");
-            _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
-            _infoPanelLog.LogToInfoPanel("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
-            _infoPanelLog.LogToInfoPanel("Ranked Status: " + _tosuApi.GetRankedStatus(), false, "Ranked Status");
-            _infoPanelLog.LogToInfoPanel("Beatmap ID: " + _tosuApi.GetBeatmapId(), false, "Beatmap ID");
-            _infoPanelLog.LogToInfoPanel("Beatmap Set ID: " + _tosuApi.GetBeatmapSetId(), false, "Beatmap Set ID");
-            _infoPanelLog.LogToInfoPanel("Break: " + _tosuApi.IsBreakPeriod(), false, "Break");
-            _infoPanelLog.LogToInfoPanel("Kiai: " + _kiaiTimes.IsKiaiPeriod(_tosuApi.GetCurrentTime()), false, "Kiai");
-            Task graphTask = Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()))
-                .GetTask();
-            Task bgTask = _backgroundManager != null
-                ? _backgroundManager.UpdateBackground(null, null)
-                : Task.CompletedTask;
-            await Task.WhenAll(graphTask, bgTask);
-        };
-        _tosuApi.HasRateChanged += async () =>
-        {
-            _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-            _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
-            await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
-        };
-        _tosuApi.HasModsChanged += async () =>
-        {
-            _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-            _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
-            _infoPanelLog.LogToInfoPanel("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
-            _viewModel.UpdateMinPPValue();
-            _viewModel.UpdateMinSRValue();
-            await Dispatcher.UIThread.InvokeAsync(() => OnGraphDataUpdated(_tosuApi.GetGraphData()));
-        };
-        _tosuApi.HasPercentageChanged += async () =>
-        {
-            // might as well not update the debug menu if it isnt even visible
-            StackPanel? debugConsolePanel = SettingsView.FindControl<StackPanel>("DebugConsolePanel");
-            if (debugConsolePanel == null || !debugConsolePanel.IsVisible)
-                return;
-            _infoPanelLog.LogToInfoPanel($"Progress %: {_tosuApi.GetCompletionPercentage():F2}%", false,
-                "Map Progress");
-            double rate = _tosuApi.GetRateAdjustRate();
-            if (rate <= 0 || double.IsNaN(rate) || double.IsInfinity(rate))
-                rate = 1;
-
-            double currentMs = _tosuApi.GetCurrentTime() / rate;
-            double fullMs = _tosuApi.GetFullTime() / rate;
-
-            if (double.IsNaN(currentMs) || double.IsInfinity(currentMs) || currentMs < 0)
-                currentMs = 0;
-            if (double.IsNaN(fullMs) || double.IsInfinity(fullMs) || fullMs < 0)
-                fullMs = 0;
-
-            _infoPanelLog.LogToInfoPanel(
-                $"Progress (mm:ss): {TimeSpan.FromMilliseconds(currentMs):mm\\:ss}/{TimeSpan.FromMilliseconds(fullMs):mm\\:ss}",
-                false,
-                "Current Time"
-            );
-            _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-            _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
-            _infoPanelLog.LogToInfoPanel("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
-            _infoPanelLog.LogToInfoPanel("isDeafened: " + deafen.Deafened, false, "isDeafened");
-            _infoPanelLog.LogToInfoPanel("Deafen Start Percentage: " + _viewModel.MinCompletionPercentage + "%", false,
-                "Min Deafen Percentage");
-            _infoPanelLog.LogToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");
-            _infoPanelLog.LogToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false,
-                "Min SS PP");
-        };
-        _tosuApi.HasBPMChanged += async () =>
-        {
-            await Dispatcher.UIThread.InvokeAsync(UpdateCogSpinBpm);
-            _tosuApi.RaiseKiaiChanged();
-
-            if (_tosuApi._isKiai && _kiaiBrightnessTimer != null)
-            {
-                double bpm = _tosuApi.GetCurrentBpm();
-            }
-
-            _infoPanelLog.LogToInfoPanel("BPM: " + _tosuApi.GetCurrentBpm(), false, "BPM Changed");
-        };
-        _tosuApi.HasStateChanged += async () =>
-        {
-            _infoPanelLog.LogToInfoPanel("State: " + _tosuApi.GetRawBanchoStatus(), false, "State");
-        };
         _breakPeriod.BreakPeriodEntered += async () => { _infoPanelLog.LogToInfoPanel("Break: True", false, "Break"); };
         _breakPeriod.BreakPeriodExited += async () => { _infoPanelLog.LogToInfoPanel("Break: False", false, "Break"); };
         _kiaiTimes.KiaiPeriodEntered += async () => { _infoPanelLog.LogToInfoPanel("Kiai: True", false, "Kiai"); };
         _kiaiTimes.KiaiPeriodExited += async () => { _infoPanelLog.LogToInfoPanel("Kiai: False", false, "Kiai"); };
 
         DockPanel? settingsPanel = SettingsView.FindControl<DockPanel>("SettingsPanel");
-        settingsPanel.Transitions = new Transitions
-        {
-            new DoubleTransition
+        if (settingsPanel != null)
+            settingsPanel.Transitions = new Transitions
             {
-                Property = OpacityProperty,
-                Duration = TimeSpan.FromSeconds(0.5),
-                Easing = new QuarticEaseInOut()
-            }
-        };
+                new DoubleTransition
+                {
+                    Property = OpacityProperty,
+                    Duration = TimeSpan.FromSeconds(0.5),
+                    Easing = new QuarticEaseInOut()
+                }
+            };
 
         SettingsView.SetViewControls(_tosuApi, _viewModel, _chartManager, _backgroundManager, _tooltipManager,
             _settingsViewModel);
@@ -436,8 +320,6 @@ public partial class MainWindow : Window
 
         ExtendClientAreaToDecorationsHint = true;
         ExtendClientAreaTitleBarHeightHint = 32;
-        ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
-
         Background = Brushes.Black;
         BorderBrush = Brushes.Black;
         
@@ -457,7 +339,7 @@ public partial class MainWindow : Window
 
         Tooltips = _tooltipManager;
 
-        PointerPressed += (sender, e) =>
+        PointerPressed += (_, e) =>
         {
             Point point = e.GetPosition(this);
             const int titleBarHeight = 34;
@@ -500,15 +382,12 @@ public partial class MainWindow : Window
         }
 
         StackPanel? parallaxPanel = SettingsView.FindControl<StackPanel>("ParallaxTogglePanel");
-        StackPanel? kiaiPanel = SettingsView.FindControl<StackPanel>("KiaiTogglePanel");
         StackPanel? blurPanel = SettingsView.FindControl<StackPanel>("BlurEffectPanel");
 
-        if (SettingsView.BackgroundToggle != null && parallaxPanel != null && kiaiPanel != null && blurPanel != null)
+        if (SettingsView.BackgroundToggle != null && parallaxPanel != null && blurPanel != null)
         {
             if (parallaxPanel.RenderTransform == null)
                 parallaxPanel.RenderTransform = new TranslateTransform();
-            if (kiaiPanel.RenderTransform == null)
-                kiaiPanel.RenderTransform = new TranslateTransform();
             if (blurPanel.RenderTransform == null)
                 blurPanel.RenderTransform = new TranslateTransform();
 
@@ -517,11 +396,6 @@ public partial class MainWindow : Window
                 parallaxPanel.IsVisible = true;
                 parallaxPanel.Opacity = 1;
                 ((TranslateTransform)parallaxPanel.RenderTransform).Y = 0;
-
-                //this effect is really bad imo im just disabling for now
-                kiaiPanel.IsVisible = false;
-                kiaiPanel.Opacity = 0;
-                ((TranslateTransform)kiaiPanel.RenderTransform).Y = 0;
 
                 blurPanel.IsVisible = true;
                 blurPanel.Opacity = 1;
@@ -536,19 +410,16 @@ public partial class MainWindow : Window
                 if (isChecked)
                 {
                     await EnqueueShowSubToggle(parallaxPanel, true);
-                    //await EnqueueShowSubToggle(kiaiPanel, true);
                     await EnqueueShowSubToggle(blurPanel, true);
                 }
                 else
                 {
                     await EnqueueShowSubToggle(blurPanel, false);
-                    //await EnqueueShowSubToggle(kiaiPanel, false);
                     await EnqueueShowSubToggle(parallaxPanel, false);
                 }
             };
 
             _toggleQueues.Remove(parallaxPanel);
-            //_toggleQueues.Remove(kiaiPanel);
             _toggleQueues.Remove(blurPanel);
 
             if (_settingsHandler.IsBackgroundEnabled)
@@ -556,11 +427,6 @@ public partial class MainWindow : Window
                 parallaxPanel.IsVisible = true;
                 parallaxPanel.Opacity = 1;
                 ((TranslateTransform)parallaxPanel.RenderTransform).Y = 0;
-
-                // same as above
-                kiaiPanel.IsVisible = false;
-                kiaiPanel.Opacity = 0;
-                ((TranslateTransform)kiaiPanel.RenderTransform).Y = 0;
 
                 blurPanel.IsVisible = true;
                 blurPanel.Opacity = 1;
@@ -571,9 +437,6 @@ public partial class MainWindow : Window
                 parallaxPanel.IsVisible = false;
                 parallaxPanel.Opacity = 0;
                 ((TranslateTransform)parallaxPanel.RenderTransform).Y = -20;
-                kiaiPanel.IsVisible = false;
-                kiaiPanel.Opacity = 0;
-                ((TranslateTransform)kiaiPanel.RenderTransform).Y = -20;
                 blurPanel.IsVisible = false;
                 blurPanel.Opacity = 0;
                 ((TranslateTransform)blurPanel.RenderTransform).Y = -20;
@@ -590,12 +453,14 @@ public partial class MainWindow : Window
         SettingsView.PPSlider.Value = ViewModel.PerformancePoints;
         SettingsView.BlurEffectSlider.Value = ViewModel.BlurRadius;
         _viewModel.RefreshPresets();
-
+        
         KeyDown += (_, e) =>
         {
-            if (e.Key == Key.Escape && _viewModel.Changelog.IsVisible)
+            if (e.Key == Key.Escape && _viewModel.Changelog != null && _viewModel.Changelog.IsVisible)
                 _viewModel.Changelog.IsVisible = false;
         };
+        
+        // linq subscriptions might be awesome
         this.GetObservable(BoundsProperty)
             .Throttle(TimeSpan.FromMilliseconds(200))
             .Subscribe(bounds =>
@@ -605,6 +470,148 @@ public partial class MainWindow : Window
                 _settingsHandler.WindowWidth = bounds.Width;
                 _settingsHandler.WindowHeight = bounds.Height;
             });
+        
+        var stateChangeStream = Observable.Merge(
+            Observable.FromEvent<Action, Unit>(h => () => h(Unit.Default),
+                h => _tosuApi.HasModsChanged += h,
+                h => _tosuApi.HasModsChanged -= h),
+
+            Observable.FromEvent<Action, Unit>(h => () => h(Unit.Default),
+                h => _tosuApi.HasBPMChanged += h,
+                h => _tosuApi.HasBPMChanged -= h),
+
+            Observable.FromEvent<Action, Unit>(h => () => h(Unit.Default),
+                h => _tosuApi.HasRateChanged += h,
+                h => _tosuApi.HasRateChanged -= h),
+
+            Observable.FromEvent<Action, Unit>(h => () => h(Unit.Default),
+                h => _tosuApi.HasStateChanged += h,
+                h => _tosuApi.HasStateChanged -= h)
+        );
+        
+        stateChangeStream
+            .Throttle(TimeSpan.FromMilliseconds(50))
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(_ =>
+            {
+                UpdateInfoPanelData();
+            });
+        
+        var beatmapUpdateStream =
+            Observable.FromEvent<Action, Unit>(
+                    h => () => h(Unit.Default),
+                    h => _tosuApi.BeatmapChanged += h,
+                    h => _tosuApi.BeatmapChanged -= h)
+                .ObserveOn(RxApp.MainThreadScheduler);
+        
+        beatmapUpdateStream.Subscribe(_ =>
+        {
+            UpdateBeatmapInfo();
+        });
+        
+        var progressStream = Observable.FromEvent<Action, Unit>(
+                h => () => h(Unit.Default),
+                h => _tosuApi.HasPercentageChanged += h,
+                h => _tosuApi.HasPercentageChanged -= h)
+            .ObserveOn(RxApp.MainThreadScheduler);
+        
+        progressStream.Subscribe(_ =>
+        {
+            _infoPanelLog.LogToInfoPanel(
+                $"Beatmap Progress %: {_tosuApi.GetCompletionPercentage():F2}%",
+                false,
+                "Map Progress");
+            _infoPanelLog.LogToInfoPanel(
+                $"Song Progress %: {_tosuApi.GetSongProgress():F2}%",
+                false,
+                "Song Progress");
+            
+            double rate = _tosuApi.GetRateAdjustRate();
+            if (rate <= 0 || double.IsNaN(rate) || double.IsInfinity(rate))
+                rate = 1;
+        
+            double currentMs = Math.Max(0, _tosuApi.GetCurrentSongProgress() / rate);
+            double fullMs = Math.Max(0, _tosuApi.GetFullTime() / rate);
+        
+            _infoPanelLog.LogToInfoPanel(
+                $"Progress (mm:ss): {TimeSpan.FromMilliseconds(currentMs):mm\\:ss}/{TimeSpan.FromMilliseconds(fullMs):mm\\:ss}",
+                false,
+                "Current Time");
+        });
+        
+        _infoPanelLog.LogToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
+    }
+    
+    private void UpdateInfoPanelData()
+    {
+        _infoPanelLog.LogToInfoPanel(
+            "Tosu Connected: " + _tosuApi.IsWebsocketConnected,
+            false,
+            "Tosu Running");
+        
+        _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
+        _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
+        _infoPanelLog.LogToInfoPanel("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
+
+        _infoPanelLog.LogToInfoPanel("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
+        _infoPanelLog.LogToInfoPanel("Ranked Status: " + _tosuApi.GetRankedStatus(), false, "Ranked Status");
+        _infoPanelLog.LogToInfoPanel("State: " + _tosuApi.GetRawBanchoStatus(), false, "State");
+
+        _infoPanelLog.LogToInfoPanel("BPM: " + _tosuApi.GetCurrentBpm(), false, "BPM Changed");
+
+        _infoPanelLog.LogToInfoPanel("isDeafened: " + _deafenController.Deafened, false, "isDeafened");
+        _infoPanelLog.LogToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");
+        _infoPanelLog.LogToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false, "Min SS PP");
+        
+        _viewModel.UpdateMinPPValue();
+        _viewModel.UpdateMinSRValue();
+    }
+    
+    private async void UpdateBeatmapInfo()
+    {
+        try
+        {
+            string checksum = _tosuApi.GetBeatmapChecksum();
+
+            string presetsPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "osuautodeafen",
+                "presets");
+
+            string presetFilePath = Path.Combine(presetsPath, $"{checksum}.preset");
+
+            _viewModel.PresetExistsForCurrentChecksum = File.Exists(presetFilePath);
+
+            foreach (PresetInfo preset in _viewModel.Presets ?? Enumerable.Empty<PresetInfo>())
+                preset.IsCurrentPreset = preset.Checksum == checksum;
+
+            if (_viewModel.PresetExistsForCurrentChecksum)
+                _settingsHandler?.ActivatePreset(presetFilePath);
+            else
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    _settingsHandler?.DeactivatePreset();
+                    _settingsHandler?.LoadSettings();
+                });
+            }
+
+            _viewModel.BeatmapName = _tosuApi.GetBeatmapTitle();
+            _viewModel.FullBeatmapName =
+                _tosuApi.GetBeatmapArtist() + " - " + _tosuApi.GetBeatmapTitle();
+
+            _viewModel.BeatmapDifficulty = _tosuApi.GetBeatmapDifficulty();
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+                OnGraphDataUpdated(_tosuApi.GetGraphData()));
+
+            if (_backgroundManager != null) 
+                await _backgroundManager.UpdateBackground(null, null);
+        }
+        catch (Exception e)
+        {
+            Log.Warning("Exception occured while updating beatmap info: " + e);
+        }
     }
 
     public static TooltipManager Tooltips { get; private set; } = null!;
@@ -1461,8 +1468,6 @@ public partial class MainWindow : Window
         _tosuApi.CheckForStateChange();
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
         _kiaiTimes.UpdateKiaiPeriodState(_tosuApi.GetCurrentTime());
-        _infoPanelLog.LogToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
-        _infoPanelLog.LogToInfoPanel("Tosu Connected: " + _tosuApi.isWebsocketConnected, false, "Tosu Running");
     }
 
     /// <summary>

@@ -33,6 +33,7 @@ public class TosuApi : IDisposable
     private string _client;
     private double _combo;
     private double _completionPercentage;
+    private double _songProgress;
     private double _current;
     private double _currentPP;
     private double _dtRate;
@@ -49,6 +50,7 @@ public class TosuApi : IDisposable
     private string? _lastBeatmapChecksum = "abcdefghijklmnop";
     private double? _lastBpm;
     private double? _lastCompletionPercentage;
+    private double? _lastSongProgressProcentage;
     private bool _lastKiaiValue;
     private string _lastModNames = "";
     private double _maxCombo;
@@ -94,7 +96,7 @@ public class TosuApi : IDisposable
         }
     }
 
-    public bool? isWebsocketConnected => _webSocket.State == WebSocketState.Open;
+    public bool? IsWebsocketConnected => _webSocket.State == WebSocketState.Open;
 
     private GraphData Graph { get; } = null!;
 
@@ -509,6 +511,26 @@ public class TosuApi : IDisposable
         //Serilog.Log.Debug($"Completion Percentage: {_completionPercentage}");
         return _completionPercentage;
     }
+    
+    /// <summary>
+    ///     Gets the current percentage of the song playback
+    /// </summary>
+    /// <returns>
+    ///     double in the form of 0.* to 100
+    /// </returns>
+    public double GetSongProgress()
+    {
+        if (_full == 0)
+            return double.NaN;
+        
+        if (_current > _full)
+            _songProgress = 100;
+        else
+            _songProgress = _current / _full * 100;
+
+        //Serilog.Log.Debug($"Completion Percentage: {_songProgress}");
+        return _songProgress;
+    }
 
     /// <summary>
     ///     Gets the server name from tosu (e.g. "Bancho", "Akatsuki", "Gatari", etc.)
@@ -546,6 +568,13 @@ public class TosuApi : IDisposable
     {
         if (_current < _firstObj)
             return 0;
+        if (_current > _full)
+            return (int)_full;
+        return (int)_current;
+    }
+    
+    public int GetCurrentSongProgress()
+    {
         if (_current > _full)
             return (int)_full;
         return (int)_current;
@@ -937,9 +966,11 @@ public class TosuApi : IDisposable
     public void CheckForPercentageChange()
     {
         double percentage = GetCompletionPercentage();
-        if (percentage == _lastCompletionPercentage)
+        double songPercentage = GetSongProgress();
+        if (Equals(percentage, _lastCompletionPercentage) && Equals(songPercentage, _lastSongProgressProcentage))
             return;
         _lastCompletionPercentage = percentage;
+        _lastSongProgressProcentage = songPercentage;
         HasPercentageChanged?.Invoke();
     }
 
