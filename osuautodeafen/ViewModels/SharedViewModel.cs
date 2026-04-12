@@ -34,7 +34,7 @@ public sealed class SharedViewModel : ViewModelBase
 
     private SolidColorBrush _averageColorBrush = new(Colors.Gray);
 
-    private string _beatmapDifficulty;
+    private string? _beatmapDifficulty;
 
     private string? _beatmapName;
 
@@ -174,7 +174,7 @@ public sealed class SharedViewModel : ViewModelBase
         }
     }
 
-    public string BeatmapDifficulty
+    public string? BeatmapDifficulty
     {
         get => _beatmapDifficulty;
         set
@@ -309,7 +309,6 @@ public sealed class SharedViewModel : ViewModelBase
                 bool wasDisabled = !_isBackgroundEnabled;
                 _isBackgroundEnabled = value;
                 OnPropertyChanged();
-                if (wasDisabled && value) _tosuApi.ForceBeatmapChange();
                 _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Beatmap Background", true);
             }
         }
@@ -368,7 +367,6 @@ public sealed class SharedViewModel : ViewModelBase
             {
                 _IsKiaiEffectEnabled = value;
                 OnPropertyChanged();
-                _tosuApi.RaiseKiaiChanged();
                 _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Kiai Effect", true);
             }
         }

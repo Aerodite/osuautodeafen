@@ -48,7 +48,7 @@ public class ChartManager
     private readonly TooltipManager _tooltipManager;
     private readonly TosuApi _tosuApi;
     private readonly SharedViewModel _viewModel;
-    private List<double>? _currentXAxis;
+    private IReadOnlyList<double>? _currentXAxis;
 
     private CancellationTokenSource? _deafenOverlayCts;
 
@@ -59,7 +59,7 @@ public class ChartManager
     private bool _isHoveringDeafenSection;
     private List<BreakPeriod>? _lastBreaks;
     private double _lastDeafenOverlayValue = -1;
-    private GraphData? _lastGraphData;
+    private TosuApi.GraphDataModel? _lastGraphData;
     private double _lastMinCompletionPercentage = -1;
     private string? _lastOsuFilePath;
     private List<double>? _lastSeriesData;
@@ -497,7 +497,7 @@ public class ChartManager
     /// </summary>
     /// <param name="graphData"></param>
     /// <param name="minCompletionPercentage"></param>
-    public async Task UpdateChart(GraphData? graphData, double minCompletionPercentage)
+    public async Task UpdateChart(TosuApi.GraphDataModel? graphData, double minCompletionPercentage)
     {
         Stopwatch sw = Stopwatch.StartNew();
         if (graphData == null) return;
@@ -557,10 +557,10 @@ public class ChartManager
     /// </summary>
     /// <param name="graphData"></param>
     /// <returns></returns>
-    private static double GetMaxYValue(GraphData graphData)
+    private static double GetMaxYValue(TosuApi.GraphDataModel? graphData)
     {
         double maxY = 0.0;
-        foreach (Series s in graphData.Series)
+        foreach (TosuApi.GraphSeries s in graphData.Series)
         foreach (double v in s.Data)
             if (v != -100 && v > maxY)
                 maxY = v;
@@ -573,7 +573,7 @@ public class ChartManager
     /// <param name="graphData"></param>
     /// <param name="seriesArr"></param>
     /// <returns></returns>
-    private async Task<List<ISeries>> UpdateSeries(GraphData graphData, List<ISeries> seriesArr)
+    private async Task<List<ISeries>> UpdateSeries(TosuApi.GraphDataModel? graphData, List<ISeries> seriesArr)
     {
         const int maxPoints = 1000;
         var newSeriesList = new List<ISeries>();
@@ -584,10 +584,15 @@ public class ChartManager
             .Where(ls => ls.Name != null)
             .ToDictionary(ls => ls.Name!, ls => ls);
 
-        foreach (Series series in graphData.Series)
+        foreach (TosuApi.GraphSeries series in graphData.Series)
         {
-            int start = series.Data.FindIndex(v => v != -100);
-            int end = series.Data.FindLastIndex(v => v != -100);
+            var start = series.Data
+                .Select((v, i) => (v, i))
+                .FirstOrDefault(x => x.v != -100).i;
+
+            var end = series.Data
+                .Select((v, i) => (v, i))
+                .LastOrDefault(x => x.v != -100).i;
             if (start == -1 || end == -1 || end < start) continue;
 
             var updatedValues = new List<ObservablePoint>();
@@ -679,10 +684,10 @@ public class ChartManager
     /// </summary>
     /// <param name="graphData"></param>
     /// <param name="osuFilePath"></param>
-    private async Task UpdateSectionsAsync(GraphData graphData, string osuFilePath)
+    private async Task UpdateSectionsAsync(TosuApi.GraphDataModel? graphData, string osuFilePath)
     {
         double rate = _tosuApi.GetRateAdjustRate();
-        var xAxis = graphData.XAxis;
+        IReadOnlyList<double>? xAxis = graphData.XAxis;
         _currentXAxis = xAxis;
         var seriesData = graphData.Series[0].Data;
         var breaks = await GetBreakPeriodsAsync(osuFilePath, xAxis, seriesData);
@@ -763,7 +768,7 @@ public class ChartManager
         PlotView.InvalidateVisual();
     }
 
-    private int FindClosestMappedIndex(List<int> indexMap, List<double> xAxis, double time)
+    private int FindClosestMappedIndex(List<int> indexMap, IReadOnlyList<double>? xAxis, double time)
     {
         int rawIdx = FindClosestIndex(xAxis, time, 0, xAxis.Count);
         int mapped = indexMap.BinarySearch(rawIdx);
@@ -848,7 +853,7 @@ public class ChartManager
     /// <param name="start"></param>
     /// <param name="count"></param>
     /// <returns></returns>
-    private int FindClosestIndex(List<double>? xAxis, double value, int start, int count)
+    private int FindClosestIndex(IReadOnlyList<double>? xAxis, double value, int start, int count)
     {
         if (xAxis == null || count == 0) return 0;
 
@@ -928,12 +933,12 @@ public class ChartManager
     /// </summary>
     /// <param name="a"></param>
     /// <param name="b"></param>
-    /// <typeparam name="T"></typeparam>
     /// <returns></returns>
-    private static bool AreListsEqual<T>(List<T>? a, List<T>? b)
+    private static bool AreListsEqual(IReadOnlyList<double>? a, IReadOnlyList<double>? b)
     {
         if (ReferenceEquals(a, b)) return true;
         if (a == null || b == null || a.Count != b.Count) return false;
+
         return a.SequenceEqual(b);
     }
 
@@ -944,8 +949,8 @@ public class ChartManager
     /// <param name="xAxis"></param>
     /// <param name="seriesData"></param>
     /// <returns></returns>
-    private async Task<List<BreakPeriod>> GetBreakPeriodsAsync(string? osuFilePath, List<double>? xAxis,
-        List<double> seriesData)
+    private async Task<List<BreakPeriod>> GetBreakPeriodsAsync(string? osuFilePath, IReadOnlyList<double>? xAxis,
+        IReadOnlyList<double>? seriesData)
     {
         if (osuFilePath == _lastOsuFilePath &&
             AreListsEqual(xAxis, _lastXAxis) &&
@@ -954,7 +959,7 @@ public class ChartManager
 
         var breaks = await _breakPeriod.ParseBreakPeriodsAsync(osuFilePath, xAxis, seriesData);
         _lastOsuFilePath = osuFilePath;
-        _lastXAxis = xAxis != null ? [..xAxis] : [];
+        _lastXAxis = [..xAxis];
         _lastSeriesData = new List<double>(seriesData);
         _lastBreaks = breaks;
         return breaks;

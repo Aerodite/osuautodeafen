@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.WebSockets;
+using System.Reactive.Subjects;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -21,80 +23,75 @@ public class TosuApi : IDisposable
     private readonly List<byte> _dynamicBuffer;
     private readonly string _errorMessage = "";
     private readonly StringBuilder _messageAccumulator = new();
-    private readonly Timer _reconnectTimer;
-    private readonly Timer _timer;
-    private string? _beatmapArtist;
-    private string _beatmapChecksum;
-    private string _beatmapDifficulty;
-    private int _beatmapId;
-    private string? _beatmapMapper;
-    private int _beatmapSetId;
-    private string? _beatmapTitle;
-    private string _client;
-    private double _combo;
-    private double _completionPercentage;
-    private double _current;
-    private double _currentPP;
-    private double _dtRate;
-    private double _firstObj;
-    private double _full;
-    private string? _fullPath;
-    private double _fullSR;
-    private string? _gameDirectory;
-    private JsonElement _graphData;
-    private bool _hasFailed;
-    private bool _isBreakPeriod;
-    public bool _isKiai;
-    private bool _isPaused;
-    private string? _lastBeatmapChecksum = "abcdefghijklmnop";
-    private double? _lastBpm;
-    private double? _lastCompletionPercentage;
-    private bool _lastKiaiValue;
-    private string _lastModNames = "";
-    private double _maxCombo;
-    private double _maxPlayCombo;
-    private double _maxPP;
-    private double _missCount;
+    private readonly Timer? _timer;
     private string? _modNames;
-    private int _modNumber;
-    private double _oldRateAdjustRate;
-    private string? _osuFilePath = "";
-    private int _previousState = -10;
-    private double _rankedStatus;
-    private int _rawBanchoStatus = -1;
-    private int _rawLazerBanchoStatus = -1;
-    private double? _realtimeBpm;
-    private double _sbCount;
-    private string _server;
-    private string? _settingsSongsDirectory;
     private ClientWebSocket _webSocket;
-    private string _k1Bind = "";
-    private string _k2Bind = "";
+    public TosuState? LatestState { get; private set; }
+    public sealed record GraphPoint(double Value);
+
+    public sealed record GraphSeries(
+        string Name,
+        IReadOnlyList<double>? Data
+    );
+
+    public sealed record GraphDataModel(
+        IReadOnlyList<GraphSeries> Series,
+        IReadOnlyList<double>? XAxis
+    );
+    public sealed record TosuState(
+        int BeatmapId,
+        int BeatmapSetId,
+        string BeatmapChecksum,
+        string? BeatmapTitle,
+        string? BeatmapArtist,
+        string? BeatmapDifficulty,
+        string? BeatmapMapper,
+        double CurrentTime,
+        double FirstObjectTime,
+        double FullTime,
+        double CompletionPercentage,
+        double StarRating,
+        double RankedStatus,
+        double MaxCombo,
+        double CurrentBpm,
+        double Rate,
+        double Combo,
+        double MaxPlayCombo,
+        double CurrentPP,
+        double MaxPP,
+        double MissCount,
+        double SliderBreakCount,
+        string? ModNames,
+        int ModNumber,
+        bool IsBreak,
+        bool IsKiai,
+        bool IsFailed,
+        bool IsPaused,
+        int RawLazerBanchoStatus,
+        int RawBanchoStatus,
+        string? Client,
+        string? Server,
+        string? K1Bind,
+        string? K2Bind,
+        string? SongsDirectory,
+        string? GameDirectory,
+        string? BeatmapFilePath,
+        string? BeatmapBackgroundPath,
+        GraphDataModel GraphData
+    );
+    
+    private readonly Subject<TosuState> _stateStream = new();
+
+    public IObservable<TosuState> StateStream => _stateStream;
 
     public TosuApi()
     {
-        _timer = new Timer(async void (_) =>
-        {
-            try
-            {
-                await ConnectAsync();
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException("Failed to connect to Tosu WebSocket: ", ex);
-            }
-        }, null, Timeout.Infinite, Timeout.Infinite);
         _webSocket = new ClientWebSocket();
         _dynamicBuffer = new List<byte>();
-        _reconnectTimer = new Timer(_ => { _ = Task.Run(() => ReconnectTimerCallback()); }, null, 600000,
-            600000);
-        lock (ConnectionLock)
-        {
-            _ = ConnectAsync();
-        }
+        _ = InitializeConnectionAsync();
     }
 
-    public bool? isWebsocketConnected => _webSocket.State == WebSocketState.Open;
+    public bool? IsWebsocketConnected => _webSocket.State == WebSocketState.Open;
 
     private GraphData Graph { get; } = null!;
 
@@ -103,7 +100,6 @@ public class TosuApi : IDisposable
     /// </summary>
     public void Dispose()
     {
-        _reconnectTimer?.Dispose();
         _timer?.Dispose();
         if (_webSocket.State == WebSocketState.Open)
             try
@@ -120,135 +116,59 @@ public class TosuApi : IDisposable
     }
 
     /// <summary>
-    ///     Event triggered when the Kiai state changes
+    ///  Attempts connection to the Tosu websocket and handles reconnects gracefully
     /// </summary>
-    public event EventHandler? HasKiaiChanged;
-
-    /// <summary>
-    ///     Event triggered when the beatmap changes
-    /// </summary>
-    public event Action? BeatmapChanged;
-
-    /// <summary>
-    ///     Event triggered when the selected mods change (accounts for lazer)
-    /// </summary>
-    public event Action? HasModsChanged;
-
-    /// <summary>
-    ///     Event triggered when the BPM changes (accounts for poly-rhythm)
-    /// </summary>
-    public event Action? HasBPMChanged;
-
-    /// <summary>
-    ///     Event triggered when the rate changes in mod select (0.50-2.00)
-    /// </summary>
-    /// <remarks>
-    ///     I should hope this accounts for Wind Up / Wind Down too but eh haven't tested
-    /// </remarks>
-    public event Action? HasRateChanged;
-
-    /// <summary>
-    ///     Event triggered when the play state changes (e.g. from downloading a map to playing)
-    /// </summary>
-    public event Action? HasStateChanged;
-
-    /// <summary>
-    ///     Event triggered when the map progress percentage changes
-    /// </summary>
-    public event Action? HasPercentageChanged;
-
-    /// <summary>
-    ///     Event triggered when the raw bancho status changes
-    /// </summary>
-    public event Action<int>? StateChanged;
-
-    /// <summary>
-    ///     Called every 5 minutes to attempt to reconnect if the connection is lost / to refresh the connection in the case
-    ///     Tosu stops reporting data
-    /// </summary>
-    private async Task ReconnectTimerCallback()
+    private async Task InitializeConnectionAsync(CancellationToken cancellationToken = default)
     {
-        if (_webSocket?.State != WebSocketState.Open)
-        {
-            _webSocket?.Dispose();
-            _webSocket = new ClientWebSocket();
+        var delay = TimeSpan.FromSeconds(1);
+        var maxDelay = TimeSpan.FromSeconds(16);
 
+        while (!cancellationToken.IsCancellationRequested)
+        {
             try
             {
-                Serilog.Log.Information("Attempting to reconnect to Tosu...");
-                await ConnectAsync();
+                await ConnectAsync(cancellationToken);
+                delay = TimeSpan.FromSeconds(1);
+
+                await ReceiveAsync(cancellationToken);
             }
             catch (Exception ex)
             {
-                Serilog.Log.Error("Failed to reconnect: {ExMessage}", ex.Message);
+                Serilog.Log.Error("Tosu connection lost. Attempting reconnect in " + delay + "s");
+
+                await Task.Delay(delay, cancellationToken);
+
+                delay = TimeSpan.FromSeconds(Math.Min(delay.TotalSeconds * 2, maxDelay.TotalSeconds));
             }
         }
-        else
-        {
-           // Serilog.Log.Debug("No reconnection needed, WebSocket is open");
-        }
-    }
-
-    /// <summary>
-    ///     Returns the last error message encountered
-    /// </summary>
-    /// <returns></returns>
-    public string GetErrorMessage()
-    {
-        return _errorMessage;
     }
 
     /// <summary>
     ///     Connects to the Tosu WebSocket API
     /// </summary>
     /// <param name="cancellationToken"></param>
-    public async Task ConnectAsync(CancellationToken cancellationToken = default)
+    private async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
         await _connectLock.WaitAsync(cancellationToken);
+
         try
         {
             SettingsHandler settings = new();
 
-            string? ip = settings.tosuApiIp;
-            string? port = settings.tosuApiPort;
+            string ip = settings.tosuApiIp ?? "";
+            string port = settings.tosuApiPort ?? "";
             string counterPath = "osuautodeafen";
-            string uriWithParam = $"ws://{ip}:{port}/websocket/v2?l={Uri.EscapeDataString(counterPath)}";
 
-            Serilog.Log.Debug("WebSocket URI: {UriWithParam}", uriWithParam);
-            Serilog.Log.Debug("WebSocket State: {WebSocketState}", _webSocket.State);
+            string uri = $"ws://{ip}:{port}/websocket/v2?l={Uri.EscapeDataString(counterPath)}";
 
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                if (_webSocket != null && _webSocket.State == WebSocketState.Open)
-                    return;
+            _webSocket?.Dispose();
+            _webSocket = new ClientWebSocket();
 
-                try
-                {
-                    _webSocket?.Dispose();
-                    _webSocket = new ClientWebSocket();
+            Serilog.Log.Information("Connecting to Tosu: {Uri}", uri);
 
-                    await _webSocket.ConnectAsync(new Uri(uriWithParam), cancellationToken);
-                    Serilog.Log.Information("Connected to WebSocket.");
+            await _webSocket.ConnectAsync(new Uri(uri), cancellationToken);
 
-                    _reconnectTimer.Change(600000, 600000);
-
-                    await ReceiveAsync();
-
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    Serilog.Log.Error("Failed to connect: {ExMessage}. Retrying in 2 seconds...", ex.Message);
-                    try
-                    {
-                        await Task.Delay(2000, cancellationToken);
-                    }
-                    catch (TaskCanceledException)
-                    {
-                        return;
-                    }
-                }
-            }
+            Serilog.Log.Information("Connected to Tosu WebSocket");
         }
         finally
         {
@@ -261,217 +181,298 @@ public class TosuApi : IDisposable
     /// </summary>
     /// <returns></returns>
     /// <exception cref="InvalidOperationException"></exception>
-    public async Task ReceiveAsync()
+    public async Task ReceiveAsync(CancellationToken cancellationToken)
     {
         const int bufferSize = 4096;
-        byte[] buffer = new byte[bufferSize];
-        var memoryBuffer = new Memory<byte>(buffer);
-        ValueWebSocketReceiveResult result;
+        var buffer = new byte[bufferSize];
 
-        while (_webSocket.State == WebSocketState.Open)
+        while (_webSocket.State == WebSocketState.Open &&
+               !cancellationToken.IsCancellationRequested)
         {
             _dynamicBuffer.Clear();
+
+            WebSocketReceiveResult result;
+
             do
             {
-                result = await _webSocket.ReceiveAsync(memoryBuffer, CancellationToken.None);
-                _dynamicBuffer.AddRange(new ArraySegment<byte>(buffer, 0, result.Count));
-            } while (!result.EndOfMessage);
-
-            if (result.EndOfMessage)
-            {
-                try
-                {
-                    _messageAccumulator.Append(Encoding.UTF8.GetString(_dynamicBuffer.ToArray(), 0,
-                        _dynamicBuffer.Count));
-                    string completeMessage = _messageAccumulator.ToString();
-                    JsonElement root = JsonDocument.Parse(completeMessage).RootElement;
-                    string jsonString =
-                        await Task.FromResult(
-                            "{ \"key\": \"value\" }");
-
-                    ////////////////////////////////////////////////////////////////////
-                    if (root.TryGetProperty("beatmap", out JsonElement beatmap))
-                    {
-                        if (beatmap.TryGetProperty("time", out JsonElement time))
-                        {
-                            if (time.TryGetProperty("live", out JsonElement live)) _current = live.GetDouble();
-
-                            if (time.TryGetProperty("firstObject", out JsonElement firstObject))
-                                _firstObj = firstObject.GetDouble();
-
-                            if (time.TryGetProperty("lastObject", out JsonElement lastObject))
-                                _full = lastObject.GetDouble();
-                        }
-
-                        if (beatmap.TryGetProperty("stats", out JsonElement bmstats))
-                            if (bmstats.TryGetProperty("stars", out JsonElement stars))
-                                if (stars.TryGetProperty("total", out JsonElement totalSR))
-                                    _fullSR = totalSR.GetDouble();
-
-                        if (beatmap.TryGetProperty("status", out JsonElement status))
-                            if (status.TryGetProperty("number", out JsonElement statusNumber))
-                                _rankedStatus = statusNumber.GetDouble();
-
-                        if (beatmap.TryGetProperty("id", out JsonElement beatmapId))
-                            _beatmapId = beatmapId.GetInt32();
-                        if (beatmap.TryGetProperty("set", out JsonElement beatmapSetId))
-                            _beatmapSetId = beatmapSetId.GetInt32();
-                        if (beatmap.TryGetProperty("checksum", out JsonElement checksum))
-                            _beatmapChecksum = checksum.GetString() ?? throw new InvalidOperationException();
-                        if (beatmap.TryGetProperty("stats", out JsonElement beatmapStatistics) &&
-                            beatmapStatistics.TryGetProperty("bpm", out JsonElement bpm) &&
-                            bpm.TryGetProperty("realtime", out JsonElement realtime))
-                        {
-                            if (realtime.ValueKind == JsonValueKind.Number)
-                                _realtimeBpm = realtime.GetDouble();
-                            else if (realtime.ValueKind == JsonValueKind.String)
-                                if (double.TryParse(realtime.GetString(), out double bpmValue))
-                                    _realtimeBpm = bpmValue;
-                                else
-                                    _realtimeBpm = 0;
-                        }
-
-                        if (beatmap.TryGetProperty("isBreak", out JsonElement isBreak))
-                            _isBreakPeriod = isBreak.GetBoolean();
-                        if (beatmap.TryGetProperty("isKiai", out JsonElement isKiai)) _isKiai = isKiai.GetBoolean();
-                        if (beatmap.TryGetProperty("title", out JsonElement title))
-                            _beatmapTitle = title.GetString();
-                        if (beatmap.TryGetProperty("artistUnicode", out JsonElement artist))
-                            _beatmapArtist = artist.GetString();
-                        if (beatmap.TryGetProperty("version", out JsonElement beatmapDifficulty))
-                            _beatmapDifficulty = beatmapDifficulty.GetString() ?? throw new InvalidOperationException();
-                        if (beatmap.TryGetProperty("mapper", out JsonElement mapper))
-                            _beatmapMapper = mapper.GetString();
-                        if (beatmap.TryGetProperty("stats", out JsonElement stats))
-                            if (stats.TryGetProperty("maxCombo", out JsonElement maxCombo))
-                                _maxCombo = maxCombo.GetDouble();
-                    }
-
-                    if (root.TryGetProperty("play", out JsonElement play))
-                    {
-                        if (play.TryGetProperty("combo", out JsonElement combo))
-                            if (combo.TryGetProperty("current", out JsonElement currentCombo))
-                                _combo = currentCombo.GetDouble();
-                        if (combo.TryGetProperty("max", out JsonElement maxComboElement))
-                            if (maxComboElement.ValueKind == JsonValueKind.Number)
-                                _maxPlayCombo = maxComboElement.GetDouble();
-                        if (play.TryGetProperty("pp", out JsonElement pp))
-                            if (pp.TryGetProperty("current", out JsonElement currentPP))
-                                _currentPP = currentPP.GetDouble();
-                        //if (combo.TryGetProperty("max", out var maxCombo)) _maxCombo = maxCombo.GetDouble();
-                        if (play.TryGetProperty("hits", out JsonElement hits))
-                        {
-                            if (hits.ValueKind == JsonValueKind.Object &&
-                                hits.TryGetProperty("0", out JsonElement missElement))
-                                if (missElement.ValueKind == JsonValueKind.Number)
-                                {
-                                    _missCount = missElement.GetDouble();
-                                    if (_missCount > 0)
-                                    {
-                                        //Serilog.Log.Debug($"Miss count: {_missCount}");
-                                    }
-                                }
-
-                            if (hits.ValueKind == JsonValueKind.Object &&
-                                hits.TryGetProperty("sliderBreaks", out JsonElement sbElement))
-                                if (sbElement.ValueKind == JsonValueKind.Number)
-                                {
-                                    _sbCount = sbElement.GetDouble();
-                                    if (_sbCount > 0)
-                                    {
-                                        //Serilog.Log.Debug($"Slider break count: {_sbCount}");
-                                    }
-                                }
-                        }
-
-                        if (play.TryGetProperty("mods", out JsonElement mods))
-                        {
-                            if (mods.TryGetProperty("name", out JsonElement modNames)) _modNames = modNames.GetString();
-                            if (mods.TryGetProperty("rate", out JsonElement rate)) _dtRate = rate.GetDouble();
-                            if (mods.TryGetProperty("number", out JsonElement modNumber))
-                                _modNumber = modNumber.GetInt32();
-                        }
-
-                        if (play.TryGetProperty("failed", out JsonElement hasFailed))
-                            _hasFailed = hasFailed.GetBoolean();
-
-                        if (root.TryGetProperty("settings", out JsonElement settings))
-                            if (settings.TryGetProperty("keybinds", out JsonElement keybinds))
-                                if (keybinds.TryGetProperty("osu", out JsonElement osuKeybinds))
-                                {
-                                    if (osuKeybinds.TryGetProperty("k1", out JsonElement k1))
-                                        _k1Bind = k1.GetString() ?? "";
-
-                                    if (osuKeybinds.TryGetProperty("k2", out JsonElement k2))
-                                        _k2Bind = k2.GetString() ?? "";
-                                }
-
-                        if (root.TryGetProperty("performance", out JsonElement performance))
-                            if (performance.TryGetProperty("graph", out JsonElement graphs))
-                            {
-                                ParseGraphData(graphs);
-                                _graphData = graphs;
-                            }
-
-                        if (root.TryGetProperty("state", out JsonElement state))
-                            if (state.TryGetProperty("number", out JsonElement stateNumber))
-                                _rawLazerBanchoStatus = stateNumber.GetInt32();
-                        if (root.TryGetProperty("server", out JsonElement server))
-                            _server = server.GetString();
-                        if (root.TryGetProperty("client", out JsonElement client))
-                            _client = client.GetString();
-                        if (performance.TryGetProperty("accuracy", out JsonElement accuracy))
-                            if (accuracy.TryGetProperty("100", out JsonElement ssElement))
-                            {
-                                double ss = ssElement.GetDouble();
-                                _maxPP = ss;
-                            }
-
-                        if (root.TryGetProperty("profile", out JsonElement profile))
-                            if (profile.TryGetProperty("banchoStatus", out JsonElement banchoStatus))
-                                if (banchoStatus.TryGetProperty("number", out JsonElement banchoStatusNumber))
-                                    _rawBanchoStatus = banchoStatusNumber.GetInt32();
-
-                        if (root.TryGetProperty("game", out JsonElement gameElement))
-                            if (gameElement.TryGetProperty("paused", out JsonElement isPaused))
-                                _isPaused = isPaused.GetBoolean();
-                        if (root.TryGetProperty("folders", out JsonElement folders) &&
-                            folders.TryGetProperty("songs", out JsonElement songs))
-                            _settingsSongsDirectory = songs.GetString();
-                        folders.TryGetProperty("game", out JsonElement game);
-                        _gameDirectory = game.GetString();
-
-                        if (root.TryGetProperty("directPath", out JsonElement directPath) &&
-                            directPath.TryGetProperty("beatmapBackground", out JsonElement beatmapBackground))
-                            _fullPath = beatmapBackground.GetString();
-                        string combinedPath = _settingsSongsDirectory + "\\" + _fullPath;
-
-                        if (directPath.TryGetProperty("beatmapFile", out JsonElement beatmapFile))
-                            _osuFilePath = beatmapFile.GetString();
-
-                        JsonDocument jsonDocument = JsonDocument.Parse(jsonString);
-                        JsonElement rootElement = jsonDocument.RootElement;
-                    }
-                }
-                catch (JsonReaderException ex)
-                {
-                    Serilog.Log.Error("Failed to parse JSON: {ExMessage}", ex.Message);
-                }
-                catch (Exception ex)
-                {
-                    Serilog.Log.Error($"An error occurred in the TosuAPI: {ex.Message}");
-                }
-                finally
-                {
-                    _messageAccumulator.Clear();
-                }
-                /////////////////////////////////////////////////////////////////
+                result = await _webSocket.ReceiveAsync(
+                    new ArraySegment<byte>(buffer),
+                    cancellationToken);
 
                 if (result.MessageType == WebSocketMessageType.Close)
-                    await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty,
-                        CancellationToken.None);
-                _dynamicBuffer.Clear();
+                {
+                    Serilog.Log.Warning("WebSocket closed by server");
+                    return;
+                }
+
+                _dynamicBuffer.AddRange(buffer.Take(result.Count));
+
+            } while (!result.EndOfMessage);
+
+            string json = Encoding.UTF8.GetString(
+                _dynamicBuffer.ToArray(),
+                0,
+                _dynamicBuffer.Count);
+
+            if (string.IsNullOrWhiteSpace(json))
+                continue;
+
+            try
+            {
+                JsonElement root = JsonDocument.Parse(json).RootElement;
+            
+                int beatmapId = 0;
+                int beatmapSetId = 0;
+                string beatmapChecksum = "";
+                string? title = null;
+                string? artist = null;
+                string? difficulty = null;
+                string? mapper = null;
+
+                double currentTime = 0;
+                double firstObject = 0;
+                double fullTime = 0;
+
+                double starRating = 0;
+                double rankedStatus = 0;
+                double maxCombo = 0;
+
+                double realtimeBpm = 0;
+
+                bool isBreak = false;
+                bool isKiai = false;
+            
+                double combo = 0;
+                double maxPlayCombo = 0;
+                double currentPP = 0;
+                double maxPP = 0;
+                double missCount = 0;
+                double sliderBreaks = 0;
+
+                string? modNames = null;
+                int modNumber = 0;
+                double rate = 1;
+
+                bool hasFailed = false;
+                bool isPaused = false;
+
+                int rawLazerBanchoStatus = 0;
+                int rawBanchoStatus = 0;
+
+                string? client = null;
+                string? server = null;
+
+                string? k1 = null;
+                string? k2 = null;
+
+                string? songs = null;
+                string? gameDir = null;
+                string? beatmapFile = null;
+                string? beatmapBg = null;
+
+                GraphDataModel graphData = new GraphDataModel(Array.Empty<GraphSeries>(), Array.Empty<double>());
+
+                if (root.TryGetProperty("beatmap", out var beatmapProperty))
+                {
+                    if (beatmapProperty.TryGetProperty("time", out var timeProperty))
+                    {
+                        if (timeProperty.TryGetProperty("live", out var currentTimeProperty))
+                            currentTime = currentTimeProperty.GetDouble();
+
+                        if (timeProperty.TryGetProperty("firstObject", out var firstObjectProperty))
+                            firstObject = firstObjectProperty.GetDouble();
+
+                        if (timeProperty.TryGetProperty("lastObject", out var lastObjectProperty))
+                            fullTime = lastObjectProperty.GetDouble();
+                    }
+
+                    if (beatmapProperty.TryGetProperty("stats", out var stats))
+                    {
+                        if (stats.TryGetProperty("stars", out var starRatingProperty) &&
+                            starRatingProperty.TryGetProperty("total", out var totalSrProperty))
+                            starRating = totalSrProperty.GetDouble();
+
+                        if (stats.TryGetProperty("maxCombo", out var maxComboProperty))
+                            maxCombo = maxComboProperty.GetDouble();
+
+                        if (stats.TryGetProperty("bpm", out var bpmProperty) &&
+                            bpmProperty.TryGetProperty("realtime", out var currentBpmProperty))
+                        {
+                            realtimeBpm = currentBpmProperty.ValueKind == JsonValueKind.Number
+                                ? currentBpmProperty.GetDouble()
+                                : double.TryParse(currentBpmProperty.GetString(), out var v) ? v : 0;
+                        }
+                    }
+
+                    if (beatmapProperty.TryGetProperty("status", out var beatmapStatus) &&
+                        beatmapStatus.TryGetProperty("number", out var rankedStatusProperty))
+                        rankedStatus = rankedStatusProperty.GetDouble();
+
+                    if (beatmapProperty.TryGetProperty("id", out var beatmapIdProperty))
+                        beatmapId = beatmapIdProperty.GetInt32();
+
+                    if (beatmapProperty.TryGetProperty("set", out var beatmapSetProperty))
+                        beatmapSetId = beatmapSetProperty.GetInt32();
+
+                    if (beatmapProperty.TryGetProperty("checksum", out var checksumProperty))
+                        beatmapChecksum = checksumProperty.GetString() ?? "";
+
+                    if (beatmapProperty.TryGetProperty("isBreak", out var isCurrentlyBreakProperty))
+                        isBreak = isCurrentlyBreakProperty.GetBoolean();
+
+                    if (beatmapProperty.TryGetProperty("isKiai", out var isCurrentlyKiaiProperty))
+                        isKiai = isCurrentlyKiaiProperty.GetBoolean();
+
+                    if (beatmapProperty.TryGetProperty("title", out var titleProperty))
+                        title = titleProperty.GetString();
+
+                    if (beatmapProperty.TryGetProperty("artistUnicode", out var artistProperty))
+                        artist = artistProperty.GetString();
+
+                    if (beatmapProperty.TryGetProperty("version", out var mapVersionProperty))
+                        difficulty = mapVersionProperty.GetString();
+
+                    if (beatmapProperty.TryGetProperty("mapper", out var mapperProperty))
+                        mapper = mapperProperty.GetString();
+                }
+
+                if (root.TryGetProperty("play", out var currentPlayProperty))
+                {
+                    if (currentPlayProperty.TryGetProperty("combo", out var comboProperty))
+                    {
+                        if (comboProperty.TryGetProperty("current", out var currrentComboProperty))
+                            combo = currrentComboProperty.GetDouble();
+
+                        if (comboProperty.TryGetProperty("max", out var maxComboProperty))
+                            maxPlayCombo = maxComboProperty.GetDouble();
+                    }
+
+                    if (currentPlayProperty.TryGetProperty("pp", out var ppProperty) &&
+                        ppProperty.TryGetProperty("current", out var currentPpProperty))
+                        currentPP = currentPpProperty.GetDouble();
+
+                    if (currentPlayProperty.TryGetProperty("hits", out var hitProperty))
+                    {
+                        if (hitProperty.TryGetProperty("0", out var missCountProperty))
+                            missCount = missCountProperty.GetDouble();
+
+                        if (hitProperty.TryGetProperty("sliderBreaks", out var sliderBreakProperty))
+                            sliderBreaks = sliderBreakProperty.GetDouble();
+                    }
+
+                    if (currentPlayProperty.TryGetProperty("mods", out var modsProperty))
+                    {
+                        if (modsProperty.TryGetProperty("name", out var modNameProperty))
+                            modNames = modNameProperty.GetString();
+
+                        if (modsProperty.TryGetProperty("rate", out var rateProperty))
+                            rate = rateProperty.GetDouble();
+
+                        if (modsProperty.TryGetProperty("number", out var modNumberProperty))
+                            modNumber = modNumberProperty.GetInt32();
+                    }
+
+                    if (currentPlayProperty.TryGetProperty("failed", out var failedProperty))
+                        hasFailed = failedProperty.GetBoolean();
+                }
+
+                if (root.TryGetProperty("state", out var stateProperty) &&
+                    stateProperty.TryGetProperty("number", out var lazerBanchoStateProperty))
+                    rawLazerBanchoStatus = lazerBanchoStateProperty.GetInt32();
+
+                if (root.TryGetProperty("server", out var serverProperty))
+                    server = serverProperty.GetString();
+
+                if (root.TryGetProperty("client", out var clientProperty))
+                    client = clientProperty.GetString();
+
+                if (root.TryGetProperty("profile", out var profileProperty) &&
+                    profileProperty.TryGetProperty("banchoStatus", out var banchoStatusProperty) &&
+                    banchoStatusProperty.TryGetProperty("number", out var banchoStatusNumProperty))
+                    rawBanchoStatus = banchoStatusNumProperty.GetInt32();
+
+                if (root.TryGetProperty("folders", out var folders) &&
+                    folders.TryGetProperty("songs", out var songsFolderProperty))
+                    songs = songsFolderProperty.GetString();
+
+                if (folders.TryGetProperty("game", out var osuDirectoryProperty))
+                    gameDir = osuDirectoryProperty.GetString();
+
+                if (root.TryGetProperty("directPath", out var dp) &&
+                    dp.TryGetProperty("beatmapBackground", out var bgProperty))
+                    beatmapBg = bgProperty.GetString();
+
+                if (dp.TryGetProperty("beatmapFile", out var beatmapFileProperty))
+                    beatmapFile = beatmapFileProperty.GetString();
+
+                if (root.TryGetProperty("performance", out var perf) &&
+                    perf.TryGetProperty("graph", out var graphProperty))
+                {
+                    graphData = ParseGraph(graphProperty);
+                }
+
+                var tosuState = new TosuState(
+                    beatmapId,
+                    beatmapSetId,
+                    beatmapChecksum,
+                    title,
+                    artist,
+                    difficulty,
+                    mapper,
+                    currentTime,
+                    firstObject,
+                    fullTime,
+                    0,
+                    starRating,
+                    rankedStatus,
+                    maxCombo,
+                    realtimeBpm,
+                    rate,
+                    combo,
+                    maxPlayCombo,
+                    currentPP,
+                    maxPP,
+                    missCount,
+                    sliderBreaks,
+                    modNames,
+                    modNumber,
+                    isBreak,
+                    isKiai,
+                    hasFailed,
+                    isPaused,
+                    rawLazerBanchoStatus,
+                    rawBanchoStatus,
+                    client,
+                    server,
+                    k1,
+                    k2,
+                    songs,
+                    gameDir,
+                    beatmapFile,
+                    beatmapBg,
+                    graphData
+                );
+                _stateStream.OnNext(tosuState);
+                LatestState = tosuState;
             }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error($"Tosu parse error: {ex.Message}");
+            }
+            finally
+            {
+                _messageAccumulator.Clear();
+            }
+
+            if (result.MessageType == WebSocketMessageType.Close)
+            {
+                await _webSocket.CloseAsync(
+                    WebSocketCloseStatus.NormalClosure,
+                    string.Empty,
+                    CancellationToken.None);
+            }
+
+            _dynamicBuffer.Clear();
         }
     }
 
@@ -483,11 +484,13 @@ public class TosuApi : IDisposable
     /// </returns>
     public double GetCurrentPP()
     {
-        if (_currentPP < 0)
+        var state = LatestState;
+        if (state == null || state.CurrentPP < 0)
             return 0;
-        return _currentPP;
-    }
 
+        return state.CurrentPP;
+    }
+    
     /// <summary>
     ///     Gets the current percentage completed of the beatmap
     /// </summary>
@@ -496,20 +499,53 @@ public class TosuApi : IDisposable
     /// </returns>
     public double GetCompletionPercentage()
     {
-        if (_full == 0)
+        var state = LatestState;
+        if (state == null || state.FullTime == 0)
             return double.NaN;
 
-        if (_current < _firstObj)
-            _completionPercentage = 0;
-        else if (_current > _full)
-            _completionPercentage = 100;
-        else
-            _completionPercentage = (_current - _firstObj) / (_full - _firstObj) * 100;
+        double current = state.CurrentTime;
+        double first = state.FirstObjectTime;
+        double full = state.FullTime;
 
-        //Serilog.Log.Debug($"Completion Percentage: {_completionPercentage}");
-        return _completionPercentage;
+        if (current < first)
+            return 0;
+
+        if (current > full)
+            return 100;
+
+        return (current - first) / (full - first) * 100;
     }
+    
+    /// <summary>
+    ///     Gets the current percentage of the song playback
+    /// </summary>
+    /// <returns>
+    ///     double in the form of 0.* to 100
+    /// </returns>
+    public double GetSongProgress()
+    {
+        var state = LatestState;
+        if (state == null || state.FullTime == 0)
+            return double.NaN;
 
+        if (state.CurrentTime > state.FullTime)
+            return 100;
+
+        return state.CurrentTime / state.FullTime * 100;
+    }
+    
+    public int GetCurrentSongProgress()
+    {
+        var state = LatestState;
+        if (state == null)
+            return 0;
+
+        if (state.CurrentTime > state.FullTime)
+            return (int)state.FullTime;
+
+        return (int)state.CurrentTime;
+    }
+    
     /// <summary>
     ///     Gets the server name from tosu (e.g. "Bancho", "Akatsuki", "Gatari", etc.)
     /// </summary>
@@ -521,9 +557,9 @@ public class TosuApi : IDisposable
     /// </remarks>
     public string GetServer()
     {
-        return _server ?? "Unknown Server";
+        return LatestState?.Server ?? "Unknown Server";
     }
-
+    
     /// <summary>
     ///     Gets the client name from tosu (lazer or stable)
     /// </summary>
@@ -535,22 +571,28 @@ public class TosuApi : IDisposable
     /// </remarks>
     public string GetClient()
     {
-        return _client ?? "Unknown Client";
+        return LatestState?.Client ?? "Unknown Client";
     }
-
+    
     /// <summary>
     ///     Gets the current progress of the beatmap in milliseconds
     /// </summary>
     /// <returns></returns>
     public int GetCurrentTime()
     {
-        if (_current < _firstObj)
+        var state = LatestState;
+        if (state == null)
             return 0;
-        if (_current > _full)
-            return (int)_full;
-        return (int)_current;
-    }
 
+        if (state.CurrentTime < state.FirstObjectTime)
+            return 0;
+
+        if (state.CurrentTime > state.FullTime)
+            return (int)state.FullTime;
+
+        return (int)state.CurrentTime;
+    }
+    
     /// <summary>
     ///     Gets the full length of the beatmap in milliseconds
     /// </summary>
@@ -560,18 +602,23 @@ public class TosuApi : IDisposable
     /// </remarks>
     public int GetFullTime()
     {
-        if (_full < _firstObj)
+        var state = LatestState;
+        if (state == null)
             return 0;
-        return (int)_full;
-    }
 
+        if (state.FullTime < state.FirstObjectTime)
+            return 0;
+
+        return (int)state.FullTime;
+    }
+    
     /// <summary>
     ///     Get full star rating of the beatmap including mods
     /// </summary>
     /// <returns></returns>
     public double GetFullSR()
     {
-        return _fullSR;
+        return LatestState?.StarRating ?? 0;
     }
     
     /// <summary>
@@ -580,26 +627,24 @@ public class TosuApi : IDisposable
     /// <returns></returns>
     public double GetCurrentBpm()
     {
-        if (_realtimeBpm.HasValue)
-            return _realtimeBpm.Value;
-        return 0;
+        return LatestState?.CurrentBpm ?? 0;
     }
-
+    
     /// <summary>
     ///     Checks if the current play is paused
     /// </summary>
     public bool IsPaused()
     {
-        return _isPaused;
+        return LatestState?.IsPaused ?? false;
     }
-
+    
     /// <summary>
     ///     Checks if the current play has failed
     /// </summary>
     /// <returns></returns>
     public bool HasFailed()
     {
-        return _hasFailed;
+        return LatestState?.IsFailed ?? false;
     }
 
     /// <summary>
@@ -608,7 +653,7 @@ public class TosuApi : IDisposable
     /// <returns></returns>
     public string? GetBeatmapTitle()
     {
-        return _beatmapTitle;
+        return LatestState?.BeatmapTitle;
     }
 
     /// <summary>
@@ -617,19 +662,19 @@ public class TosuApi : IDisposable
     /// <returns></returns>
     public string? GetBeatmapArtist()
     {
-        return _beatmapArtist;
+        return LatestState?.BeatmapArtist;
     }
 
     public string GetBeatmapDifficulty()
     {
-        return (_beatmapDifficulty ?? "Unknown Difficulty").TrimEnd();
+        return (LatestState?.BeatmapDifficulty ?? "Unknown Difficulty").TrimEnd();
     }
 
     public IEnumerable<Key> GetOsuKeybinds()
     {
-        if (Enum.TryParse(_k1Bind, out Key key1))
+        if (Enum.TryParse(LatestState?.K1Bind, out Key key1))
             yield return key1;
-        if (Enum.TryParse(_k2Bind, out Key key2))
+        if (Enum.TryParse(LatestState?.K2Bind, out Key key2))
             yield return key2;
     }
 
@@ -639,7 +684,7 @@ public class TosuApi : IDisposable
     /// <returns></returns>
     public string? GetOsuFilePath()
     {
-        return _osuFilePath;
+        return LatestState?.BeatmapFilePath;
     }
 
     /// <summary>
@@ -648,63 +693,62 @@ public class TosuApi : IDisposable
     /// <returns></returns>
     public string? GetFullFilePath()
     {
-        if (_osuFilePath == null)
+        if (LatestState?.BeatmapFilePath == null)
             return null;
 
         string osuSongsFolder;
 
         if ((OperatingSystem.IsLinux() || OperatingSystem.IsMacOS()) &&
-            _client == "stable") // basically just wine
+            LatestState?.Client == "stable")
         {
             string home = Environment.GetEnvironmentVariable("HOME") ?? "";
             osuSongsFolder = Path.Combine(home, ".local", "share", "osu-wine", "osu!", "Songs");
         }
         else
         {
-            osuSongsFolder = _settingsSongsDirectory ?? "";
+            osuSongsFolder = LatestState?.SongsDirectory ?? "";
         }
 
-        string normalizedFilePath = _osuFilePath.TrimStart('\\', '/')
+        string? normalizedFilePath = LatestState?.BeatmapFilePath
+            .TrimStart('\\', '/')
             .Replace('\\', Path.DirectorySeparatorChar)
             .Replace('/', Path.DirectorySeparatorChar);
 
-        string fullPath = Path.Combine(osuSongsFolder, normalizedFilePath);
-
-        if (!File.Exists(fullPath))
+        if (normalizedFilePath != null)
         {
-            Serilog.Log.Debug("Songs folder: {OsuSongsFolder}", osuSongsFolder);
-            Serilog.Log.Warning("File not found: {FullPath}", fullPath);
-            return null;
+            string fullPath = Path.Combine(osuSongsFolder, normalizedFilePath);
+
+            return File.Exists(fullPath) ? Path.GetFullPath(fullPath) : null;
         }
 
-        return Path.GetFullPath(fullPath);
+        return "";
     }
 
     /// <summary>
     ///     Obtains the maximum pp value of the current beatmap with selected mods
     /// </summary>
     /// <returns></returns>
-    public double GetMaxPP()
+    public double? GetMaxPP()
     {
-        return _maxPP;
+        return LatestState?.MaxPP;
     }
 
     /// <summary>
     ///     Obtains the current combo of the play
     /// </summary>
     /// <returns></returns>
-    public double GetCombo()
+    public double? GetCombo()
     {
-        return _combo;
+        return LatestState?.Combo;
     }
 
     /// <summary>
     ///     Obtains the maximum achievable combo of the current beatmap
     /// </summary>
     /// <returns></returns>
-    public double GetMaxCombo()
+    public double? GetMaxCombo()
     {
-        return _maxCombo;
+        return LatestState?.MaxCombo;
     }
 
     /// <summary>
@@ -713,57 +757,73 @@ public class TosuApi : IDisposable
     /// <remarks>
     ///     Literally the only reason this is here is to avoid that "Deafen Debounce" issue that has been prevalent for a while
     /// </remarks>
-    public double GetMaxPlayCombo()
+    public double? GetMaxPlayCombo()
     {
-        return _maxPlayCombo;
+        return LatestState?.MaxPlayCombo;
     }
 
     /// <summary>
     ///     Obtains the current miss count of the play
     /// </summary>
     /// <returns></returns>
-    public double GetMissCount()
+    public double? GetMissCount()
     {
-        return _missCount;
+        return LatestState?.MissCount;
     }
 
     /// <summary>
     ///     Obtains the current slider break count of the player
     /// </summary>
     /// <returns></returns>
-    public double GetSBCount()
+    public double? GetSBCount()
     {
-        return _sbCount;
+        return LatestState?.SliderBreakCount;
     }
 
     /// <summary>
     ///     Obtains the status of the current beatmap
     /// </summary>
     /// <returns></returns>
-    public double GetRankedStatus()
+    public double? GetRankedStatus()
     {
-        return _rankedStatus;
+        return LatestState?.RankedStatus;
     }
 
     /// <summary>
     ///     Obtains the background path of the current beatmap
     /// </summary>
     /// <returns></returns>
-    public string GetBackgroundPath()
+    public string? GetBackgroundPath()
     {
-        string songsDir = _settingsSongsDirectory ?? "";
-        string fullPath = _fullPath ?? "";
+        if (LatestState == null)
+            return null;
+
+        string songsDir = LatestState.SongsDirectory ?? "";
+        string fullPath = LatestState.BeatmapBackgroundPath ?? "";
+
+        if (string.IsNullOrWhiteSpace(fullPath))
+            return null;
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
             string home = Environment.GetEnvironmentVariable("HOME") ?? "";
-            if (songsDir == "Songs" || string.IsNullOrEmpty(songsDir))
-                songsDir = Path.Combine(home, ".local", "share", "osu-wine", "osu!", "Songs");
-            return Path.Combine(songsDir, fullPath.Replace("\\", Path.DirectorySeparatorChar.ToString()));
+
+            if (songsDir == "Songs" || string.IsNullOrWhiteSpace(songsDir))
+            {
+                songsDir = Path.Combine(
+                    home,
+                    ".local",
+                    "share",
+                    "osu-wine",
+                    "osu!",
+                    "Songs");
+            }
         }
 
-        //windows is way simpler :skull:
-        return songsDir + "\\" + fullPath;
+        return Path.GetFullPath(Path.Combine(
+            songsDir,
+            fullPath.Replace("\\", Path.DirectorySeparatorChar.ToString())
+        ));
     }
 
     /// <summary>
@@ -772,39 +832,21 @@ public class TosuApi : IDisposable
     /// <returns></returns>
     public string? GetGameDirectory()
     {
-        return _gameDirectory;
+        return LatestState?.GameDirectory;
     }
 
     /// <summary>
     ///     Gets the selected mods as a string (e.g. "HDDTHR")
     /// </summary>
-    /// <returns></returns>
     public string? GetSelectedMods()
     {
-        if (string.IsNullOrEmpty(_modNames))
+        if (string.IsNullOrEmpty(LatestState?.ModNames))
         {
             _modNames = "NM";
-            return _modNames;
         }
+        _modNames = LatestState?.ModNames;
 
         return _modNames;
-    }
-
-    // This probably shouldn't be used, instead i'd lean towards using GetRateAdjustRate()
-    // Which justs return 1.00 if DT or NC aren't selected.
-    /// <summary>
-    ///     Checks if DT or NC is selected in the mods list
-    /// </summary>
-    /// <returns></returns>
-    [Obsolete]
-    public bool? IsDTSelected()
-    {
-        GetSelectedMods();
-        if (_modNames != null)
-            if (_modNames.Contains("DT") || _modNames.Contains("NC"))
-                return true;
-
-        return false;
     }
 
     /// <summary>
@@ -813,7 +855,7 @@ public class TosuApi : IDisposable
     /// <returns></returns>
     public double GetRateAdjustRate()
     {
-        return _dtRate;
+        return LatestState?.Rate ?? 1.00;
     }
 
     /// <summary>
@@ -822,30 +864,30 @@ public class TosuApi : IDisposable
     /// <returns></returns>
     public int GetRawBanchoStatus()
     {
-        return _rawBanchoStatus;
+        return LatestState?.RawBanchoStatus ?? -1;
     }
 
     public int GetLazerRawBanchoStatus()
     {
-        return _rawLazerBanchoStatus;
+        return LatestState?.RawLazerBanchoStatus ?? -1;
     }
 
     /// <summary>
     ///     Gets the beatmap ID of the current beatmap
     /// </summary>
     /// <returns></returns>
-    public int GetBeatmapId()
+    public int? GetBeatmapId()
     {
-        return _beatmapId;
+        return LatestState?.BeatmapId;
     }
 
     /// <summary>
     ///     Gets the beatmap set ID of the current beatmap
     /// </summary>
     /// <returns></returns>
-    public int GetBeatmapSetId()
+    public int? GetBeatmapSetId()
     {
-        return _beatmapSetId;
+        return LatestState?.BeatmapSetId;
     }
 
     /// <summary>
@@ -854,25 +896,25 @@ public class TosuApi : IDisposable
     /// <returns></returns>
     public string GetBeatmapMapper()
     {
-        return _beatmapMapper ?? "Unknown Mapper";
+        return LatestState?.BeatmapMapper ?? "Unknown Mapper";
     }
 
     /// <summary>
     ///     Gets the mod number of the current selected mods
     /// </summary>
     /// <returns></returns>
-    public int GetModNumber()
+    public int? GetModNumber()
     {
-        return _modNumber;
+        return LatestState?.ModNumber;
     }
 
     /// <summary>
     ///     Gets the beatmap checksum of the current beatmap (Alternative method to GetBeatmapId())
     /// </summary>
     /// <returns></returns>
-    public string GetBeatmapChecksum()
+    public string? GetBeatmapChecksum()
     {
-        return _beatmapChecksum;
+        return LatestState?.BeatmapChecksum;
     }
 
     /// <summary>
@@ -881,136 +923,16 @@ public class TosuApi : IDisposable
     /// <returns></returns>
     public bool IsBreakPeriod()
     {
-        return _isBreakPeriod;
+        return LatestState?.IsBreak ?? false;
     }
 
     /// <summary>
     ///     Checks if the current time is in kiai time
     /// </summary>
     /// <returns></returns>
-    public bool IsKiai()
+    public bool? IsKiai()
     {
-        return _isKiai;
-    }
-
-    /// <summary>
-    ///     Checks for a beatmap change by comparing the current checksum to the last known checksum
-    /// </summary>
-    public void CheckForBeatmapChange()
-    {
-        string checksum = GetBeatmapChecksum();
-        if (string.IsNullOrEmpty(checksum) || checksum == _lastBeatmapChecksum)
-            return;
-        _lastBeatmapChecksum = checksum;
-        Action? handler = BeatmapChanged;
-        handler?.Invoke();
-    }
-
-    /// <summary>
-    ///     Checks for a state change by comparing the current raw bancho status to the last known status
-    /// </summary>
-    public void CheckForStateChange()
-    {
-        if (_rawBanchoStatus == _previousState)
-            return;
-        _previousState = _rawBanchoStatus;
-        Action? handler = HasStateChanged;
-        handler?.Invoke();
-        StateChanged?.Invoke(_rawBanchoStatus);
-    }
-
-    /// <summary>
-    ///     Checks for a kiai change by comparing the current kiai state to the last known state
-    /// </summary>
-    public void CheckForKiaiChange()
-    {
-        if (_isKiai == _lastKiaiValue)
-            return;
-        _lastKiaiValue = _isKiai;
-        EventHandler? handler = HasKiaiChanged;
-        handler?.Invoke(this, EventArgs.Empty);
-    }
-
-    /// <summary>
-    ///     Checks for a percentage change by comparing the current percentage to the last known percentage
-    /// </summary>
-    public void CheckForPercentageChange()
-    {
-        double percentage = GetCompletionPercentage();
-        if (percentage == _lastCompletionPercentage)
-            return;
-        _lastCompletionPercentage = percentage;
-        HasPercentageChanged?.Invoke();
-    }
-
-    /// <summary>
-    ///     Forces a beatmap change event to be triggered
-    /// </summary>
-    /// <remarks>
-    ///     This is exclusively used for the Background toggle at the moment
-    /// </remarks>
-    public void ForceBeatmapChange()
-    {
-        _lastBeatmapChecksum = "abcdefghijklmnop";
-        BeatmapChanged?.Invoke();
-    }
-
-    /// <summary>
-    ///     Checks for a mod change by comparing the current mod string to the last known mod string
-    /// </summary>
-    public void CheckForModChange()
-    {
-        string? currentMods = string.IsNullOrEmpty(_modNames) ? "NM" : _modNames;
-
-        if (currentMods == _lastModNames)
-            return;
-
-        _lastModNames = currentMods;
-        Action? handler = HasModsChanged;
-        handler?.Invoke();
-        Serilog.Log.Debug("Mods changed to: {CurrentMods}", currentMods);
-    }
-
-    /// <summary>
-    ///     Checks for a rate change by comparing the current rate to the last known rate
-    /// </summary>
-    public void CheckForRateAdjustChange()
-    {
-        double rate = GetRateAdjustRate();
-        if (rate == _oldRateAdjustRate)
-            return;
-        _oldRateAdjustRate = rate;
-        Action? handler = HasRateChanged;
-        handler?.Invoke();
-    }
-
-    /// <summary>
-    ///     Checks for a BPM change by comparing the current BPM to the last known BPM
-    /// </summary>
-    public void CheckForBPMChange()
-    {
-        double bpm = GetCurrentBpm();
-        if (_lastBpm.HasValue && bpm == _lastBpm.Value) return;
-        _lastBpm = bpm;
-        Action? handler = HasBPMChanged;
-        handler?.Invoke();
-        Serilog.Log.Debug("BPM changed to: {Bpm}", bpm);
-    }
-
-    /// <summary>
-    ///     Gets the strain graph data from the API
-    /// </summary>
-    /// <returns></returns>
-    public GraphData? GetGraphData()
-    {
-        try
-        {
-            return ParseGraphData(_graphData);
-        }
-        catch
-        {
-            return null;
-        }
+        return LatestState?.IsKiai;
     }
 
     /// <summary>
@@ -1020,74 +942,59 @@ public class TosuApi : IDisposable
     public bool IsHoldingFullCombo()
     {
         // if there are any misses or slider breaks, return false
-        if (GetMissCount() > 0 || GetSBCount() > 0) return false;
+        if (LatestState?.MissCount > 0 || LatestState?.SliderBreakCount > 0) 
+            return false;
         // if there are no misses and no slider breaks, return true
         return true;
     }
     
-    public void RaiseKiaiChanged()
+    private static GraphDataModel ParseGraph(JsonElement graph)
     {
-        HasKiaiChanged?.Invoke(this, EventArgs.Empty);
-    }
+        if (graph.ValueKind != JsonValueKind.Object)
+            return new GraphDataModel([], []);
+        
+        var seriesList = new List<GraphSeries>();
 
-    /// <summary>
-    ///     Parses the graph data from the JSON element into a GraphData object
-    /// </summary>
-    /// <param name="graphElement"></param>
-    /// <returns></returns>
-    private GraphData? ParseGraphData(JsonElement graphElement)
-    {
-        try
+        if (graph.TryGetProperty("series", out var seriesJson) &&
+            seriesJson.ValueKind == JsonValueKind.Array)
         {
-            GraphData newGraph = new()
+            foreach (var series in seriesJson.EnumerateArray())
             {
-                Series = new List<Series>(),
-                XAxis = new List<double>()
-            };
+                string name = series.TryGetProperty("name", out var n)
+                    ? n.GetString() ?? ""
+                    : "";
+                
+                if (name == "flashlight" || name == "aimNoSliders")
+                    continue;
 
-            if (graphElement.TryGetProperty("series", out JsonElement seriesArray))
-            {
-                int seriesCount = seriesArray.GetArrayLength();
-                newGraph.Series = new List<Series>(seriesCount);
+                var data = new List<double>();
 
-                foreach (JsonElement seriesElement in seriesArray.EnumerateArray())
+                if (series.TryGetProperty("data", out var dataArray) &&
+                    dataArray.ValueKind == JsonValueKind.Array)
                 {
-                    string? seriesName = seriesElement.GetProperty("name").GetString();
-                    if (seriesName == "flashlight" || seriesName == "aimNoSliders") continue;
-
-                    if (seriesElement.TryGetProperty("data", out JsonElement dataArray))
+                    foreach (var v in dataArray.EnumerateArray())
                     {
-                        int dataCount = dataArray.GetArrayLength();
-                        var data = new List<double>(dataCount);
-
-                        foreach (JsonElement dataElement in dataArray.EnumerateArray())
-                            if (dataElement.ValueKind == JsonValueKind.Number)
-                                data.Add(dataElement.GetDouble());
-
-                        newGraph.Series.Add(new Series
-                        {
-                            Name = seriesName,
-                            Data = data
-                        });
+                        if (v.ValueKind == JsonValueKind.Number)
+                            data.Add(v.GetDouble());
                     }
                 }
+
+                seriesList.Add(new GraphSeries(name, data));
             }
-
-            if (graphElement.TryGetProperty("xaxis", out JsonElement xAxisArray))
-            {
-                int xCount = xAxisArray.GetArrayLength();
-                newGraph.XAxis = new List<double>(xCount);
-
-                foreach (JsonElement xElement in xAxisArray.EnumerateArray())
-                    if (xElement.ValueKind == JsonValueKind.Number)
-                        newGraph.XAxis.Add(xElement.GetDouble());
-            }
-
-            return newGraph;
         }
-        catch
+        
+        var xAxis = new List<double>();
+
+        if (graph.TryGetProperty("xaxis", out var xAxisArray) &&
+            xAxisArray.ValueKind == JsonValueKind.Array)
         {
-            return null;
+            foreach (var x in xAxisArray.EnumerateArray())
+            {
+                if (x.ValueKind == JsonValueKind.Number)
+                    xAxis.Add(x.GetDouble());
+            }
         }
+
+        return new GraphDataModel(seriesList, xAxis);
     }
 }

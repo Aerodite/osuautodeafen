@@ -605,6 +605,8 @@
                                           IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
                                           HorizontalAlignment="Left" Margin="0" Width="125" Classes="custom" />
                             </StackPanel>
+                            <!--
+                            maybe will come back in the future
                             <StackPanel Orientation="Horizontal" Margin="10,0,0,0" HorizontalAlignment="Center"
                                         VerticalAlignment="Center"
                                         PointerEntered="KiaiEffectToggle_PointerEnter"
@@ -618,7 +620,7 @@
                                           IsChecked="{Binding IsKiaiEffectEnabled, Mode=TwoWay}"
                                           IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
                                           HorizontalAlignment="Left" Margin="0" Width="125" Classes="custom" />
-                            </StackPanel>
+                            </StackPanel>-->
 
                             <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center"
                                         x:Name="BlurEffectPanel">

@@ -101,7 +101,7 @@ public class KiaiTimes
     /// </summary>
     /// <param name="currentTime"></param>
     /// <returns></returns>
-    public bool IsKiaiPeriod(int currentTime)
+    public bool IsKiaiPeriod(double currentTime)
     {
         return Times.Any(kiai => currentTime >= kiai.Start && currentTime < kiai.End);
     }
@@ -163,8 +163,8 @@ public class BreakPeriodCalculator
     /// <param name="xAxis"></param>
     /// <param name="yAxis"></param>
     /// <returns></returns>
-    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string? osuFilePath, List<double>? xAxis,
-        List<double> yAxis)
+    public async Task<List<BreakPeriod>> ParseBreakPeriodsAsync(string? osuFilePath, IReadOnlyList<double>? xAxis,
+        IReadOnlyList<double>? yAxis)
     {
         BreakPeriods.Clear();
         if (osuFilePath == null) return BreakPeriods;
@@ -235,7 +235,7 @@ public class BreakPeriodCalculator
     /// <param name="xAxis"></param>
     /// <param name="value"></param>
     /// <returns></returns>
-    private static int FindClosestIndex(List<double>? xAxis, double value)
+    private static int FindClosestIndex(IReadOnlyList<double> xAxis, double value)
     {
         int closestIndex = 0;
         double smallestDifference = double.MaxValue;
