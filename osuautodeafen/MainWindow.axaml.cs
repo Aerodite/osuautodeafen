@@ -463,7 +463,7 @@ public partial class MainWindow : Window
         
         // linq subscriptions might be awesome
         this.GetObservable(BoundsProperty)
-            .Throttle(TimeSpan.FromMilliseconds(200))
+            .Throttle(TimeSpan.FromMilliseconds(350))
             .Subscribe(bounds =>
             {
                 if (_settingsHandler == null) return;
@@ -473,43 +473,232 @@ public partial class MainWindow : Window
             });
         
         _tosuApi.StateStream
-            .DistinctUntilChanged(s => s.BeatmapId)
+            .Select(s => new
+            {
+                s.BeatmapId,
+                s.BeatmapSetId,
+                s.BeatmapChecksum,
+            })
+            .DistinctUntilChanged()
             .ObserveOn(RxApp.MainThreadScheduler)
-            .Subscribe(UpdateBeatmapInfo);
+            .Subscribe(async void (s) =>
+            {
+                try
+                {
+                    string checksum = s.BeatmapChecksum ?? "";
 
-        _tosuApi.StateStream
-            .DistinctUntilChanged(s => (s.ModNumber, RealTimeBpm: s.CurrentBpm, s.Rate, s.RawBanchoStatus))
-            .ObserveOn(RxApp.MainThreadScheduler)
-            .Subscribe(UpdateInfoPanelData);
+                    string presetsPath = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                        "osuautodeafen",
+                        "presets");
+
+                    string presetFilePath = Path.Combine(presetsPath, $"{checksum}.preset");
+
+                    _viewModel.PresetExistsForCurrentChecksum = File.Exists(presetFilePath);
+
+                    foreach (PresetInfo preset in _viewModel.Presets ?? Enumerable.Empty<PresetInfo>())
+                    {
+                        preset.IsCurrentPreset = preset.Checksum == checksum;
+                    }
+
+                    if (_viewModel.PresetExistsForCurrentChecksum)
+                    {
+                        _settingsHandler?.ActivatePreset(presetFilePath);
+                    }
+                    else
+                    {
+                        await Dispatcher.UIThread.InvokeAsync(() => 
+                            { 
+                                _settingsHandler.DeactivatePreset(); 
+                                _settingsHandler.LoadSettings(); 
+                            });
+                    }
+
+                    if (_backgroundManager != null) 
+                        Dispatcher.UIThread.Post(() => 
+                            _ = _backgroundManager.UpdateBackground(null, null));
+                }
+                catch (Exception e)
+                {
+                    Log.Warning(e, "Exception occured while updating beatmap state");
+                }
+            });
         
         _tosuApi.StateStream
             .Select(s => new
             {
-                s.CompletionPercentage,
+                s.BeatmapId,
+                s.BeatmapSetId,
+                s.BeatmapChecksum,
+                s.BeatmapTitle,
+                s.BeatmapArtist,
+                s.BeatmapDifficulty,
+                s.BeatmapMapper,
+                s.CurrentPP,
+                s.MaxPP,
+                s.MaxCombo,
+                s.StarRating,
+                s.ModNames,
+                s.RankedStatus,
+                s.IsBreak,
                 s.CurrentTime,
                 s.FullTime,
-                s.Rate
+            })
+            .DistinctUntilChanged()
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(async void (s) =>
+            {
+                try
+                {
+                    string mapInfo = $"{s.BeatmapArtist} - {s.BeatmapTitle}";
+                    if (mapInfo.Length > 67)
+                        mapInfo = mapInfo.Substring(0, 67) + "...";
+
+                    _infoPanelLog.LogToInfoPanel(
+                        "Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(),
+                        false,
+                        "Client");
+
+                    _viewModel.BeatmapName = s.BeatmapTitle;
+                    _viewModel.FullBeatmapName = $"{s.BeatmapArtist} - {s.BeatmapTitle}";
+                    _viewModel.BeatmapDifficulty = s.BeatmapDifficulty;
+
+                    _infoPanelLog.LogToInfoPanel(
+                        "Mapset: " + mapInfo,
+                        false,
+                        "Beatmap changed",
+                        $"https://osu.ppy.sh/b/{s.BeatmapId}");
+
+                    _infoPanelLog.LogToInfoPanel("Current PP: " + s.CurrentPP, false, "CurrentPP");
+                    _infoPanelLog.LogToInfoPanel("Max PP: " + s.MaxPP, false, "Max PP");
+                    _infoPanelLog.LogToInfoPanel("Max Combo: " + s.MaxCombo, false, "Max Combo");
+                    _infoPanelLog.LogToInfoPanel("Star Rating: " + s.StarRating, false, "Star Rating");
+                    _infoPanelLog.LogToInfoPanel("Mods: " + s.ModNames, false, "Mods");
+                    _infoPanelLog.LogToInfoPanel("Ranked Status: " + s.RankedStatus, false, "Ranked Status");
+                    _infoPanelLog.LogToInfoPanel("Beatmap ID: " + s.BeatmapId, false, "Beatmap ID");
+                    _infoPanelLog.LogToInfoPanel("Beatmap Set ID: " + s.BeatmapSetId, false, "Beatmap Set ID");
+                    _infoPanelLog.LogToInfoPanel("Break: " + s.IsBreak, false, "Break");
+                    _infoPanelLog.LogToInfoPanel(
+                        "Kiai: " + _kiaiTimes.IsKiaiPeriod(s.CurrentTime),
+                        false,
+                        "Kiai");
+                }
+                catch (Exception e)
+                {
+                    Log.Warning(e, "Exception occured while updating beatmap information");
+                }
+            });
+        
+        _tosuApi.StateStream
+            .Select(s => new
+            {
+                s.ModNumber,
+                s.ModNames,
+                s.Rate,
+                s.CurrentBpm,
+                s.RawBanchoStatus,
+                s.Client,
+                s.RawLazerBanchoStatus
+            })
+            .DistinctUntilChanged()
+            .Throttle(TimeSpan.FromMilliseconds(100))
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(s =>
+            {
+                _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
+                _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
+                _infoPanelLog.LogToInfoPanel("Mods: " + s.ModNames, false, "Mods");
+                if (s.Client == "lazer")
+                {
+                    _infoPanelLog.LogToInfoPanel("State: " + s.RawLazerBanchoStatus, false, "State");
+                }
+                else {
+                    _infoPanelLog.LogToInfoPanel("State: " + s.RawBanchoStatus, false, "State");
+                }
+                _infoPanelLog.LogToInfoPanel("BPM: " + s.CurrentBpm, false, "BPM Changed");
+
+                _viewModel.UpdateMinPPValue();
+                _viewModel.UpdateMinSRValue();
+            });
+        
+        _tosuApi.StateStream
+            .Select(s => new
+            {
+                s.CurrentTime,
+                s.FullTime,
+                s.Rate,
+                s.CurrentPP
             })
             .DistinctUntilChanged()
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(s =>
             {
                 _infoPanelLog.LogToInfoPanel(
-                    $"Beatmap Progress %: {s.CompletionPercentage:F2}%",
+                    $"Beatmap Progress %: {_tosuApi.GetCompletionPercentage():F2}%",
                     false,
                     "Map Progress");
+
+                _infoPanelLog.LogToInfoPanel(
+                    $"Song Progress %: {_tosuApi.GetSongProgress():F2}%",
+                    false,
+                    "Song Progress");
 
                 double rate = s.Rate <= 0 || double.IsNaN(s.Rate) || double.IsInfinity(s.Rate)
                     ? 1
                     : s.Rate;
 
-                double currentMs = Math.Max(0, s.CurrentTime / rate);
                 double fullMs = Math.Max(0, s.FullTime / rate);
+                // ensures that the progress cant be higher than the song length
+                double currentMs = Math.Min(Math.Max(0, s.CurrentTime / rate), fullMs);
 
                 _infoPanelLog.LogToInfoPanel(
                     $"Progress (mm:ss): {TimeSpan.FromMilliseconds(currentMs):mm\\:ss}/{TimeSpan.FromMilliseconds(fullMs):mm\\:ss}",
                     false,
                     "Current Time");
+
+                _infoPanelLog.LogToInfoPanel("Current PP: " + s.CurrentPP, false, "CurrentPP");
+                _infoPanelLog.LogToInfoPanel("isDeafened: " + _deafenController.Deafened, false, "isDeafened");
+                _infoPanelLog.LogToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");
+                _infoPanelLog.LogToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false, "Min SS PP");
+            });
+        
+        _tosuApi.StateStream
+            .Select(s => new
+            {
+                s.CurrentBpm,
+                s.IsKiai
+            })
+            .DistinctUntilChanged()
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(x =>
+            {
+                try
+                {
+                    Dispatcher.UIThread.InvokeAsync(UpdateCogSpinBpm);
+
+                    if (x.IsKiai)
+                    {
+                        double _ = x.CurrentBpm;
+                    }
+
+                    _infoPanelLog.LogToInfoPanel(
+                        "BPM: " + x.CurrentBpm,
+                        false,
+                        "BPM Changed");
+                }
+                catch (Exception e)
+                {
+                    Log.Warning("Exception while updating BPM: " + e);
+                }
+            });
+        
+        _tosuApi.StateStream
+            .Select(s => s.RawBanchoStatus)
+            .DistinctUntilChanged()
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(state =>
+            {
+                _infoPanelLog.LogToInfoPanel("State: " + state, false, "State");
             });
 
         _tosuApi.StateStream
@@ -519,103 +708,6 @@ public partial class MainWindow : Window
             .Subscribe(g => _ = OnGraphDataUpdated(g));
         
         _infoPanelLog.LogToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
-    }
-    
-    class GraphComparer : IEqualityComparer<TosuApi.GraphDataModel>
-    {
-        public bool Equals(TosuApi.GraphDataModel? x, TosuApi.GraphDataModel? y)
-            => GraphEquals(x!, y!);
-
-        public int GetHashCode(TosuApi.GraphDataModel obj)
-            => 0; // safe but not optimized; fine for now
-    }
-    
-    private static bool GraphEquals(TosuApi.GraphDataModel a, TosuApi.GraphDataModel b)
-    {
-        if (ReferenceEquals(a, b)) return true;
-        if (a.Series.Count != b.Series.Count) return false;
-
-        for (int i = 0; i < a.Series.Count; i++)
-        {
-            var sa = a.Series[i];
-            var sb = b.Series[i];
-
-            if (sa.Data is not null && sb.Data is not null && sa.Data.Count != sb.Data.Count)
-                return false;
-
-            if (sa.Data != null)
-                for (int j = 0; j < sa.Data.Count; j++)
-                {
-                    if (sb.Data != null && sa.Data[j] != sb.Data[j])
-                        return false;
-                }
-        }
-
-        return true;
-    }
-    
-    private void UpdateInfoPanelData(TosuApi.TosuState state)
-    {
-        _infoPanelLog.LogToInfoPanel("Tosu Connected: " + _tosuApi.IsWebsocketConnected, false, "Tosu Running");
-
-        _infoPanelLog.LogToInfoPanel("Max PP: " + state.MaxPP, false, "Max PP");
-        _infoPanelLog.LogToInfoPanel("Star Rating: " + state.StarRating, false, "Star Rating");
-        _infoPanelLog.LogToInfoPanel("Current PP: " + state.CurrentPP, false, "CurrentPP");
-
-        _infoPanelLog.LogToInfoPanel("Mods: " + state.ModNames, false, "Mods");
-        _infoPanelLog.LogToInfoPanel("Ranked Status: " + state.RankedStatus, false, "Ranked Status");
-        _infoPanelLog.LogToInfoPanel("State: " + state.RawBanchoStatus, false, "State");
-
-        _infoPanelLog.LogToInfoPanel("BPM: " + state.CurrentBpm, false, "BPM Changed");
-
-        _infoPanelLog.LogToInfoPanel("isDeafened: " + _deafenController.Deafened, false, "isDeafened");
-        _infoPanelLog.LogToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");
-        _infoPanelLog.LogToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false, "Min SS PP");
-
-        _viewModel.UpdateMinPPValue();
-        _viewModel.UpdateMinSRValue();
-    }
-    
-    private async void UpdateBeatmapInfo(TosuApi.TosuState state)
-    {
-        try
-        {
-            string checksum = state.BeatmapChecksum;
-
-            string presetsPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "osuautodeafen",
-                "presets");
-
-            string presetFilePath = Path.Combine(presetsPath, $"{checksum}.preset");
-
-            _viewModel.PresetExistsForCurrentChecksum = File.Exists(presetFilePath);
-
-            foreach (PresetInfo preset in _viewModel.Presets ?? Enumerable.Empty<PresetInfo>())
-                preset.IsCurrentPreset = preset.Checksum == checksum;
-
-            if (_viewModel.PresetExistsForCurrentChecksum)
-                _settingsHandler?.ActivatePreset(presetFilePath);
-            else
-            {
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    _settingsHandler?.DeactivatePreset();
-                    _settingsHandler?.LoadSettings();
-                });
-            }
-
-            _viewModel.BeatmapName = state.BeatmapTitle;
-            _viewModel.FullBeatmapName = $"{state.BeatmapArtist} - {state.BeatmapTitle}";
-            _viewModel.BeatmapDifficulty = state.BeatmapDifficulty;
-
-            if (_backgroundManager != null)
-                await _backgroundManager.UpdateBackground(null, null);
-        }
-        catch (Exception e)
-        {
-            Log.Warning("Exception occured while updating beatmap info: " + e);
-        }
     }
 
     public static TooltipManager Tooltips { get; private set; } = null!;
@@ -966,6 +1058,8 @@ public partial class MainWindow : Window
             else
             {
                 _opacity = 0.5;
+                if (!_viewModel.IsKiaiEffectEnabled)
+                    await _backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150)!;
             }
         }
         catch (Exception ex)

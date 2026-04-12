@@ -101,7 +101,7 @@ public class KiaiTimes
     /// </summary>
     /// <param name="currentTime"></param>
     /// <returns></returns>
-    public bool IsKiaiPeriod(int currentTime)
+    public bool IsKiaiPeriod(double currentTime)
     {
         return Times.Any(kiai => currentTime >= kiai.Start && currentTime < kiai.End);
     }

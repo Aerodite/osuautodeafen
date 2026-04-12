@@ -34,7 +34,7 @@ public sealed class SharedViewModel : ViewModelBase
 
     private SolidColorBrush _averageColorBrush = new(Colors.Gray);
 
-    private string _beatmapDifficulty;
+    private string? _beatmapDifficulty;
 
     private string? _beatmapName;
 
@@ -174,7 +174,7 @@ public sealed class SharedViewModel : ViewModelBase
         }
     }
 
-    public string BeatmapDifficulty
+    public string? BeatmapDifficulty
     {
         get => _beatmapDifficulty;
         set
