@@ -8,6 +8,7 @@ using System.Net.WebSockets;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Reflection;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -471,107 +472,115 @@ public partial class MainWindow : Window
                 _settingsHandler.WindowHeight = bounds.Height;
             });
         
-        var stateChangeStream = Observable.Merge(
-            Observable.FromEvent<Action, Unit>(h => () => h(Unit.Default),
-                h => _tosuApi.HasModsChanged += h,
-                h => _tosuApi.HasModsChanged -= h),
-
-            Observable.FromEvent<Action, Unit>(h => () => h(Unit.Default),
-                h => _tosuApi.HasBPMChanged += h,
-                h => _tosuApi.HasBPMChanged -= h),
-
-            Observable.FromEvent<Action, Unit>(h => () => h(Unit.Default),
-                h => _tosuApi.HasRateChanged += h,
-                h => _tosuApi.HasRateChanged -= h),
-
-            Observable.FromEvent<Action, Unit>(h => () => h(Unit.Default),
-                h => _tosuApi.HasStateChanged += h,
-                h => _tosuApi.HasStateChanged -= h)
-        );
-        
-        stateChangeStream
-            .Throttle(TimeSpan.FromMilliseconds(50))
+        _tosuApi.StateStream
+            .DistinctUntilChanged(s => s.BeatmapId)
             .ObserveOn(RxApp.MainThreadScheduler)
-            .Subscribe(_ =>
+            .Subscribe(UpdateBeatmapInfo);
+
+        _tosuApi.StateStream
+            .DistinctUntilChanged(s => (s.ModNumber, RealTimeBpm: s.CurrentBpm, s.Rate, s.RawBanchoStatus))
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(UpdateInfoPanelData);
+        
+        _tosuApi.StateStream
+            .Select(s => new
             {
-                UpdateInfoPanelData();
+                s.CompletionPercentage,
+                s.CurrentTime,
+                s.FullTime,
+                s.Rate
+            })
+            .DistinctUntilChanged()
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(s =>
+            {
+                _infoPanelLog.LogToInfoPanel(
+                    $"Beatmap Progress %: {s.CompletionPercentage:F2}%",
+                    false,
+                    "Map Progress");
+
+                double rate = s.Rate <= 0 || double.IsNaN(s.Rate) || double.IsInfinity(s.Rate)
+                    ? 1
+                    : s.Rate;
+
+                double currentMs = Math.Max(0, s.CurrentTime / rate);
+                double fullMs = Math.Max(0, s.FullTime / rate);
+
+                _infoPanelLog.LogToInfoPanel(
+                    $"Progress (mm:ss): {TimeSpan.FromMilliseconds(currentMs):mm\\:ss}/{TimeSpan.FromMilliseconds(fullMs):mm\\:ss}",
+                    false,
+                    "Current Time");
             });
-        
-        var beatmapUpdateStream =
-            Observable.FromEvent<Action, Unit>(
-                    h => () => h(Unit.Default),
-                    h => _tosuApi.BeatmapChanged += h,
-                    h => _tosuApi.BeatmapChanged -= h)
-                .ObserveOn(RxApp.MainThreadScheduler);
-        
-        beatmapUpdateStream.Subscribe(_ =>
-        {
-            UpdateBeatmapInfo();
-        });
-        
-        var progressStream = Observable.FromEvent<Action, Unit>(
-                h => () => h(Unit.Default),
-                h => _tosuApi.HasPercentageChanged += h,
-                h => _tosuApi.HasPercentageChanged -= h)
-            .ObserveOn(RxApp.MainThreadScheduler);
-        
-        progressStream.Subscribe(_ =>
-        {
-            _infoPanelLog.LogToInfoPanel(
-                $"Beatmap Progress %: {_tosuApi.GetCompletionPercentage():F2}%",
-                false,
-                "Map Progress");
-            _infoPanelLog.LogToInfoPanel(
-                $"Song Progress %: {_tosuApi.GetSongProgress():F2}%",
-                false,
-                "Song Progress");
-            
-            double rate = _tosuApi.GetRateAdjustRate();
-            if (rate <= 0 || double.IsNaN(rate) || double.IsInfinity(rate))
-                rate = 1;
-        
-            double currentMs = Math.Max(0, _tosuApi.GetCurrentSongProgress() / rate);
-            double fullMs = Math.Max(0, _tosuApi.GetFullTime() / rate);
-        
-            _infoPanelLog.LogToInfoPanel(
-                $"Progress (mm:ss): {TimeSpan.FromMilliseconds(currentMs):mm\\:ss}/{TimeSpan.FromMilliseconds(fullMs):mm\\:ss}",
-                false,
-                "Current Time");
-        });
+
+        _tosuApi.StateStream
+            .Select(s => s.GraphData)
+            .DistinctUntilChanged(new GraphComparer())
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(g => _ = OnGraphDataUpdated(g));
         
         _infoPanelLog.LogToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
     }
     
-    private void UpdateInfoPanelData()
+    class GraphComparer : IEqualityComparer<TosuApi.GraphDataModel>
     {
-        _infoPanelLog.LogToInfoPanel(
-            "Tosu Connected: " + _tosuApi.IsWebsocketConnected,
-            false,
-            "Tosu Running");
-        
-        _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
-        _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
-        _infoPanelLog.LogToInfoPanel("Current PP: " + _tosuApi.GetCurrentPP(), false, "CurrentPP");
+        public bool Equals(TosuApi.GraphDataModel? x, TosuApi.GraphDataModel? y)
+            => GraphEquals(x!, y!);
 
-        _infoPanelLog.LogToInfoPanel("Mods: " + _tosuApi.GetSelectedMods(), false, "Mods");
-        _infoPanelLog.LogToInfoPanel("Ranked Status: " + _tosuApi.GetRankedStatus(), false, "Ranked Status");
-        _infoPanelLog.LogToInfoPanel("State: " + _tosuApi.GetRawBanchoStatus(), false, "State");
+        public int GetHashCode(TosuApi.GraphDataModel obj)
+            => 0; // safe but not optimized; fine for now
+    }
+    
+    private static bool GraphEquals(TosuApi.GraphDataModel a, TosuApi.GraphDataModel b)
+    {
+        if (ReferenceEquals(a, b)) return true;
+        if (a.Series.Count != b.Series.Count) return false;
 
-        _infoPanelLog.LogToInfoPanel("BPM: " + _tosuApi.GetCurrentBpm(), false, "BPM Changed");
+        for (int i = 0; i < a.Series.Count; i++)
+        {
+            var sa = a.Series[i];
+            var sb = b.Series[i];
+
+            if (sa.Data is not null && sb.Data is not null && sa.Data.Count != sb.Data.Count)
+                return false;
+
+            if (sa.Data != null)
+                for (int j = 0; j < sa.Data.Count; j++)
+                {
+                    if (sb.Data != null && sa.Data[j] != sb.Data[j])
+                        return false;
+                }
+        }
+
+        return true;
+    }
+    
+    private void UpdateInfoPanelData(TosuApi.TosuState state)
+    {
+        _infoPanelLog.LogToInfoPanel("Tosu Connected: " + _tosuApi.IsWebsocketConnected, false, "Tosu Running");
+
+        _infoPanelLog.LogToInfoPanel("Max PP: " + state.MaxPP, false, "Max PP");
+        _infoPanelLog.LogToInfoPanel("Star Rating: " + state.StarRating, false, "Star Rating");
+        _infoPanelLog.LogToInfoPanel("Current PP: " + state.CurrentPP, false, "CurrentPP");
+
+        _infoPanelLog.LogToInfoPanel("Mods: " + state.ModNames, false, "Mods");
+        _infoPanelLog.LogToInfoPanel("Ranked Status: " + state.RankedStatus, false, "Ranked Status");
+        _infoPanelLog.LogToInfoPanel("State: " + state.RawBanchoStatus, false, "State");
+
+        _infoPanelLog.LogToInfoPanel("BPM: " + state.CurrentBpm, false, "BPM Changed");
 
         _infoPanelLog.LogToInfoPanel("isDeafened: " + _deafenController.Deafened, false, "isDeafened");
         _infoPanelLog.LogToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");
         _infoPanelLog.LogToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false, "Min SS PP");
-        
+
         _viewModel.UpdateMinPPValue();
         _viewModel.UpdateMinSRValue();
     }
     
-    private async void UpdateBeatmapInfo()
+    private async void UpdateBeatmapInfo(TosuApi.TosuState state)
     {
         try
         {
-            string checksum = _tosuApi.GetBeatmapChecksum();
+            string checksum = state.BeatmapChecksum;
 
             string presetsPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -596,16 +605,11 @@ public partial class MainWindow : Window
                 });
             }
 
-            _viewModel.BeatmapName = _tosuApi.GetBeatmapTitle();
-            _viewModel.FullBeatmapName =
-                _tosuApi.GetBeatmapArtist() + " - " + _tosuApi.GetBeatmapTitle();
+            _viewModel.BeatmapName = state.BeatmapTitle;
+            _viewModel.FullBeatmapName = $"{state.BeatmapArtist} - {state.BeatmapTitle}";
+            _viewModel.BeatmapDifficulty = state.BeatmapDifficulty;
 
-            _viewModel.BeatmapDifficulty = _tosuApi.GetBeatmapDifficulty();
-
-            await Dispatcher.UIThread.InvokeAsync(() =>
-                OnGraphDataUpdated(_tosuApi.GetGraphData()));
-
-            if (_backgroundManager != null) 
+            if (_backgroundManager != null)
                 await _backgroundManager.UpdateBackground(null, null);
         }
         catch (Exception e)
@@ -702,6 +706,7 @@ public partial class MainWindow : Window
 
     private void InitializeSettings()
     {
+        if (_settingsHandler == null) return;
         _viewModel.MinCompletionPercentage = _settingsHandler.MinCompletionPercentage;
         _viewModel.StarRating = _settingsHandler.StarRating;
         _viewModel.PerformancePoints = (int)Math.Round(_settingsHandler.PerformancePoints);
@@ -716,7 +721,8 @@ public partial class MainWindow : Window
         _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
         _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
 
-        SettingsView.CompletionPercentageSlider.ValueChanged -= SettingsView.CompletionPercentageSlider_ValueChanged;
+        SettingsView.CompletionPercentageSlider.ValueChanged -=
+            SettingsView.CompletionPercentageSlider_ValueChanged;
         SettingsView.StarRatingSlider.ValueChanged -= SettingsView.StarRatingSlider_ValueChanged;
         SettingsView.PPSlider.ValueChanged -= SettingsView.PPSlider_ValueChanged;
         SettingsView.BlurEffectSlider.ValueChanged -= SettingsView.BlurEffectSlider_ValueChanged;
@@ -726,7 +732,8 @@ public partial class MainWindow : Window
         SettingsView.PPSlider.Value = _viewModel.PerformancePoints;
         SettingsView.BlurEffectSlider.Value = _viewModel.BlurRadius;
 
-        SettingsView.CompletionPercentageSlider.ValueChanged += SettingsView.CompletionPercentageSlider_ValueChanged;
+        SettingsView.CompletionPercentageSlider.ValueChanged +=
+            SettingsView.CompletionPercentageSlider_ValueChanged;
         SettingsView.StarRatingSlider.ValueChanged += SettingsView.StarRatingSlider_ValueChanged;
         SettingsView.PPSlider.ValueChanged += SettingsView.PPSlider_ValueChanged;
         SettingsView.BlurEffectSlider.ValueChanged += SettingsView.BlurEffectSlider_ValueChanged;
@@ -738,7 +745,7 @@ public partial class MainWindow : Window
 
         SettingsView.BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
         SettingsView.ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
-        SettingsView.KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
+        //SettingsView.KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
 
         _settingsViewModel.DeafenKeybind = new HotKey
         {
@@ -841,7 +848,7 @@ public partial class MainWindow : Window
     {
         StopStableFrameTimer();
 
-        targetFps = Math.Clamp(targetFps, 1, 2000);
+        targetFps = Math.Clamp(targetFps, 1, 1000);
         double intervalMs = 1000.0 / targetFps;
 
         _frameCts = new CancellationTokenSource();
@@ -959,8 +966,6 @@ public partial class MainWindow : Window
             else
             {
                 _opacity = 0.5;
-                if (!_tosuApi._isKiai || !_viewModel.IsKiaiEffectEnabled)
-                    await _backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150)!;
             }
         }
         catch (Exception ex)
@@ -1055,7 +1060,6 @@ public partial class MainWindow : Window
                 case nameof(SharedViewModel.IsKiaiEffectEnabled):
                     _settingsHandler?.SaveSetting("UI", "IsKiaiEffectEnabled", _viewModel.IsKiaiEffectEnabled);
                     Log.Information("Saved new KiaiEffect state " + _viewModel.IsKiaiEffectEnabled + logFinishingText);
-                    _tosuApi.RaiseKiaiChanged();
                     break;
                 case nameof(SharedViewModel.IsBreakUndeafenToggleEnabled):
                     _settingsHandler?.SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled",
@@ -1091,38 +1095,32 @@ public partial class MainWindow : Window
     ///     Handles updates to the graph data and refreshes the strain graph
     /// </summary>
     /// <param name="graphData"></param>
-    private void OnGraphDataUpdated(GraphData? graphData)
+    private async Task OnGraphDataUpdated(TosuApi.GraphDataModel? graphData)
     {
         if (graphData == null || graphData.Series.Count < 2)
             return;
 
-        if (ReferenceEquals(graphData, _lastGraphData))
-            return;
-        _lastGraphData = graphData;
-
-        Series series0 = graphData.Series[0];
-        Series series1 = graphData.Series[1];
-        series0.Name = "aim";
-        series1.Name = "speed";
+        var series0 = graphData.Series[0];
+        var series1 = graphData.Series[1];
 
         if (ChartData.Series1Values.Count != series0.Data.Count)
         {
-            var list0 = new List<ObservablePoint>(series0.Data.Count);
-            for (int i = 0; i < series0.Data.Count; i++)
-                list0.Add(new ObservablePoint(i, series0.Data[i]));
-            ChartData.Series1Values = list0;
+            ChartData.Series1Values = series0.Data
+                .Select((p, i) => new ObservablePoint(i, p))
+                .ToList();
         }
 
         if (ChartData.Series2Values.Count != series1.Data.Count)
         {
-            var list1 = new List<ObservablePoint>(series1.Data.Count);
-            for (int i = 0; i < series1.Data.Count; i++)
-                list1.Add(new ObservablePoint(i, series1.Data[i]));
-            ChartData.Series2Values = list1;
+            ChartData.Series2Values = series1.Data
+                .Select((p, i) => new ObservablePoint(i, p))
+                .ToList();
         }
-
-        Dispatcher.UIThread.InvokeAsync(() =>
-            _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage));
+        
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage);
+        });
     }
 
     private async void InitializeViewModel()
@@ -1459,13 +1457,6 @@ public partial class MainWindow : Window
     /// <param name="e"></param>
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
-        _tosuApi.CheckForPercentageChange();
-        _tosuApi.CheckForBeatmapChange();
-        _tosuApi.CheckForModChange();
-        _tosuApi.CheckForBPMChange();
-        _tosuApi.CheckForKiaiChange();
-        _tosuApi.CheckForRateAdjustChange();
-        _tosuApi.CheckForStateChange();
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
         _kiaiTimes.UpdateKiaiPeriodState(_tosuApi.GetCurrentTime());
     }
@@ -1856,7 +1847,7 @@ public partial class MainWindow : Window
 
         var tasks = new List<Task>();
 
-        if (!_tosuApi._isKiai || !_viewModel.IsBackgroundEnabled)
+        if (!_viewModel.IsBackgroundEnabled)
             tasks.Add(_backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150) ?? Task.CompletedTask);
 
         tasks.Add(Dispatcher.UIThread.InvokeAsync(() =>
@@ -1910,7 +1901,7 @@ public partial class MainWindow : Window
 
         if (!shouldAnimate) return;
 
-        if (!_tosuApi._isKiai || !_viewModel.IsBackgroundEnabled)
+        if (!_viewModel.IsBackgroundEnabled)
             _backgroundManager?.RemoveBackgroundOpacityRequest("settings");
 
         await Task.WhenAll(
@@ -2069,11 +2060,11 @@ public partial class MainWindow : Window
 
         var tasks = new List<Task>();
 
-        if (!_tosuApi._isKiai || !_viewModel.IsBackgroundEnabled)
+        if (!_viewModel.IsBackgroundEnabled)
         {
             Task? backgroundTask = null;
 
-            if (!_tosuApi._isKiai || !_viewModel.IsBackgroundEnabled)
+            if (!_viewModel.IsBackgroundEnabled)
             {
                 if (show)
                     _backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150);

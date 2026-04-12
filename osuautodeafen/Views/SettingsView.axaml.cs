@@ -166,7 +166,7 @@ public partial class SettingsView : UserControl
 
         BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
         ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
-        KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
+        //KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
     }
 
     /// <summary>
@@ -185,7 +185,7 @@ public partial class SettingsView : UserControl
         string beatmapDifficulty = _tosuApi.GetBeatmapDifficulty();
         string backgroundPath = _tosuApi.GetBackgroundPath();
         string beatmapId = _tosuApi.GetBeatmapId().ToString();
-        string rankedStatus = _tosuApi.GetRankedStatus().ToString(CultureInfo.InvariantCulture);
+        string rankedStatus = _tosuApi.GetRankedStatus().ToString();
         string starRating = _tosuApi.GetFullSR().ToString("F1", CultureInfo.InvariantCulture);
         string mapper = _tosuApi.GetBeatmapMapper();
 
@@ -620,6 +620,7 @@ public partial class SettingsView : UserControl
         _tooltipManager.HideTooltip();
     }
 
+   /*
     private void KiaiEffectToggle_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not StackPanel) return;
@@ -627,6 +628,7 @@ public partial class SettingsView : UserControl
         bool isEnabled = KiaiEffectToggle.IsChecked ?? false;
         _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Kiai Effect");
     }
+    */
 
     private void KiaiEffectToggle_PointerLeave(object sender, PointerEventArgs e)
     {
