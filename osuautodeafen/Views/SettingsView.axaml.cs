@@ -678,7 +678,9 @@ public partial class SettingsView : UserControl
     {
         if (sender is not Button) return;
         Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
-        bool isOpen = true;
+        // if this is ever null we have bigger issues
+        MainWindow window = this.GetVisualRoot() as MainWindow ?? throw new InvalidOperationException();
+        bool isOpen = window._isDebugConsoleOpen;
         _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Debug Console" : "Open Debug Console");
     }
 

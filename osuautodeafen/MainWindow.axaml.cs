@@ -108,7 +108,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _frameCts;
     private bool _isCogSpinning;
 
-    private bool _isDebugConsoleOpen;
+    public bool _isDebugConsoleOpen;
     private bool _isKiaiPulseHigh;
 
     private bool _isLogoHovered;
