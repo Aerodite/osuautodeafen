@@ -550,6 +550,8 @@ public partial class MainWindow : Window
             {
                 try
                 {
+                    if (!_isDebugConsoleOpen)
+                        return;
                     string mapInfo = $"{s.BeatmapArtist} - {s.BeatmapTitle}";
                     if (mapInfo.Length > 67)
                         mapInfo = mapInfo.Substring(0, 67) + "...";
@@ -605,6 +607,8 @@ public partial class MainWindow : Window
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(s =>
             {
+                if (!_isDebugConsoleOpen)
+                    return;
                 _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
                 _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
                 _infoPanelLog.LogToInfoPanel("Mods: " + s.ModNames, false, "Mods");
@@ -633,6 +637,8 @@ public partial class MainWindow : Window
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(s =>
             {
+                if (!_isDebugConsoleOpen)
+                    return;
                 _infoPanelLog.LogToInfoPanel(
                     $"Beatmap Progress %: {_tosuApi.GetCompletionPercentage():F2}%",
                     false,
@@ -681,6 +687,8 @@ public partial class MainWindow : Window
                         double _ = x.CurrentBpm;
                     }
 
+                    if (!_isDebugConsoleOpen)
+                        return;
                     _infoPanelLog.LogToInfoPanel(
                         "BPM: " + x.CurrentBpm,
                         false,
@@ -698,6 +706,8 @@ public partial class MainWindow : Window
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(state =>
             {
+                if (!_isDebugConsoleOpen)
+                    return;
                 _infoPanelLog.LogToInfoPanel("State: " + state, false, "State");
             });
 
