@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
 using Avalonia.Threading;
+using osuautodeafen.Helpers;
 using osuautodeafen.Settings;
 using Serilog;
 
@@ -104,7 +105,7 @@ public class TooltipManager
         CancellationToken token = _visibilityCts.Token;
 
         // basically if the control we're over is covered or we're not over one don't show a tooltip
-        if (target != null && !Tooltips.IsPointerOverElement(target, pointerPos))
+        if (target != null && !Extensions.IsPointerOverElement(target, pointerPos))
         {
             if (!IsTooltipVisible && !_isTooltipHiding) return;
             ForceHideTooltip();

@@ -1036,7 +1036,7 @@ public partial class MainWindow : Window
     private void SettingsButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Border) return;
-        Point point = osuautodeafen.Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         bool isOpen = _isSettingsPanelOpen;
         _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Settings" : "Open Settings");
     }

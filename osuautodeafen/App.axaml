@@ -24,7 +24,7 @@
             <settings:ColorBlendConverter x:Key="ColorBlendConverter"/>
             <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter"/>
             <helpers:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
-            <osuautodeafen:StringIsNotNullOrEmptyConverter x:Key="StringIsNotNullOrEmptyConverter"/>
+            <helpers:StringIsNotNullOrEmptyConverter x:Key="StringIsNotNullOrEmptyConverter"/>
             
             <Color x:Key="BaseBackgroundColor">#171717</Color>
 
