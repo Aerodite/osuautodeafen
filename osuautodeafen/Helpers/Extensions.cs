@@ -1,6 +1,6 @@
 using System;
 
-namespace osuautodeafen;
+namespace osuautodeafen.Helpers;
 
 public static class Extensions
 {

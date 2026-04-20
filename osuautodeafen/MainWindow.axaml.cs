@@ -536,6 +536,45 @@ public partial class MainWindow : Window
         _tosuApi.StateStream
             .Select(s => new
             {
+                s.RawBanchoStatus,
+                s.RawLazerBanchoStatus,
+                s.Client
+            })
+            .DistinctUntilChanged()
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(async void (s) =>
+            {
+                try
+                {
+                    if (s.Client == "lazer")
+                    {
+                        _infoPanelLog.LogToInfoPanel("State: " + s.RawLazerBanchoStatus, false, "State");
+                    }
+                    else
+                    {
+                        _infoPanelLog.LogToInfoPanel("State: " + s.RawBanchoStatus, false, "State");
+                    }
+
+                    if (s.RawBanchoStatus == 2 || s.RawLazerBanchoStatus == 2)
+                    {
+                        // unfortunately I believe settingspanel being open while playing is kind of a drain on resources
+                        // might be reconsidered in future when I can actually optimize
+                        if (_isCogSpinning && _isSettingsPanelOpen)
+                        {
+                            await Dispatcher.UIThread.InvokeAsync(() => SettingsButton_Click(null, null));
+                        }
+                    }
+
+                }
+                catch (Exception e)
+                {
+                    Log.Warning(e, "Exception occured while updating beatmap state");
+                }
+            });
+        
+        _tosuApi.StateStream
+            .Select(s => new
+            {
                 s.BeatmapId,
                 s.BeatmapSetId,
                 s.BeatmapChecksum,
@@ -605,9 +644,7 @@ public partial class MainWindow : Window
                 s.ModNames,
                 s.Rate,
                 s.CurrentBpm,
-                s.RawBanchoStatus,
-                s.Client,
-                s.RawLazerBanchoStatus
+                s.Client
             })
             .DistinctUntilChanged()
             .Throttle(TimeSpan.FromMilliseconds(100))
@@ -617,13 +654,6 @@ public partial class MainWindow : Window
                 _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
                 _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
                 _infoPanelLog.LogToInfoPanel("Mods: " + s.ModNames, false, "Mods");
-                if (s.Client == "lazer")
-                {
-                    _infoPanelLog.LogToInfoPanel("State: " + s.RawLazerBanchoStatus, false, "State");
-                }
-                else {
-                    _infoPanelLog.LogToInfoPanel("State: " + s.RawBanchoStatus, false, "State");
-                }
                 _infoPanelLog.LogToInfoPanel("BPM: " + s.CurrentBpm, false, "BPM Changed");
 
                 _viewModel.UpdateMinPPValue();
