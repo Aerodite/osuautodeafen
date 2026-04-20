@@ -191,7 +191,7 @@ public partial class MainWindow : Window
         HomeView = new HomeView();
         _settingsViewModel = new SettingsViewModel();
 
-        UpdateKeybindCaptureState(_settingsHandler);
+        UpdateKeybindCaptureState();
 
         _viewModel = new SharedViewModel(
             _tosuApi,
@@ -313,10 +313,19 @@ public partial class MainWindow : Window
         {
             Path = Path.GetDirectoryName(iniPath)!,
             Filter = Path.GetFileName(iniPath),
-            NotifyFilter = NotifyFilters.LastWrite
+            NotifyFilter =
+                NotifyFilters.LastWrite |
+                NotifyFilters.Size |
+                NotifyFilters.FileName
         };
 
         _settingsFileWatcher.Changed += OnSettingsFileChanged;
+        _settingsFileWatcher.Created += OnSettingsFileChanged;
+        // tyvm for the solution https://github.com/dotnet/runtime/issues/17626
+        // so tl;dr the reason this is necessary is because some file editors recreate a file and rename over
+        // the file instead of just editing the file, this just accounts for that case (thanks geany 🙄)
+        _settingsFileWatcher.Renamed += OnSettingsFileChanged;
+        
         _settingsFileWatcher.EnableRaisingEvents = true;
 
         ExtendClientAreaToDecorationsHint = true;
@@ -714,29 +723,65 @@ public partial class MainWindow : Window
 
     private SharedViewModel ViewModel { get; }
 
-    private void UpdateKeybindCaptureState(SettingsHandler settingsHandler)
+    private void UpdateKeybindCaptureState()
     {
         if (PlatformHelper.IsLinux)
-            _settingsViewModel.IsKeybindCaptureEnabled =
-                string.IsNullOrWhiteSpace(settingsHandler.DiscordClient);
-        else
-            _settingsViewModel.IsKeybindCaptureEnabled = true;
-    }
-
-    private async void OnSettingsFileChanged(object? sender, FileSystemEventArgs e)
-    {
-        // let editor finish writing
-        await Task.Delay(300);
-
-        await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            if (!_settingsHandler!.ReloadFromDisk())
+            _settingsViewModel.IsKeybindCaptureEnabled = string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient);
+        }
+        else
+        {
+            _settingsViewModel.IsKeybindCaptureEnabled = true;
+        }
+    }
+    
+    private async Task ReloadSettingsSafe()
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            if (_settingsHandler != null && _settingsHandler.ReloadFromDisk())
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    string? oldDiscord = _settingsHandler.DiscordClient;
+
+                    _settingsHandler.LoadSettings();
+
+                    if (oldDiscord != _settingsHandler.DiscordClient)
+                    {
+                        UpdateKeybindCaptureState();
+                    }
+                });
                 return;
+            }
 
-            _settingsHandler.LoadSettings();
+            await Task.Delay(100);
+        }
+    }
+    
+    private CancellationTokenSource? _reloadCts;
 
-            UpdateKeybindCaptureState(_settingsHandler);
-        });
+    private void OnSettingsFileChanged(object? sender, FileSystemEventArgs e)
+    {
+        _reloadCts?.Cancel();
+        _reloadCts = new CancellationTokenSource();
+
+        CancellationToken token = _reloadCts.Token;
+
+        Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(300, token);
+
+                if (!token.IsCancellationRequested)
+                    await ReloadSettingsSafe();
+            }
+            catch (TaskCanceledException ex)
+            {
+                Log.Warning("Exception in OnSettingsFileChanged: " + ex);
+            }
+        }, token);
     }
 
     private void MainWindow_PointerMoved(object? sender, PointerEventArgs e)
