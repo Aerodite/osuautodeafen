@@ -11,6 +11,7 @@ using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using osuautodeafen.Background;
 using osuautodeafen.Changelog;
 using osuautodeafen.Settings;
 using osuautodeafen.Settings.Presets;
@@ -30,6 +31,8 @@ public sealed class SharedViewModel : ViewModelBase
 
     private readonly TooltipManager _tooltipManager;
 
+    private readonly BackgroundManager _backgroundManager;
+
     private readonly TosuApi _tosuApi;
 
     private SolidColorBrush _averageColorBrush = new(Colors.Gray);
@@ -44,7 +47,6 @@ public sealed class SharedViewModel : ViewModelBase
 
     private double _completionPercentage;
 
-
     private UserControl _currentPage;
 
     private string _fullBeatmapName;
@@ -54,8 +56,6 @@ public sealed class SharedViewModel : ViewModelBase
     private bool _IsBreakUndeafenToggleEnabled;
 
     private bool _isFCRequired;
-
-    private bool _IsKiaiEffectEnabled;
 
     private bool _isParallaxEnabled;
 
@@ -306,7 +306,6 @@ public sealed class SharedViewModel : ViewModelBase
         {
             if (_isBackgroundEnabled != value)
             {
-                bool wasDisabled = !_isBackgroundEnabled;
                 _isBackgroundEnabled = value;
                 OnPropertyChanged();
                 _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Beatmap Background", true);
@@ -354,20 +353,6 @@ public sealed class SharedViewModel : ViewModelBase
                 OnPropertyChanged();
                 _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Undeafening during a pause",
                     true);
-            }
-        }
-    }
-
-    public bool IsKiaiEffectEnabled
-    {
-        get => _IsKiaiEffectEnabled;
-        set
-        {
-            if (_IsKiaiEffectEnabled != value)
-            {
-                _IsKiaiEffectEnabled = value;
-                OnPropertyChanged();
-                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " Kiai Effect", true);
             }
         }
     }
@@ -521,7 +506,6 @@ public sealed class SharedViewModel : ViewModelBase
 
         IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
         IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
-        IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
     }
 
     public void OpenChangelog()

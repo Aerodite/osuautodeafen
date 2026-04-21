@@ -1,61 +1,92 @@
 ﻿using System;
-using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 
 namespace osuautodeafen.Background;
 
 public sealed class GpuBackgroundControl : Control
-{
-    public Bitmap? Bitmap;
-    public Stretch Stretch = Stretch.Uniform;
+{ 
+    public Bitmap? TextureA;
+    public Bitmap? TextureB;
 
-    /// <summary>
-    ///     Render the image to the drawing context with the specified stretch mode.
-    /// </summary>
-    /// <param name="context"></param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public double Blend
+    {
+        get => _blend;
+        set
+        {
+            if (Math.Abs(_blend - value) < 0.0001)
+                return;
+
+            _blend = value;
+
+            Dispatcher.UIThread.Post(InvalidateVisual, DispatcherPriority.Render);
+        }
+    }
+    private double _blend;
+    
+    private static Rect GetCoverRect(Bitmap bmp, Rect bounds)
+    {
+        double scale = Math.Max(
+            bounds.Width / bmp.PixelSize.Width,
+            bounds.Height / bmp.PixelSize.Height);
+
+        double w = bmp.PixelSize.Width * scale;
+        double h = bmp.PixelSize.Height * scale;
+
+        double x = bounds.X + (bounds.Width - w) / 2;
+        double y = bounds.Y + (bounds.Height - h) / 2;
+
+        return new Rect(x, y, w, h);
+    }
+  
     public override void Render(DrawingContext context)
     {
-        Bitmap bmp = Bitmap!;
-        Rect bounds = Bounds;
-        Size srcSize = new(bmp.PixelSize.Width, bmp.PixelSize.Height);
-
-        double bw = bounds.Width, bh = bounds.Height, sw = srcSize.Width, sh = srcSize.Height;
-        Rect destRect;
-        switch (Stretch)
+        switch (TextureA)
         {
-            case Stretch.None:
-                destRect = new Rect(bounds.TopLeft, srcSize);
+            case null when TextureB == null:
+                return;
+            case null when TextureB != null:
+                TextureA = TextureB;
                 break;
-            case Stretch.Fill:
-                destRect = bounds;
-                break;
-            case Stretch.Uniform:
-            {
-                double scale = Math.Min(bw / sw, bh / sh);
-                double w = sw * scale;
-                double h = sh * scale;
-                Point topLeft = bounds.Center - new Vector(w / 2, h / 2);
-                destRect = new Rect(topLeft, new Size(w, h));
-                break;
-            }
-            case Stretch.UniformToFill:
-            {
-                double scale = Math.Max(bw / sw, bh / sh);
-                double w = sw * scale;
-                double h = sh * scale;
-                Point topLeft = bounds.Center - new Vector(w / 2, h / 2);
-                destRect = new Rect(topLeft, new Size(w, h));
-                break;
-            }
             default:
-                destRect = bounds;
+            {
+                if (TextureA != null && TextureB == null)
+                {
+                    TextureB = TextureA;
+                }
+
                 break;
+            }
         }
 
-        context.DrawImage(bmp, new Rect(0, 0, sw, sh), destRect);
+        Rect bounds = Bounds;
+
+        double aOpacity = 1.0 - Blend;
+        double bOpacity = Blend;
+
+        if (TextureA != null && aOpacity > 0)
+        {
+            using (context.PushOpacity(aOpacity))
+            {
+                context.DrawImage(
+                    TextureA,
+                    new Rect(0, 0, TextureA.PixelSize.Width, TextureA.PixelSize.Height),
+                    GetCoverRect(TextureA, bounds));
+            }
+        }
+
+        if (TextureB != null && bOpacity > 0)
+        {
+            using (context.PushOpacity(bOpacity))
+            {
+                context.DrawImage(
+                    TextureB,
+                    new Rect(0, 0, TextureB.PixelSize.Width, TextureB.PixelSize.Height),
+                    GetCoverRect(TextureB, bounds));
+            }
+        }
     }
 }
