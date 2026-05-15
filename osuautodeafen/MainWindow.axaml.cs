@@ -480,8 +480,6 @@ public partial class MainWindow : Window
         _tosuApi.StateStream
             .Select(s => new
             {
-                s.BeatmapId,
-                s.BeatmapSetId,
                 s.BeatmapChecksum,
             })
             .DistinctUntilChanged()
@@ -1167,7 +1165,6 @@ public partial class MainWindow : Window
                     }
                     else
                     {
-                        //await _backgroundManager.SetBackgroundEnabledState(true, _isSettingsPanelOpen);
                         await _backgroundManager?.UpdateBackground(_isSettingsPanelOpen)!;
                     }
 
@@ -1805,7 +1802,7 @@ public partial class MainWindow : Window
 
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
                 debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
-                await _backgroundManager.SetBackgroundOpacity(0.5f, 200);
+                await _backgroundManager.SetBackgroundOpacity(0.25f, 200);
 
                 _isSettingsPanelOpen = true;
             }
@@ -1816,7 +1813,7 @@ public partial class MainWindow : Window
                     Task stopCogTask = StopCogSpinAsync(cogImage);
                     Task panelOutTask =
                         AnimatePanelOutAsync(settingsPanel, buttonContainer, hideMargin, buttonRightMargin);
-                    await Task.WhenAll(stopCogTask, panelOutTask, _backgroundManager.SetBackgroundOpacity(1.0f, 200));
+                    await Task.WhenAll(stopCogTask, panelOutTask, _backgroundManager.SetBackgroundOpacity(0.5f, 200));
                 }
                 else
                 {

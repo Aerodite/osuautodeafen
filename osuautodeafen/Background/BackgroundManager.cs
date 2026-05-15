@@ -1,11 +1,12 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -28,49 +29,49 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     private CancellationTokenSource? _opacityCts;
 
     private readonly Grid _parallaxContainer = new();
-
-    private readonly GpuBackgroundControl _bgControl = new();
-
-    private Stopwatch _blendSw = null!;
-    private DispatcherTimer _blendTimer = null!;
     
-    private double _targetBlend;
-    private double _startBlend;
-    private bool _isBlending;
-    
-    private double _backgroundOpacity = 1.0f;
     private const int FadeMs = 200;
-    private const int FadeSteps = 5;
+    private const int FadeSteps = 20;
     
     private bool _hasBeenInitialized;
     
-    /// <summary>
-    ///  We want the background to be zoomed in a bit so that parallax doesn't go out of bounds
-    /// </summary>
-    private const double BitmapZoom = 1.05f;
+    private const double BackgroundZoom = 1.05f;
     
-    private void ApplyBackgroundOpacity()
+    private const double BackgroundOpacity = 0.5f;
+    private double _currentBackgroundOpacity = 0.5f;
+
+    private readonly Image _firstBackground = new()
     {
-        Grid layer = EnsureBackgroundLayerExists();
-        layer.Opacity = _backgroundOpacity;
-    }
+        Stretch = Stretch.UniformToFill,
+        Opacity = 1
+    };
+
+    private readonly Image _secondBackground = new()
+    {
+        Stretch = Stretch.UniformToFill,
+        Opacity = 0
+    };
+
+    private bool _showingA = true;
     
     public async Task SetBackgroundOpacity(double targetOpacity, int durationMs = 0)
     {
-        targetOpacity = Math.Clamp(targetOpacity, 0f, 1f);
+        Grid layer = EnsureBackgroundLayerExists();
         
+        targetOpacity = Math.Clamp(targetOpacity, 0f, 0.5f);
+
         _opacityCts?.Cancel();
         _opacityCts = new CancellationTokenSource();
         CancellationToken token = _opacityCts.Token;
 
         if (durationMs <= 0)
         {
-            _backgroundOpacity = targetOpacity;
-            ApplyBackgroundOpacity();
+            _currentBackgroundOpacity = targetOpacity;
+            layer.Opacity = _currentBackgroundOpacity;
             return;
         }
-
-        double start = _backgroundOpacity;
+        
+        double start = _currentBackgroundOpacity;
 
         for (int i = 0; i <= FadeSteps; i++)
         {
@@ -78,15 +79,19 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 return;
 
             double t = (double)i / FadeSteps;
-            _backgroundOpacity = start + (targetOpacity - start) * t;
 
-            await Dispatcher.UIThread.InvokeAsync(ApplyBackgroundOpacity);
+            _currentBackgroundOpacity = start + (targetOpacity - start) * t;
 
-            await Task.Delay(16, token);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                layer.Opacity = _currentBackgroundOpacity;
+            });
+
+            await Task.Delay(durationMs / FadeSteps, token);
         }
 
-        _backgroundOpacity = targetOpacity;
-        ApplyBackgroundOpacity();
+        _currentBackgroundOpacity = targetOpacity;
+        layer.Opacity = _currentBackgroundOpacity;
     }
     
     public async Task SetBackgroundEnabledState(bool enabled, bool? isPanelOpen)
@@ -94,7 +99,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         double newOpacity = 0.0f;
         
         if(isPanelOpen != null)
-            newOpacity = (bool)isPanelOpen ? 0.5f : 1f;
+            newOpacity = (bool)isPanelOpen ? 0.25f : 0.5f;
         
         if (!enabled)
         {
@@ -112,67 +117,40 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         if (_hasBeenInitialized)
             return;
 
-        _blendTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(16)
-        };
+        EnsureBackgroundLayerExists();
 
-        _blendTimer.Tick += OnRender;
-        _blendTimer.Start();
+        ConfigureImage(_firstBackground);
+        ConfigureImage(_secondBackground);
 
-        Grid layer = EnsureBackgroundLayerExists();
+        _parallaxContainer.Children.Add(_firstBackground);
+        _parallaxContainer.Children.Add(_secondBackground);
 
-        _bgControl.RenderTransform = new ScaleTransform(BitmapZoom, BitmapZoom);
-        _bgControl.RenderTransformOrigin =
-            new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
-        
         BackgroundBlurEffect ??= new BlurEffect();
-        _parallaxContainer.Effect = BackgroundBlurEffect;
         BackgroundBlurEffect.Radius = settingsHandler.BlurRadius;
-        
-        _bgControl.Opacity = 0.5;
-        
-        if (!_parallaxContainer.Children.Contains(_bgControl))
-            _parallaxContainer.Children.Add(_bgControl);
 
-        _bgControl.Width = window.Width;
-        _bgControl.Height = window.Height;
-
-        Dispatcher.UIThread.Post(() =>
-        {
-            _bgControl.InvalidateMeasure();
-            _bgControl.InvalidateArrange();
-            _bgControl.InvalidateVisual();
-        }, DispatcherPriority.Loaded);
-        
-        if (!layer.Children.Contains(_parallaxContainer))
-            layer.Children.Add(_parallaxContainer);
+        _parallaxContainer.Effect = BackgroundBlurEffect;
 
         _hasBeenInitialized = true;
     }
-    
-    private void OnRender(object? sender, EventArgs e)
+
+    /// <summary>
+    /// Sets the default properties for the backgrounds' appearance
+    /// </summary>
+    /// <param name="image"></param>
+    private static void ConfigureImage(Image image)
     {
-        if (!_isBlending)
-            return;
+        image.Stretch = Stretch.UniformToFill;
 
-        double t = _blendSw.ElapsedMilliseconds / (double)FadeMs;
+        image.HorizontalAlignment = HorizontalAlignment.Stretch;
+        image.VerticalAlignment = VerticalAlignment.Stretch;
 
-        if (t >= 1.0)
-        {
-            _bgControl.Blend = 1;
+        image.RenderTransform =
+            new ScaleTransform(BackgroundZoom, BackgroundZoom);
 
-            _bgControl.TextureA = _bgControl.TextureB ?? _bgControl.TextureA;
-            _bgControl.TextureB = null;
+        image.RenderTransformOrigin =
+            new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
 
-            _isBlending = false;
-
-            _bgControl.InvalidateVisual();
-            return;
-        }
-
-        double eased = EaseInOutCubic(t);
-        _bgControl.Blend = _startBlend + (_targetBlend - _startBlend) * eased;
+        image.Opacity = BackgroundOpacity;
     }
     
     private Grid EnsureBackgroundLayerExists()
@@ -204,44 +182,43 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         return layer;
     }
     
-    private async Task SwapBackgroundAsync(Bitmap? newBitmap)
+    private async Task SwapBackgroundAsync(Bitmap bitmap)
     {
-        if (newBitmap == null)
-            return;
-
         EnsureInitialized();
+
+        IEasing easing = new CubicEaseOut();
+
+        Image incoming = _showingA ? _secondBackground : _firstBackground;
+        Image outgoing = _showingA ? _firstBackground : _secondBackground;
+
+        incoming.Source = bitmap;
+        incoming.Opacity = 0;
+
+        const int duration = 150;
+        const int steps = 15;
+
+        for (int i = 0; i <= steps; i++)
+        {
+            double t = (double)i / steps;
+            double eased = easing.Ease(t);
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                incoming.Opacity = eased;
+                outgoing.Opacity = 1 - eased;
+            });
+
+            await Task.Delay(duration / steps);
+        }
 
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            if (_bgControl.TextureA == null)
-            {
-                _bgControl.TextureA = newBitmap;
-                _bgControl.TextureB = null;
-                _bgControl.Blend = 1;
-                _bgControl.InvalidateVisual();
-                return;
-            }
-            
-            _bgControl.TextureA = _bgControl.TextureB ?? _bgControl.TextureA;
-            _bgControl.TextureB = newBitmap;
-
-            _startBlend = 0;
-            _targetBlend = 1;
-
-            _bgControl.Blend = 0;
-
-            _blendSw = Stopwatch.StartNew();
-            _isBlending = true;
+            outgoing.Source = null;
         });
+
+        _showingA = !_showingA;
     }
     
-    private static double EaseInOutCubic(double t)
-    {
-        return t < 0.5
-            ? 4 * t * t * t
-            : 1 - Math.Pow(-2 * t + 2, 3) / 2;
-    }
-
     public async Task UpdateBackground(bool isPanelOpen)
     {
         try
@@ -266,13 +243,13 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 return;
 
             await SwapBackgroundAsync(newBitmap);
-
+            
             if (LogoUpdater != null)
-                await LogoUpdater.UpdateLogoAsync();
+               await LogoUpdater.UpdateLogoAsync();
         }
         catch (Exception ex)
         {
-            Log.Error("UpdateBackground error: " + ex);
+            Log.Error("UpdateBackground exited with exception: " + ex);
         }
     }
 
@@ -285,7 +262,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         
         return await Task.Run(() =>
         {
-            Bitmap bmp = Bitmap.DecodeToWidth(stream, 2560);
+            Bitmap bmp = Bitmap.DecodeToWidth(stream, 1024, BitmapInterpolationMode.LowQuality);
             return bmp;
         });
     }
@@ -309,16 +286,6 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             return;
         }
 
-        if (window.Content is not Grid mainGrid)
-            return;
-
-        Grid? layer = mainGrid.Children
-            .OfType<Grid>()
-            .FirstOrDefault(x => x.Name == "BackgroundLayer");
-
-        if (layer == null)
-            return;
-
         double centerX = window.Width / 2;
         double centerY = window.Height / 2;
 
@@ -331,5 +298,4 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         _parallaxContainer.RenderTransform =
             new TranslateTransform(movementX, movementY);
     }
-    
 }
