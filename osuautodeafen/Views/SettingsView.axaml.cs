@@ -688,7 +688,7 @@ public partial class SettingsView : UserControl
 
     private void DebugConsoleButton_Click(object sender, RoutedEventArgs e)
     {
-        MainWindow? window = this.GetVisualRoot() as MainWindow;
+        MainWindow? window = TopLevel.GetTopLevel(this) as MainWindow;
         window?.ToggleDebugConsole(sender, e);
     }
 

@@ -16,7 +16,8 @@
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osuautodeafen"
-        x:DataType="local:MainWindow">
+        x:DataType="local:MainWindow"
+        x:CompileBindings="False">
     
     <Window.DataTemplates>
         <DataTemplate DataType="viewModels:ChangelogViewModel">
@@ -106,7 +107,7 @@
                                     Data="M4,9 L8,13 L14,5"
                                     Stroke="White"
                                     StrokeThickness="2"
-                                    IsVisible="{TemplateBinding IsChecked}" />
+                                    IsVisible="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}" />
                             </Canvas>
                         </Border>
                         <ContentPresenter Content="{TemplateBinding Content}"

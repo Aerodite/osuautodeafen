@@ -152,7 +152,7 @@ public partial class ChangelogView : UserControl
 
     private void ShowLinkTooltip(Control target, PointerEventArgs e, string url)
     {
-        Window? window = target.GetVisualRoot() as Window;
+        Window? window = TopLevel.GetTopLevel(target) as Window;
         if (window == null)
             return;
 
@@ -163,40 +163,7 @@ public partial class ChangelogView : UserControl
 
     private void MoveLinkTooltip(Control target, PointerEventArgs e)
     {
-        Window? window = target.GetVisualRoot() as Window;
-        if (window == null)
-            return;
-
-        Point point = osuautodeafen.Tooltips.Tooltips
-            .GetWindowRelativePointer(window, e);
-        Tooltips.MoveTooltipToPosition(point);
-    }
-
-    private void VideoRedirect_PointerEntered(object? sender, PointerEventArgs e)
-    {
-        if (sender is not Control c)
-            return;
-
-        Window? window = c.GetVisualRoot() as Window;
-        if (window == null)
-            return;
-
-        Point point = osuautodeafen.Tooltips.Tooltips
-            .GetWindowRelativePointer(window, e);
-        Tooltips.ShowTooltip(c, point, "Open Video in Browser");
-    }
-
-    private void VideoRedirect_PointerExited(object? sender, PointerEventArgs e)
-    {
-        Tooltips.HideTooltip();
-    }
-
-    private void VideoRedirect_PointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (sender is not Control c)
-            return;
-
-        Window? window = c.GetVisualRoot() as Window;
+        Window? window = TopLevel.GetTopLevel(target) as Window;
         if (window == null)
             return;
 
@@ -207,16 +174,16 @@ public partial class ChangelogView : UserControl
 
     private void PrButton_PointerEntered(object? sender, PointerEventArgs e)
     {
-        if (sender is not Control c)
+        if (sender is not Control control)
             return;
 
-        Window? window = c.GetVisualRoot() as Window;
+        Window? window = TopLevel.GetTopLevel(control) as Window;
         if (window == null)
             return;
 
         Point point = osuautodeafen.Tooltips.Tooltips
             .GetWindowRelativePointer(window, e);
-        Tooltips.ShowTooltip(c, point, "Open Pull Request in Browser");
+        Tooltips.ShowTooltip(control, point, "Open Pull Request in Browser");
     }
 
     private void PrButton_PointerExited(object? sender, PointerEventArgs e)
@@ -226,10 +193,10 @@ public partial class ChangelogView : UserControl
 
     private void PrButton_PointerMoved(object? sender, PointerEventArgs e)
     {
-        if (sender is not Control c)
+        if (sender is not Control control)
             return;
 
-        Window? window = c.GetVisualRoot() as Window;
+        Window? window = TopLevel.GetTopLevel(control) as Window;
         if (window == null)
             return;
 

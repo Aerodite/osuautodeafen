@@ -318,7 +318,7 @@ public partial class MainWindow : Window
         _settingsFileWatcher.Changed += OnSettingsFileChanged;
         _settingsFileWatcher.Created += OnSettingsFileChanged;
         // tyvm for the solution https://github.com/dotnet/runtime/issues/17626
-        // so tl;dr the reason this is necessary is because some file editors recreate a file and rename over
+        // so tl;dr the reason this is necessary is because some file editors recreate a file and rename over -
         // the file instead of just editing the file, this just accounts for that case (thanks geany 🙄)
         _settingsFileWatcher.Renamed += OnSettingsFileChanged;
         
@@ -734,12 +734,12 @@ public partial class MainWindow : Window
                 _infoPanelLog.LogToInfoPanel("State: " + state, false, "State");
             });
 
-        /*_tosuApi.StateStream
+        _tosuApi.StateStream
             .Select(s => s.GraphData)
             .DistinctUntilChanged(new GraphComparer())
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(g => _ = OnGraphDataUpdated(g));
-        */
+        
         _infoPanelLog.LogToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
     }
 
