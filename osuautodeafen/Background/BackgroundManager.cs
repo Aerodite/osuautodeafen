@@ -10,6 +10,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using osuautodeafen.Helpers;
 using osuautodeafen.Logo;
 using osuautodeafen.Settings;
 using osuautodeafen.Tosu;

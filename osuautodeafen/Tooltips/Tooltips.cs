@@ -1,8 +1,3 @@
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Input;
-using Avalonia.VisualTree;
-
 namespace osuautodeafen.Tooltips;
 
 public abstract class Tooltips

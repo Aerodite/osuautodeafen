@@ -104,7 +104,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _frameCts;
     private bool _isCogSpinning;
 
-    private bool _isDebugConsoleOpen;
+    public bool _isDebugConsoleOpen;
     private bool _isKiaiPulseHigh;
 
     private bool _isLogoHovered;
@@ -592,6 +592,8 @@ public partial class MainWindow : Window
             {
                 try
                 {
+                    if (!_isDebugConsoleOpen)
+                        return;
                     string mapInfo = $"{s.BeatmapArtist} - {s.BeatmapTitle}";
                     if (mapInfo.Length > 67)
                         mapInfo = mapInfo.Substring(0, 67) + "...";
@@ -645,6 +647,8 @@ public partial class MainWindow : Window
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(s =>
             {
+                if (!_isDebugConsoleOpen)
+                    return;
                 _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
                 _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
                 _infoPanelLog.LogToInfoPanel("Mods: " + s.ModNames, false, "Mods");
@@ -666,6 +670,8 @@ public partial class MainWindow : Window
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(s =>
             {
+                if (!_isDebugConsoleOpen)
+                    return;
                 _infoPanelLog.LogToInfoPanel(
                     $"Beatmap Progress %: {_tosuApi.GetCompletionPercentage():F2}%",
                     false,
@@ -714,6 +720,8 @@ public partial class MainWindow : Window
                         double _ = x.CurrentBpm;
                     }
 
+                    if (!_isDebugConsoleOpen)
+                        return;
                     _infoPanelLog.LogToInfoPanel(
                         "BPM: " + x.CurrentBpm,
                         false,
@@ -731,6 +739,8 @@ public partial class MainWindow : Window
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(state =>
             {
+                if (!_isDebugConsoleOpen)
+                    return;
                 _infoPanelLog.LogToInfoPanel("State: " + state, false, "State");
             });
 
@@ -1104,7 +1114,7 @@ public partial class MainWindow : Window
     private void SettingsButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Border) return;
-        Point point = osuautodeafen.Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         bool isOpen = _isSettingsPanelOpen;
         _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Settings" : "Open Settings");
     }

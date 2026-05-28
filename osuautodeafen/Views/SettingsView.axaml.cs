@@ -15,6 +15,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using IniParser.Model;
 using osuautodeafen.Background;
+using osuautodeafen.Helpers;
 using osuautodeafen.Logo;
 using osuautodeafen.Settings;
 using osuautodeafen.Settings.Keybinds;
@@ -299,7 +300,7 @@ public partial class SettingsView : UserControl
     private void CompletionPercentageImage_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Avalonia.Svg.Svg) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Minimum Map \nProgress to Deafen");
     }
 
@@ -311,21 +312,21 @@ public partial class SettingsView : UserControl
     private void CompletionPercentageSlider_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Slider slider) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(slider, e);
+        Point point = Extensions.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0.00}%");
     }
 
     private void CompletionPercentageSlider_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Slider slider) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(slider, e);
+        Point point = Extensions.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0.00}%");
     }
 
     private void CompletionPercentageSlider_PointerMove(object? sender, PointerEventArgs e)
     {
         if (sender is not Slider slider) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(slider, e);
+        Point point = Extensions.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0.00}%");
     }
 
@@ -337,21 +338,21 @@ public partial class SettingsView : UserControl
     private void PPSlider_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Slider slider) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(slider, e);
+        Point point = Extensions.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0}pp");
     }
 
     private void PPSlider_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Slider slider) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(slider, e);
+        Point point = Extensions.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0}pp");
     }
 
     private void PPSlider_PointerMove(object? sender, PointerEventArgs e)
     {
         if (sender is not Slider slider) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(slider, e);
+        Point point = Extensions.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0}pp");
     }
 
@@ -363,7 +364,7 @@ public partial class SettingsView : UserControl
     private void PPImage_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Avalonia.Svg.Svg) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point,
             "Minimum SS PP to Deafen\n (" + _tosuApi.GetMaxPP() + "pp for this map)");
     }
@@ -376,21 +377,21 @@ public partial class SettingsView : UserControl
     private void StarRatingSlider_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Slider slider) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(slider, e);
+        Point point = Extensions.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value:F1}*");
     }
 
     private void StarRatingSlider_PointerMove(object? sender, PointerEventArgs e)
     {
         if (sender is not Slider slider) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(slider, e);
+        Point point = Extensions.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value:F1}*");
     }
 
     private void StarRatingSlider_PointerEnter(object? sender, PointerEventArgs e)
     {
         if (sender is not Slider slider) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(slider, e);
+        Point point = Extensions.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value:F1}*");
     }
 
@@ -402,7 +403,7 @@ public partial class SettingsView : UserControl
     private void StarRatingImage_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Avalonia.Svg.Svg) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Minimum SR to Deafen\n(" + _tosuApi.GetFullSR() + "* for this map)");
     }
 
@@ -414,7 +415,7 @@ public partial class SettingsView : UserControl
     private void BlurEffectImage_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Avalonia.Svg.Svg) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Background Blur Radius\n(0-20 multiplied by 5)");
     }
 
@@ -426,14 +427,14 @@ public partial class SettingsView : UserControl
     private void BlurEffectSlider_PointerPressed(object sender, PointerPressedEventArgs e)
     {
         if (sender is not Slider slider) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(slider, e);
+        Point point = Extensions.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value * 5:F0}% Blur");
     }
 
     private void BlurEffectSlider_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Slider slider) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(slider, e);
+        Point point = Extensions.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value * 5:F0}% Blur");
     }
 
@@ -445,7 +446,7 @@ public partial class SettingsView : UserControl
     private void FCToggle_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not StackPanel) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         bool isEnabled = FCToggle.IsChecked ?? false;
         _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " an FC being required to deafen");
     }
@@ -458,7 +459,7 @@ public partial class SettingsView : UserControl
     private void UndeafenOnMissToggle_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not StackPanel) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         bool isEnabled = UndeafenOnMissToggle.IsChecked ?? false;
         _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Undeafening after a miss");
     }
@@ -471,7 +472,7 @@ public partial class SettingsView : UserControl
     private void BreakUndeafenToggle_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not StackPanel) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         bool isEnabled = BreakUndeafenToggle.IsChecked ?? false;
         _tooltipManager.ShowTooltip(this, point,
             "" + (isEnabled ? "Disable" : "Enable") + " Undeafening during breaks");
@@ -485,14 +486,14 @@ public partial class SettingsView : UserControl
     private void BlurEffectSlider_PointerMoved(object? sender, PointerEventArgs e)
     {
         if (sender is not Slider slider) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(slider, e);
+        Point point = Extensions.GetWindowRelativePointer(slider, e);
         _tooltipManager.ShowTooltip(this, point, $"{slider.Value * 5:F0}% Blur");
     }
 
     private void PauseUndeafenToggle_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not StackPanel) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         bool isEnabled = PauseUndeafenToggle.IsChecked ?? false;
         _tooltipManager.ShowTooltip(this, point,
             "" + (isEnabled ? "Disable" : "Enable") + " Undeafening during a pause");
@@ -508,7 +509,7 @@ public partial class SettingsView : UserControl
         if (sender is not Button)
             return;
 
-        Point pointerPosition = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point pointerPosition = Extensions.GetWindowRelativePointer(this, e);
 
         string tooltipText = _settingsHandler!.IsPresetActive
             ? "Reset current preset to default settings"
@@ -525,7 +526,7 @@ public partial class SettingsView : UserControl
     private void PresetCreate_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Create Preset for\n" + _viewModel.FullBeatmapName);
     }
 
@@ -537,7 +538,7 @@ public partial class SettingsView : UserControl
     private void PresetDelete_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Delete Preset for\n" + _viewModel.FullBeatmapName);
     }
 
@@ -549,7 +550,7 @@ public partial class SettingsView : UserControl
     private void LoadPresetButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Load a different map's preset on to\n" + _viewModel.FullBeatmapName);
     }
 
@@ -561,7 +562,7 @@ public partial class SettingsView : UserControl
     private void DeleteAllPresetsButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Delete All Presets\n(CAN NOT BE UNDONE)");
     }
 
@@ -584,7 +585,7 @@ public partial class SettingsView : UserControl
             : $"Keybinds disabled due to Linux client being set.\nsettings.ini: discordClient={_settingsHandler.DiscordClient}";
 
 
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, text);
     }
 
@@ -596,7 +597,7 @@ public partial class SettingsView : UserControl
     private void BGToggle_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not StackPanel) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         bool isEnabled = BackgroundToggle.IsChecked ?? false;
         _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Beatmap Background");
     }
@@ -609,7 +610,7 @@ public partial class SettingsView : UserControl
     private void ParallaxToggle_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not StackPanel) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         bool isEnabled = ParallaxToggle.IsChecked ?? false;
         _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Parallax Effect");
     }
@@ -637,7 +638,7 @@ public partial class SettingsView : UserControl
     private void CheckForUpdatesButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Check for New Updates");
     }
 
@@ -649,7 +650,7 @@ public partial class SettingsView : UserControl
     private void FileLocationButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point,
             "Open AppData File Location\n(" + _settingsHandler!.GetPath(true) + ")");
         OpenFileLocationImage.Path = "avares://osuautodeafen/Icons/folder-open.svg";
@@ -664,7 +665,7 @@ public partial class SettingsView : UserControl
     private void ReportIssueButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Report an Issue on GitHub");
     }
 
@@ -676,8 +677,10 @@ public partial class SettingsView : UserControl
     private void DebugConsoleButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
-        bool isOpen = true;
+        Point point = Extensions.GetWindowRelativePointer(this, e);
+        // if this is ever null we have bigger issues
+        MainWindow window = this.GetVisualRoot() as MainWindow ?? throw new InvalidOperationException();
+        bool isOpen = window._isDebugConsoleOpen;
         _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Debug Console" : "Open Debug Console");
     }
 
@@ -1036,7 +1039,7 @@ public partial class SettingsView : UserControl
     private void OpenChangelogButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Button) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+        Point point = Extensions.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "View Changelog for v" + UpdateChecker.CurrentVersion);
     }
 

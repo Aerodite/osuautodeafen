@@ -10,7 +10,7 @@ public sealed class TextBeforePrConverter : IValueConverter
     {
         string text = value as string ?? string.Empty;
 
-        int idx = text.IndexOf("(#");
+        int idx = text.IndexOf("(#", StringComparison.Ordinal);
         return idx >= 0 ? text[..idx] : text;
     }
 

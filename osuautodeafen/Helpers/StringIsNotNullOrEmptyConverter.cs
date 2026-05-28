@@ -2,7 +2,7 @@
 using System.Globalization;
 using Avalonia.Data.Converters;
 
-namespace osuautodeafen;
+namespace osuautodeafen.Helpers;
 
 public class StringIsNotNullOrEmptyConverter : IValueConverter
 {
