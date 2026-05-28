@@ -138,9 +138,7 @@ public class Deafen : IDisposable
             switch (_settingsHandler.DiscordClient.ToLowerInvariant())
             {
                 case "vesktop-global-shortcuts":
-                case "equibop":
                 {
-                   
                     string socketPath = $"{Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR")}/vesktop.sock";
 
                     using Socket client = new(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
@@ -151,6 +149,21 @@ public class Deafen : IDisposable
 
                     client.Shutdown(SocketShutdown.Both);
                     client.Close();
+                    return true;
+                }
+                case "equibop":
+                {
+                    psi = new ProcessStartInfo
+                    {
+                        FileName = "equibop",
+                        Arguments = "--toggle-deafen",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = false,
+                        RedirectStandardError = false,
+                        CreateNoWindow = true
+                    };
+
+                    Process.Start(psi);
                     return true;
                 } 
                 default:
