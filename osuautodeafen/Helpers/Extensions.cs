@@ -18,7 +18,7 @@ public static class Extensions
     /// </remarks>
     public static bool IsPointerOverElement(Control element, Point pointerInWindow)
     {
-        if (element.GetVisualRoot() is not Window window)
+        if (TopLevel.GetTopLevel(element) is not Window window)
             return false;
 
         if (window.InputHitTest(pointerInWindow) is not Control hit)
@@ -43,7 +43,7 @@ public static class Extensions
     /// <returns></returns>
     public static Point GetWindowRelativePointer(Control control, PointerEventArgs e)
     {
-        if (control.GetVisualRoot() is not Window window) return new Point();
+        if (TopLevel.GetTopLevel(control) is not Window window) return new Point();
         Point controlPoint = e.GetPosition(control);
         PixelPoint screenPoint = control.PointToScreen(controlPoint);
         return new Point(screenPoint.X - window.Position.X, screenPoint.Y - window.Position.Y);

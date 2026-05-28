@@ -63,6 +63,11 @@ public partial class SettingsView : UserControl
     private TosuApi _tosuApi;
     private SharedViewModel _viewModel;
 
+    
+    public SettingsView()
+    {
+        InitializeComponent();
+    }
     public SettingsView(
         SettingsHandler settingsHandler,
         TosuApi tosuApi,
@@ -679,7 +684,7 @@ public partial class SettingsView : UserControl
         if (sender is not Button) return;
         Point point = Extensions.GetWindowRelativePointer(this, e);
         // if this is ever null we have bigger issues
-        MainWindow window = this.GetVisualRoot() as MainWindow ?? throw new InvalidOperationException();
+        MainWindow window = TopLevel.GetTopLevel(this) as MainWindow ?? throw new InvalidOperationException();
         bool isOpen = window._isDebugConsoleOpen;
         _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Debug Console" : "Open Debug Console");
     }

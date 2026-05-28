@@ -7,6 +7,7 @@
              xmlns:controls="clr-namespace:osuautodeafen.Controls"
              xmlns:osuautodeafen="clr-namespace:osuautodeafen"
              xmlns:helpers="clr-namespace:osuautodeafen.Helpers"
+             x:CompileBindings="False"
              DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
 
     <UserControl.Resources>
@@ -79,7 +80,7 @@
                                     Data="M4,9 L8,13 L14,5"
                                     Stroke="White"
                                     StrokeThickness="2"
-                                    IsVisible="{TemplateBinding IsChecked}" />
+                                    IsVisible="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}" />
                             </Canvas>
                         </Border>
                         <ContentPresenter Content="{TemplateBinding Content}"
@@ -284,12 +285,14 @@
                                             PointerEntered="PresetCreate_PointerEnter"
                                             PointerExited="PresetCreate_PointerLeave">
                                         <Button.Content>
-                                            <StackPanel>
+                                            <StackPanel x:DataType="viewModels:SharedViewModel">
                                                 <TextBlock Text="Create Map Preset for"
                                                            TextAlignment="Center" />
+
                                                 <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                                                               VerticalScrollBarVisibility="Disabled"
                                                               Width="130">
+
                                                     <TextBlock Text="{Binding BeatmapName}"
                                                                Foreground="{Binding AverageColorBrush}"
                                                                TextAlignment="Center"/>

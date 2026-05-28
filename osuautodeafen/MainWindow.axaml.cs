@@ -592,8 +592,13 @@ public partial class MainWindow : Window
             {
                 try
                 {
+                    _viewModel.BeatmapName = s.BeatmapTitle;
+                    _viewModel.FullBeatmapName = $"{s.BeatmapArtist} - {s.BeatmapTitle}";
+                    _viewModel.BeatmapDifficulty = s.BeatmapDifficulty;
+                    
                     if (!_isDebugConsoleOpen)
                         return;
+                    
                     string mapInfo = $"{s.BeatmapArtist} - {s.BeatmapTitle}";
                     if (mapInfo.Length > 67)
                         mapInfo = mapInfo.Substring(0, 67) + "...";
@@ -602,10 +607,6 @@ public partial class MainWindow : Window
                         "Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(),
                         false,
                         "Client");
-
-                    _viewModel.BeatmapName = s.BeatmapTitle;
-                    _viewModel.FullBeatmapName = $"{s.BeatmapArtist} - {s.BeatmapTitle}";
-                    _viewModel.BeatmapDifficulty = s.BeatmapDifficulty;
 
                     _infoPanelLog.LogToInfoPanel(
                         "Mapset: " + mapInfo,
