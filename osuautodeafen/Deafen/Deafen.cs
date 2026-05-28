@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using Avalonia.Input;
 using osuautodeafen.Settings;
@@ -123,37 +125,64 @@ public class Deafen : IDisposable
         _timer.Dispose();
         GC.SuppressFinalize(this);
     }
-
-    private bool TryHyprlandSendShortcut()
+    
+    private bool TryLinuxClientSendShortcut()
     {
         try
         {
             if (string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient))
                 return false;
 
-            ProcessStartInfo psi = new()
+            Process? process;
+            ProcessStartInfo psi;
+            switch (_settingsHandler.DiscordClient.ToLowerInvariant())
             {
-                FileName = "hyprctl",
-                Arguments = "dispatch sendshortcut CTRL+SHIFT,D,class:" + _settingsHandler.DiscordClient,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
+                case "vesktop-global-shortcuts":
+                case "equibop":
+                {
+                   
+                    string socketPath = $"{Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR")}/vesktop.sock";
 
-            using Process? process = Process.Start(psi);
-            if (process == null)
-                return false;
+                    using Socket client = new(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+                    client.Connect(new UnixDomainSocketEndPoint(socketPath));
 
-            process.WaitForExit(600);
+                    byte[] bytes = "run-shortcut:toggleDeafen"u8.ToArray();
+                    client.Send(bytes);
 
-            return process.ExitCode == 0;
+                    client.Shutdown(SocketShutdown.Both);
+                    client.Close();
+                    return true;
+                } 
+                default:
+                {
+                    if (!IsHyprland)
+                        return false;
+                    
+                    psi = new ProcessStartInfo
+                    {
+                        FileName = "hyprctl",
+                        Arguments = "dispatch sendshortcut CTRL+SHIFT,D,class:" + _settingsHandler.DiscordClient,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    };
+                    process = Process.Start(psi);
+                    if (process == null)
+                        return false;
+
+                    process.WaitForExit(600);
+
+                    return process.ExitCode == 0;
+                }
+            }
         }
         catch (Exception ex)
         {
             Serilog.Log.Error("sendshortcut failed: {ExMessage}", ex.Message);
             return false;
         }
+        return false;
     }
 
     /// <summary>
@@ -360,9 +389,9 @@ public class Deafen : IDisposable
 
             _lastToggleAt = DateTime.Now;
 
-            if (IsWayland && IsHyprland && !string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient))
+            if (PlatformHelper.IsLinux && !string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient))
             {
-                if (TryHyprlandSendShortcut())
+                if (TryLinuxClientSendShortcut())
                 {
                     _isDeafened = !_isDeafened;
                     if (_isDeafened) _deafenEnteredAt = DateTime.Now;
