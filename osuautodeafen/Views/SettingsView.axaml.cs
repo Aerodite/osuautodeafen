@@ -67,6 +67,7 @@ public partial class SettingsView : UserControl
     public SettingsView()
     {
         InitializeComponent();
+        DataContext = _viewModel;
     }
     public SettingsView(
         SettingsHandler settingsHandler,

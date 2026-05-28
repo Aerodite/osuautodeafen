@@ -6,8 +6,7 @@
     xmlns:helpers="clr-namespace:osuautodeafen.Helpers"
     xmlns:changelog="clr-namespace:osuautodeafen.Changelog"
     x:Class="osuautodeafen.Views.ChangelogView"
-    x:DataType="vm:ChangelogViewModel"
-    x:CompileBindings="False">
+    x:DataType="vm:ChangelogViewModel">
 
     <UserControl.Styles>
         <Style Selector="Button.changelog-ok">
@@ -283,13 +282,14 @@
 
                     </ScrollViewer>
 
-                    <Button
+                    <Button x:DataType="vm:ChangelogViewModel"
                         Grid.Row="2"
                         Content="Close"
                         Width="100"
                         HorizontalAlignment="Right"
                         HorizontalContentAlignment="Center"
                         Classes="changelog-ok"
+                        IsEnabled="True"
                         Command="{Binding DismissCommand}" />
 
                 </Grid>

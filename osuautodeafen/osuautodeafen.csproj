@@ -14,82 +14,85 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="AnimatedImage.Avalonia" Version="2.1.2" />
-        <PackageReference Include="AnimatedImage.Native" Version="2.1.2" />
-        <PackageReference Include="Avalonia.Controls.ItemsRepeater" Version="12.0.0" />
-        <PackageReference Include="Avalonia.Desktop" Version="12.0.3" />
-        <PackageReference Include="Avalonia.Fonts.Inter" Version="12.0.3" />
-        <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.3" />
-        <PackageReference Include="ini-parser" Version="2.5.2" />
-        <PackageReference Include="LiveChartsCore.SkiaSharpView" Version="2.1.0-dev-365" />
-        <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.1.0-dev-365" />
-        <PackageReference Include="Markdig" Version="0.44.0" />
-        <PackageReference Include="Newtonsoft.Json" Version="13.0.4-beta1" />
-        <PackageReference Include="ReactiveUI" Version="21.0.1" />
-        <PackageReference Include="Serilog" Version="4.3.1" />
-        <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
-        <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-        <PackageReference Include="SharpHook" Version="7.0.1" />
-        <PackageReference Include="SkiaSharp" Version="3.119.4-preview.1.1" />
-        <PackageReference Include="SkiaSharp.Views" Version="3.119.0" />
-        <PackageReference Include="Svg.Controls.Avalonia" Version="12.0.0.9" />
-        <PackageReference Include="Svg.Skia" Version="4.9.0" />
-        <PackageReference Include="Velopack" Version="0.0.1362-gfa48e3c" />
-        <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11" />
-        <PackageReference Include="ILMerge" Version="3.0.41" />
+        <PackageReference Include="AnimatedImage.Avalonia" Version="2.1.2"/>
+        <PackageReference Include="AnimatedImage.Native" Version="2.1.2"/>
+        <PackageReference Include="Avalonia.Controls.ItemsRepeater" Version="11.1.5"/>
+        <PackageReference Include="Avalonia.Desktop" Version="11.3.5"/>
+        <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.5"/>
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.5"/>
+        <PackageReference Include="ini-parser" Version="2.5.2"/>
+        <PackageReference Include="LiveChartsCore.SkiaSharpView" Version="2.0.0-rc5.4"/>
+        <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc5.4"/>
+        <PackageReference Include="Markdig" Version="0.44.0"/>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.4-beta1"/>
+        <PackageReference Include="ReactiveUI" Version="21.0.1"/>
+        <PackageReference Include="Serilog" Version="4.3.1"/>
+        <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1"/>
+        <PackageReference Include="Serilog.Sinks.File" Version="7.0.0"/>
+        <PackageReference Include="SharpHook" Version="7.0.1"/>
+        <PackageReference Include="SkiaSharp" Version="3.119.0"/>
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.0"/>
+        <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="3.119.0"/>
+        <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.0"/>
+        <PackageReference Include="SkiaSharp.Views" Version="3.119.0"/>
+        <PackageReference Include="Svg.Controls.Avalonia" Version="11.3.6.2"/>
+        <PackageReference Include="Svg.Skia" Version="3.0.6"/>
+        <PackageReference Include="Velopack" Version="0.0.1362-gfa48e3c"/>
+        <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11"/>
+        <PackageReference Include="ILMerge" Version="3.0.41"/>
     </ItemGroup>
 
     <ItemGroup>
-        <EmbeddedResource Include="Resources\autodeafen.svg" />
-        <EmbeddedResource Include="Resources\favicon.ico" />
-        <None Remove="Resources\favicon_d.ico" />
-        <EmbeddedResource Include="Resources\favicon_d.ico" />
+        <EmbeddedResource Include="Resources\autodeafen.svg"/>
+        <EmbeddedResource Include="Resources\favicon.ico"/>
+        <None Remove="Resources\favicon_d.ico"/>
+        <EmbeddedResource Include="Resources\favicon_d.ico"/>
     </ItemGroup>
 
     <ItemGroup>
-        <None Remove="Resources\oad.ico" />
-        <None Remove="Resources\osu_whitestroke.png" />
-        <None Remove="Icons\outline.png" />
-        <AvaloniaResource Include="Icons\outline.png" />
-        <AvaloniaResource Include="Icons\gear.svg" />
-        <None Remove="Icons\arrows.svg" />
-        <AvaloniaResource Include="Icons\arrows.svg" />
-        <None Remove="Icons\layer-group.svg" />
-        <AvaloniaResource Include="Icons\layer-group.svg" />
-        <None Remove="Icons\image.svg" />
-        <AvaloniaResource Include="Icons\image.svg" />
-        <None Remove="Icons\arrows-rotate.svg" />
-        <AvaloniaResource Include="Icons\arrows-rotate.svg" />
-        <None Remove="Icons\bug.svg" />
-        <AvaloniaResource Include="Icons\bug.svg" />
-        <None Remove="Icons\clock.svg" />
-        <AvaloniaResource Include="Icons\clock.svg" />
-        <None Remove="Icons\star.svg" />
-        <AvaloniaResource Include="Icons\star.svg" />
-        <None Remove="Icons\star-ranking.svg" />
-        <AvaloniaResource Include="Icons\star-ranking.svg" />
-        <None Remove="Icons\crown.svg" />
-        <AvaloniaResource Include="Icons\crown.svg" />
-        <None Remove="Icons\meteor.svg" />
-        <AvaloniaResource Include="Icons\meteor.svg" />
-        <None Remove="Icons\map-location.svg" />
-        <AvaloniaResource Include="Icons\map-location.svg" />
-        <None Remove="Icons\keyboard.svg" />
-        <AvaloniaResource Include="Icons\keyboard.svg" />
-        <None Remove="Icons\trash.svg" />
-        <AvaloniaResource Include="Icons\trash.svg" />
-        <None Remove="Icons\folder.svg" />
-        <AvaloniaResource Include="Icons\folder.svg" />
-        <None Remove="Icons\folder-open.svg" />
-        <AvaloniaResource Include="Icons\folder-open.svg" />
-        <None Remove="Icons\code.svg" />
-        <AvaloniaResource Include="Icons\code.svg" />
-        <None Remove="Icons\star-half.svg" />
-        <AvaloniaResource Include="Icons\star-half.svg" />
-        <None Remove="Icons\pause.svg" />
-        <AvaloniaResource Include="Icons\pause.svg" />
-        <None Remove="Icons\book.svg" />
-        <AvaloniaResource Include="Icons\book.svg" />
+        <None Remove="Resources\oad.ico"/>
+        <None Remove="Resources\osu_whitestroke.png"/>
+        <None Remove="Icons\outline.png"/>
+        <AvaloniaResource Include="Icons\outline.png"/>
+        <AvaloniaResource Include="Icons\gear.svg"/>
+        <None Remove="Icons\arrows.svg"/>
+        <AvaloniaResource Include="Icons\arrows.svg"/>
+        <None Remove="Icons\layer-group.svg"/>
+        <AvaloniaResource Include="Icons\layer-group.svg"/>
+        <None Remove="Icons\image.svg"/>
+        <AvaloniaResource Include="Icons\image.svg"/>
+        <None Remove="Icons\arrows-rotate.svg"/>
+        <AvaloniaResource Include="Icons\arrows-rotate.svg"/>
+        <None Remove="Icons\bug.svg"/>
+        <AvaloniaResource Include="Icons\bug.svg"/>
+        <None Remove="Icons\clock.svg"/>
+        <AvaloniaResource Include="Icons\clock.svg"/>
+        <None Remove="Icons\star.svg"/>
+        <AvaloniaResource Include="Icons\star.svg"/>
+        <None Remove="Icons\star-ranking.svg"/>
+        <AvaloniaResource Include="Icons\star-ranking.svg"/>
+        <None Remove="Icons\crown.svg"/>
+        <AvaloniaResource Include="Icons\crown.svg"/>
+        <None Remove="Icons\meteor.svg"/>
+        <AvaloniaResource Include="Icons\meteor.svg"/>
+        <None Remove="Icons\map-location.svg"/>
+        <AvaloniaResource Include="Icons\map-location.svg"/>
+        <None Remove="Icons\keyboard.svg"/>
+        <AvaloniaResource Include="Icons\keyboard.svg"/>
+        <None Remove="Icons\trash.svg"/>
+        <AvaloniaResource Include="Icons\trash.svg"/>
+        <None Remove="Icons\folder.svg"/>
+        <AvaloniaResource Include="Icons\folder.svg"/>
+        <None Remove="Icons\folder-open.svg"/>
+        <AvaloniaResource Include="Icons\folder-open.svg"/>
+        <None Remove="Icons\code.svg"/>
+        <AvaloniaResource Include="Icons\code.svg"/>
+        <None Remove="Icons\star-half.svg"/>
+        <AvaloniaResource Include="Icons\star-half.svg"/>
+        <None Remove="Icons\pause.svg"/>
+        <AvaloniaResource Include="Icons\pause.svg"/>
+        <None Remove="Icons\book.svg"/>
+        <AvaloniaResource Include="Icons\book.svg"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -99,6 +102,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <AvaloniaResource Include="Resources\osu_whitestroke.png" />
+        <AvaloniaResource Include="Resources\osu_whitestroke.png"/>
     </ItemGroup>
 </Project>

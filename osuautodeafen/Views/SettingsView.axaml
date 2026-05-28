@@ -7,11 +7,9 @@
              xmlns:controls="clr-namespace:osuautodeafen.Controls"
              xmlns:osuautodeafen="clr-namespace:osuautodeafen"
              xmlns:helpers="clr-namespace:osuautodeafen.Helpers"
-             x:CompileBindings="False"
              DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
 
     <UserControl.Resources>
-        <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
         <presets:AverageColorCycleConverter x:Key="AverageColorCycleConverter" />
         <presets:BackgroundPathToBrushConverter x:Key="BackgroundPathToBrushConverter" />
         <helpers:InverseBooleanConverter x:Key="InverseBooleanConverter" />
@@ -28,9 +26,9 @@
                          x:DataType="viewModels:SharedViewModel" />
 
         <ExperimentalAcrylicMaterial x:Key="AcrylicMaterial"
-                                     MaterialOpacity="0.2"
+                                     MaterialOpacity="0.10"
                                      TintColor="{Binding Source={StaticResource BaseBackgroundBrush}, Path=Color}"
-                                     TintOpacity="0.25" />
+                                     TintOpacity="1" />
     </UserControl.Resources>
 
     <UserControl.Styles>
@@ -80,7 +78,7 @@
                                     Data="M4,9 L8,13 L14,5"
                                     Stroke="White"
                                     StrokeThickness="2"
-                                    IsVisible="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}" />
+                                    IsVisible="{TemplateBinding IsChecked}" />
                             </Canvas>
                         </Border>
                         <ContentPresenter Content="{TemplateBinding Content}"
@@ -114,21 +112,7 @@
             <Border Width="200" CornerRadius="0,16,16,16" ClipToBounds="True">
                 <controls:BackdropBlurControl Width="200"
                                               Material="{StaticResource AcrylicMaterial}">
-                    <Grid>
-                        <Border IsHitTestVisible="False" Opacity="0.25">
-                            <Border.Background>
-                                <MultiBinding Converter="{StaticResource ColorBlendConverter}">
-            
-                                    <Binding Path="Color"
-                                             Source="{StaticResource BaseBackgroundBrush}" />
-
-                                    <Binding Path="AverageColorBrush.Color"/>
-
-                                </MultiBinding>
-                            </Border.Background>
-                        </Border>
-                        
-                        <ScrollViewer VerticalScrollBarVisibility="Visible">
+                    <ScrollViewer VerticalScrollBarVisibility="Visible" Margin="0,0,0,0">
                         <StackPanel HorizontalAlignment="Center">
                             <StackPanel Margin="0,5,0,0">
                                 <Border Height="20" Background="Transparent">
@@ -285,17 +269,16 @@
                                             PointerEntered="PresetCreate_PointerEnter"
                                             PointerExited="PresetCreate_PointerLeave">
                                         <Button.Content>
-                                            <StackPanel x:DataType="viewModels:SharedViewModel">
+                                            <StackPanel>
                                                 <TextBlock Text="Create Map Preset for"
                                                            TextAlignment="Center" />
-
                                                 <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                                                               VerticalScrollBarVisibility="Disabled"
                                                               Width="130">
-
                                                     <TextBlock Text="{Binding BeatmapName}"
                                                                Foreground="{Binding AverageColorBrush}"
-                                                               TextAlignment="Center"/>
+                                                               TextAlignment="Center"
+                                                               Classes="beatmap-name" />
                                                 </ScrollViewer>
                                             </StackPanel>
                                         </Button.Content>
@@ -345,6 +328,7 @@
                                     </Button>
                                     <Button x:Name="DeletePresetButton"
                                             Width="135"
+                                            Classes="DeletePresetButton"
                                             HorizontalAlignment="Left"
                                             FontSize="11"
                                             Margin="0"
@@ -365,7 +349,8 @@
                                                               Width="130">
                                                     <TextBlock Text="{Binding BeatmapName}"
                                                                Foreground="{Binding AverageColorBrush}"
-                                                               TextAlignment="Center"/>
+                                                               TextAlignment="Center"
+                                                               Classes="beatmap-name" />
                                                 </ScrollViewer>
                                             </StackPanel>
                                         </Button.Content>
@@ -608,22 +593,6 @@
                                           IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
                                           HorizontalAlignment="Left" Margin="0" Width="125" Classes="custom" />
                             </StackPanel>
-                            <!--
-                            maybe will come back in the future
-                            <StackPanel Orientation="Horizontal" Margin="10,0,0,0" HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        PointerEntered="KiaiEffectToggle_PointerEnter"
-                                        PointerExited="KiaiEffectToggle_PointerLeave"
-                                        x:Name="KiaiTogglePanel">
-                                <Svg Path="avares://osuautodeafen/Icons/star-half.svg" Width="26" Height="26"
-                                     Margin="0,0,5,0"
-                                     VerticalAlignment="Center" />
-                                <CheckBox x:Name="KiaiEffectToggle" Content="Kiai Effect" Foreground="White"
-                                          VerticalAlignment="Center"
-                                          IsChecked="{Binding IsKiaiEffectEnabled, Mode=TwoWay}"
-                                          IsEnabled="{Binding ElementName=BackgroundToggle, Path=IsChecked}"
-                                          HorizontalAlignment="Left" Margin="0" Width="125" Classes="custom" />
-                            </StackPanel>-->
 
                             <StackPanel Orientation="Horizontal" Margin="0" HorizontalAlignment="Center"
                                         x:Name="BlurEffectPanel">
@@ -767,8 +736,7 @@
                                 </Button>
                             </StackPanel>
                         </StackPanel>
-                        </ScrollViewer>
-                    </Grid>
+                    </ScrollViewer>
                 </controls:BackdropBlurControl>
             </Border>
         </DockPanel>
