@@ -19,13 +19,12 @@ Deafen on Discord when certain criteria are reached
 
 # Installation Steps
 
-> [!IMPORTANT]
+> [!NOTE]
 > Tosu is required to be open while osuautodeafen is running
 
 ## Windows
 
-1. Download the [latest release](https://github.com/Aerodite/osuautodeafen/releases/latest) (
-   osuautodeafen-win-Portable.zip)
+1. Download the [latest release](https://github.com/Aerodite/osuautodeafen/releases/latest) (osuautodeafen-win-Portable.zip)
 2. Unzip the folder
 3. Launch "osuautodeafen.exe" and wait for it to start
 4. Set the Deafen Keybind in the app to your Discord "Toggle Deafen" keybind
@@ -38,13 +37,12 @@ Deafen on Discord when certain criteria are reached
 4. Set the Deafen Keybind in the app to your Discord "Toggle Deafen" keybind*
 5. Modify the settings in the app to what you want!
 
-*If you're on Hyprland, you could set the discordClient line in the ~/.config/osuautodeafen/settings.ini to your Discord
-client and it will instead send the Toggle Deafen keybind straight through the compositor, which should allow the same
-behavior as Windows or X11.
+> [!IMPORTANT]
+> If you're on Linux, please read [this wiki page](https://github.com/Aerodite/osuautodeafen/wiki/Linux-and-Custom-Discord-Clients), as it gives more information as to how Deafening works and how to set up osuautodeafen correctly, especially for 3rd party Discord clients.
 
 <details>
   <summary>Linux Info</summary>
-Tested on Linux 6.16.4 (CachyOS x86_64, Hyprland) using osu!lazer and osu!stable (through osu-winello) with Tosu from the latest GitHub release running with 'sudo ./tosu'
+Tested on Linux 7.0.9-1 (CachyOS x86_64, Hyprland) using osu!lazer and osu!stable (through osu-winello) with Tosu from the latest GitHub release running with 'sudo ./tosu'
 </details>
 
 # Features
