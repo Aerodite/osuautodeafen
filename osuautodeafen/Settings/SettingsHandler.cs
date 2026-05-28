@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using IniParser;
@@ -15,13 +16,11 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     /// <summary>
     /// The last time SaveSettings was called
     /// </summary>
-    private DateTime _lastSettingSaveTime = DateTime.MinValue;
+    public DateTime LastSaveTime = DateTime.MinValue;
     /// <summary>
     /// The last setting that was changed in the ini
     /// </summary>
-    private string _lastSettingWrittenTo = new("");
-
-    private DispatcherTimer _debounceSaveTimer;
+    private string LastWrittenTo = new("");
     
     private readonly string _appPath;
     private readonly string _iniPath;
@@ -319,21 +318,25 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     public bool ReloadFromDisk()
     {
-        try
+        for (int i = 0; i < 3; i++)
         {
-            FileInfo info = new(_iniPath);
+            try
+            {
+                var info = new FileInfo(_iniPath);
+                if (!info.Exists || info.Length == 0)
+                    return false;
 
-            if (!info.Exists || info.Length == 0)
-                return false;
+                _mainData = _parser.ReadFile(_iniPath);
+                Data = _mainData;
+                return true;
+            }
+            catch (IOException)
+            {
+                Thread.Sleep(100);
+            }
+        }
 
-            _mainData = _parser.ReadFile(_iniPath);
-            Data = _mainData;
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
+        return false;
     }
 
     /// <summary>
@@ -411,7 +414,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindControlSide)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindAltSide)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindShiftSide)));
-
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DiscordClient)));
+        
         SettingsReloaded?.Invoke();
         DeafenKeybindChanged?.Invoke();
     }
@@ -446,8 +450,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
                 int.TryParse(targetData["Hotkeys"]["DeafenKeybindShiftSide"], out int shiftSide)
                     ? shiftSide
                     : 0;
-            _lastSettingSaveTime = DateTime.Now;
-            _lastSettingWrittenTo = key;
+            LastSaveTime = DateTime.Now;
+            LastWrittenTo = key;
         }
         catch (Exception e)
         {

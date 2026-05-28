@@ -150,7 +150,7 @@ public class TosuApi : IDisposable
     private async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
         await _connectLock.WaitAsync(cancellationToken);
-
+    
         try
         {
             SettingsHandler settings = new();

@@ -4,11 +4,8 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.WebSockets;
-using System.Reactive;
 using System.Reactive.Linq;
 using System.Reflection;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,7 +18,6 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using LiveChartsCore.Defaults;
@@ -191,7 +187,7 @@ public partial class MainWindow : Window
         HomeView = new HomeView();
         _settingsViewModel = new SettingsViewModel();
 
-        UpdateKeybindCaptureState(_settingsHandler);
+        UpdateKeybindCaptureState();
 
         _viewModel = new SharedViewModel(
             _tosuApi,
@@ -224,7 +220,7 @@ public partial class MainWindow : Window
             SettingsView
         );
 
-        _backgroundManager = new BackgroundManager(this, _viewModel, _tosuApi, SettingsView) 
+        _backgroundManager = new BackgroundManager(this, _viewModel, _tosuApi, _settingsHandler) 
         {
             LogoUpdater = null
         };
@@ -313,10 +309,19 @@ public partial class MainWindow : Window
         {
             Path = Path.GetDirectoryName(iniPath)!,
             Filter = Path.GetFileName(iniPath),
-            NotifyFilter = NotifyFilters.LastWrite
+            NotifyFilter =
+                NotifyFilters.LastWrite |
+                NotifyFilters.Size |
+                NotifyFilters.FileName
         };
 
         _settingsFileWatcher.Changed += OnSettingsFileChanged;
+        _settingsFileWatcher.Created += OnSettingsFileChanged;
+        // tyvm for the solution https://github.com/dotnet/runtime/issues/17626
+        // so tl;dr the reason this is necessary is because some file editors recreate a file and rename over -
+        // the file instead of just editing the file, this just accounts for that case (thanks geany 🙄)
+        _settingsFileWatcher.Renamed += OnSettingsFileChanged;
+        
         _settingsFileWatcher.EnableRaisingEvents = true;
 
         ExtendClientAreaToDecorationsHint = true;
@@ -475,8 +480,6 @@ public partial class MainWindow : Window
         _tosuApi.StateStream
             .Select(s => new
             {
-                s.BeatmapId,
-                s.BeatmapSetId,
                 s.BeatmapChecksum,
             })
             .DistinctUntilChanged()
@@ -516,7 +519,46 @@ public partial class MainWindow : Window
 
                     if (_backgroundManager != null) 
                         Dispatcher.UIThread.Post(() => 
-                            _ = _backgroundManager.UpdateBackground(null, null));
+                            _ = _backgroundManager.UpdateBackground(_isSettingsPanelOpen));
+                }
+                catch (Exception e)
+                {
+                    Log.Warning(e, "Exception occured while updating beatmap state");
+                }
+            });
+        
+        _tosuApi.StateStream
+            .Select(s => new
+            {
+                s.RawBanchoStatus,
+                s.RawLazerBanchoStatus,
+                s.Client
+            })
+            .DistinctUntilChanged()
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(async void (s) =>
+            {
+                try
+                {
+                    if (s.Client == "lazer")
+                    {
+                        _infoPanelLog.LogToInfoPanel("State: " + s.RawLazerBanchoStatus, false, "State");
+                    }
+                    else
+                    {
+                        _infoPanelLog.LogToInfoPanel("State: " + s.RawBanchoStatus, false, "State");
+                    }
+
+                    if (s.RawBanchoStatus == 2 || s.RawLazerBanchoStatus == 2)
+                    {
+                        // unfortunately I believe settingspanel being open while playing is kind of a drain on resources
+                        // might be reconsidered in future when I can actually optimize
+                        if (_isCogSpinning && _isSettingsPanelOpen)
+                        {
+                            await Dispatcher.UIThread.InvokeAsync(() => SettingsButton_Click(null, null));
+                        }
+                    }
+
                 }
                 catch (Exception e)
                 {
@@ -598,9 +640,7 @@ public partial class MainWindow : Window
                 s.ModNames,
                 s.Rate,
                 s.CurrentBpm,
-                s.RawBanchoStatus,
-                s.Client,
-                s.RawLazerBanchoStatus
+                s.Client
             })
             .DistinctUntilChanged()
             .Throttle(TimeSpan.FromMilliseconds(100))
@@ -612,13 +652,6 @@ public partial class MainWindow : Window
                 _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
                 _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
                 _infoPanelLog.LogToInfoPanel("Mods: " + s.ModNames, false, "Mods");
-                if (s.Client == "lazer")
-                {
-                    _infoPanelLog.LogToInfoPanel("State: " + s.RawLazerBanchoStatus, false, "State");
-                }
-                else {
-                    _infoPanelLog.LogToInfoPanel("State: " + s.RawBanchoStatus, false, "State");
-                }
                 _infoPanelLog.LogToInfoPanel("BPM: " + s.CurrentBpm, false, "BPM Changed");
 
                 _viewModel.UpdateMinPPValue();
@@ -724,29 +757,65 @@ public partial class MainWindow : Window
 
     private SharedViewModel ViewModel { get; }
 
-    private void UpdateKeybindCaptureState(SettingsHandler settingsHandler)
+    private void UpdateKeybindCaptureState()
     {
         if (PlatformHelper.IsLinux)
-            _settingsViewModel.IsKeybindCaptureEnabled =
-                string.IsNullOrWhiteSpace(settingsHandler.DiscordClient);
-        else
-            _settingsViewModel.IsKeybindCaptureEnabled = true;
-    }
-
-    private async void OnSettingsFileChanged(object? sender, FileSystemEventArgs e)
-    {
-        // let editor finish writing
-        await Task.Delay(300);
-
-        await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            if (!_settingsHandler!.ReloadFromDisk())
+            _settingsViewModel.IsKeybindCaptureEnabled = string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient);
+        }
+        else
+        {
+            _settingsViewModel.IsKeybindCaptureEnabled = true;
+        }
+    }
+    
+    private async Task ReloadSettingsSafe()
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            if (_settingsHandler != null && _settingsHandler.ReloadFromDisk())
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    string? oldDiscord = _settingsHandler.DiscordClient;
+
+                    _settingsHandler.LoadSettings();
+
+                    if (oldDiscord != _settingsHandler.DiscordClient)
+                    {
+                        UpdateKeybindCaptureState();
+                    }
+                });
                 return;
+            }
 
-            _settingsHandler.LoadSettings();
+            await Task.Delay(100);
+        }
+    }
+    
+    private CancellationTokenSource? _reloadCts;
 
-            UpdateKeybindCaptureState(_settingsHandler);
-        });
+    private void OnSettingsFileChanged(object? sender, FileSystemEventArgs e)
+    {
+        _reloadCts?.Cancel();
+        _reloadCts = new CancellationTokenSource();
+
+        CancellationToken token = _reloadCts.Token;
+
+        Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(300, token);
+
+                if (!token.IsCancellationRequested)
+                    await ReloadSettingsSafe();
+            }
+            catch (TaskCanceledException ex)
+            {
+                Log.Warning("Exception in OnSettingsFileChanged: " + ex);
+            }
+        }, token);
     }
 
     private void MainWindow_PointerMoved(object? sender, PointerEventArgs e)
@@ -821,7 +890,6 @@ public partial class MainWindow : Window
 
         _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
         _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
-        _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
 
         SettingsView.CompletionPercentageSlider.ValueChanged -=
             SettingsView.CompletionPercentageSlider_ValueChanged;
@@ -1056,28 +1124,6 @@ public partial class MainWindow : Window
         _tooltipManager.HideTooltip();
     }
 
-    private async Task UpdateSettingsOpacityAsync(string targetPage)
-    {
-        try
-        {
-            if (targetPage == "Home")
-            {
-                _opacity = 0;
-                _backgroundManager?.RemoveBackgroundOpacityRequest("settings");
-            }
-            else
-            {
-                _opacity = 0.5;
-                if (!_viewModel.IsKiaiEffectEnabled)
-                    await _backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150)!;
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error("SettingsPanel opacity failed to change with exception: {Exception}", ex);
-        }
-    }
-
     private async void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         string logFinishingText = _viewModel.PresetExistsForCurrentChecksum ? " to preset" : " to settings";
@@ -1113,7 +1159,7 @@ public partial class MainWindow : Window
 
                         double radius = _viewModel.BlurRadius;
                         CancellationToken token = _blurCts.Token;
-                        await _backgroundManager.BlurBackgroundAsync(blurEffect, radius, token);
+                        await BackgroundManager.BlurBackgroundAsync(blurEffect, radius, token);
                     }
 
                     break;
@@ -1125,33 +1171,11 @@ public partial class MainWindow : Window
                                     logFinishingText);
                     if (!_viewModel.IsBackgroundEnabled)
                     {
-                        _kiaiBrightnessTimer?.Stop();
-                        _kiaiBrightnessTimer = null;
-                        _backgroundManager?.RemoveBackgroundOpacityRequest("kiai");
+                        await _backgroundManager.SetBackgroundEnabledState(false, _isSettingsPanelOpen);
                     }
                     else
                     {
-                        await _backgroundManager?.UpdateBackground(null, null)!;
-
-                        /*if (_tosuApi._isKiai && _viewModel.IsKiaiEffectEnabled)
-                        {
-                            double bpm = _tosuApi.GetCurrentBpm();
-                            double intervalMs = 60000.0 / bpm;
-
-                            _kiaiBrightnessTimer?.Stop();
-                            _kiaiBrightnessTimer = new DispatcherTimer
-                            {
-                                Interval = TimeSpan.FromMilliseconds(intervalMs)
-                            };
-                            _kiaiBrightnessTimer.Tick += async (_, _) =>
-                            {
-                                _isKiaiPulseHigh = !_isKiaiPulseHigh;
-                                double opacityValue = _isKiaiPulseHigh ? 1.0 - _opacity : 0.95 - _opacity;
-                                await _backgroundManager.RequestBackgroundOpacity("kiai", opacityValue, 10000,
-                                    (int)(intervalMs / 4));
-                            };
-                            _kiaiBrightnessTimer.Start();
-                        }*/
+                        await _backgroundManager?.UpdateBackground(_isSettingsPanelOpen)!;
                     }
 
                     break;
@@ -1160,10 +1184,6 @@ public partial class MainWindow : Window
                     _settingsHandler?.SaveSetting("UI", "IsParallaxEnabled", _viewModel.IsParallaxEnabled);
                     Log.Information("Saved new ParallaxToggle state " + _viewModel.IsParallaxEnabled +
                                     logFinishingText);
-                    break;
-                case nameof(SharedViewModel.IsKiaiEffectEnabled):
-                    _settingsHandler?.SaveSetting("UI", "IsKiaiEffectEnabled", _viewModel.IsKiaiEffectEnabled);
-                    Log.Information("Saved new KiaiEffect state " + _viewModel.IsKiaiEffectEnabled + logFinishingText);
                     break;
                 case nameof(SharedViewModel.IsBreakUndeafenToggleEnabled):
                     _settingsHandler?.SaveSetting("Behavior", "IsBreakUndeafenToggleEnabled",
@@ -1221,9 +1241,9 @@ public partial class MainWindow : Window
                 .ToList();
         }
         
-        await Dispatcher.UIThread.InvokeAsync(() =>
+        await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage);
+            await _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage);
         });
     }
 
@@ -1792,7 +1812,7 @@ public partial class MainWindow : Window
 
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
                 debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
-                await UpdateSettingsOpacityAsync("Settings");
+                await _backgroundManager.SetBackgroundOpacity(0.25f, 200);
 
                 _isSettingsPanelOpen = true;
             }
@@ -1803,19 +1823,18 @@ public partial class MainWindow : Window
                     Task stopCogTask = StopCogSpinAsync(cogImage);
                     Task panelOutTask =
                         AnimatePanelOutAsync(settingsPanel, buttonContainer, hideMargin, buttonRightMargin);
-                    await Task.WhenAll(stopCogTask, panelOutTask);
+                    await Task.WhenAll(stopCogTask, panelOutTask, _backgroundManager.SetBackgroundOpacity(0.5f, 200));
                 }
                 else
                 {
                     await AnimatePanelOutAsync(settingsPanel, buttonContainer, hideMargin, buttonRightMargin);
                 }
-
+                
                 settingsPanel.IsVisible = false;
                 _viewModel.SwitchPage("Home");
-
+                
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
                 debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
-                await UpdateSettingsOpacityAsync("Home");
 
                 _isSettingsPanelOpen = false;
             }
@@ -1950,10 +1969,7 @@ public partial class MainWindow : Window
         if (!shouldAnimate) return;
 
         var tasks = new List<Task>();
-
-        if (!_viewModel.IsBackgroundEnabled)
-            tasks.Add(_backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150) ?? Task.CompletedTask);
-
+        
         tasks.Add(Dispatcher.UIThread.InvokeAsync(() =>
         {
             _ = AnimateGridLength(_viewModel.SettingsPanelWidth, new GridLength(200, GridUnitType.Pixel),
@@ -2004,9 +2020,6 @@ public partial class MainWindow : Window
         _panelAnimationLock.Release();
 
         if (!shouldAnimate) return;
-
-        if (!_viewModel.IsBackgroundEnabled)
-            _backgroundManager?.RemoveBackgroundOpacityRequest("settings");
 
         await Task.WhenAll(
             Dispatcher.UIThread.InvokeAsync(() =>
@@ -2083,119 +2096,7 @@ public partial class MainWindow : Window
             control.Margin = target;
         });
     }
-
-    /// <summary>
-    ///     Animates and scales the osuautodeafen logo when switching to/from the settings page (based on JKyrix's figma)
-    /// </summary>
-    /// <param name="toSettings">Whether we're going to the settings page or not</param>
-    private async Task AnimateLogoAsync(bool toSettings)
-    {
-        await _logoAnimationLock.WaitAsync();
-        try
-        {
-            if (LogoStackPanel.RenderTransform is not TransformGroup group)
-            {
-                group = new TransformGroup();
-                group.Children.Add(new TranslateTransform());
-                group.Children.Add(new ScaleTransform());
-                LogoStackPanel.RenderTransform = group;
-            }
-
-            TranslateTransform translate = group.Children.OfType<TranslateTransform>().FirstOrDefault() ??
-                                           new TranslateTransform();
-            ScaleTransform scale = group.Children.OfType<ScaleTransform>().FirstOrDefault() ?? new ScaleTransform();
-
-            const int steps = 30;
-            const int delayMs = 10;
-
-            double startX = translate.X;
-            double startY = translate.Y;
-
-            double targetX = toSettings ? -235 : 0;
-            double targetY = toSettings ? -125 : 0;
-
-            double startScale = scale.ScaleX;
-            // 80% scale appears to be fine?
-            double targetScale = toSettings ? 0.8 : 1.0;
-
-            _settingsButtonClicked?.Invoke();
-
-            for (int i = 1; i <= steps; i++)
-            {
-                double t = i / (double)steps;
-                double ease = t * t * (3 - 2 * t);
-
-                translate.X = startX + (targetX - startX) * ease;
-                translate.Y = startY + (targetY - startY) * ease;
-                scale.ScaleX = startScale + (targetScale - startScale) * ease;
-                scale.ScaleY = scale.ScaleX;
-
-                await Task.Delay(delayMs);
-            }
-
-            translate.X = targetX;
-            translate.Y = targetY;
-            scale.ScaleX = targetScale;
-            scale.ScaleY = targetScale;
-        }
-        finally
-        {
-            _logoAnimationLock.Release();
-        }
-    }
-
-    /// <summary>
-    ///     Animates the settings panel in or out based on the 'show' parameter
-    /// </summary>
-    /// <param name="versionPanel"></param>
-    /// <param name="show"></param>
-    /// <param name="settingsPanel"></param>
-    /// <param name="buttonContainer"></param>
-    private async Task AnimateSettingsPanelAsync(DockPanel settingsPanel, Border buttonContainer,
-        TextBlock versionPanel, bool show)
-    {
-        await _panelAnimationLock.WaitAsync();
-        bool shouldAnimate = show != _isSettingsPanelOpen;
-        if (shouldAnimate)
-            _isSettingsPanelOpen = show;
-        _panelAnimationLock.Release();
-
-        if (!shouldAnimate) return;
-
-        var tasks = new List<Task>();
-
-        if (!_viewModel.IsBackgroundEnabled)
-        {
-            Task? backgroundTask = null;
-
-            if (!_viewModel.IsBackgroundEnabled)
-            {
-                if (show)
-                    _backgroundManager?.RequestBackgroundOpacity("settings", 0.5, 10, 150);
-                else
-                    _backgroundManager?.RemoveBackgroundOpacityRequest("settings");
-            }
-
-            if (backgroundTask != null)
-                tasks.Add(backgroundTask);
-        }
-
-        Thickness settingsMargin = show ? new Thickness(200, 42, -200, 0) : new Thickness(-200, 42, 0, 0);
-        Thickness buttonMargin = new(0, 42, 0, 10);
-        Thickness logoMargin = show ? new Thickness(0, 0, 225, 0) : new Thickness(0, 0, 0, 0);
-        Thickness versionMargin = logoMargin;
-
-        tasks.Add(Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            AnimateMarginAsync(settingsPanel, settingsMargin, 250, new QuarticEaseInOut());
-            AnimateMarginAsync(buttonContainer, buttonMargin, 250, new QuarticEaseInOut());
-            AnimateMarginAsync(osuautodeafenLogoPanel, logoMargin, 500, new BackEaseOut());
-            AnimateMarginAsync(versionPanel, versionMargin, 600, new BackEaseOut());
-        }).GetTask());
-
-        await Task.WhenAll(tasks);
-    }
-
+    
     /// <summary>
     ///     Sets up the initial state and transitions for the debug console panel
     /// </summary>

@@ -143,7 +143,6 @@ public partial class SettingsView : UserControl
 
         _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
         _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
-        _viewModel.IsKiaiEffectEnabled = _settingsHandler.IsKiaiEffectEnabled;
 
         CompletionPercentageSlider.ValueChanged -= CompletionPercentageSlider_ValueChanged;
         StarRatingSlider.ValueChanged -= StarRatingSlider_ValueChanged;
@@ -692,7 +691,7 @@ public partial class SettingsView : UserControl
 
     private void DebugConsoleButton_Click(object sender, RoutedEventArgs e)
     {
-        MainWindow? window = this.GetVisualRoot() as MainWindow;
+        MainWindow? window = TopLevel.GetTopLevel(this) as MainWindow;
         window?.ToggleDebugConsole(sender, e);
     }
 

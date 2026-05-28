@@ -91,7 +91,6 @@ public class Deafen : IDisposable
     private DateTime _deafenEnteredAt = DateTime.MinValue;
     private bool _desiredDeafenState;
     private bool _hasAppliedFirstDeafen;
-    private bool _hasFirstHyprlandDeafenOccured;
     private bool _isDeafened;
     private DateTime _lastToggleAt = DateTime.MinValue;
 
@@ -244,33 +243,6 @@ public class Deafen : IDisposable
             : _tosuAPI.GetRawBanchoStatus();
     }
 
-    /// <summary>
-    ///     Function for the first time deafen event on hyprland, this is neccessary
-    ///     so that the app starts off at the right deafen state because of weird bugs with the dispatcher and such
-    /// </summary>
-    /// <remarks>
-    ///     (thanks discord for not allowing toggle deafens through the ipc 🙄)
-    /// </remarks>
-    private void TryFirstHyprlandDeafenEvent()
-    {
-        if (_hasFirstHyprlandDeafenOccured)
-            return;
-
-        // without this it will just go from undeafen -> deafened -> undeafened for whatever reason
-        bool initialEvent = TryHyprlandSendShortcut();
-        Thread.Sleep(150);
-        bool deafenEvent = TryHyprlandSendShortcut();
-
-        if (initialEvent || deafenEvent)
-        {
-            _isDeafened = _desiredDeafenState;
-            _deafenEnteredAt = DateTime.Now;
-            _lastToggleAt = DateTime.Now;
-        }
-
-        _hasFirstHyprlandDeafenOccured = true;
-    }
-
     private bool ComputeDeafenState()
     {
         int status = ClientBanchoStatus();
@@ -390,10 +362,6 @@ public class Deafen : IDisposable
 
             if (IsWayland && IsHyprland && !string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient))
             {
-                // ensures that the state will be correct first time it deafens
-                // (more explanation in the function)
-                TryFirstHyprlandDeafenEvent();
-
                 if (TryHyprlandSendShortcut())
                 {
                     _isDeafened = !_isDeafened;

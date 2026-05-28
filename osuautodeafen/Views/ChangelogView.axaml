@@ -6,7 +6,8 @@
     xmlns:helpers="clr-namespace:osuautodeafen.Helpers"
     xmlns:changelog="clr-namespace:osuautodeafen.Changelog"
     x:Class="osuautodeafen.Views.ChangelogView"
-    x:DataType="vm:ChangelogViewModel">
+    x:DataType="vm:ChangelogViewModel"
+    x:CompileBindings="False">
 
     <UserControl.Styles>
         <Style Selector="Button.changelog-ok">
@@ -168,7 +169,7 @@
             </Border>
         </DataTemplate>
 
-        <DataTemplate DataType="vm:ChangelogViewModel+VideoPreviewBlockModel">
+        <DataTemplate x:DataType="vm:ChangelogViewModel+VideoPreviewBlockModel">
             <StackPanel AttachedToVisualTree="VideoPreview_AttachedToVisualTree">
                 <Border Height="260"
                         CornerRadius="8"
@@ -188,10 +189,7 @@
                                 HorizontalAlignment="Right"
                                 VerticalAlignment="Top"
                                 Margin="8"
-                                Cursor="Hand"
-                                PointerEntered="VideoRedirect_PointerEntered"
-                                PointerExited="VideoRedirect_PointerExited"
-                                PointerMoved="VideoRedirect_PointerMoved">
+                                Cursor="Hand">
                             <TextBlock Text="↗"
                                        Foreground="White"
                                        FontSize="14" />
