@@ -380,6 +380,12 @@ public class TosuApi : IDisposable
                     stateProperty.TryGetProperty("number", out var lazerBanchoStateProperty))
                     rawLazerBanchoStatus = lazerBanchoStateProperty.GetInt32();
 
+                if (root.TryGetProperty("game", out var game))
+                {
+                    game.TryGetProperty("paused", out var pauseProperty);
+                    isPaused = pauseProperty.GetBoolean();
+                }
+
                 if (root.TryGetProperty("server", out var serverProperty))
                     server = serverProperty.GetString();
 

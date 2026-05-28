@@ -289,8 +289,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
             .GetKeyData("discordClient")
             .Comments.Add(
                 "Leave this blank if you want osuautodeafen to just try using keybinds directly on Linux,"
-                + " otherwise, specify the discord client you use (e.g. vesktop, equibop, discord) and osuautodeafen will try dispatching the command directly through your compositor"
-                + " (only hyprland at the moment since I think other compositors you could just set a global keybind)"
+                + " otherwise, specify the discord client you use (e.g. vesktop, equibop, discord) and osuautodeafen will try dispatching the command if you're on hyprland."
+                + " if you use Equibop or Vesktop (specifically global shortcuts branch), you can put 'equibop' or 'vesktop-global-shortcuts' here and it will directly deafen using the built in command"
+                + " see more info here: https://github.com/Aerodite/osuautodeafen/wiki/Linux-and-Custom-Discord-Clients"
             );
 
         data.Sections.AddSection("Updates");
