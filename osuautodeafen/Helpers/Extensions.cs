@@ -1,8 +1,6 @@
-using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.VisualTree;
 
 namespace osuautodeafen.Helpers;
 
@@ -47,10 +45,5 @@ public static class Extensions
         Point controlPoint = e.GetPosition(control);
         PixelPoint screenPoint = control.PointToScreen(controlPoint);
         return new Point(screenPoint.X - window.Position.X, screenPoint.Y - window.Position.Y);
-    }
-    
-    public static void SetValueSafe<T>(this T? obj, Action<T> setter) where T : class
-    {
-        if (obj != null) setter(obj);
     }
 }

@@ -12,16 +12,16 @@ public class GraphComparer : IEqualityComparer<TosuApi.GraphDataModel>
 
         for (int i = 0; i < a.Series.Count; i++)
         {
-            var sa = a.Series[i];
-            var sb = b.Series[i];
+            var seriesA = a.Series[i];
+            var seriesB = b.Series[i];
 
-            if (sa.Data is not null && sb.Data is not null && sa.Data.Count != sb.Data.Count)
+            if (seriesA.Data is not null && seriesB.Data is not null && seriesA.Data.Count != seriesB.Data.Count)
                 return false;
 
-            if (sa.Data != null)
-                for (int j = 0; j < sa.Data.Count; j++)
+            if (seriesA.Data != null)
+                for (int j = 0; j < seriesA.Data.Count; j++)
                 {
-                    if (sb.Data != null && sa.Data[j] != sb.Data[j])
+                    if (seriesB.Data != null && seriesA.Data[j] != seriesB.Data[j])
                         return false;
                 }
         }
