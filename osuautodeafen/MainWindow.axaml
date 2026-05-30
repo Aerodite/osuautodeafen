@@ -186,8 +186,9 @@
                 <StackPanel Orientation="Horizontal"
                             x:Name="osuautodeafenLogoPanel"
                             PointerEntered="LogoPanel_PointerEnter"
-                            PointerExited="LogoPanel_PointerExit">
-
+                            PointerExited="LogoPanel_PointerExit"
+                            Background="Transparent">
+                    
                     <Image Name="osuLogo"
                            Source="avares://osuautodeafen/Resources/osu_whitestroke.png"
                            Height="60" />
@@ -198,7 +199,7 @@
                              Css="{Binding AverageColorBrush, Converter={StaticResource BrushToCssConverter}}" />
                     </Grid>
                 </StackPanel>
-
+                
                 <TextBlock Text="{Binding CurrentAppVersion}"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"

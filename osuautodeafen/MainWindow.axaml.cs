@@ -15,7 +15,7 @@ using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
+using Avalonia.Rendering;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
@@ -70,14 +70,12 @@ public partial class MainWindow : Window
     private readonly KeybindHelper _keybindHelper = new();
     private readonly KiaiTimes _kiaiTimes = new();
     private readonly InfoPanelLog _infoPanelLog = new();
-
-    private readonly SemaphoreSlim _logoAnimationLock = new(1, 1);
+    
     private readonly DispatcherTimer _mainTimer;
     private readonly SemaphoreSlim _panelAnimationLock = new(1, 1);
 
     private readonly HashSet<Key> _pressedKeys = new();
     private readonly ProgressIndicatorHelper _progressIndicatorHelper;
-    private readonly Action? _settingsButtonClicked;
 
     private readonly FileSystemWatcher? _settingsFileWatcher;
     private readonly SettingsHandler? _settingsHandler;
@@ -105,11 +103,10 @@ public partial class MainWindow : Window
     private bool _isCogSpinning;
 
     public bool _isDebugConsoleOpen;
-    private bool _isKiaiPulseHigh;
 
     private bool _isLogoHovered;
+    private bool _isLogoDragging;
     private bool _isSettingsPanelOpen;
-    private DispatcherTimer? _kiaiBrightnessTimer;
     private List<string> _lastDisplayedLogs = [];
     private GraphData? _lastGraphData;
     private Key _lastKeyPressed = Key.None;
@@ -123,8 +120,8 @@ public partial class MainWindow : Window
     private bool _tooltipOutsideBounds;
 
     private bool _versionPanelShown;
-
-    public Image? NormalBackground;
+    
+    private LogoProperties? _logoSpringController;
 
     public MainWindow()
     {
@@ -350,6 +347,13 @@ public partial class MainWindow : Window
             const int titleBarHeight = 34;
             if (point.Y <= titleBarHeight) BeginMoveDrag(e);
         };
+        
+        _logoSpringController = new LogoProperties(LogoStackPanel, osuautodeafenLogoPanel);
+        _logoSpringController.DragStateChanged += dragging =>
+        {
+            _isLogoDragging = dragging;
+            UpdateVersionPanelVisibility();
+        };
 
         CheckBox? FCToggle = SettingsView.FindControl<CheckBox>("FCToggle");
         StackPanel? undeafenPanel = SettingsView.FindControl<StackPanel>("UndeafenOnMissPanel");
@@ -510,10 +514,10 @@ public partial class MainWindow : Window
                     else
                     {
                         await Dispatcher.UIThread.InvokeAsync(() => 
-                            { 
-                                _settingsHandler.DeactivatePreset(); 
-                                _settingsHandler.LoadSettings(); 
-                            });
+                        { 
+                            _settingsHandler.DeactivatePreset(); 
+                            _settingsHandler.LoadSettings(); 
+                        });
                     }
 
                     if (_backgroundManager != null) 
@@ -1490,27 +1494,24 @@ public partial class MainWindow : Window
             _updateChecker?.Mgr.ApplyUpdatesAndRestart(_updateChecker.UpdateInfo);
     }
 
-    private void SetVersionPanelState(bool show)
-    {
-        if (_versionPanelShown == show)
-            return;
-
-        _versionPanelShown = show;
-        AnimateVersionPanel(show);
-    }
-
     private void LogoPanel_PointerEnter(object sender, PointerEventArgs e)
     {
         _isLogoHovered = true;
-        SetVersionPanelState(true);
+        UpdateVersionPanelVisibility();
     }
 
     private void LogoPanel_PointerExit(object sender, PointerEventArgs e)
     {
         _isLogoHovered = false;
-        SetVersionPanelState(false);
+        UpdateVersionPanelVisibility();
     }
 
+    private void UpdateVersionPanelVisibility()
+    {
+        bool shouldShow = _isLogoHovered || _isLogoDragging;
+        AnimateVersionPanel(shouldShow);
+    }
+    
     private async void AnimateVersionPanel(bool show)
     {
         TextBlock? versionPanel = this.FindControl<TextBlock>("VersionPanel");
@@ -1573,16 +1574,7 @@ public partial class MainWindow : Window
                key == Key.LeftShift || key == Key.RightShift;
     }
     
-    private SKSvg LoadSkSvgResource(string resourceName)
-    {
-        using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
-                              ?? throw new FileNotFoundException("Resource not found: " + resourceName);
-        SKSvg svg = new();
-        svg.Load(stream);
-        return svg;
-    }
-    
-    private async void InitializeLogo()
+    private void InitializeLogo()
     {
         try
         {
@@ -1595,26 +1587,6 @@ public partial class MainWindow : Window
         {
             Log.Error("Exception while initializing logo updater: {ExMessage}", ex.Message);
         }
-    }
-
-    /// <summary>
-    ///     Loads an SVG logo from embedded resources and converts it to a Bitmap
-    /// </summary>
-    /// <param name="resourceName"></param>
-    /// <returns></returns>
-    /// <exception cref="FileNotFoundException"></exception>
-    /// <exception cref="InvalidOperationException"></exception>
-    private Task<Bitmap> LoadLogoAsync(string resourceName)
-    {
-        using Stream resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
-                                      ?? throw new FileNotFoundException("Resource not found: " + resourceName);
-
-        SKSvg svg = new();
-        svg.Load(resourceStream);
-
-        return Task.FromResult(svg.Picture == null
-            ? throw new InvalidOperationException("Failed to load SVG picture.")
-            : ConvertSvgToBitmap(svg, 100, 100));
     }
     
     private Bitmap ConvertSvgToBitmap(SKSvg svg, int width, int height)
@@ -1652,7 +1624,6 @@ public partial class MainWindow : Window
     {
         _mainTimer?.Stop();
         _cogSpinTimer?.Stop();
-        _kiaiBrightnessTimer?.Stop();
         _tosuApi.Dispose();
     }
     
