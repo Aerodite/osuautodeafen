@@ -10,6 +10,7 @@ using Avalonia.Media;
 using Avalonia.Controls;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using osuautodeafen.Helpers.Animations;
 
 namespace osuautodeafen.Logo;
 
@@ -24,12 +25,15 @@ public class LogoProperties : IDisposable
     private readonly StackPanel _osuautodeafenLogoPanel;
     private readonly CompositeDisposable _disposables = new();
     
+    private bool _isHovering;
     private bool _isDragging;
-    private Point _startMousePos;
     
+    private Point _startMousePos;
     public event Action<bool>? DragStateChanged;
     
     private CancellationTokenSource? _animCancelToken;
+    
+    private readonly SizeAnimator _sizeAnimator = new();
 
     public LogoProperties(StackPanel logoStackPanel, StackPanel osuautodeafenLogoPanel)
     {
@@ -39,17 +43,22 @@ public class LogoProperties : IDisposable
         var pressedStream = Observable.FromEventPattern<PointerPressedEventArgs>(osuautodeafenLogoPanel, nameof(osuautodeafenLogoPanel.PointerPressed));
         var movedStream = Observable.FromEventPattern<PointerEventArgs>(osuautodeafenLogoPanel, nameof(osuautodeafenLogoPanel.PointerMoved));
         var releasedStream = Observable.FromEventPattern<PointerReleasedEventArgs>(osuautodeafenLogoPanel, nameof(osuautodeafenLogoPanel.PointerReleased));
+        var exitedStream = Observable.FromEventPattern<PointerEventArgs>(osuautodeafenLogoPanel, nameof(osuautodeafenLogoPanel.PointerExited));
         
         pressedStream
             .Subscribe(ep => Dispatcher.UIThread.Post(() => OnPointerPressed(ep.EventArgs), DispatcherPriority.Input))
             .DisposeWith(_disposables);
-
+        
+        releasedStream
+            .Subscribe(ep => Dispatcher.UIThread.Post(() => OnPointerReleased(ep.EventArgs), DispatcherPriority.Input))
+            .DisposeWith(_disposables);
+        
         movedStream
             .Subscribe(ep => Dispatcher.UIThread.Post(() => OnPointerMoved(ep.EventArgs), DispatcherPriority.Input))
             .DisposeWith(_disposables);
-
-        releasedStream
-            .Subscribe(ep => Dispatcher.UIThread.Post(() => OnPointerReleased(ep.EventArgs), DispatcherPriority.Input))
+        
+        exitedStream
+            .Subscribe(ep => Dispatcher.UIThread.Post(() => OnPointerExited(ep.EventArgs), DispatcherPriority.Input))
             .DisposeWith(_disposables);
     }
 
@@ -78,8 +87,21 @@ public class LogoProperties : IDisposable
 
     private void OnPointerMoved(PointerEventArgs e)
     {
-        if (!_isDragging) return;
+        if (!_isDragging)
+        {
+            if (!_isHovering)
+            {
+                _isHovering = true;
+                
+                // osu! uses 1.1f but it feels like a bit too big of a difference
+                //https://github.com/ppy/osu/blob/master/osu.Game/Screens/Menu/OsuLogo.cs#L419
+                _sizeAnimator.AnimateScale(_logoStackPanel,1.04f, 500, new ElasticEaseOut());
+            }
+            return;
+        }
         
+        _isHovering = false; 
+
         Point currentMousePos = e.GetPosition(_osuautodeafenLogoPanel);
         
         Vector change = currentMousePos - _startMousePos;
@@ -101,13 +123,38 @@ public class LogoProperties : IDisposable
     private void OnPointerReleased(PointerReleasedEventArgs e)
     {
         if (!_isDragging) return;
-        
+    
         _isDragging = false;
         e.Pointer.Capture(null);
-            
+        
         DragStateChanged?.Invoke(false);
 
         ReturnToCenter();
+        
+        Point pointerPos = e.GetPosition(_osuautodeafenLogoPanel);
+        Rect bounds = _osuautodeafenLogoPanel.Bounds;
+    
+        if (bounds.Contains(pointerPos))
+        {
+            _isHovering = true;
+            _sizeAnimator.AnimateScale(_logoStackPanel,1.04f, 500, new ElasticEaseOut());
+        }
+        else
+        {
+            _isHovering = false;
+            _sizeAnimator.AnimateScale(_logoStackPanel,1.0f, 500, new ElasticEaseOut());
+        }
+    }
+    
+    private void OnPointerExited(PointerEventArgs e)
+    {
+        if (_isDragging) return;
+    
+        if (_isHovering)
+        {
+            _isHovering = false;
+            _sizeAnimator.AnimateScale(_logoStackPanel,1.0f, 500, new ElasticEaseOut());
+        }
     }
     
     /// <summary>
