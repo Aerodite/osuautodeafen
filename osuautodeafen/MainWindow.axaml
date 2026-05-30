@@ -26,9 +26,7 @@
     
     <Window.Resources>
         <helpers:NullToBoolConverter x:Key="NullToBoolConverter" />
-        <presets:AverageColorCycleConverter x:Key="AverageColorCycleConverter" />
-        <presets:BackgroundPathToBrushConverter x:Key="BackgroundPathToBrushConverter" />
-        <helpers:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+        <helpers:BrushToCssConverter x:Key="BrushToCssConverter"></helpers:BrushToCssConverter>
         <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
         <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
@@ -185,13 +183,23 @@
                     </TransformGroup>
                 </StackPanel.RenderTransform>
 
-                <StackPanel Orientation="Horizontal" x:Name="osuautodeafenLogoPanel"
+                <StackPanel Orientation="Horizontal"
+                            x:Name="osuautodeafenLogoPanel"
                             PointerEntered="LogoPanel_PointerEnter"
-                            PointerExited="LogoPanel_PointerExit">
-                    <Image Name="osuLogo" Source="avares://osuautodeafen/Resources/osu_whitestroke.png" Height="60" />
-                    <ContentControl Name="LogoHost" />
-                </StackPanel>
+                            PointerExited="LogoPanel_PointerExit"
+                            Background="Transparent">
+                    
+                    <Image Name="osuLogo"
+                           Source="avares://osuautodeafen/Resources/osu_whitestroke.png"
+                           Height="60" />
 
+                    <Grid Width="240" Height="72">
+                        <Svg Path="avares://osuautodeafen/Resources/autodeafen.svg"
+                             Stretch="Uniform"
+                             Css="{Binding AverageColorBrush, Converter={StaticResource BrushToCssConverter}}" />
+                    </Grid>
+                </StackPanel>
+                
                 <TextBlock Text="{Binding CurrentAppVersion}"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"

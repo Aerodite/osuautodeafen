@@ -15,7 +15,7 @@ using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
+using Avalonia.Rendering;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
@@ -70,14 +70,12 @@ public partial class MainWindow : Window
     private readonly KeybindHelper _keybindHelper = new();
     private readonly KiaiTimes _kiaiTimes = new();
     private readonly InfoPanelLog _infoPanelLog = new();
-
-    private readonly SemaphoreSlim _logoAnimationLock = new(1, 1);
+    
     private readonly DispatcherTimer _mainTimer;
     private readonly SemaphoreSlim _panelAnimationLock = new(1, 1);
 
     private readonly HashSet<Key> _pressedKeys = new();
     private readonly ProgressIndicatorHelper _progressIndicatorHelper;
-    private readonly Action? _settingsButtonClicked;
 
     private readonly FileSystemWatcher? _settingsFileWatcher;
     private readonly SettingsHandler? _settingsHandler;
@@ -105,17 +103,15 @@ public partial class MainWindow : Window
     private bool _isCogSpinning;
 
     public bool _isDebugConsoleOpen;
-    private bool _isKiaiPulseHigh;
 
     private bool _isLogoHovered;
+    private bool _isLogoDragging;
     private bool _isSettingsPanelOpen;
-    private DispatcherTimer? _kiaiBrightnessTimer;
     private List<string> _lastDisplayedLogs = [];
     private GraphData? _lastGraphData;
     private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
-
-    private LogoControl? _logoControl;
+    
     private DispatcherTimer? _logUpdateTimer;
 
     private DispatcherTimer? _modifierOnlyTimer;
@@ -124,8 +120,8 @@ public partial class MainWindow : Window
     private bool _tooltipOutsideBounds;
 
     private bool _versionPanelShown;
-
-    public Image? NormalBackground;
+    
+    private LogoProperties? _logoSpringController;
 
     public MainWindow()
     {
@@ -351,6 +347,13 @@ public partial class MainWindow : Window
             const int titleBarHeight = 34;
             if (point.Y <= titleBarHeight) BeginMoveDrag(e);
         };
+        
+        _logoSpringController = new LogoProperties(LogoStackPanel, osuautodeafenLogoPanel);
+        _logoSpringController.DragStateChanged += dragging =>
+        {
+            _isLogoDragging = dragging;
+            UpdateVersionPanelVisibility();
+        };
 
         CheckBox? FCToggle = SettingsView.FindControl<CheckBox>("FCToggle");
         StackPanel? undeafenPanel = SettingsView.FindControl<StackPanel>("UndeafenOnMissPanel");
@@ -511,10 +514,10 @@ public partial class MainWindow : Window
                     else
                     {
                         await Dispatcher.UIThread.InvokeAsync(() => 
-                            { 
-                                _settingsHandler.DeactivatePreset(); 
-                                _settingsHandler.LoadSettings(); 
-                            });
+                        { 
+                            _settingsHandler.DeactivatePreset(); 
+                            _settingsHandler.LoadSettings(); 
+                        });
                     }
 
                     if (_backgroundManager != null) 
@@ -762,7 +765,7 @@ public partial class MainWindow : Window
     {
         if (PlatformHelper.IsLinux)
         {
-            _settingsViewModel.IsKeybindCaptureEnabled = string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient);
+            _settingsViewModel.IsKeybindCaptureEnabled = string.IsNullOrWhiteSpace(_settingsHandler?.DiscordClient);
         }
         else
         {
@@ -836,7 +839,7 @@ public partial class MainWindow : Window
         PixelPoint screenPoint = PlotView.PointToScreen(pixelPoint);
         Point windowPoint = new(screenPoint.X - window.Position.X, screenPoint.Y - window.Position.Y);
 
-        _backgroundManager.ApplyParallax(windowPoint.X, windowPoint.Y);
+        _backgroundManager?.ApplyParallax(windowPoint.X, windowPoint.Y);
 
         // this is really stupid but it just prevents the case where the straingraph's tooltips attempt to show in areas outside of the straingraph
         if (currentTooltipType == osuautodeafen.Tooltips.Tooltips.TooltipType.Time ||
@@ -916,7 +919,6 @@ public partial class MainWindow : Window
 
         SettingsView.BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
         SettingsView.ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
-        //SettingsView.KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
 
         _settingsViewModel.DeafenKeybind = new HotKey
         {
@@ -933,14 +935,12 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///     Slides the sub-toggle control in or out of view
+    ///     Slides a specified sub-toggle control in or out of view
     /// </summary>
     /// <param name="target"></param>
     /// <param name="show"></param>
     private static async Task ShowSubToggle(Control target, bool show)
     {
-        if (target == null) return;
-
         await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             if (target.RenderTransform == null || target.RenderTransform is not TranslateTransform)
@@ -1089,10 +1089,7 @@ public partial class MainWindow : Window
             }
         }, _frameCts.Token);
     }
-
-    /// <summary>
-    ///     Stops the frame timer for debug panel
-    /// </summary>
+    
     private void StopStableFrameTimer()
     {
         _frameCts?.Cancel();
@@ -1215,11 +1212,7 @@ public partial class MainWindow : Window
             Log.Error("Exception in ViewModel_PropertyChanged: {Exception}", ex);
         }
     }
-
-    /// <summary>
-    ///     Handles updates to the graph data and refreshes the strain graph
-    /// </summary>
-    /// <param name="graphData"></param>
+    
     private async Task OnGraphDataUpdated(TosuApi.GraphDataModel? graphData)
     {
         if (graphData == null || graphData.Series.Count < 2)
@@ -1250,7 +1243,6 @@ public partial class MainWindow : Window
 
     private async void InitializeViewModel()
     {
-        //await CheckForUpdates();
         DataContext = ViewModel;
     }
 
@@ -1439,10 +1431,7 @@ public partial class MainWindow : Window
             flyout?.Hide();
         }
     }
-
-    /// <summary>
-    ///     Downloads the newest version from GitHub while ensuring a nice progress bar is visible
-    /// </summary>
+    
     private async Task DownloadUpdateWithProgressAsync()
     {
         int minDisplayMs = 1500;
@@ -1505,27 +1494,24 @@ public partial class MainWindow : Window
             _updateChecker?.Mgr.ApplyUpdatesAndRestart(_updateChecker.UpdateInfo);
     }
 
-    private void SetVersionPanelState(bool show)
-    {
-        if (_versionPanelShown == show)
-            return;
-
-        _versionPanelShown = show;
-        AnimateVersionPanel(show);
-    }
-
     private void LogoPanel_PointerEnter(object sender, PointerEventArgs e)
     {
         _isLogoHovered = true;
-        SetVersionPanelState(true);
+        UpdateVersionPanelVisibility();
     }
 
     private void LogoPanel_PointerExit(object sender, PointerEventArgs e)
     {
         _isLogoHovered = false;
-        SetVersionPanelState(false);
+        UpdateVersionPanelVisibility();
     }
 
+    private void UpdateVersionPanelVisibility()
+    {
+        bool shouldShow = _isLogoHovered || _isLogoDragging;
+        AnimateVersionPanel(shouldShow);
+    }
+    
     private async void AnimateVersionPanel(bool show)
     {
         TextBlock? versionPanel = this.FindControl<TextBlock>("VersionPanel");
@@ -1574,117 +1560,35 @@ public partial class MainWindow : Window
                 versionPanel.IsVisible = false;
         });
     }
-
-    /// <summary>
-    ///     Main timer that handles checking states in the API
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
+    
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
         _kiaiTimes.UpdateKiaiPeriodState(_tosuApi.GetCurrentTime());
     }
-
-    /// <summary>
-    ///     Determines if the pressed key is a modifier key
-    /// </summary>
-    /// <param name="key"></param>
-    /// <returns></returns>
+    
     private bool IsModifierKey(Key key)
     {
         return key == Key.LeftCtrl || key == Key.RightCtrl ||
                key == Key.LeftAlt || key == Key.RightAlt ||
                key == Key.LeftShift || key == Key.RightShift;
     }
-
-    /// <summary>
-    ///     Loads an SVG resource as an SKSvg object
-    /// </summary>
-    /// <param name="resourceName"></param>
-    /// <returns></returns>
-    /// <exception cref="FileNotFoundException"></exception>
-    private SKSvg LoadSkSvgResource(string resourceName)
+    
+    private void InitializeLogo()
     {
-        using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
-                              ?? throw new FileNotFoundException("Resource not found: " + resourceName);
-        SKSvg svg = new();
-        svg.Load(stream);
-        return svg;
-    }
-
-    /// <summary>
-    ///     Initializes the logo control
-    /// </summary>
-    private async void InitializeLogo()
-    {
-        const string resourceName = "osuautodeafen.Resources.autodeafen.svg";
         try
         {
-            SKSvg svg = await Task.Run(() => LoadSkSvgResource(resourceName));
-
-            if (_logoControl == null)
-                _logoControl = new LogoControl
-                {
-                    Width = 240,
-                    Height = 72,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-            _logoControl.Svg = svg;
-            _logoControl.ModulateColor = SKColors.White;
-
-            ContentControl? logoHost = this.FindControl<ContentControl>("LogoHost");
-            if (logoHost != null)
-                logoHost.Content = _logoControl;
-
             _backgroundManager!.LogoUpdater =
-                new LogoUpdater(_getLowResBackground, _logoControl, ViewModel, LoadSkSvgResource);
+                new LogoUpdater(_getLowResBackground, ViewModel);
 
-            Log.Information("SVG loaded successfully.");
+            Log.Information("LogoUpdater initialized.");
         }
         catch (Exception ex)
         {
-            Log.Error("Exception while loading logo image: {ExMessage}", ex.Message);
-            try
-            {
-                await RetryLoadLogoAsync(resourceName);
-            }
-            catch (Exception retryEx)
-            {
-                Log.Error("RetryLoadLogoAsync failed: {RetryExMessage}", retryEx.Message);
-            }
+            Log.Error("Exception while initializing logo updater: {ExMessage}", ex.Message);
         }
     }
-
-    /// <summary>
-    ///     Loads an SVG logo from embedded resources and converts it to a Bitmap
-    /// </summary>
-    /// <param name="resourceName"></param>
-    /// <returns></returns>
-    /// <exception cref="FileNotFoundException"></exception>
-    /// <exception cref="InvalidOperationException"></exception>
-    private Task<Bitmap> LoadLogoAsync(string resourceName)
-    {
-        using Stream resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
-                                      ?? throw new FileNotFoundException("Resource not found: " + resourceName);
-
-        SKSvg svg = new();
-        svg.Load(resourceStream);
-
-        return Task.FromResult(svg.Picture == null
-            ? throw new InvalidOperationException("Failed to load SVG picture.")
-            : ConvertSvgToBitmap(svg, 100, 100));
-    }
-
-    /// <summary>
-    ///     Converts an SKSvg object to a Bitmap with specified dimensions
-    /// </summary>
-    /// <param name="svg"></param>
-    /// <param name="width"></param>
-    /// <param name="height"></param>
-    /// <returns></returns>
-    /// <exception cref="ArgumentNullException"></exception>
-    /// <exception cref="InvalidOperationException"></exception>
+    
     private Bitmap ConvertSvgToBitmap(SKSvg svg, int width, int height)
     {
         if (svg == null)
@@ -1715,70 +1619,14 @@ public partial class MainWindow : Window
             throw;
         }
     }
-
-    /// <summary>
-    ///     Retries loading the logo multiple times in case of failure
-    /// </summary>
-    /// <param name="resourceName"></param>
-    private async Task RetryLoadLogoAsync(string resourceName)
-    {
-        const int maxRetries = 3;
-        int retryCount = 0;
-        bool success = false;
-
-        while (retryCount < maxRetries && !success)
-            try
-            {
-                retryCount++;
-                Log.Debug($"Retrying to load logo... Attempt {retryCount}");
-                Bitmap logoImage = await LoadLogoAsync(resourceName);
-                UpdateViewModelWithLogo(logoImage);
-                success = true;
-            }
-            catch (Exception retryEx)
-            {
-                Log.Error("Logo load retry {RetryCount} failed: {RetryExMessage}", retryCount, retryEx.Message);
-                if (retryCount >= maxRetries)
-                {
-                    Log.Error("Exception while loading logo after {MaxRetries} attempts: {RetryExMessage}", maxRetries,
-                        retryEx.Message);
-                    return;
-                }
-            }
-    }
-
-    /// <summary>
-    ///     Updates the ViewModel with the loaded logo image
-    /// </summary>
-    /// <param name="logoImage"></param>
-    private void UpdateViewModelWithLogo(Bitmap logoImage)
-    {
-        SharedViewModel? viewModel = DataContext as SharedViewModel;
-        if (viewModel != null)
-        {
-            viewModel.ModifiedLogoImage = logoImage;
-            Log.Debug("ViewModel Logo Updated");
-        }
-    }
-
-    /// <summary>
-    ///     Handles the closing event of the main window to clean up resources
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
+    
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
         _mainTimer?.Stop();
         _cogSpinTimer?.Stop();
-        _kiaiBrightnessTimer?.Stop();
         _tosuApi.Dispose();
     }
-
-    /// <summary>
-    ///     Shows or hides the settings panel if the button is clicked
-    /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
+    
     private async void SettingsButton_Click(object? sender, RoutedEventArgs? e)
     {
         try
@@ -1813,7 +1661,8 @@ public partial class MainWindow : Window
 
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
                 debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
-                await _backgroundManager.SetBackgroundOpacity(0.25f, 200);
+                if (_backgroundManager != null) 
+                    await _backgroundManager.SetBackgroundOpacity(0.25f, 200);
 
                 _isSettingsPanelOpen = true;
             }
@@ -1824,7 +1673,9 @@ public partial class MainWindow : Window
                     Task stopCogTask = StopCogSpinAsync(cogImage);
                     Task panelOutTask =
                         AnimatePanelOutAsync(settingsPanel, buttonContainer, hideMargin, buttonRightMargin);
-                    await Task.WhenAll(stopCogTask, panelOutTask, _backgroundManager.SetBackgroundOpacity(0.5f, 200));
+                    if (_backgroundManager != null)
+                        await Task.WhenAll(stopCogTask, panelOutTask,
+                            _backgroundManager.SetBackgroundOpacity(0.5f, 200));
                 }
                 else
                 {
@@ -1846,13 +1697,13 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task AnimateAngleAsync(
+    private static async Task AnimateAngleAsync(
         RotateTransform rotate,
         double targetAngle,
         CancellationToken token)
     {
         double start = rotate.Angle;
-        double durationMs = 150;
+        const double durationMs = 150;
         double elapsed = 0;
 
         const int frameMs = 16;
@@ -1875,16 +1726,23 @@ public partial class MainWindow : Window
 
     private async void SettingsButtonImage_PointerEnter(object sender, PointerEventArgs e)
     {
-        if (_isCogSpinning)
-            return;
-
-        await _cogAnimator.RunAsync(async token =>
+        try
         {
-            await EnsureCogCenterAsync(SettingsCogImage);
+            if (_isCogSpinning)
+                return;
 
-            if (SettingsCogImage.RenderTransform is RotateTransform rotate)
-                await AnimateAngleAsync(rotate, HoverAngle, token);
-        });
+            await _cogAnimator.RunAsync(async token =>
+            {
+                await EnsureCogCenterAsync(SettingsCogImage);
+
+                if (SettingsCogImage.RenderTransform is RotateTransform rotate)
+                    await AnimateAngleAsync(rotate, HoverAngle, token);
+            });
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Exception while entering the SettingsButton bounds: " + ex);
+        }
     }
 
     private async void SettingsButtonImage_PointerLeave(object sender, PointerEventArgs e)
@@ -2054,7 +1912,7 @@ public partial class MainWindow : Window
             }).GetTask());
     }
 
-    private async Task AnimateGridLength(
+    private static async Task AnimateGridLength(
         GridLength from, GridLength to, TimeSpan duration, Action<GridLength> setter)
     {
         const int fps = 60;
@@ -2072,50 +1930,21 @@ public partial class MainWindow : Window
 
         setter(to);
     }
-
-    /// <summary>
-    ///     Changes the margin of any Avalonia control to a specified target margin
-    /// </summary>
-    /// <param name="control"></param>
-    /// <param name="target"></param>
-    /// <param name="durationMs"></param>
-    /// <param name="easing"></param>
-    private async Task AnimateMarginAsync(Control control, Thickness target, double durationMs, Easing easing)
-    {
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            control.Transitions =
-            [
-                new ThicknessTransition
-                {
-                    Property = MarginProperty,
-                    Duration = TimeSpan.FromMilliseconds(durationMs),
-                    Easing = easing
-                }
-            ];
-
-            control.Margin = target;
-        });
-    }
     
-    /// <summary>
-    ///     Sets up the initial state and transitions for the debug console panel
-    /// </summary>
-    /// <param name="debugConsolePanel"></param>
     private static async Task SetupDebugConsoleTransitionsAsync(StackPanel debugConsolePanel)
     {
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
             debugConsolePanel.Margin = new Thickness(-727, 0, 0, 0);
-            debugConsolePanel.Transitions = new Transitions
-            {
+            debugConsolePanel.Transitions =
+            [
                 new ThicknessTransition
                 {
                     Property = MarginProperty,
                     Duration = TimeSpan.FromMilliseconds(400),
                     Easing = new QuarticEaseInOut()
                 }
-            };
+            ];
         });
     }
 
@@ -2130,13 +1959,13 @@ public partial class MainWindow : Window
         await Task.Delay(400);
         await Dispatcher.UIThread.InvokeAsync(() => { debugConsolePanel.IsVisible = false; });
     }
-
+    
     /// <summary>
-    ///     Ensures the cog image is centered and has a RotateTransform applied (to make sure it rotates at it's center)
+    /// Ensures the Settings Cog is centered before applying any transform to it
     /// </summary>
     /// <param name="cogImage"></param>
     /// <returns></returns>
-    private Task EnsureCogCenterAsync(Avalonia.Svg.Svg cogImage)
+    private static Task EnsureCogCenterAsync(Avalonia.Svg.Svg cogImage)
     {
         return Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -2153,8 +1982,7 @@ public partial class MainWindow : Window
     /// <param name="updatesPerBeat"></param>
     /// <param name="minMs"></param>
     /// <param name="maxMs"></param>
-    /// <returns></returns>
-    private double CalculateCogSpinInterval(double bpm, double updatesPerBeat = 60, double minMs = 4, double maxMs = 50)
+    private static double CalculateCogSpinInterval(double bpm, double updatesPerBeat = 60, double minMs = 4, double maxMs = 50)
     {
         if (bpm <= 0) bpm = 140;
         double msPerBeat = 60000.0 / bpm;
@@ -2337,44 +2165,43 @@ public partial class MainWindow : Window
     ///     This contains hyperlink support if the text contains a URL
     /// </remarks>
     /// <returns></returns>
-    private Control CreateLogElement(string logText)
+    private static Control CreateLogElement(string logText)
     {
         string? hyperlink = ExtractHyperlink(logText);
 
-        if (!string.IsNullOrEmpty(hyperlink))
+        if (string.IsNullOrEmpty(hyperlink)) 
+            return new TextBlock { Text = logText, Foreground = Brushes.White };
+        
+        // remove the hyperlink from the displayed text
+        string displayText = logText.Replace(hyperlink, "").TrimEnd();
+
+        Button linkButton = new()
         {
-            // remove the hyperlink from the displayed text
-            string displayText = logText.Replace(hyperlink, "").TrimEnd();
-
-            Button linkButton = new()
+            Content = new TextBlock
             {
-                Content = new TextBlock
-                {
-                    Text = displayText,
-                    Foreground = Brushes.LightBlue,
-                    TextDecorations = TextDecorations.Underline,
-                    Cursor = new Cursor(StandardCursorType.Hand)
-                },
-                Background = Brushes.Transparent,
-                BorderBrush = Brushes.Transparent,
-                Padding = new Thickness(0),
-                Margin = new Thickness(0, 0, 4, 0)
-            };
-            linkButton.Click += (_, __) =>
+                Text = displayText,
+                Foreground = Brushes.LightBlue,
+                TextDecorations = TextDecorations.Underline,
+                Cursor = new Cursor(StandardCursorType.Hand)
+            },
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            Padding = new Thickness(0),
+            Margin = new Thickness(0, 0, 4, 0)
+        };
+        linkButton.Click += (_, __) =>
+        {
+            Process.Start(new ProcessStartInfo
             {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = hyperlink,
-                    UseShellExecute = true
-                });
-            };
-            return linkButton;
-        }
+                FileName = hyperlink,
+                UseShellExecute = true
+            });
+        };
+        return linkButton;
 
-        return new TextBlock { Text = logText, Foreground = Brushes.White };
     }
 
-    public static string? ExtractHyperlink(string logText)
+    private static string? ExtractHyperlink(string logText)
     {
         Regex urlRegex = new(@"https?://\S+");
         Match match = urlRegex.Match(logText);

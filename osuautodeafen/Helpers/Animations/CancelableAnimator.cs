@@ -26,11 +26,11 @@ public sealed class CancelableAnimator : IDisposable
         }
         catch (OperationCanceledException)
         {
-            // Expected — ignore
+            // ignored
         }
     }
 
-    public void Cancel()
+    private void Cancel()
     {
         if (_cts == null)
             return;
