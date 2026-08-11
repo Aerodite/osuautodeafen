@@ -314,26 +314,50 @@ public partial class SettingsView : UserControl
     {
         _tooltipManager.HideTooltip();
     }
+    
+    private string GetCompletionPercentageTooltip(double value)
+    {
+        return value >= 99.9
+            ? $"{value:0.00}% (Deafening disabled)"
+            : $"{value:0.00}%";
+    }
 
     private void CompletionPercentageSlider_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Slider slider) return;
         Point point = Extensions.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0.00}%");
+        _tooltipManager.ShowTooltip(
+            this,
+            point,
+            GetCompletionPercentageTooltip(slider.Value));
     }
 
-    private void CompletionPercentageSlider_PointerPressed(object? sender, PointerPressedEventArgs e)
+    private void CompletionPercentageSlider_PointerPressed(
+        object? sender,
+        PointerPressedEventArgs e)
     {
         if (sender is not Slider slider) return;
+
         Point point = Extensions.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0.00}%");
+
+        _tooltipManager.ShowTooltip(
+            this,
+            point,
+            GetCompletionPercentageTooltip(slider.Value));
     }
 
-    private void CompletionPercentageSlider_PointerMove(object? sender, PointerEventArgs e)
+    private void CompletionPercentageSlider_PointerMove(
+        object? sender,
+        PointerEventArgs e)
     {
         if (sender is not Slider slider) return;
+
         Point point = Extensions.GetWindowRelativePointer(slider, e);
-        _tooltipManager.ShowTooltip(this, point, $"{slider.Value:0.00}%");
+
+        _tooltipManager.ShowTooltip(
+            this,
+            point,
+            GetCompletionPercentageTooltip(slider.Value));
     }
 
     private void CompletionPercentageSlider_PointerLeave(object sender, PointerEventArgs e)
