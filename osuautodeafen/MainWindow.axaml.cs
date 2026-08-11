@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -750,13 +751,15 @@ public partial class MainWindow : Window
 
         _tosuApi.StateStream
             .Select(s => s.GraphData)
-            .DistinctUntilChanged(new GraphComparer())
+            .DistinctUntilChanged(GraphComparer.Instance)
             .ObserveOn(RxApp.MainThreadScheduler)
-            .Subscribe(g => _ = OnGraphDataUpdated(g));
+            .Subscribe(
+                g => _ = OnGraphDataUpdated(g),
+                ex => Serilog.Log.Error(ex, "StateStream error"));
         
         _infoPanelLog.LogToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
     }
-
+    
     public static TooltipManager Tooltips { get; private set; } = null!;
 
     private SharedViewModel ViewModel { get; }
@@ -1221,18 +1224,18 @@ public partial class MainWindow : Window
         var series0 = graphData.Series[0];
         var series1 = graphData.Series[1];
 
-        if (ChartData.Series1Values.Count != series0.Data.Count)
+        if (_viewModel.ChartData.Series1Values.Count != series0.Data.Count)
         {
-            ChartData.Series1Values = series0.Data
-                .Select((p, i) => new ObservablePoint(i, p))
-                .ToList();
+            _viewModel.ChartData.Series1Values = new ObservableCollection<ObservablePoint>(
+                series0.Data.Select((p, i) => new ObservablePoint(i, p))
+            );
         }
 
-        if (ChartData.Series2Values.Count != series1.Data.Count)
+        if (_viewModel.ChartData.Series2Values.Count != series1.Data.Count)
         {
-            ChartData.Series2Values = series1.Data
-                .Select((p, i) => new ObservablePoint(i, p))
-                .ToList();
+            _viewModel.ChartData.Series2Values = new ObservableCollection<ObservablePoint>(
+                series1.Data.Select((p, i) => new ObservablePoint(i, p))
+            );
         }
         
         await Dispatcher.UIThread.InvokeAsync(async () =>

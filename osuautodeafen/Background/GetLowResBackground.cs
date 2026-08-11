@@ -36,7 +36,7 @@ public class GetLowResBackground
             return null;
         }
 
-        Serilog.Log.Debug($"osu! folder path: {osuFolderPath}");
+        //Serilog.Log.Debug($"osu! folder path: {osuFolderPath}");
 
         string beatmapId = _tosuApi.GetBeatmapId().ToString();
         if (string.IsNullOrEmpty(beatmapId))

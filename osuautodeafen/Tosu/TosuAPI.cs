@@ -270,7 +270,7 @@ public class TosuApi : IDisposable
                 string? beatmapFile = null;
                 string? beatmapBg = null;
 
-                GraphDataModel graphData = new GraphDataModel(Array.Empty<GraphSeries>(), Array.Empty<double>());
+                GraphDataModel graphData = new([], []);
 
                 if (root.TryGetProperty("beatmap", out var beatmapProperty))
                 {

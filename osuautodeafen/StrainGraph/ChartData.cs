@@ -1,11 +1,12 @@
 ﻿using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using LiveChartsCore.Defaults;
 
 namespace osuautodeafen.StrainGraph;
 
-public static class ChartData
+public class ChartData
 {
-    public static List<ObservablePoint> Series1Values { get; set; } = new();
-    public static List<ObservablePoint> Series2Values { get; set; } = new();
-    public static List<ObservablePoint> Series3Values { get; set; } = new();
+    public ObservableCollection<ObservablePoint> Series1Values { get; set; } = new();
+    public ObservableCollection<ObservablePoint> Series2Values { get; set; } = new();
+    public ObservableCollection<ObservablePoint> Series3Values { get; set; } = new();
 }

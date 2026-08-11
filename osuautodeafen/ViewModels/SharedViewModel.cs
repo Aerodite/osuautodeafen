@@ -15,6 +15,7 @@ using osuautodeafen.Background;
 using osuautodeafen.Changelog;
 using osuautodeafen.Settings;
 using osuautodeafen.Settings.Presets;
+using osuautodeafen.StrainGraph;
 using osuautodeafen.Tooltips;
 using osuautodeafen.Tosu;
 using osuautodeafen.Update;
@@ -118,6 +119,8 @@ public sealed class SharedViewModel : ViewModelBase
 
     public IEnumerable<PresetInfo> VisiblePresets =>
         Presets?.Where(p => !p.IsCurrentPreset) ?? [];
+    
+    public ChartData ChartData { get; } = new();
 
     public int UpdateProgress
     {

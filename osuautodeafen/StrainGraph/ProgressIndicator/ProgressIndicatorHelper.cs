@@ -89,7 +89,7 @@ public class ProgressIndicatorHelper(ChartManager chartManager)
         {
             var lineSeriesList = _chartManager.Series
                 .OfType<LineSeries<ObservablePoint>>()
-                .Where(s => s.Name == "Aim" || s.Name == "Speed")
+                .Where(s => s.Name is "Aim" or "Speed" or "Reading")
                 .ToArray();
 
             if (lineSeriesList.Length == 0) return new List<ObservablePoint>();

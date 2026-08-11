@@ -30,10 +30,12 @@ namespace osuautodeafen.StrainGraph;
 public class ChartManager
 {
     private static readonly SKColor ProgressIndicatorColor = new(0xFF, 0xFF, 0xFF, 192);
-    private static readonly SKColor AimColor = new(0x00, 0xFF, 0x00, 192);
-    private static readonly SKColor SpeedColor = new(0x00, 0x00, 0xFF, 140);
+    
+    private static readonly SKColor AimColor = new(0x00, 0xFF, 0x00, 175);
+    private static readonly SKColor SpeedColor = new(0x30, 0x30, 0xFF, 160);
+    private static readonly SKColor ReadingColor = new(0xFF, 0x70, 0xA0, 190);
     private static readonly SKColor BreakColor = new(0xFF, 0xFF, 0x00, 90);
-    private static readonly SKColor KiaiColor = new(0xA0, 0x40, 0xFF, 98);
+    private static readonly SKColor KiaiColor = new(0xA0, 0x40, 0xFF, 90);
     private static readonly SKColor DeafenOverlayColor = new(0xFF, 0x00, 0x00, 64);
 
     private readonly BreakPeriodCalculator _breakPeriod = new();
@@ -112,17 +114,24 @@ public class ChartManager
         [
             new StackedAreaSeries<ObservablePoint>
             {
-                Values = ChartData.Series1Values,
-                Fill = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00) },
-                Stroke = new SolidColorPaint { Color = new SKColor(0xFF, 0x00, 0x00) },
+                Values = _viewModel.ChartData.Series1Values,
+                Fill = new SolidColorPaint { Color = AimColor },
+                Stroke = new SolidColorPaint { Color = AimColor },
                 Name = "Aim"
             },
             new StackedAreaSeries<ObservablePoint>
             {
-                Values = ChartData.Series2Values,
-                Fill = new SolidColorPaint { Color = new SKColor(0x00, 0xFF, 0x00) },
-                Stroke = new SolidColorPaint { Color = new SKColor(0x00, 0xFF, 0x00) },
+                Values = _viewModel.ChartData.Series2Values,
+                Fill = new SolidColorPaint { Color = SpeedColor },
+                Stroke = new SolidColorPaint { Color = SpeedColor },
                 Name = "Speed"
+            },
+            new StackedAreaSeries<ObservablePoint>
+            {
+                Values = _viewModel.ChartData.Series3Values,
+                Fill = new SolidColorPaint { Color = ReadingColor },
+                Stroke = new SolidColorPaint { Color = ReadingColor },
+                Name = "Reading"
             },
             _progressIndicator
         ];
@@ -618,8 +627,31 @@ public class ChartManager
             var downsampled = Downsample(updatedValues.ToArray(), maxPoints);
             var smoothed = SmoothData(downsampled, 10, 0.2);
 
-            SKColor color = series.Name == "aim" ? AimColor : SpeedColor;
-            string name = series.Name == "aim" ? "Aim" : "Speed";
+            SKColor color;
+            string name;
+
+            // note to self if a new skill appears within the osu ruleset it will cause graphs to not update anymore
+            // this was the reason behind https://github.com/Aerodite/osuautodeafen/issues/61
+            switch (series.Name)
+            {
+                case "aim":
+                    color = AimColor;
+                    name = "Aim";
+                    break;
+
+                case "speed":
+                    color = SpeedColor;
+                    name = "Speed";
+                    break;
+                
+                case "reading":
+                    color = ReadingColor;
+                    name = "Reading";
+                    break;
+
+                default:
+                    continue;
+            }
 
             if (existingSeriesDict.TryGetValue(name, out var existing))
             {
