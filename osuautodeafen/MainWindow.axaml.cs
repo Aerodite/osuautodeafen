@@ -245,20 +245,9 @@ public partial class MainWindow : Window
 
         _deafenController = new(_tosuApi, _settingsHandler, _viewModel);
 
-        //im d1 lazy so ill do this in 1.0.9 :tf:
-        // nvm on hold forever i guess
-        /*
-        deafen.Deafened += () =>
-        {
-            TaskbarIconChanger.SetTaskbarIcon(this, deafenIconPath);
-            Icon = new WindowIcon(deafenIconPath);
-        };
-        deafen.Undeafened += () =>
-        {
-            TaskbarIconChanger.SetTaskbarIcon(this, startupIconPath);
-            Icon = new WindowIcon(startupIconPath);
-       };
-       */
+        _deafenController.DeafenStateChanged += () =>
+            Dispatcher.UIThread.Post(() =>
+                Icon = new WindowIcon(_deafenController.Deafened ? deafenIconPath : startupIconPath));
         
         _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _mainTimer.Tick += MainTimer_Tick;

@@ -99,6 +99,8 @@ public class Deafen : IDisposable
     private DateTime _nextStateChangedAt = DateTime.MinValue;
     public bool Deafened;
 
+    public event Action? DeafenStateChanged;
+
     public Deafen(TosuApi tosuAPI, SettingsHandler settingsHandler, SharedViewModel sharedViewModel)
     {
         Deafened = false;
@@ -412,16 +414,22 @@ public class Deafen : IDisposable
             {
                 if (TryLinuxClientSendShortcut())
                 {
-                    _isDeafened = !_isDeafened;
-                    if (_isDeafened) _deafenEnteredAt = DateTime.Now;
+                    SetDeafened();
                     return;
                 }
             }
 
             SimulateDeafenKey();
-            _isDeafened = !_isDeafened;
-            if (_isDeafened) _deafenEnteredAt = DateTime.Now;
+            SetDeafened();
         }
+    }
+
+    private void SetDeafened()
+    {
+        _isDeafened = !_isDeafened;
+        if (_isDeafened) _deafenEnteredAt = DateTime.Now;
+        Deafened = _isDeafened;
+        DeafenStateChanged?.Invoke();
     }
 
     private KeyCode MapAvaloniaKeyToSharpHook(Key key)
