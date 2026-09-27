@@ -89,26 +89,27 @@ public sealed class SharedViewModel : ViewModelBase
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
 
     public SharedViewModel(
+        SettingsHandler settingsHandler,
         TosuApi tosuApi,
         TooltipManager tooltipManager,
         HomeView? homeView,
         SettingsView? settingsView)
     {
+        _settingsHandler = settingsHandler
+                           ?? throw new ArgumentNullException(nameof(settingsHandler));
+        _tosuApi = tosuApi;
+        _tooltipManager = tooltipManager;
+
         HomePage = homeView!;
         SettingsPage = settingsView!;
         CurrentPage = HomePage;
 
-        _settingsHandler = new SettingsHandler();
         OpenUpdateUrlCommand = new RelayCommand(OpenUpdateUrl);
-        Task.Run(InitializeAsync);
 
-        _tosuApi = tosuApi;
-        _tooltipManager = tooltipManager;
+        Task.Run(InitializeAsync);
         Task.Run(UpdateCompletionPercentageAsync);
 
         CreateAndShowChangelog();
-
-        _settingsHandler.SettingsReloaded += SyncSettingsFromHandler;
     }
 
     public ChangelogViewModel? Changelog { get; private set; }

@@ -16,17 +16,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private readonly string _iniPath;
     private readonly FileIniDataParser _parser = new();
 
-    public IniData Data;
-
-    /// <summary>
-    ///     The last time SaveSettings was called
-    /// </summary>
-    public DateTime LastSaveTime = DateTime.MinValue;
-
-    /// <summary>
-    ///     The last setting that was changed in the ini
-    /// </summary>
-    private string LastWrittenTo = new("");
+    public IniData Data => CurrentData;
 
     private string? _activePresetPath;
     private double _blurRadius;
@@ -69,7 +59,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         }
 
         _presetData = null;
-        Data = _mainData;
         EnsureSectionsExist();
         LoadSettings();
     }
@@ -193,28 +182,25 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     public void ActivatePreset(string presetFilePath)
     {
-        if (!File.Exists(presetFilePath)) return;
+        if (!File.Exists(presetFilePath))
+            return;
 
+        IniData presetData = _parser.ReadFile(presetFilePath);
+
+        _presetData = presetData;
         _activePresetPath = presetFilePath;
-        _presetData = _parser.ReadFile(presetFilePath);
-        Data = _presetData;
+
         EnsureSectionsExist();
         LoadSettings();
-
-        SettingsReloaded?.Invoke();
-        DeafenKeybindChanged?.Invoke();
     }
 
     public void DeactivatePreset()
     {
         _activePresetPath = null;
         _presetData = null;
-        Data = _mainData;
+
         EnsureSectionsExist();
         LoadSettings();
-
-        SettingsReloaded?.Invoke();
-        DeafenKeybindChanged?.Invoke();
     }
 
     /// <summary>
@@ -320,23 +306,22 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     public bool ReloadFromDisk()
     {
-        for (int i = 0; i < 3; i++)
-            try
-            {
-                FileInfo info = new(_iniPath);
-                if (!info.Exists || info.Length == 0)
-                    return false;
+        try
+        {
+            FileInfo info = new(_iniPath);
 
-                _mainData = _parser.ReadFile(_iniPath);
-                Data = _mainData;
-                return true;
-            }
-            catch (IOException)
-            {
-                Thread.Sleep(100);
-            }
+            if (!info.Exists || info.Length == 0)
+                return false;
 
-        return false;
+            IniData mainData = _parser.ReadFile(_iniPath);
+            _mainData = mainData;
+            
+            return true;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
     }
 
     /// <summary>
@@ -390,12 +375,12 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         _windowWidth = double.TryParse(Data["UI"]["WindowWidth"], out double width) ? width : 630;
         _windowHeight = double.TryParse(Data["UI"]["WindowHeight"], out double height) ? height : 630;
 
-        tosuApiIp = Data["Network"]["tosuApiIp"];
-        tosuApiPort = Data["Network"]["tosuApiPort"];
+        tosuApiIp = _mainData["Network"]["tosuApiIp"];
+        tosuApiPort = _mainData["Network"]["tosuApiPort"];
 
-        _discordClient = Data["Linux"]["discordClient"];
+        _discordClient = _mainData["Linux"]["discordClient"];
 
-        _lastSeenVersion = Data["Updates"]["LastSeenVersion"];
+        _lastSeenVersion = _mainData["Updates"]["LastSeenVersion"];
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MinCompletionPercentage)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StarRating)));
@@ -421,7 +406,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     }
 
     /// <summary>
-    ///     Saves a setting to the INI file or preset.
+    ///     Saves a setting to the ini
     /// </summary>
     /// <param name="section"></param>
     /// <param name="key"></param>
@@ -430,32 +415,55 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     {
         try
         {
-            IniData targetData = CurrentData;
+            bool isGlobalSetting = section is "Updates" or "Network" or "Linux";
+
+            IniData targetData = isGlobalSetting
+                ? _mainData
+                : CurrentData;
+
+            string path = isGlobalSetting
+                ? _iniPath
+                : ActivePath;
+
             if (!targetData.Sections.ContainsSection(section))
                 targetData.Sections.AddSection(section);
+
             targetData[section][key] = value?.ToString();
 
-            string path = IsPresetActive ? _activePresetPath! : _iniPath;
             Log.Information("Writing new settings to: {Path}", path);
             _parser.WriteFile(path, targetData);
+            
+            IniData activeData = CurrentData;
 
-            DeafenKeybindKey = int.TryParse(targetData["Hotkeys"]["DeafenKeybindKey"], out int keyVal) ? keyVal : 0;
+            DeafenKeybindKey =
+                int.TryParse(activeData["Hotkeys"]["DeafenKeybindKey"],
+                    out int keyVal)
+                    ? keyVal
+                    : 0;
+
             DeafenKeybindControlSide =
-                int.TryParse(targetData["Hotkeys"]["DeafenKeybindControlSide"], out int ctrlSide)
+                int.TryParse(activeData["Hotkeys"]["DeafenKeybindControlSide"],
+                    out int ctrlSide)
                     ? ctrlSide
                     : 0;
+
             DeafenKeybindAltSide =
-                int.TryParse(targetData["Hotkeys"]["DeafenKeybindAltSide"], out int altSide) ? altSide : 0;
+                int.TryParse(activeData["Hotkeys"]["DeafenKeybindAltSide"],
+                    out int altSide)
+                    ? altSide
+                    : 0;
+
             DeafenKeybindShiftSide =
-                int.TryParse(targetData["Hotkeys"]["DeafenKeybindShiftSide"], out int shiftSide)
+                int.TryParse(activeData["Hotkeys"]["DeafenKeybindShiftSide"],
+                    out int shiftSide)
                     ? shiftSide
                     : 0;
-            LastSaveTime = DateTime.Now;
-            LastWrittenTo = key;
         }
-        catch (Exception e)
+        catch (Exception ex)
         {
-            throw new InvalidOperationException("Failed to save setting due to exception: " + e);
+            throw new InvalidOperationException(
+                $"Failed to save setting '{section}.{key}'.",
+                ex);
         }
     }
 
@@ -464,17 +472,17 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     /// </summary>
     public void ResetToDefaults()
     {
+        IniData defaults = CreateDefaultIniData();
+
         if (IsPresetActive)
         {
-            _presetData = CreateDefaultIniData();
-            Data = _presetData;
-            _parser.WriteFile(_activePresetPath!, _presetData);
+            _parser.WriteFile(_activePresetPath!, defaults);
+            _presetData = defaults;
         }
         else
         {
-            _mainData = CreateDefaultIniData();
-            Data = _mainData;
-            _parser.WriteFile(_iniPath, _mainData);
+            _parser.WriteFile(_iniPath, defaults);
+            _mainData = defaults;
         }
 
         LoadSettings();

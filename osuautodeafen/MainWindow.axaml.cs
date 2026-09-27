@@ -177,10 +177,9 @@ public partial class MainWindow : Window
                 retainedFileCountLimit: 5)
             .CreateLogger();
 
-        _tosuApi = new TosuApi();
-
         _settingsHandler = new SettingsHandler();
-        _settingsHandler.LoadSettings();
+
+        _tosuApi = new TosuApi(_settingsHandler);
 
         HomeView = new HomeView();
         _settingsViewModel = new SettingsViewModel();
@@ -188,6 +187,7 @@ public partial class MainWindow : Window
         UpdateKeybindCaptureState();
 
         _viewModel = new SharedViewModel(
+            _settingsHandler,
             _tosuApi,
             _tooltipManager,
             null,
@@ -484,6 +484,8 @@ public partial class MainWindow : Window
             {
                 try
                 {
+                    SettingsView.RemovePendingSettings();
+
                     string checksum = s.BeatmapChecksum ?? "";
 
                     string presetsPath = Path.Combine(
@@ -777,25 +779,35 @@ public partial class MainWindow : Window
             _settingsViewModel.IsKeybindCaptureEnabled = true;
     }
 
-    private async Task ReloadSettingsSafe()
+    private async Task ReloadSettings()
     {
-        for (int i = 0; i < 5; i++)
+        for (int attempt = 0; attempt < 5; attempt++)
         {
-            if (_settingsHandler != null && _settingsHandler.ReloadFromDisk())
+            bool reloaded = await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    string? oldDiscord = _settingsHandler.DiscordClient;
+                if (_settingsHandler == null)
+                    return false;
 
-                    _settingsHandler.LoadSettings();
+                string? oldDiscord = _settingsHandler.DiscordClient;
 
-                    if (oldDiscord != _settingsHandler.DiscordClient) UpdateKeybindCaptureState();
-                });
+                if (!_settingsHandler.ReloadFromDisk())
+                    return false;
+
+                _settingsHandler.LoadSettings();
+
+                if (oldDiscord != _settingsHandler.DiscordClient)
+                    UpdateKeybindCaptureState();
+
+                return true;
+            });
+
+            if (reloaded)
                 return;
-            }
 
             await Task.Delay(100);
         }
+
+        Log.Warning("Could not reload settings");
     }
 
     private void OnSettingsFileChanged(object? sender, FileSystemEventArgs e)
@@ -812,7 +824,7 @@ public partial class MainWindow : Window
                 await Task.Delay(300, token);
 
                 if (!token.IsCancellationRequested)
-                    await ReloadSettingsSafe();
+                    await ReloadSettings();
             }
             catch (TaskCanceledException ex)
             {
@@ -1612,6 +1624,19 @@ public partial class MainWindow : Window
 
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
+        if (e.Cancel) return;
+
+        try
+        {
+            SettingsView.RemovePendingSettings();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to save pending settings before closing");
+            e.Cancel = true;
+            return;
+        }
+
         _mainTimer?.Stop();
         _cogSpinTimer?.Stop();
         _tosuApi.Dispose();
