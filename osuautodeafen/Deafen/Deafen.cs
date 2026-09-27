@@ -297,7 +297,7 @@ public class Deafen : IDisposable
         bool isHoldingFC = _tosuAPI.IsHoldingFullCombo();
         double completionPercentage = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
 
-        if (_sharedViewModel.MinCompletionPercentage >= 99.9)
+        if (_sharedViewModel.MinCompletionPercentage >= 99)
             // assume the user doesnt want to deafen but wants to keep osuautodeafen open still
             return false;
 

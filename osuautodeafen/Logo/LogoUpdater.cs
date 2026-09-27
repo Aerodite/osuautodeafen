@@ -180,35 +180,42 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
         return colors;
     }
 
-    private static unsafe SKColor CalculateAverageColor(SKBitmap bitmap, int yStart, int yEnd)
+    private static SKColor CalculateAverageColor(SKBitmap bitmap, int yStart, int yEnd)
     {
         int width = bitmap.Width;
-        long totalR = 0, totalG = 0, totalB = 0;
-        long pixelCount = (long)width * (yEnd - yStart);
+        int height = bitmap.Height;
 
-        if (!bitmap.IsImmutable)
-            bitmap.SetImmutable();
+        yStart = Math.Clamp(yStart, 0, height);
+        yEnd = Math.Clamp(yEnd, yStart, height);
 
-        fixed (void* ptr = &bitmap.GetPixelSpan()[0])
+        if (width <= 0 || yEnd <= yStart)
+            return SKColors.Black;
+
+        long totalR = 0;
+        long totalG = 0;
+        long totalB = 0;
+        long pixelCount = 0;
+
+        for (int y = yStart; y < yEnd; y++)
         {
-            uint* pixels = (uint*)ptr;
-            for (int y = yStart; y < yEnd; y++)
+            for (int x = 0; x < width; x++)
             {
-                int rowOffset = y * width;
-                for (int x = 0; x < width; x++)
-                {
-                    uint pixel = pixels[rowOffset + x];
-                    totalB += pixel & 0xFF;
-                    totalG += (pixel >> 8) & 0xFF;
-                    totalR += (pixel >> 16) & 0xFF;
-                }
+                SKColor pixel = bitmap.GetPixel(x, y);
+
+                totalR += pixel.Red;
+                totalG += pixel.Green;
+                totalB += pixel.Blue;
+                pixelCount++;
             }
         }
 
+        if (pixelCount == 0)
+            return SKColors.Black;
+
         return new SKColor(
-            (byte)Math.Clamp(totalR / pixelCount, 0, 255),
-            (byte)Math.Clamp(totalG / pixelCount, 0, 255),
-            (byte)Math.Clamp(totalB / pixelCount, 0, 255)
+            (byte)(totalR / pixelCount),
+            (byte)(totalG / pixelCount),
+            (byte)(totalB / pixelCount)
         );
     }
 

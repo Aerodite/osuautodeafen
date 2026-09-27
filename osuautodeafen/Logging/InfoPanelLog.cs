@@ -3,32 +3,30 @@ using System.Collections.Generic;
 
 namespace osuautodeafen.Logging;
 
+public record InfoPanelLogEntry(
+    string Text,
+    string? Hyperlink = null,
+    int Order = 0);
+
 public class InfoPanelLog
 {
-    public readonly Dictionary<string, string> Logs = new();
+    public readonly Dictionary<string, InfoPanelLogEntry> Logs = new();
 
-    /// <summary>
-    ///     Creates or updates an info panel entry
-    /// </summary>
-    public void LogToInfoPanel(string message, bool includeTimestamp = true, string? keyword = null,
-        string? hyperLink = null)
+    public void LogToInfoPanel(
+        string message,
+        bool includeTimestamp = true,
+        string? keyword = null,
+        string? hyperLink = null,
+        int order = Int32.MaxValue)
     {
-        string newLine = includeTimestamp
+        string text = includeTimestamp
             ? $"[{DateTime.Now:MM-dd HH:mm:ss.fff}] {message}"
             : message;
 
-        if (!string.IsNullOrEmpty(hyperLink))
-            newLine += $" {hyperLink}";
-
-        if (!string.IsNullOrEmpty(keyword))
-            Logs[keyword] = newLine;
-        else
-            Logs[Guid.NewGuid().ToString()] = newLine;
+        Logs[keyword ?? Guid.NewGuid().ToString()] =
+            new InfoPanelLogEntry(text, hyperLink, order);
     }
 
-    /// <summary>
-    ///     Erases all entries from the info panel
-    /// </summary>
     public void ClearInfoPanelLogs()
     {
         Logs.Clear();

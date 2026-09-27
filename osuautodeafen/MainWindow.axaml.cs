@@ -104,12 +104,12 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _frameCts;
     private bool _isCogSpinning;
 
-    public bool _isDebugConsoleOpen;
+    public bool IsDebugConsoleOpen;
     private bool _isLogoDragging;
 
     private bool _isLogoHovered;
     private bool _isSettingsPanelOpen;
-    private List<string> _lastDisplayedLogs = [];
+    private List<InfoPanelLogEntry> _lastDisplayedLogs = [];
     private GraphData? _lastGraphData;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
     private Key _lastKeyPressed = Key.None;
@@ -269,10 +269,10 @@ public partial class MainWindow : Window
 
         ProgressOverlay.Points =
             _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage());
-        _breakPeriod.BreakPeriodEntered += async () => { _infoPanelLog.LogToInfoPanel("Break: True", false, "Break"); };
-        _breakPeriod.BreakPeriodExited += async () => { _infoPanelLog.LogToInfoPanel("Break: False", false, "Break"); };
-        _kiaiTimes.KiaiPeriodEntered += async () => { _infoPanelLog.LogToInfoPanel("Kiai: True", false, "Kiai"); };
-        _kiaiTimes.KiaiPeriodExited += async () => { _infoPanelLog.LogToInfoPanel("Kiai: False", false, "Kiai"); };
+        _breakPeriod.BreakPeriodEntered += async () => { _infoPanelLog.LogToInfoPanel("Break: True", false, "Break", order: 4); };
+        _breakPeriod.BreakPeriodExited += async () => { _infoPanelLog.LogToInfoPanel("Break: False", false, "Break", order: 4); };
+        _kiaiTimes.KiaiPeriodEntered += async () => { _infoPanelLog.LogToInfoPanel("Kiai: True", false, "Kiai", order: 3); };
+        _kiaiTimes.KiaiPeriodExited += async () => { _infoPanelLog.LogToInfoPanel("Kiai: False", false, "Kiai", order: 3); };
 
         DockPanel? settingsPanel = SettingsView.FindControl<DockPanel>("SettingsPanel");
         if (settingsPanel != null)
@@ -390,10 +390,8 @@ public partial class MainWindow : Window
 
         if (SettingsView.BackgroundToggle != null && parallaxPanel != null && blurPanel != null)
         {
-            if (parallaxPanel.RenderTransform == null)
-                parallaxPanel.RenderTransform = new TranslateTransform();
-            if (blurPanel.RenderTransform == null)
-                blurPanel.RenderTransform = new TranslateTransform();
+            parallaxPanel.RenderTransform ??= new TranslateTransform();
+            blurPanel.RenderTransform ??= new TranslateTransform();
 
             if (SettingsView.BackgroundToggle.IsChecked == true)
             {
@@ -533,9 +531,9 @@ public partial class MainWindow : Window
                 try
                 {
                     if (s.Client == "lazer")
-                        _infoPanelLog.LogToInfoPanel("State: " + s.RawLazerBanchoStatus, false, "State");
+                        _infoPanelLog.LogToInfoPanel("State: " + s.RawLazerBanchoStatus, false, "State", order: 5);
                     else
-                        _infoPanelLog.LogToInfoPanel("State: " + s.RawBanchoStatus, false, "State");
+                        _infoPanelLog.LogToInfoPanel("State: " + s.RawBanchoStatus, false, "State", order: 5);
 
                     if (s.RawBanchoStatus == 2 || s.RawLazerBanchoStatus == 2)
                         // unfortunately I believe settingspanel being open while playing is kind of a drain on resources
@@ -567,7 +565,10 @@ public partial class MainWindow : Window
                 s.RankedStatus,
                 s.IsBreak,
                 s.CurrentTime,
-                s.FullTime
+                s.FullTime,
+                s.BeatmapBackgroundPath,
+                s.SongsDirectory,
+                s.BeatmapFilePath
             })
             .DistinctUntilChanged()
             .ObserveOn(RxApp.MainThreadScheduler)
@@ -579,37 +580,62 @@ public partial class MainWindow : Window
                     _viewModel.FullBeatmapName = $"{s.BeatmapArtist} - {s.BeatmapTitle}";
                     _viewModel.BeatmapDifficulty = s.BeatmapDifficulty;
 
-                    if (!_isDebugConsoleOpen)
+                    if (!IsDebugConsoleOpen)
                         return;
 
                     string mapInfo = $"{s.BeatmapArtist} - {s.BeatmapTitle}";
                     if (mapInfo.Length > 67)
-                        mapInfo = mapInfo.Substring(0, 67) + "...";
-
-                    _infoPanelLog.LogToInfoPanel(
-                        "Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(),
-                        false,
-                        "Client");
-
+                        mapInfo = mapInfo[..67] + "...";
+                    
+                    string backgroundPath = $"{s.SongsDirectory}/{s.BeatmapBackgroundPath}";
+                    string displayedBackgroundPath = backgroundPath;
+                    if (displayedBackgroundPath.Length > 60)
+                        displayedBackgroundPath = displayedBackgroundPath[..60] + "...";
+                    
+                    string osuFilePath = $"{s.SongsDirectory}/{s.BeatmapFilePath}";
+                    string displayedOsuFilePath = osuFilePath;
+                    if (displayedOsuFilePath.Length > 60)
+                        displayedOsuFilePath = displayedOsuFilePath[..60] + "...";
+                    
                     _infoPanelLog.LogToInfoPanel(
                         "Mapset: " + mapInfo,
                         false,
                         "Beatmap changed",
-                        $"https://osu.ppy.sh/b/{s.BeatmapId}");
+                        $"https://osu.ppy.sh/b/{s.BeatmapId}", 
+                        0);
+                    
+                    _infoPanelLog.LogToInfoPanel(
+                        "Background Path: " + displayedBackgroundPath,
+                        false,
+                        "Background Path",
+                        new Uri(backgroundPath).AbsoluteUri,
+                        21);
+                    
+                    _infoPanelLog.LogToInfoPanel(
+                        ".osu file path: " + displayedOsuFilePath,
+                        false,
+                        "Beatmap Path",
+                        new Uri(osuFilePath).AbsoluteUri,
+                        22);
 
-                    _infoPanelLog.LogToInfoPanel("Current PP: " + s.CurrentPP, false, "CurrentPP");
-                    _infoPanelLog.LogToInfoPanel("Max PP: " + s.MaxPP, false, "Max PP");
-                    _infoPanelLog.LogToInfoPanel("Max Combo: " + s.MaxCombo, false, "Max Combo");
-                    _infoPanelLog.LogToInfoPanel("Star Rating: " + s.StarRating, false, "Star Rating");
-                    _infoPanelLog.LogToInfoPanel("Mods: " + s.ModNames, false, "Mods");
-                    _infoPanelLog.LogToInfoPanel("Ranked Status: " + s.RankedStatus, false, "Ranked Status");
-                    _infoPanelLog.LogToInfoPanel("Beatmap ID: " + s.BeatmapId, false, "Beatmap ID");
-                    _infoPanelLog.LogToInfoPanel("Beatmap Set ID: " + s.BeatmapSetId, false, "Beatmap Set ID");
-                    _infoPanelLog.LogToInfoPanel("Break: " + s.IsBreak, false, "Break");
+                    _infoPanelLog.LogToInfoPanel(
+                        "Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(),
+                        false,
+                        "Client", order: 1);
+
+                    _infoPanelLog.LogToInfoPanel("Current PP: " + s.CurrentPP, false, "CurrentPP", order: 10);
+                    _infoPanelLog.LogToInfoPanel("Max PP: " + s.MaxPP, false, "Max PP", order: 13);
+                    _infoPanelLog.LogToInfoPanel("Max Combo: " + s.MaxCombo, false, "Max Combo", order: 16);
+                    _infoPanelLog.LogToInfoPanel("Star Rating: " + s.StarRating, false, "Star Rating", order: 14);
+                    _infoPanelLog.LogToInfoPanel("Mods: " + s.ModNames, false, "Mods", order: 15);
+                    _infoPanelLog.LogToInfoPanel("Ranked Status: " + s.RankedStatus, false, "Ranked Status", order: 17);
+                    _infoPanelLog.LogToInfoPanel("Beatmap ID: " + s.BeatmapId, false, "Beatmap ID", order: 19);
+                    _infoPanelLog.LogToInfoPanel("Beatmap Set ID: " + s.BeatmapSetId, false, "Beatmap Set ID", order: 18);
+                    _infoPanelLog.LogToInfoPanel("Break: " + s.IsBreak, false, "Break", order: 4);
                     _infoPanelLog.LogToInfoPanel(
                         "Kiai: " + _kiaiTimes.IsKiaiPeriod(s.CurrentTime),
                         false,
-                        "Kiai");
+                        "Kiai", order: 3);
                 }
                 catch (Exception e)
                 {
@@ -631,12 +657,12 @@ public partial class MainWindow : Window
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(s =>
             {
-                if (!_isDebugConsoleOpen)
+                if (!IsDebugConsoleOpen)
                     return;
                 _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
                 _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
-                _infoPanelLog.LogToInfoPanel("Mods: " + s.ModNames, false, "Mods");
-                _infoPanelLog.LogToInfoPanel("BPM: " + s.CurrentBpm, false, "BPM Changed");
+                _infoPanelLog.LogToInfoPanel("Mods: " + s.ModNames, false, "Mods", order: 14);
+                _infoPanelLog.LogToInfoPanel("BPM: " + s.CurrentBpm, false, "BPM Changed", order: 20);
 
                 _viewModel.UpdateMinPPValue();
                 _viewModel.UpdateMinSRValue();
@@ -654,17 +680,17 @@ public partial class MainWindow : Window
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(s =>
             {
-                if (!_isDebugConsoleOpen)
+                if (!IsDebugConsoleOpen)
                     return;
                 _infoPanelLog.LogToInfoPanel(
                     $"Beatmap Progress %: {_tosuApi.GetCompletionPercentage():F2}%",
                     false,
-                    "Map Progress");
+                    "Map Progress", order: 6);
 
                 _infoPanelLog.LogToInfoPanel(
                     $"Song Progress %: {_tosuApi.GetSongProgress():F2}%",
                     false,
-                    "Song Progress");
+                    "Song Progress", order: 7);
 
                 double rate = s.Rate <= 0 || double.IsNaN(s.Rate) || double.IsInfinity(s.Rate)
                     ? 1
@@ -677,12 +703,12 @@ public partial class MainWindow : Window
                 _infoPanelLog.LogToInfoPanel(
                     $"Progress (mm:ss): {TimeSpan.FromMilliseconds(currentMs):mm\\:ss}/{TimeSpan.FromMilliseconds(fullMs):mm\\:ss}",
                     false,
-                    "Current Time");
+                    "Current Time", order: 8);
 
-                _infoPanelLog.LogToInfoPanel("Current PP: " + s.CurrentPP, false, "CurrentPP");
-                _infoPanelLog.LogToInfoPanel("isDeafened: " + _deafenController.Deafened, false, "isDeafened");
-                _infoPanelLog.LogToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");
-                _infoPanelLog.LogToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false, "Min SS PP");
+                _infoPanelLog.LogToInfoPanel("Current PP: " + s.CurrentPP, false, "CurrentPP", order: 10);
+                _infoPanelLog.LogToInfoPanel("isDeafened: " + _deafenController.Deafened, false, "isDeafened", order: 9);
+                _infoPanelLog.LogToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating", order: 12);
+                _infoPanelLog.LogToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false, "Min SS PP", order: 11);
             });
 
         _tosuApi.StateStream
@@ -704,7 +730,7 @@ public partial class MainWindow : Window
                         double _ = x.CurrentBpm;
                     }
 
-                    if (!_isDebugConsoleOpen)
+                    if (!IsDebugConsoleOpen)
                         return;
                     _infoPanelLog.LogToInfoPanel(
                         "BPM: " + x.CurrentBpm,
@@ -723,7 +749,7 @@ public partial class MainWindow : Window
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(state =>
             {
-                if (!_isDebugConsoleOpen)
+                if (!IsDebugConsoleOpen)
                     return;
                 _infoPanelLog.LogToInfoPanel("State: " + state, false, "State");
             });
@@ -736,7 +762,7 @@ public partial class MainWindow : Window
                 g => _ = OnGraphDataUpdated(g),
                 ex => Log.Error(ex, "StateStream error"));
 
-        _infoPanelLog.LogToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
+        _infoPanelLog.LogToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack", order: 2);
     }
 
     public static TooltipManager Tooltips { get; private set; } = null!;
@@ -1026,10 +1052,10 @@ public partial class MainWindow : Window
                         {
                             _infoPanelLog.LogToInfoPanel(
                                 $"Frame: {frameInterval:F3}ms/{1000.0 / avgFrame:F0}fps",
-                                false, "FrameLatency");
+                                false, "FrameLatency", order: 23);
                             _infoPanelLog.LogToInfoPanel(
                                 $"Min/Max/Avg: {minFrame:F3}/{maxFrame:F3}/{avgFrame:F3}ms",
-                                false, "FrameStats");
+                                false, "FrameStats", order: 24);
                         });
 
                         minFrame = double.MaxValue;
@@ -1419,7 +1445,6 @@ public partial class MainWindow : Window
         displaySw.Stop();
 
         // sorry guys sunk cost fallacy this took too long to implement
-        // have fun with your "slow" wifi :tf:
         if (_updateProgressBar != null && _updateProgressBar.Value < 100)
         {
             int steps = 30;
@@ -1546,7 +1571,7 @@ public partial class MainWindow : Window
             _backgroundManager!.LogoUpdater =
                 new LogoUpdater(_getLowResBackground, ViewModel);
 
-            Log.Information("LogoUpdater initialized.");
+            Log.Information("Logo initialized successfully");
         }
         catch (Exception ex)
         {
@@ -1924,12 +1949,8 @@ public partial class MainWindow : Window
         await Task.Delay(400);
         await Dispatcher.UIThread.InvokeAsync(() => { debugConsolePanel.IsVisible = false; });
     }
-
-    /// <summary>
-    ///     Ensures the Settings Cog is centered before applying any transform to it
-    /// </summary>
-    /// <param name="cogImage"></param>
-    /// <returns></returns>
+    
+    // If we don't have the cog centered before we apply any transforms it will spin off-center
     private static Task EnsureCogCenterAsync(Avalonia.Svg.Svg cogImage)
     {
         return Dispatcher.UIThread.InvokeAsync(() =>
@@ -1941,7 +1962,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///     Calculates the interval for cog spinning based on the current BPM
+    ///     Calculate the interval for cog spinning based on the current BPM
     /// </summary>
     /// <param name="bpm"></param>
     /// <param name="updatesPerBeat"></param>
@@ -2012,7 +2033,7 @@ public partial class MainWindow : Window
         double start = 0;
         await Dispatcher.UIThread.InvokeAsync(() => start = rotate.Angle);
 
-        // tldr the fontawesome cog has 6 teeth so we should snap to the nearest 1/6
+        // the fontawesome cog has 6 teeth so we should snap to the nearest 1/6
         double target = Math.Round(start / 60.0) * 60.0;
 
         int duration = 150;
@@ -2048,7 +2069,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///     Shows or hides the debug console panel
+    ///     Toggle the debug console panel (which is technically not a console, or a panel for that matter)
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
@@ -2061,7 +2082,7 @@ public partial class MainWindow : Window
             {
                 StartStableFrameTimer();
 
-                _isDebugConsoleOpen = true;
+                IsDebugConsoleOpen = true;
                 if (sender is Button) _tooltipManager.UpdateTooltipText("Close Debug Console", true);
 
                 await SetupDebugConsoleTransitionsAsync(debugConsolePanel);
@@ -2071,7 +2092,15 @@ public partial class MainWindow : Window
                 _logUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
                 _logUpdateTimer.Tick += (_, __) =>
                 {
-                    var currentLogs = _infoPanelLog.Logs.Values.ToList();
+                    var currentLogs = _infoPanelLog.Logs.Values
+                        .OrderBy(x => x.Order)
+                        .ToList();
+                    /*
+                     foreach (var log in currentLogs)
+                        Log.Debug("Order: {Order}, Text: {Text}", log.Order, log.Text); 
+                    */
+
+                    UpdateDebugConsolePanel(debugConsolePanel, currentLogs);
                     UpdateDebugConsolePanel(debugConsolePanel, currentLogs);
                 };
                 _logUpdateTimer.Start();
@@ -2080,7 +2109,7 @@ public partial class MainWindow : Window
             {
                 StopStableFrameTimer();
 
-                _isDebugConsoleOpen = false;
+                IsDebugConsoleOpen = false;
 
                 if (sender is Button) _tooltipManager.UpdateTooltipText("Open Debug Console", true);
 
@@ -2099,18 +2128,13 @@ public partial class MainWindow : Window
             Log.Error("Exception in ToggleDebugConsole: {ExMessage}", ex.Message);
         }
     }
-
-    /// <summary>
-    ///     Updates the debug console panel with the current important logs
-    /// </summary>
-    /// <param name="debugConsolePanel"></param>
-    /// <param name="currentLogs"></param>
-    private void UpdateDebugConsolePanel(StackPanel debugConsolePanel, List<string> currentLogs)
+    
+    private void UpdateDebugConsolePanel(StackPanel debugConsolePanel, List<InfoPanelLogEntry> currentLogs)
     {
         if (debugConsolePanel.Children.Count != currentLogs.Count)
         {
             debugConsolePanel.Children.Clear();
-            foreach (string logText in currentLogs)
+            foreach (InfoPanelLogEntry logText in currentLogs)
                 debugConsolePanel.Children.Add(CreateLogElement(logText));
         }
         else
@@ -2126,26 +2150,27 @@ public partial class MainWindow : Window
     /// <summary>
     ///     Creates a log textblock for the debug panel
     /// </summary>
-    /// <param name="logText"></param>
+    /// <param name="logEntry"></param>
     /// <remarks>
-    ///     This contains hyperlink support if the text contains a URL
+    ///     Supports hyperlinks stored in the log entry
     /// </remarks>
     /// <returns></returns>
-    private static Control CreateLogElement(string logText)
+    private static Control CreateLogElement(InfoPanelLogEntry logEntry)
     {
-        string? hyperlink = ExtractHyperlink(logText);
-
-        if (string.IsNullOrEmpty(hyperlink))
-            return new TextBlock { Text = logText, Foreground = Brushes.White };
-
-        // remove the hyperlink from the displayed text
-        string displayText = logText.Replace(hyperlink, "").TrimEnd();
+        if (string.IsNullOrEmpty(logEntry.Hyperlink))
+        {
+            return new TextBlock
+            {
+                Text = logEntry.Text,
+                Foreground = Brushes.White
+            };
+        }
 
         Button linkButton = new()
         {
             Content = new TextBlock
             {
-                Text = displayText,
+                Text = logEntry.Text,
                 Foreground = Brushes.LightBlue,
                 TextDecorations = TextDecorations.Underline,
                 Cursor = new Cursor(StandardCursorType.Hand)
@@ -2155,22 +2180,17 @@ public partial class MainWindow : Window
             Padding = new Thickness(0),
             Margin = new Thickness(0, 0, 4, 0)
         };
+
         linkButton.Click += (_, __) =>
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = hyperlink,
+                FileName = logEntry.Hyperlink,
                 UseShellExecute = true
             });
         };
-        return linkButton;
-    }
 
-    private static string? ExtractHyperlink(string logText)
-    {
-        Regex urlRegex = new(@"https?://\S+");
-        Match match = urlRegex.Match(logText);
-        return match.Success ? match.Value : null;
+        return linkButton;
     }
 
     public class HotKey

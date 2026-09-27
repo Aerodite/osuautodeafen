@@ -317,6 +317,7 @@ public partial class SettingsView : UserControl
     private string GetCompletionPercentageTooltip(double value)
     {
         return value >= 99.9
+        return value >= 99
             ? $"{value:0.00}% (Deafening disabled)"
             : $"{value:0.00}%";
     }
@@ -710,7 +711,7 @@ public partial class SettingsView : UserControl
         Point point = Extensions.GetWindowRelativePointer(this, e);
         // if this is ever null we have bigger issues
         MainWindow window = TopLevel.GetTopLevel(this) as MainWindow ?? throw new InvalidOperationException();
-        bool isOpen = window._isDebugConsoleOpen;
+        bool isOpen = window.IsDebugConsoleOpen;
         _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Debug Console" : "Open Debug Console");
     }
 
