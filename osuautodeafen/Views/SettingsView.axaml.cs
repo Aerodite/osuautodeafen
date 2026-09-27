@@ -316,7 +316,6 @@ public partial class SettingsView : UserControl
 
     private string GetCompletionPercentageTooltip(double value)
     {
-        return value >= 99.9
         return value >= 99
             ? $"{value:0.00}% (Deafening disabled)"
             : $"{value:0.00}%";
