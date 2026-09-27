@@ -7,7 +7,6 @@ using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -17,7 +16,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using LiveChartsCore.Defaults;
@@ -38,8 +36,6 @@ using osuautodeafen.ViewModels;
 using osuautodeafen.Views;
 using ReactiveUI;
 using Serilog;
-using SkiaSharp;
-using Svg.Skia;
 using Animation = Avalonia.Animation.Animation;
 using KeyFrame = Avalonia.Animation.KeyFrame;
 
@@ -94,6 +90,8 @@ public partial class MainWindow : Window
 
     private readonly CancelableAnimator _versionAnimator = new();
     private readonly SharedViewModel _viewModel;
+
+    public bool IsDebugConsoleOpen;
     private CancellationTokenSource? _blurCts;
     private double _cogCurrentAngle;
     private double _cogSpinBpm = 140;
@@ -102,8 +100,6 @@ public partial class MainWindow : Window
     private DispatcherTimer? _cogSpinTimer;
 
     private bool _isCogSpinning;
-
-    public bool IsDebugConsoleOpen;
     private bool _isLogoDragging;
 
     private bool _isLogoHovered;
@@ -244,11 +240,11 @@ public partial class MainWindow : Window
         };
 
         _deafenController = new Deafen.Deafen(_tosuApi, _settingsHandler, _viewModel);
-        
+
         // we have to do this to set the app icon on startup
         Dispatcher.UIThread.Post(() =>
             Icon = new WindowIcon(startupIconPath));
-        
+
         _deafenController.DeafenStateChanged += () =>
             Dispatcher.UIThread.Post(() =>
                 Icon = new WindowIcon(_deafenController.Deafened ? deafenIconPath : startupIconPath));
@@ -268,10 +264,22 @@ public partial class MainWindow : Window
 
         ProgressOverlay.Points =
             _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage());
-        _breakPeriod.BreakPeriodEntered += async () => { _infoPanelLog.LogToInfoPanel("Break: True", false, "Break", order: 4); };
-        _breakPeriod.BreakPeriodExited += async () => { _infoPanelLog.LogToInfoPanel("Break: False", false, "Break", order: 4); };
-        _kiaiTimes.KiaiPeriodEntered += async () => { _infoPanelLog.LogToInfoPanel("Kiai: True", false, "Kiai", order: 3); };
-        _kiaiTimes.KiaiPeriodExited += async () => { _infoPanelLog.LogToInfoPanel("Kiai: False", false, "Kiai", order: 3); };
+        _breakPeriod.BreakPeriodEntered += async () =>
+        {
+            _infoPanelLog.LogToInfoPanel("Break: True", false, "Break", order: 4);
+        };
+        _breakPeriod.BreakPeriodExited += async () =>
+        {
+            _infoPanelLog.LogToInfoPanel("Break: False", false, "Break", order: 4);
+        };
+        _kiaiTimes.KiaiPeriodEntered += async () =>
+        {
+            _infoPanelLog.LogToInfoPanel("Kiai: True", false, "Kiai", order: 3);
+        };
+        _kiaiTimes.KiaiPeriodExited += async () =>
+        {
+            _infoPanelLog.LogToInfoPanel("Kiai: False", false, "Kiai", order: 3);
+        };
 
         DockPanel? settingsPanel = SettingsView.FindControl<DockPanel>("SettingsPanel");
         if (settingsPanel != null)
@@ -587,31 +595,31 @@ public partial class MainWindow : Window
                     string mapInfo = $"{s.BeatmapArtist} - {s.BeatmapTitle}";
                     if (mapInfo.Length > 67)
                         mapInfo = mapInfo[..67] + "...";
-                    
+
                     string backgroundPath = $"{s.SongsDirectory}/{s.BeatmapBackgroundPath}";
                     string displayedBackgroundPath = backgroundPath;
                     if (displayedBackgroundPath.Length > 60)
                         displayedBackgroundPath = displayedBackgroundPath[..60] + "...";
-                    
+
                     string osuFilePath = $"{s.SongsDirectory}/{s.BeatmapFilePath}";
                     string displayedOsuFilePath = osuFilePath;
                     if (displayedOsuFilePath.Length > 60)
                         displayedOsuFilePath = displayedOsuFilePath[..60] + "...";
-                    
+
                     _infoPanelLog.LogToInfoPanel(
                         "Mapset: " + mapInfo,
                         false,
                         "Beatmap changed",
-                        $"https://osu.ppy.sh/b/{s.BeatmapId}", 
+                        $"https://osu.ppy.sh/b/{s.BeatmapId}",
                         0);
-                    
+
                     _infoPanelLog.LogToInfoPanel(
                         "Background Path: " + displayedBackgroundPath,
                         false,
                         "Background Path",
                         new Uri(backgroundPath).AbsoluteUri,
                         21);
-                    
+
                     _infoPanelLog.LogToInfoPanel(
                         ".osu file path: " + displayedOsuFilePath,
                         false,
@@ -631,7 +639,8 @@ public partial class MainWindow : Window
                     _infoPanelLog.LogToInfoPanel("Mods: " + s.ModNames, false, "Mods", order: 15);
                     _infoPanelLog.LogToInfoPanel("Ranked Status: " + s.RankedStatus, false, "Ranked Status", order: 17);
                     _infoPanelLog.LogToInfoPanel("Beatmap ID: " + s.BeatmapId, false, "Beatmap ID", order: 19);
-                    _infoPanelLog.LogToInfoPanel("Beatmap Set ID: " + s.BeatmapSetId, false, "Beatmap Set ID", order: 18);
+                    _infoPanelLog.LogToInfoPanel("Beatmap Set ID: " + s.BeatmapSetId, false, "Beatmap Set ID",
+                        order: 18);
                     _infoPanelLog.LogToInfoPanel("Break: " + s.IsBreak, false, "Break", order: 4);
                     _infoPanelLog.LogToInfoPanel(
                         "Kiai: " + _kiaiTimes.IsKiaiPeriod(s.CurrentTime),
@@ -707,9 +716,12 @@ public partial class MainWindow : Window
                     "Current Time", order: 8);
 
                 _infoPanelLog.LogToInfoPanel("Current PP: " + s.CurrentPP, false, "CurrentPP", order: 10);
-                _infoPanelLog.LogToInfoPanel("isDeafened: " + _deafenController.Deafened, false, "isDeafened", order: 9);
-                _infoPanelLog.LogToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating", order: 12);
-                _infoPanelLog.LogToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false, "Min SS PP", order: 11);
+                _infoPanelLog.LogToInfoPanel("isDeafened: " + _deafenController.Deafened, false, "isDeafened",
+                    order: 9);
+                _infoPanelLog.LogToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating",
+                    order: 12);
+                _infoPanelLog.LogToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false, "Min SS PP",
+                    order: 11);
             });
 
         _tosuApi.StateStream
@@ -835,6 +847,15 @@ public partial class MainWindow : Window
     private void MainWindow_PointerMoved(object? sender, PointerEventArgs e)
     {
         Point pixelPoint = e.GetPosition(PlotView);
+        LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
+
+        Tooltips.Tooltips.TooltipType currentTooltipType = _tooltipManager.CurrentTooltipType;
+
+        if (currentTooltipType == osuautodeafen.Tooltips.Tooltips.TooltipType.Deafen)
+        {
+            _ = _chartManager.UpdateDeafenOverlayAsync(_viewModel.MinCompletionPercentage);
+            e.Handled = true;
+        }
 
         MainWindow window = this;
         PixelPoint screenPoint = PlotView.PointToScreen(pixelPoint);
@@ -842,51 +863,42 @@ public partial class MainWindow : Window
 
         _backgroundManager?.ApplyParallax(windowPoint.X, windowPoint.Y);
 
-        var tooltipType = _tooltipManager.CurrentTooltipType;
-
-        if (tooltipType == osuautodeafen.Tooltips.Tooltips.TooltipType.Deafen)
+        // this is really stupid but it just prevents the case where the straingraph's tooltips attempt to show in areas outside of the straingraph
+        if (currentTooltipType == osuautodeafen.Tooltips.Tooltips.TooltipType.Time ||
+            currentTooltipType == osuautodeafen.Tooltips.Tooltips.TooltipType.Section)
         {
-            e.Handled = true;
-        }
+            bool belowBottomLimit = pixelPoint.Y >= PlotView.Bounds.Height - 120;
+            bool withinRightLimit = !_isSettingsPanelOpen || pixelPoint.X <= PlotView.Bounds.Width;
 
-        bool tooltipWithinRange;
+            if (!belowBottomLimit || !withinRightLimit)
+            {
+                if (!_tooltipOutsideBounds)
+                {
+                    _tooltipManager.HideTooltip();
+                    _tooltipOutsideBounds = true;
+                }
 
-        if (tooltipType is osuautodeafen.Tooltips.Tooltips.TooltipType.Time or osuautodeafen.Tooltips.Tooltips.TooltipType.Section)
-        {
-            bool belowBottomLimit =
-                pixelPoint.Y >= PlotView.Bounds.Height - 120;
-
-            bool withinRightLimit =
-                !_isSettingsPanelOpen ||
-                pixelPoint.X <= PlotView.Bounds.Width;
-
-            tooltipWithinRange = belowBottomLimit && withinRightLimit;
+                _tooltipManager.MoveTooltipToPosition(windowPoint);
+                return;
+            }
         }
         else
         {
-            tooltipWithinRange = pixelPoint.Y >= PlotView.Bounds.Height - 120;
-        }
-
-        if (!tooltipWithinRange)
-        {
-            if (!_tooltipOutsideBounds)
+            if (pixelPoint.Y < PlotView.Bounds.Height - 120)
             {
-                _tooltipManager.HideTooltip();
-                _tooltipOutsideBounds = true;
-            }
+                if (!_tooltipOutsideBounds)
+                {
+                    _tooltipManager.HideTooltip();
+                    _tooltipOutsideBounds = true;
+                }
 
-            return;
+                _tooltipManager.MoveTooltipToPosition(windowPoint);
+                return;
+            }
         }
 
         _tooltipOutsideBounds = false;
-
-        LvcPointD dataPoint = PlotView.ScalePixelsToData(
-            new LvcPointD(pixelPoint.X, pixelPoint.Y));
-
-        _chartManager.TryShowTooltip(
-            dataPoint,
-            windowPoint,
-            _tooltipManager);
+        _chartManager.TryShowTooltip(dataPoint, windowPoint, _tooltipManager);
     }
 
     private void InitializeSettings()
@@ -1501,37 +1513,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private Bitmap ConvertSvgToBitmap(SKSvg svg, int width, int height)
-    {
-        if (svg == null)
-            throw new ArgumentNullException(nameof(svg));
-        if (svg.Picture == null)
-            throw new InvalidOperationException("SVG does not contain a valid picture.");
-
-        SKImageInfo info = new(width, height);
-
-        try
-        {
-            using SKSurface? surface = SKSurface.Create(info);
-            if (surface == null)
-                throw new InvalidOperationException("Failed to create SKSurface.");
-
-            SKCanvas? canvas = surface.Canvas;
-            canvas.Clear(SKColors.Transparent);
-            canvas.DrawPicture(svg.Picture);
-
-            using SKImage? image = surface.Snapshot();
-            using SKData? data = image.Encode();
-            using MemoryStream stream = new(data.ToArray());
-            return new Bitmap(stream);
-        }
-        catch (Exception ex)
-        {
-            Log.Error("ConvertSvgToBitmap failed: {ExMessage}", ex.Message);
-            throw;
-        }
-    }
-
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
         if (e.Cancel) return;
@@ -1884,7 +1865,7 @@ public partial class MainWindow : Window
         await Task.Delay(400);
         await Dispatcher.UIThread.InvokeAsync(() => { debugConsolePanel.IsVisible = false; });
     }
-    
+
     // If we don't have the cog centered before we apply any transforms it will spin off-center
     private static Task EnsureCogCenterAsync(Avalonia.Svg.Svg cogImage)
     {
@@ -2030,7 +2011,7 @@ public partial class MainWindow : Window
                         .ToList();
                     /*
                      foreach (var log in currentLogs)
-                        Log.Debug("Order: {Order}, Text: {Text}", log.Order, log.Text); 
+                        Log.Debug("Order: {Order}, Text: {Text}", log.Order, log.Text);
                     */
 
                     UpdateDebugConsolePanel(debugConsolePanel, currentLogs);
@@ -2058,7 +2039,7 @@ public partial class MainWindow : Window
             Log.Error("Exception in ToggleDebugConsole: {ExMessage}", ex.Message);
         }
     }
-    
+
     private void UpdateDebugConsolePanel(StackPanel debugConsolePanel, List<InfoPanelLogEntry> currentLogs)
     {
         if (debugConsolePanel.Children.Count != currentLogs.Count)
@@ -2088,13 +2069,11 @@ public partial class MainWindow : Window
     private static Control CreateLogElement(InfoPanelLogEntry logEntry)
     {
         if (string.IsNullOrEmpty(logEntry.Hyperlink))
-        {
             return new TextBlock
             {
                 Text = logEntry.Text,
                 Foreground = Brushes.White
             };
-        }
 
         Button linkButton = new()
         {
