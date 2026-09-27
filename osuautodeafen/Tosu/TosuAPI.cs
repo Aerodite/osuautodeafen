@@ -411,10 +411,14 @@ public class TosuApi : IDisposable
                 if (dp.TryGetProperty("beatmapFile", out var beatmapFileProperty))
                     beatmapFile = beatmapFileProperty.GetString();
 
-                if (root.TryGetProperty("performance", out var perf) &&
-                    perf.TryGetProperty("graph", out var graphProperty))
+                if (root.TryGetProperty("performance", out var perf))
                 {
-                    graphData = ParseGraph(graphProperty);
+                    if (perf.TryGetProperty("accuracy", out var accuracyProperty) &&
+                        accuracyProperty.TryGetProperty("100", out var ssPPProperty))
+                        maxPP = ssPPProperty.GetDouble();
+
+                    if (perf.TryGetProperty("graph", out var graphProperty))
+                        graphData = ParseGraph(graphProperty);
                 }
 
                 var tosuState = new TosuState(
