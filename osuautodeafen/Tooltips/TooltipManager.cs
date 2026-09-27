@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -8,22 +7,22 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
 using Avalonia.Threading;
 using osuautodeafen.Helpers;
-using osuautodeafen.Settings;
-using Serilog;
 
 namespace osuautodeafen.Tooltips;
 
 public class TooltipManager
 {
-    private Window? _mainWindow = (Application.Current?.ApplicationLifetime 
-        as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-    
     private const double TooltipOffset = 4;
 
     private const double TooltipTargetOpacity = 0.78;
+
+    public Tooltips.TooltipType CurrentTooltipType;
     private bool _isTooltipHiding;
 
     private string? _lastTooltipText;
+
+    private Window? _mainWindow = (Application.Current?.ApplicationLifetime
+        as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
 
     private Tooltips.TooltipState _state;
 
@@ -34,8 +33,6 @@ public class TooltipManager
     private TextBlock? _tooltipText;
 
     private CancellationTokenSource? _visibilityCts;
-    
-    public Tooltips.TooltipType CurrentTooltipType;
 
     private Grid? Tooltip { get; set; }
 
@@ -115,7 +112,7 @@ public class TooltipManager
         _lastTooltipText ??= "";
         _tooltipText.Text = text;
         _tooltipText.Width = double.NaN;
-        
+
         _tooltipText.Measure(new Size(_mainWindow.ClientSize.Width * 0.5, double.PositiveInfinity));
         if (TooltipBackground != null)
         {

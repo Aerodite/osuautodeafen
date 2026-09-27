@@ -20,6 +20,7 @@ using osuautodeafen.Tooltips;
 using osuautodeafen.Tosu;
 using osuautodeafen.ViewModels;
 using osuautodeafen.Views;
+using Serilog;
 using SkiaSharp;
 using static osuautodeafen.Tooltips.Tooltips;
 
@@ -30,7 +31,7 @@ namespace osuautodeafen.StrainGraph;
 public class ChartManager
 {
     private static readonly SKColor ProgressIndicatorColor = new(0xFF, 0xFF, 0xFF, 192);
-    
+
     private static readonly SKColor AimColor = new(0x00, 0xFF, 0x00, 175);
     private static readonly SKColor SpeedColor = new(0x30, 0x30, 0xFF, 160);
     private static readonly SKColor ReadingColor = new(0xFF, 0x70, 0xA0, 190);
@@ -326,12 +327,12 @@ public class ChartManager
             double newPercentage = Math.Min(100.0, 100.0 * (_draggedDeafenSection.Xi ?? 0) / MaxLimit);
 
             _viewModel.MinCompletionPercentage = newPercentage;
-            
+
             // holy mother of hack.
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
                 desktop.MainWindow is MainWindow { SettingsView.CompletionPercentageSlider: not null })
             {
-                if(_viewModel.CurrentPage != _viewModel.SettingsPage)
+                if (_viewModel.CurrentPage != _viewModel.SettingsPage)
                 {
                     // if we aren't on the settings page we can't write this change to settings
                     // (yes this is super retarded i know)
@@ -476,7 +477,7 @@ public class ChartManager
         }
         catch (Exception ex)
         {
-            Serilog.Log.Error("Error updating deafen overlay: {ExMessage}", ex.Message);
+            Log.Error("Error updating deafen overlay: {ExMessage}", ex.Message);
         }
     }
 
@@ -558,7 +559,7 @@ public class ChartManager
         PlotView.TooltipPosition = TooltipPosition.Hidden;
         PlotView.InvalidateVisual();
         sw.Stop();
-        Serilog.Log.Information("Chart updated in {SwElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
+        Log.Information("Chart updated in {SwElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
     }
 
     /// <summary>
@@ -595,11 +596,11 @@ public class ChartManager
 
         foreach (TosuApi.GraphSeries series in graphData.Series)
         {
-            var start = series.Data
+            int start = series.Data
                 .Select((v, i) => (v, i))
                 .FirstOrDefault(x => x.v != -100).i;
 
-            var end = series.Data
+            int end = series.Data
                 .Select((v, i) => (v, i))
                 .LastOrDefault(x => x.v != -100).i;
             if (start == -1 || end == -1 || end < start) continue;
@@ -643,7 +644,7 @@ public class ChartManager
                     color = SpeedColor;
                     name = "Speed";
                     break;
-                
+
                 case "reading":
                     color = ReadingColor;
                     name = "Reading";
@@ -700,7 +701,7 @@ public class ChartManager
         }
         catch (Exception ex)
         {
-            Serilog.Log.Error("Exception updating series: {Exception}", ex);
+            Log.Error("Exception updating series: {Exception}", ex);
         }
 
         var allSections = PlotView.Sections.ToList();
@@ -719,7 +720,7 @@ public class ChartManager
     private async Task UpdateSectionsAsync(TosuApi.GraphDataModel? graphData, string osuFilePath)
     {
         double rate = _tosuApi.GetRateAdjustRate();
-        IReadOnlyList<double>? xAxis = graphData.XAxis;
+        var xAxis = graphData.XAxis;
         _currentXAxis = xAxis;
         var seriesData = graphData.Series[0].Data;
         var breaks = await GetBreakPeriodsAsync(osuFilePath, xAxis, seriesData);
@@ -991,7 +992,7 @@ public class ChartManager
 
         var breaks = await _breakPeriod.ParseBreakPeriodsAsync(osuFilePath, xAxis, seriesData);
         _lastOsuFilePath = osuFilePath;
-        _lastXAxis = [..xAxis];
+        _lastXAxis = [.. xAxis];
         _lastSeriesData = new List<double>(seriesData);
         _lastBreaks = breaks;
         return breaks;

@@ -4,7 +4,7 @@
              xmlns:viewModels="clr-namespace:osuautodeafen.ViewModels"
              x:Class="osuautodeafen.Controls.AcrylicPanel"
              x:DataType="viewModels:SharedViewModel">
-    
+
     <Border ClipToBounds="True"
             CornerRadius="{Binding CornerRadius, RelativeSource={RelativeSource AncestorType=UserControl}}">
 
@@ -15,7 +15,7 @@
                 <Border.Background>
                     <MultiBinding Converter="{StaticResource ColorBlendConverter}">
                         <Binding Source="{StaticResource BaseBackgroundColor}" />
-                        <Binding Path="AverageColorBrushDark"/>
+                        <Binding Path="AverageColorBrushDark" />
                     </MultiBinding>
                 </Border.Background>
             </Border>

@@ -4,7 +4,6 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Avalonia.Controls;
-using Avalonia.Threading;
 using IniParser;
 using IniParser.Model;
 using Serilog;
@@ -13,18 +12,22 @@ namespace osuautodeafen.Settings;
 
 public class SettingsHandler : Control, INotifyPropertyChanged
 {
-    /// <summary>
-    /// The last time SaveSettings was called
-    /// </summary>
-    public DateTime LastSaveTime = DateTime.MinValue;
-    /// <summary>
-    /// The last setting that was changed in the ini
-    /// </summary>
-    private string LastWrittenTo = new("");
-    
     private readonly string _appPath;
     private readonly string _iniPath;
     private readonly FileIniDataParser _parser = new();
+
+    public IniData Data;
+
+    /// <summary>
+    ///     The last time SaveSettings was called
+    /// </summary>
+    public DateTime LastSaveTime = DateTime.MinValue;
+
+    /// <summary>
+    ///     The last setting that was changed in the ini
+    /// </summary>
+    private string LastWrittenTo = new("");
+
     private string? _activePresetPath;
     private double _blurRadius;
 
@@ -45,8 +48,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
     private double _windowHeight;
     private double _windowWidth;
-
-    public IniData Data;
 
     public SettingsHandler()
     {
@@ -320,10 +321,9 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     public bool ReloadFromDisk()
     {
         for (int i = 0; i < 3; i++)
-        {
             try
             {
-                var info = new FileInfo(_iniPath);
+                FileInfo info = new(_iniPath);
                 if (!info.Exists || info.Length == 0)
                     return false;
 
@@ -335,7 +335,6 @@ public class SettingsHandler : Control, INotifyPropertyChanged
             {
                 Thread.Sleep(100);
             }
-        }
 
         return false;
     }
@@ -416,7 +415,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindAltSide)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindShiftSide)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DiscordClient)));
-        
+
         SettingsReloaded?.Invoke();
         DeafenKeybindChanged?.Invoke();
     }

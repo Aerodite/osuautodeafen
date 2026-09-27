@@ -8,7 +8,7 @@ public class InfoPanelLog
     public readonly Dictionary<string, string> Logs = new();
 
     /// <summary>
-    /// Creates or updates an info panel entry
+    ///     Creates or updates an info panel entry
     /// </summary>
     public void LogToInfoPanel(string message, bool includeTimestamp = true, string? keyword = null,
         string? hyperLink = null)
@@ -27,7 +27,7 @@ public class InfoPanelLog
     }
 
     /// <summary>
-    /// Erases all entries from the info panel
+    ///     Erases all entries from the info panel
     /// </summary>
     public void ClearInfoPanelLogs()
     {

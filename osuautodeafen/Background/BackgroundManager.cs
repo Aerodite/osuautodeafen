@@ -10,7 +10,6 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using osuautodeafen.Helpers;
 using osuautodeafen.Logo;
 using osuautodeafen.Settings;
 using osuautodeafen.Tosu;
@@ -21,25 +20,18 @@ using Serilog;
 
 namespace osuautodeafen.Background;
 
-public class BackgroundManager(MainWindow window, SharedViewModel viewModel, TosuApi tosuApi, SettingsHandler settingsHandler)
+public class BackgroundManager(
+    MainWindow window,
+    SharedViewModel viewModel,
+    TosuApi tosuApi,
+    SettingsHandler settingsHandler)
 {
-    private string? _currentBackgroundDirectory;
-    public BlurEffect? BackgroundBlurEffect;
-    public required LogoUpdater? LogoUpdater;
-
-    private CancellationTokenSource? _opacityCts;
-
-    private readonly Grid _parallaxContainer = new();
-    
     private const int FadeMs = 200;
     private const int FadeSteps = 20;
-    
-    private bool _hasBeenInitialized;
-    
+
     private const double BackgroundZoom = 1.05f;
-    
+
     private const double BackgroundOpacity = 0.5f;
-    private double _currentBackgroundOpacity = 0.5f;
 
     private readonly Image _firstBackground = new()
     {
@@ -47,18 +39,29 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         Opacity = 1
     };
 
+    private readonly Grid _parallaxContainer = new();
+
     private readonly Image _secondBackground = new()
     {
         Stretch = Stretch.UniformToFill,
         Opacity = 0
     };
 
+    public BlurEffect? BackgroundBlurEffect;
+    public required LogoUpdater? LogoUpdater;
+    private string? _currentBackgroundDirectory;
+    private double _currentBackgroundOpacity = 0.5f;
+
+    private bool _hasBeenInitialized;
+
+    private CancellationTokenSource? _opacityCts;
+
     private bool _showingA = true;
-    
+
     public async Task SetBackgroundOpacity(double targetOpacity, int durationMs = 0)
     {
         Grid layer = EnsureBackgroundLayerExists();
-        
+
         targetOpacity = Math.Clamp(targetOpacity, 0f, 0.5f);
 
         _opacityCts?.Cancel();
@@ -71,7 +74,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             layer.Opacity = _currentBackgroundOpacity;
             return;
         }
-        
+
         double start = _currentBackgroundOpacity;
 
         for (int i = 0; i <= FadeSteps; i++)
@@ -83,10 +86,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
 
             _currentBackgroundOpacity = start + (targetOpacity - start) * t;
 
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                layer.Opacity = _currentBackgroundOpacity;
-            });
+            await Dispatcher.UIThread.InvokeAsync(() => { layer.Opacity = _currentBackgroundOpacity; });
 
             await Task.Delay(durationMs / FadeSteps, token);
         }
@@ -94,14 +94,14 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         _currentBackgroundOpacity = targetOpacity;
         layer.Opacity = _currentBackgroundOpacity;
     }
-    
+
     public async Task SetBackgroundEnabledState(bool enabled, bool? isPanelOpen)
     {
         double newOpacity = 0.0f;
-        
-        if(isPanelOpen != null)
+
+        if (isPanelOpen != null)
             newOpacity = (bool)isPanelOpen ? 0.25f : 0.5f;
-        
+
         if (!enabled)
         {
             await SetBackgroundOpacity(0.0f, FadeMs);
@@ -112,7 +112,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
         _parallaxContainer.IsVisible = true;
         await SetBackgroundOpacity(newOpacity, FadeMs);
     }
-    
+
     private void EnsureInitialized()
     {
         if (_hasBeenInitialized)
@@ -135,7 +135,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
     }
 
     /// <summary>
-    /// Sets the default properties for the backgrounds' appearance
+    ///     Sets the default properties for the backgrounds' appearance
     /// </summary>
     /// <param name="image"></param>
     private static void ConfigureImage(Image image)
@@ -153,7 +153,7 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
 
         image.Opacity = BackgroundOpacity;
     }
-    
+
     private Grid EnsureBackgroundLayerExists()
     {
         if (window.Content is not Grid mainGrid)
@@ -176,13 +176,13 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
 
             mainGrid.Children.Insert(0, layer);
         }
-        
+
         if (_parallaxContainer.Parent == null)
             layer.Children.Add(_parallaxContainer);
 
         return layer;
     }
-    
+
     private async Task SwapBackgroundAsync(Bitmap bitmap)
     {
         EnsureInitialized();
@@ -212,14 +212,11 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             await Task.Delay(duration / steps);
         }
 
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            outgoing.Source = null;
-        });
+        await Dispatcher.UIThread.InvokeAsync(() => { outgoing.Source = null; });
 
         _showingA = !_showingA;
     }
-    
+
     public async Task UpdateBackground(bool isPanelOpen)
     {
         try
@@ -244,9 +241,9 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
                 return;
 
             await SwapBackgroundAsync(newBitmap);
-            
+
             if (LogoUpdater != null)
-               await LogoUpdater.UpdateLogoAsync();
+                await LogoUpdater.UpdateLogoAsync();
         }
         catch (Exception ex)
         {
@@ -260,25 +257,22 @@ public class BackgroundManager(MainWindow window, SharedViewModel viewModel, Tos
             return null;
 
         await using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        
+
         return await Task.Run(() =>
         {
             Bitmap bmp = Bitmap.DecodeToWidth(stream, 1024, BitmapInterpolationMode.LowQuality);
             return bmp;
         });
     }
-    
+
     public static async Task BlurBackgroundAsync(BlurEffect blurEffect, double radius, CancellationToken token)
     {
         if (token.IsCancellationRequested)
             return;
 
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            blurEffect.Radius = radius;
-        });
+        await Dispatcher.UIThread.InvokeAsync(() => { blurEffect.Radius = radius; });
     }
-    
+
     internal void ApplyParallax(double mouseX, double mouseY)
     {
         if (!viewModel.IsParallaxEnabled || !viewModel.IsBackgroundEnabled)

@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using Avalonia.Input;
 using osuautodeafen.Settings;
 using osuautodeafen.Settings.Keybinds;
 using osuautodeafen.Tosu;
 using osuautodeafen.ViewModels;
+using Serilog;
 using SharpHook;
 using SharpHook.Data;
 using Timer = System.Timers.Timer;
@@ -89,6 +89,7 @@ public class Deafen : IDisposable
     private readonly DateTime _startedAt = DateTime.Now;
     private readonly Timer _timer;
     private readonly TosuApi _tosuAPI;
+    public bool Deafened;
 
     private DateTime _deafenEnteredAt = DateTime.MinValue;
     private bool _desiredDeafenState;
@@ -97,9 +98,6 @@ public class Deafen : IDisposable
     private DateTime _lastToggleAt = DateTime.MinValue;
 
     private DateTime _nextStateChangedAt = DateTime.MinValue;
-    public bool Deafened;
-
-    public event Action? DeafenStateChanged;
 
     public Deafen(TosuApi tosuAPI, SettingsHandler settingsHandler, SharedViewModel sharedViewModel)
     {
@@ -122,12 +120,14 @@ public class Deafen : IDisposable
     /// </summary>
     public void Dispose()
     {
-        Serilog.Log.Debug("Disposing Deafen resources.");
+        Log.Debug("Disposing Deafen resources.");
         _hook.Dispose();
         _timer.Dispose();
         GC.SuppressFinalize(this);
     }
-    
+
+    public event Action? DeafenStateChanged;
+
     private bool TryLinuxClientSendShortcut()
     {
         try
@@ -167,12 +167,12 @@ public class Deafen : IDisposable
 
                     Process.Start(psi);
                     return true;
-                } 
+                }
                 default:
                 {
                     if (!IsHyprland)
                         return false;
-                    
+
                     psi = new ProcessStartInfo
                     {
                         FileName = "hyprctl",
@@ -194,9 +194,10 @@ public class Deafen : IDisposable
         }
         catch (Exception ex)
         {
-            Serilog.Log.Error("sendshortcut failed: {ExMessage}", ex.Message);
+            Log.Error("sendshortcut failed: {ExMessage}", ex.Message);
             return false;
         }
+
         return false;
     }
 
@@ -219,7 +220,7 @@ public class Deafen : IDisposable
 
             if (!hasAnyModifier && keys.Contains(configuredKey))
             {
-                Serilog.Log.Error("Nice try.");
+                Log.Error("Nice try.");
                 return;
             }
 
@@ -231,7 +232,7 @@ public class Deafen : IDisposable
             int altSide = _settingsHandler.DeafenKeybindAltSide;
             int shiftSide = _settingsHandler.DeafenKeybindShiftSide;
 
-            Serilog.Log.Debug(
+            Log.Debug(
                 "[SimulateDeafenKey] Retrieved keybind from settings: Key={KeyCode}, ControlSide={ControlSide}, AltSide={AltSide}, ShiftSide={ShiftSide}",
                 key, controlSide, altSide, shiftSide);
 
@@ -254,27 +255,27 @@ public class Deafen : IDisposable
                     Side = shiftSide == 2 ? Modifiers.ModifierSide.Right : Modifiers.ModifierSide.Left
                 });
 
-            Serilog.Log.Information("Simulating modifier keys: {Join}",
+            Log.Information("Simulating modifier keys: {Join}",
                 string.Join(", ",
                     modifiers.Select(m => m.Modifier + (m.Side != Modifiers.ModifierSide.None ? $"({m.Side})" : ""))));
             foreach (ModifierWithSide mod in modifiers) _eventSimulator.SimulateKeyPress(mod.Modifier);
 
-            Serilog.Log.Information("Simulating main key: {KeyCode}", key);
+            Log.Information("Simulating main key: {KeyCode}", key);
             _eventSimulator.SimulateKeyPress(key);
 
             _eventSimulator.SimulateKeyRelease(key);
-            Serilog.Log.Information("Released main key: {KeyCode}", key);
+            Log.Information("Released main key: {KeyCode}", key);
 
             foreach (ModifierWithSide mod in modifiers.AsEnumerable().Reverse())
                 _eventSimulator.SimulateKeyRelease(mod.Modifier);
-            Serilog.Log.Information("Released modifiers: {Join}",
+            Log.Information("Released modifiers: {Join}",
                 string.Join(", ",
                     modifiers.AsEnumerable().Reverse().Select(m =>
                         m.Modifier + (m.Side != Modifiers.ModifierSide.None ? $"({m.Side})" : ""))));
         }
         catch (Exception ex)
         {
-            Serilog.Log.Error("Exception while simulating deafen keybind: {Exception}", ex);
+            Log.Error("Exception while simulating deafen keybind: {Exception}", ex);
         }
     }
 
@@ -297,11 +298,9 @@ public class Deafen : IDisposable
         double completionPercentage = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
 
         if (_sharedViewModel.MinCompletionPercentage >= 99.9)
-        {
             // assume the user doesnt want to deafen but wants to keep osuautodeafen open still
             return false;
-        }
-        
+
         if (isSpectating)
             return false;
 
@@ -361,7 +360,7 @@ public class Deafen : IDisposable
 
             if (_isDeafened)
             {
-                Serilog.Log.Information("Undeafening due to spectating (how did this happen?)");
+                Log.Information("Undeafening due to spectating (how did this happen?)");
                 ApplyDeafenToggle();
             }
 
@@ -389,7 +388,7 @@ public class Deafen : IDisposable
         if (nextState == _isDeafened)
             return;
 
-        Serilog.Log.Information(
+        Log.Information(
             nextState
                 ? "Deafening"
                 : "Undeafening"
@@ -411,13 +410,11 @@ public class Deafen : IDisposable
             _lastToggleAt = DateTime.Now;
 
             if (PlatformHelper.IsLinux && !string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient))
-            {
                 if (TryLinuxClientSendShortcut())
                 {
                     SetDeafened();
                     return;
                 }
-            }
 
             SimulateDeafenKey();
             SetDeafened();

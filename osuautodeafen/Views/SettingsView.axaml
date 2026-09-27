@@ -5,7 +5,6 @@
              xmlns:presets="clr-namespace:osuautodeafen.Settings.Presets"
              xmlns:viewModels="clr-namespace:osuautodeafen.ViewModels"
              xmlns:controls="clr-namespace:osuautodeafen.Controls"
-             xmlns:osuautodeafen="clr-namespace:osuautodeafen"
              xmlns:helpers="clr-namespace:osuautodeafen.Helpers"
              DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
 

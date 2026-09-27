@@ -1,6 +1,7 @@
 ﻿using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Serilog;
 using Velopack;
 using Velopack.Sources;
 
@@ -18,10 +19,10 @@ public class UpdateChecker
     private static readonly GithubSource UpdateSource = new("https://github.com/Aerodite/osuautodeafen",
         null, false);
 
+    public readonly UpdateManager Mgr = new(UpdateSource);
+
     private readonly Button? _updateNotificationBarButton;
     private readonly ProgressBar? _updateProgressBar;
-
-    public readonly UpdateManager Mgr = new(UpdateSource);
     public UpdateInfo? UpdateInfo;
 
     public UpdateChecker(Button? notificationBar, ProgressBar? progressBar)
@@ -37,20 +38,20 @@ public class UpdateChecker
     {
         if (!Mgr.IsInstalled)
         {
-            Serilog.Log.Warning("Update check skipped: Velopack not in use.");
+            Log.Warning("Update check skipped: Velopack not in use.");
             return;
         }
 
         UpdateInfo? updateInfo = await Mgr.CheckForUpdatesAsync();
         if (updateInfo == null)
         {
-            Serilog.Log.Information("No updates available.");
+            Log.Information("No updates available.");
             return;
         }
 
         UpdateInfo = updateInfo;
 
-        Serilog.Log.Information("Update available.");
+        Log.Information("Update available.");
         await Mgr.DownloadUpdatesAsync(UpdateInfo);
     }
 
@@ -59,7 +60,7 @@ public class UpdateChecker
     /// </summary>
     public void ShowUpdateNotification()
     {
-        Serilog.Log.Debug("Showing Update Notification");
+        Log.Debug("Showing Update Notification");
 
         _updateNotificationBarButton.IsVisible = true;
         _updateProgressBar.Value = 0;

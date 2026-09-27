@@ -283,14 +283,14 @@
                     </ScrollViewer>
 
                     <Button x:DataType="vm:ChangelogViewModel"
-                        Grid.Row="2"
-                        Content="Close"
-                        Width="100"
-                        HorizontalAlignment="Right"
-                        HorizontalContentAlignment="Center"
-                        Classes="changelog-ok"
-                        IsEnabled="True"
-                        Command="{Binding DismissCommand}" />
+                            Grid.Row="2"
+                            Content="Close"
+                            Width="100"
+                            HorizontalAlignment="Right"
+                            HorizontalContentAlignment="Center"
+                            Classes="changelog-ok"
+                            IsEnabled="True"
+                            Command="{Binding DismissCommand}" />
 
                 </Grid>
             </Border>

@@ -2,6 +2,7 @@
 using System.IO;
 using System.Runtime.InteropServices;
 using osuautodeafen.Tosu;
+using Serilog;
 
 namespace osuautodeafen.Background;
 
@@ -16,7 +17,8 @@ public class GetLowResBackground
 
     /// <summary>
     ///     Attempts to get the path to the low resolution background image for the current beatmap
-    ///     (which is the one used in the beatmap carousel on stable, if on lazer, it just ignores it and uses the regular image)
+    ///     (which is the one used in the beatmap carousel on stable, if on lazer, it just ignores it and uses the regular
+    ///     image)
     /// </summary>
     /// <returns></returns>
     public string? GetLowResBitmapPath()
@@ -32,7 +34,7 @@ public class GetLowResBackground
 
         if (string.IsNullOrEmpty(osuFolderPath))
         {
-            Serilog.Log.Debug("osuFolderPath is null or empty");
+            Log.Debug("osuFolderPath is null or empty");
             return null;
         }
 
@@ -41,7 +43,7 @@ public class GetLowResBackground
         string beatmapId = _tosuApi.GetBeatmapId().ToString();
         if (string.IsNullOrEmpty(beatmapId))
         {
-            Serilog.Log.Warning("beatmapId is null or empty");
+            Log.Warning("beatmapId is null or empty");
             return null;
         }
 
@@ -52,16 +54,12 @@ public class GetLowResBackground
         //Serilog.Log.Debug("Path 2: {Path2}", path2);
 
         if (File.Exists(path2))
-        {
             //Serilog.Log.Debug("Path exists: {Path2}", path2);
             return path2;
-        }
 
         if (File.Exists(path1))
-        {
             //Serilog.Log.Debug("Path exists: {Path1}", path1);
             return path1;
-        }
 
         //just return the normal background (really only affects lazer)
         //Serilog.Log.Debug("No path exists, just using high res background");

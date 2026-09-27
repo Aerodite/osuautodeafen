@@ -78,7 +78,7 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
             // ignored
         }
     }
-    
+
     private static SKBitmap? LoadSKBitmap(string path)
     {
         try
@@ -103,10 +103,8 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
             float t = i / (float)steps;
             SKColor interpolatedColor = InterpolateColor(from, to, t);
 
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                UpdateViewModelColors(interpolatedColor);
-            }, DispatcherPriority.Render);
+            await Dispatcher.UIThread.InvokeAsync(() => { UpdateViewModelColors(interpolatedColor); },
+                DispatcherPriority.Render);
 
             await Task.Delay(delay, token);
         }
@@ -129,10 +127,8 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
                 float t = i / (float)steps;
                 SKColor interpolatedColor = InterpolateColor(from, to, t);
 
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    UpdateViewModelColors(interpolatedColor);
-                }, DispatcherPriority.Render);
+                await Dispatcher.UIThread.InvokeAsync(() => { UpdateViewModelColors(interpolatedColor); },
+                    DispatcherPriority.Render);
 
                 await Task.Delay(delay, token);
             }
@@ -144,7 +140,7 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
     private void UpdateViewModelColors(SKColor color)
     {
         Color avaloniaColor = Color.FromArgb(color.Alpha, color.Red, color.Green, color.Blue);
-        
+
         viewModel.AverageColorBrush = new SolidColorBrush(avaloniaColor);
         viewModel.TooltipAcrylicMaterial = new ExperimentalAcrylicMaterial
         {
@@ -177,8 +173,10 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
                     color.Alpha
                 );
             }
+
             colors.Add(color);
         }
+
         return colors;
     }
 
@@ -223,11 +221,12 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
             double distance = Math.Pow(target.Red - colors[i].Red, 2) +
                               Math.Pow(target.Green - colors[i].Green, 2) +
                               Math.Pow(target.Blue - colors[i].Blue, 2);
-            if (!(distance < minDistance)) 
+            if (!(distance < minDistance))
                 continue;
             minDistance = distance;
             closestIndex = i;
         }
+
         return closestIndex;
     }
 
@@ -253,6 +252,7 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
 
             await Task.Delay(delayMilliseconds).ConfigureAwait(false);
         }
+
         return null;
     }
 

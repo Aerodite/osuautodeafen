@@ -1,9 +1,5 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:global="clr-namespace:"
-             xmlns:osuautodeafen="clr-namespace:osuautodeafen"
-             xmlns:system="clr-namespace:System;assembly=System.Runtime"
-             xmlns:viewModels="clr-namespace:osuautodeafen.ViewModels"
              xmlns:helpers="clr-namespace:osuautodeafen.Helpers"
              xmlns:presets="clr-namespace:osuautodeafen.Settings.Presets"
              xmlns:settings="clr-namespace:osuautodeafen.Settings"
@@ -17,21 +13,21 @@
 
     <Application.Resources>
         <ResourceDictionary>
-            
-            <helpers:NullToBoolConverter x:Key="NullToBoolConverter"/>
-            <presets:AverageColorCycleConverter x:Key="AverageColorCycleConverter"/>
-            <presets:BackgroundPathToBrushConverter x:Key="BackgroundPathToBrushConverter"/>
-            <settings:ColorBlendConverter x:Key="ColorBlendConverter"/>
-            <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter"/>
-            <helpers:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
-            <helpers:StringIsNotNullOrEmptyConverter x:Key="StringIsNotNullOrEmptyConverter"/>
-            
+
+            <helpers:NullToBoolConverter x:Key="NullToBoolConverter" />
+            <presets:AverageColorCycleConverter x:Key="AverageColorCycleConverter" />
+            <presets:BackgroundPathToBrushConverter x:Key="BackgroundPathToBrushConverter" />
+            <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
+            <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
+            <helpers:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+            <helpers:StringIsNotNullOrEmptyConverter x:Key="StringIsNotNullOrEmptyConverter" />
+
             <Color x:Key="BaseBackgroundColor">#171717</Color>
 
             <ExperimentalAcrylicMaterial x:Key="AcrylicMaterial"
                                          MaterialOpacity="0.2"
                                          TintColor="{StaticResource BaseBackgroundColor}"
-                                         TintOpacity="0.25"/>
+                                         TintOpacity="0.25" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

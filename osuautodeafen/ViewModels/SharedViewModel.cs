@@ -5,7 +5,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Controls;
@@ -21,20 +20,24 @@ using osuautodeafen.Tosu;
 using osuautodeafen.Update;
 using osuautodeafen.Views;
 using osuautodeafen.Web;
+using Serilog;
 
 namespace osuautodeafen.ViewModels;
 
 public sealed class SharedViewModel : ViewModelBase
 {
+    private readonly BackgroundManager _backgroundManager;
     private readonly bool _canUpdateSettings = true;
 
     private readonly SettingsHandler _settingsHandler;
 
     private readonly TooltipManager _tooltipManager;
 
-    private readonly BackgroundManager _backgroundManager;
-
     private readonly TosuApi _tosuApi;
+
+    private bool _IsBreakUndeafenToggleEnabled;
+
+    private bool _IsPauseUndeafenToggleEnabled;
 
     private SolidColorBrush _averageColorBrush = new(Colors.Gray);
 
@@ -54,13 +57,9 @@ public sealed class SharedViewModel : ViewModelBase
 
     private bool _isBackgroundEnabled;
 
-    private bool _IsBreakUndeafenToggleEnabled;
-
     private bool _isFCRequired;
 
     private bool _isParallaxEnabled;
-
-    private bool _IsPauseUndeafenToggleEnabled;
 
     private bool _isSliderTooltipOpen;
     private bool _isUpdateReady;
@@ -77,6 +76,8 @@ public sealed class SharedViewModel : ViewModelBase
     private double _starRating;
 
     private string _statusMessage;
+
+    private ExperimentalAcrylicMaterial _tooltipAcrylicMaterial;
 
     private bool _undeafenAfterMiss;
     private IBrush _updateBarBackground = Brushes.Gray;
@@ -119,7 +120,7 @@ public sealed class SharedViewModel : ViewModelBase
 
     public IEnumerable<PresetInfo> VisiblePresets =>
         Presets?.Where(p => !p.IsCurrentPreset) ?? [];
-    
+
     public ChartData ChartData { get; } = new();
 
     public int UpdateProgress
@@ -261,8 +262,6 @@ public sealed class SharedViewModel : ViewModelBase
     public string CurrentAppVersion => $"v{UpdateChecker.CurrentVersion}";
 
     public string LongAppVersion => $"Version {UpdateChecker.CurrentVersion}";
-    
-    private ExperimentalAcrylicMaterial _tooltipAcrylicMaterial;
 
     public ExperimentalAcrylicMaterial TooltipAcrylicMaterial
     {
@@ -272,7 +271,7 @@ public sealed class SharedViewModel : ViewModelBase
             if (_tooltipAcrylicMaterial != value)
             {
                 _tooltipAcrylicMaterial = value;
-                OnPropertyChanged(nameof(TooltipAcrylicMaterial));
+                OnPropertyChanged();
             }
         }
     }
@@ -294,13 +293,6 @@ public sealed class SharedViewModel : ViewModelBase
     public SolidColorBrush AverageColorBrushDim => CreateBrush(0.75f, 0.75f);
     public SolidColorBrush AverageColorBrushDark => CreateBrush(0.6f, 0.3f);
     public SolidColorBrush AverageColorBrushLight => CreateBrush(0.3f, 0.6f);
-
-    private SolidColorBrush CreateBrush(float saturation, float lightness)
-    {
-        Color color = _averageColorBrush.Color;
-        Color adjusted = DesaturateAndLightenColorHsl(color, saturation, lightness);
-        return new SolidColorBrush(adjusted);
-    }
 
     public bool IsBackgroundEnabled
     {
@@ -384,7 +376,8 @@ public sealed class SharedViewModel : ViewModelBase
             {
                 _isFCRequired = value;
                 OnPropertyChanged();
-                _tooltipManager.UpdateTooltipText("" + (value ? "Disable" : "Enable") + " an FC being required to deafen", true);
+                _tooltipManager.UpdateTooltipText(
+                    "" + (value ? "Disable" : "Enable") + " an FC being required to deafen", true);
             }
         }
     }
@@ -492,6 +485,13 @@ public sealed class SharedViewModel : ViewModelBase
     public object MinPPValue => _tosuApi.GetMaxPP();
 
     public object MinSRValue => _tosuApi.GetFullSR();
+
+    private SolidColorBrush CreateBrush(float saturation, float lightness)
+    {
+        Color color = _averageColorBrush.Color;
+        Color adjusted = DesaturateAndLightenColorHsl(color, saturation, lightness);
+        return new SolidColorBrush(adjusted);
+    }
 
     private void SyncSettingsFromHandler()
     {
@@ -604,7 +604,7 @@ public sealed class SharedViewModel : ViewModelBase
         foreach (PresetInfo preset in Presets ?? Enumerable.Empty<PresetInfo>())
         {
             preset.IsCurrentPreset = preset.Checksum == _tosuApi.GetBeatmapChecksum();
-            Serilog.Log.Debug(
+            Log.Debug(
                 "Preset {PresetBeatmapName} IsCurrentPreset: {PresetIsCurrentPreset}",
                 preset.BeatmapName,
                 PresetExistsForCurrentChecksum);

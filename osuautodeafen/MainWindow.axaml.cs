@@ -16,7 +16,6 @@ using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Rendering;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
@@ -53,11 +52,12 @@ public partial class MainWindow : Window
     private const double HoverAngle = 15;
     private const double NormalAngle = 0;
 
-    private Deafen.Deafen _deafenController;
-
     private static Button? _updateNotificationBarButton;
     private static ProgressBar? _updateProgressBar;
-    
+    private readonly HomeView HomeView;
+
+    public readonly SettingsView SettingsView;
+
     private readonly BackgroundManager? _backgroundManager;
 
     private readonly BreakPeriodCalculator _breakPeriod;
@@ -65,13 +65,17 @@ public partial class MainWindow : Window
 
     private readonly CancelableAnimator _cogAnimator = new();
     private readonly Lock _cogSpinLock = new();
+
+    private readonly Deafen.Deafen _deafenController;
     private readonly Stopwatch _frameStopwatch = new();
     private readonly GetLowResBackground? _getLowResBackground;
+    private readonly InfoPanelLog _infoPanelLog = new();
 
     private readonly KeybindHelper _keybindHelper = new();
     private readonly KiaiTimes _kiaiTimes = new();
-    private readonly InfoPanelLog _infoPanelLog = new();
-    
+
+    private readonly LogoProperties? _logoSpringController;
+
     private readonly DispatcherTimer _mainTimer;
     private readonly SemaphoreSlim _panelAnimationLock = new(1, 1);
 
@@ -90,9 +94,6 @@ public partial class MainWindow : Window
 
     private readonly CancelableAnimator _versionAnimator = new();
     private readonly SharedViewModel _viewModel;
-    private readonly HomeView HomeView;
-
-    public readonly SettingsView SettingsView;
     private CancellationTokenSource? _blurCts;
     private double _cogCurrentAngle;
     private double _cogSpinBpm = 140;
@@ -104,25 +105,25 @@ public partial class MainWindow : Window
     private bool _isCogSpinning;
 
     public bool _isDebugConsoleOpen;
+    private bool _isLogoDragging;
 
     private bool _isLogoHovered;
-    private bool _isLogoDragging;
     private bool _isSettingsPanelOpen;
     private List<string> _lastDisplayedLogs = [];
     private GraphData? _lastGraphData;
-    private Key _lastKeyPressed = Key.None;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
-    
+    private Key _lastKeyPressed = Key.None;
+
     private DispatcherTimer? _logUpdateTimer;
 
     private DispatcherTimer? _modifierOnlyTimer;
     private double _opacity = 1.00;
 
+    private CancellationTokenSource? _reloadCts;
+
     private bool _tooltipOutsideBounds;
 
     private bool _versionPanelShown;
-    
-    private LogoProperties? _logoSpringController;
 
     public MainWindow()
     {
@@ -130,7 +131,7 @@ public partial class MainWindow : Window
         const string deafenResourceName = "osuautodeafen.Resources.favicon_d.ico";
         string startupIconPath = Path.Combine(Path.GetTempPath(), "osuautodeafen_favicon.ico");
         string deafenIconPath = Path.Combine(Path.GetTempPath(), "osuautodeafen_favicon_d.ico");
-        
+
         using (Stream? resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
         {
             if (resourceStream == null)
@@ -171,8 +172,8 @@ public partial class MainWindow : Window
             .WriteTo.File(Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                     "osuautodeafen", "Logs",
-                    "osuautodeafen.log"), 
-                rollingInterval: RollingInterval.Day, 
+                    "osuautodeafen.log"),
+                rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: 5)
             .CreateLogger();
 
@@ -217,7 +218,7 @@ public partial class MainWindow : Window
             SettingsView
         );
 
-        _backgroundManager = new BackgroundManager(this, _viewModel, _tosuApi, _settingsHandler) 
+        _backgroundManager = new BackgroundManager(this, _viewModel, _tosuApi, _settingsHandler)
         {
             LogoUpdater = null
         };
@@ -243,12 +244,16 @@ public partial class MainWindow : Window
                 _updateChecker.ShowUpdateNotification();
         };
 
-        _deafenController = new(_tosuApi, _settingsHandler, _viewModel);
-
+        _deafenController = new Deafen.Deafen(_tosuApi, _settingsHandler, _viewModel);
+        
+        // we have to do this to set the app icon on startup
+        Dispatcher.UIThread.Post(() =>
+            Icon = new WindowIcon(startupIconPath));
+        
         _deafenController.DeafenStateChanged += () =>
             Dispatcher.UIThread.Post(() =>
                 Icon = new WindowIcon(_deafenController.Deafened ? deafenIconPath : startupIconPath));
-        
+
         _mainTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
@@ -307,18 +312,18 @@ public partial class MainWindow : Window
         // so tl;dr the reason this is necessary is because some file editors recreate a file and rename over -
         // the file instead of just editing the file, this just accounts for that case (thanks geany 🙄)
         _settingsFileWatcher.Renamed += OnSettingsFileChanged;
-        
+
         _settingsFileWatcher.EnableRaisingEvents = true;
 
         ExtendClientAreaToDecorationsHint = true;
         ExtendClientAreaTitleBarHeightHint = 32;
         Background = Brushes.Black;
         BorderBrush = Brushes.Black;
-        
+
         Width = _settingsHandler.WindowWidth;
         Height = _settingsHandler.WindowHeight;
         Title = "osuautodeafen";
-        // This shoould hopefully prevent tiling in most cases (idk why you would want oad to be tiled)
+        // This should hopefully prevent tiling in most cases (idk why you would want oad to be tiled)
         MaxHeight = 1000;
         MaxWidth = 1000;
         MinHeight = 400;
@@ -337,7 +342,7 @@ public partial class MainWindow : Window
             const int titleBarHeight = 34;
             if (point.Y <= titleBarHeight) BeginMoveDrag(e);
         };
-        
+
         _logoSpringController = new LogoProperties(LogoStackPanel, osuautodeafenLogoPanel);
         _logoSpringController.DragStateChanged += dragging =>
         {
@@ -452,13 +457,13 @@ public partial class MainWindow : Window
         SettingsView.PPSlider.Value = ViewModel.PerformancePoints;
         SettingsView.BlurEffectSlider.Value = ViewModel.BlurRadius;
         _viewModel.RefreshPresets();
-        
+
         KeyDown += (_, e) =>
         {
             if (e.Key == Key.Escape && _viewModel.Changelog != null && _viewModel.Changelog.IsVisible)
                 _viewModel.Changelog.IsVisible = false;
         };
-        
+
         // linq subscriptions might be awesome
         this.GetObservable(BoundsProperty)
             .Throttle(TimeSpan.FromMilliseconds(350))
@@ -469,11 +474,11 @@ public partial class MainWindow : Window
                 _settingsHandler.WindowWidth = bounds.Width;
                 _settingsHandler.WindowHeight = bounds.Height;
             });
-        
+
         _tosuApi.StateStream
             .Select(s => new
             {
-                s.BeatmapChecksum,
+                s.BeatmapChecksum
             })
             .DistinctUntilChanged()
             .ObserveOn(RxApp.MainThreadScheduler)
@@ -493,25 +498,19 @@ public partial class MainWindow : Window
                     _viewModel.PresetExistsForCurrentChecksum = File.Exists(presetFilePath);
 
                     foreach (PresetInfo preset in _viewModel.Presets ?? Enumerable.Empty<PresetInfo>())
-                    {
                         preset.IsCurrentPreset = preset.Checksum == checksum;
-                    }
 
                     if (_viewModel.PresetExistsForCurrentChecksum)
-                    {
                         _settingsHandler?.ActivatePreset(presetFilePath);
-                    }
                     else
-                    {
-                        await Dispatcher.UIThread.InvokeAsync(() => 
-                        { 
-                            _settingsHandler.DeactivatePreset(); 
-                            _settingsHandler.LoadSettings(); 
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            _settingsHandler.DeactivatePreset();
+                            _settingsHandler.LoadSettings();
                         });
-                    }
 
-                    if (_backgroundManager != null) 
-                        Dispatcher.UIThread.Post(() => 
+                    if (_backgroundManager != null)
+                        Dispatcher.UIThread.Post(() =>
                             _ = _backgroundManager.UpdateBackground(_isSettingsPanelOpen));
                 }
                 catch (Exception e)
@@ -519,7 +518,7 @@ public partial class MainWindow : Window
                     Log.Warning(e, "Exception occured while updating beatmap state");
                 }
             });
-        
+
         _tosuApi.StateStream
             .Select(s => new
             {
@@ -534,31 +533,22 @@ public partial class MainWindow : Window
                 try
                 {
                     if (s.Client == "lazer")
-                    {
                         _infoPanelLog.LogToInfoPanel("State: " + s.RawLazerBanchoStatus, false, "State");
-                    }
                     else
-                    {
                         _infoPanelLog.LogToInfoPanel("State: " + s.RawBanchoStatus, false, "State");
-                    }
 
                     if (s.RawBanchoStatus == 2 || s.RawLazerBanchoStatus == 2)
-                    {
                         // unfortunately I believe settingspanel being open while playing is kind of a drain on resources
                         // might be reconsidered in future when I can actually optimize
                         if (_isCogSpinning && _isSettingsPanelOpen)
-                        {
                             await Dispatcher.UIThread.InvokeAsync(() => SettingsButton_Click(null, null));
-                        }
-                    }
-
                 }
                 catch (Exception e)
                 {
                     Log.Warning(e, "Exception occured while updating beatmap state");
                 }
             });
-        
+
         _tosuApi.StateStream
             .Select(s => new
             {
@@ -577,7 +567,7 @@ public partial class MainWindow : Window
                 s.RankedStatus,
                 s.IsBreak,
                 s.CurrentTime,
-                s.FullTime,
+                s.FullTime
             })
             .DistinctUntilChanged()
             .ObserveOn(RxApp.MainThreadScheduler)
@@ -588,10 +578,10 @@ public partial class MainWindow : Window
                     _viewModel.BeatmapName = s.BeatmapTitle;
                     _viewModel.FullBeatmapName = $"{s.BeatmapArtist} - {s.BeatmapTitle}";
                     _viewModel.BeatmapDifficulty = s.BeatmapDifficulty;
-                    
+
                     if (!_isDebugConsoleOpen)
                         return;
-                    
+
                     string mapInfo = $"{s.BeatmapArtist} - {s.BeatmapTitle}";
                     if (mapInfo.Length > 67)
                         mapInfo = mapInfo.Substring(0, 67) + "...";
@@ -626,7 +616,7 @@ public partial class MainWindow : Window
                     Log.Warning(e, "Exception occured while updating beatmap information");
                 }
             });
-        
+
         _tosuApi.StateStream
             .Select(s => new
             {
@@ -651,7 +641,7 @@ public partial class MainWindow : Window
                 _viewModel.UpdateMinPPValue();
                 _viewModel.UpdateMinSRValue();
             });
-        
+
         _tosuApi.StateStream
             .Select(s => new
             {
@@ -694,7 +684,7 @@ public partial class MainWindow : Window
                 _infoPanelLog.LogToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");
                 _infoPanelLog.LogToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false, "Min SS PP");
             });
-        
+
         _tosuApi.StateStream
             .Select(s => new
             {
@@ -726,7 +716,7 @@ public partial class MainWindow : Window
                     Log.Warning("Exception while updating BPM: " + e);
                 }
             });
-        
+
         _tosuApi.StateStream
             .Select(s => s.RawBanchoStatus)
             .DistinctUntilChanged()
@@ -744,11 +734,11 @@ public partial class MainWindow : Window
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(
                 g => _ = OnGraphDataUpdated(g),
-                ex => Serilog.Log.Error(ex, "StateStream error"));
-        
+                ex => Log.Error(ex, "StateStream error"));
+
         _infoPanelLog.LogToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
     }
-    
+
     public static TooltipManager Tooltips { get; private set; } = null!;
 
     private SharedViewModel ViewModel { get; }
@@ -756,15 +746,11 @@ public partial class MainWindow : Window
     private void UpdateKeybindCaptureState()
     {
         if (PlatformHelper.IsLinux)
-        {
             _settingsViewModel.IsKeybindCaptureEnabled = string.IsNullOrWhiteSpace(_settingsHandler?.DiscordClient);
-        }
         else
-        {
             _settingsViewModel.IsKeybindCaptureEnabled = true;
-        }
     }
-    
+
     private async Task ReloadSettingsSafe()
     {
         for (int i = 0; i < 5; i++)
@@ -777,10 +763,7 @@ public partial class MainWindow : Window
 
                     _settingsHandler.LoadSettings();
 
-                    if (oldDiscord != _settingsHandler.DiscordClient)
-                    {
-                        UpdateKeybindCaptureState();
-                    }
+                    if (oldDiscord != _settingsHandler.DiscordClient) UpdateKeybindCaptureState();
                 });
                 return;
             }
@@ -788,8 +771,6 @@ public partial class MainWindow : Window
             await Task.Delay(100);
         }
     }
-    
-    private CancellationTokenSource? _reloadCts;
 
     private void OnSettingsFileChanged(object? sender, FileSystemEventArgs e)
     {
@@ -1081,7 +1062,7 @@ public partial class MainWindow : Window
             }
         }, _frameCts.Token);
     }
-    
+
     private void StopStableFrameTimer()
     {
         _frameCts?.Cancel();
@@ -1160,13 +1141,9 @@ public partial class MainWindow : Window
                     Log.Information("Saved new BackgroundToggle state " + _viewModel.IsBackgroundEnabled +
                                     logFinishingText);
                     if (!_viewModel.IsBackgroundEnabled)
-                    {
                         await _backgroundManager.SetBackgroundEnabledState(false, _isSettingsPanelOpen);
-                    }
                     else
-                    {
                         await _backgroundManager?.UpdateBackground(_isSettingsPanelOpen)!;
-                    }
 
                     break;
                 }
@@ -1204,29 +1181,25 @@ public partial class MainWindow : Window
             Log.Error("Exception in ViewModel_PropertyChanged: {Exception}", ex);
         }
     }
-    
+
     private async Task OnGraphDataUpdated(TosuApi.GraphDataModel? graphData)
     {
         if (graphData == null || graphData.Series.Count < 2)
             return;
 
-        var series0 = graphData.Series[0];
-        var series1 = graphData.Series[1];
+        TosuApi.GraphSeries series0 = graphData.Series[0];
+        TosuApi.GraphSeries series1 = graphData.Series[1];
 
         if (_viewModel.ChartData.Series1Values.Count != series0.Data.Count)
-        {
             _viewModel.ChartData.Series1Values = new ObservableCollection<ObservablePoint>(
                 series0.Data.Select((p, i) => new ObservablePoint(i, p))
             );
-        }
 
         if (_viewModel.ChartData.Series2Values.Count != series1.Data.Count)
-        {
             _viewModel.ChartData.Series2Values = new ObservableCollection<ObservablePoint>(
                 series1.Data.Select((p, i) => new ObservablePoint(i, p))
             );
-        }
-        
+
         await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             await _chartManager.UpdateChart(graphData, ViewModel.MinCompletionPercentage);
@@ -1423,7 +1396,7 @@ public partial class MainWindow : Window
             flyout?.Hide();
         }
     }
-    
+
     private async Task DownloadUpdateWithProgressAsync()
     {
         int minDisplayMs = 1500;
@@ -1503,7 +1476,7 @@ public partial class MainWindow : Window
         bool shouldShow = _isLogoHovered || _isLogoDragging;
         AnimateVersionPanel(shouldShow);
     }
-    
+
     private async void AnimateVersionPanel(bool show)
     {
         TextBlock? versionPanel = this.FindControl<TextBlock>("VersionPanel");
@@ -1552,20 +1525,20 @@ public partial class MainWindow : Window
                 versionPanel.IsVisible = false;
         });
     }
-    
+
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
         _kiaiTimes.UpdateKiaiPeriodState(_tosuApi.GetCurrentTime());
     }
-    
+
     private bool IsModifierKey(Key key)
     {
         return key == Key.LeftCtrl || key == Key.RightCtrl ||
                key == Key.LeftAlt || key == Key.RightAlt ||
                key == Key.LeftShift || key == Key.RightShift;
     }
-    
+
     private void InitializeLogo()
     {
         try
@@ -1580,7 +1553,7 @@ public partial class MainWindow : Window
             Log.Error("Exception while initializing logo updater: {ExMessage}", ex.Message);
         }
     }
-    
+
     private Bitmap ConvertSvgToBitmap(SKSvg svg, int width, int height)
     {
         if (svg == null)
@@ -1611,14 +1584,14 @@ public partial class MainWindow : Window
             throw;
         }
     }
-    
+
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
         _mainTimer?.Stop();
         _cogSpinTimer?.Stop();
         _tosuApi.Dispose();
     }
-    
+
     private async void SettingsButton_Click(object? sender, RoutedEventArgs? e)
     {
         try
@@ -1653,7 +1626,7 @@ public partial class MainWindow : Window
 
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 225, 0);
                 debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
-                if (_backgroundManager != null) 
+                if (_backgroundManager != null)
                     await _backgroundManager.SetBackgroundOpacity(0.25f, 200);
 
                 _isSettingsPanelOpen = true;
@@ -1673,10 +1646,10 @@ public partial class MainWindow : Window
                 {
                     await AnimatePanelOutAsync(settingsPanel, buttonContainer, hideMargin, buttonRightMargin);
                 }
-                
+
                 settingsPanel.IsVisible = false;
                 _viewModel.SwitchPage("Home");
-                
+
                 osuautodeafenLogoPanel.Margin = new Thickness(0, 0, 0, 0);
                 debugConsoleTextBlock.Margin = new Thickness(60, 32, 10, 250);
 
@@ -1820,7 +1793,7 @@ public partial class MainWindow : Window
         if (!shouldAnimate) return;
 
         var tasks = new List<Task>();
-        
+
         tasks.Add(Dispatcher.UIThread.InvokeAsync(() =>
         {
             _ = AnimateGridLength(_viewModel.SettingsPanelWidth, new GridLength(200, GridUnitType.Pixel),
@@ -1922,7 +1895,7 @@ public partial class MainWindow : Window
 
         setter(to);
     }
-    
+
     private static async Task SetupDebugConsoleTransitionsAsync(StackPanel debugConsolePanel)
     {
         await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1951,9 +1924,9 @@ public partial class MainWindow : Window
         await Task.Delay(400);
         await Dispatcher.UIThread.InvokeAsync(() => { debugConsolePanel.IsVisible = false; });
     }
-    
+
     /// <summary>
-    /// Ensures the Settings Cog is centered before applying any transform to it
+    ///     Ensures the Settings Cog is centered before applying any transform to it
     /// </summary>
     /// <param name="cogImage"></param>
     /// <returns></returns>
@@ -1974,7 +1947,8 @@ public partial class MainWindow : Window
     /// <param name="updatesPerBeat"></param>
     /// <param name="minMs"></param>
     /// <param name="maxMs"></param>
-    private static double CalculateCogSpinInterval(double bpm, double updatesPerBeat = 60, double minMs = 4, double maxMs = 50)
+    private static double CalculateCogSpinInterval(double bpm, double updatesPerBeat = 60, double minMs = 4,
+        double maxMs = 50)
     {
         if (bpm <= 0) bpm = 140;
         double msPerBeat = 60000.0 / bpm;
@@ -2161,9 +2135,9 @@ public partial class MainWindow : Window
     {
         string? hyperlink = ExtractHyperlink(logText);
 
-        if (string.IsNullOrEmpty(hyperlink)) 
+        if (string.IsNullOrEmpty(hyperlink))
             return new TextBlock { Text = logText, Foreground = Brushes.White };
-        
+
         // remove the hyperlink from the displayed text
         string displayText = logText.Replace(hyperlink, "").TrimEnd();
 
@@ -2190,7 +2164,6 @@ public partial class MainWindow : Window
             });
         };
         return linkButton;
-
     }
 
     private static string? ExtractHyperlink(string logText)

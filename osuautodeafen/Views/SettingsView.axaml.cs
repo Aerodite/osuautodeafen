@@ -10,9 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
 using IniParser.Model;
 using osuautodeafen.Background;
 using osuautodeafen.Helpers;
@@ -36,11 +34,11 @@ public partial class SettingsView : UserControl
     private readonly KeybindHelper _keybindHelper = new();
     private readonly SettingsHandler _settingsHandler;
 
-    private readonly UpdateChecker _updateChecker = new(_updateNotificationBarButton, _updateProgressBar);
-
     private readonly SemaphoreSlim _updateCheckLock = new(1, 1);
-    private BackgroundManager? _backgroundManager;
+
+    private readonly UpdateChecker _updateChecker = new(_updateNotificationBarButton, _updateProgressBar);
     private DispatcherTimer? _BESaveTimer;
+    private BackgroundManager? _backgroundManager;
     private ChartManager _chartManager;
     private DispatcherTimer? _completionPercentageSaveTimer;
 
@@ -63,12 +61,13 @@ public partial class SettingsView : UserControl
     private TosuApi _tosuApi;
     private SharedViewModel _viewModel;
 
-    
+
     public SettingsView()
     {
         InitializeComponent();
         DataContext = _viewModel;
     }
+
     public SettingsView(
         SettingsHandler settingsHandler,
         TosuApi tosuApi,
@@ -314,7 +313,7 @@ public partial class SettingsView : UserControl
     {
         _tooltipManager.HideTooltip();
     }
-    
+
     private string GetCompletionPercentageTooltip(double value)
     {
         return value >= 99.9
@@ -478,7 +477,8 @@ public partial class SettingsView : UserControl
         if (sender is not StackPanel) return;
         Point point = Extensions.GetWindowRelativePointer(this, e);
         bool isEnabled = FCToggle.IsChecked ?? false;
-        _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " an FC being required to deafen");
+        _tooltipManager.ShowTooltip(this, point,
+            "" + (isEnabled ? "Disable" : "Enable") + " an FC being required to deafen");
     }
 
     private void FCToggle_PointerLeave(object sender, PointerEventArgs e)
@@ -650,15 +650,15 @@ public partial class SettingsView : UserControl
         _tooltipManager.HideTooltip();
     }
 
-   /*
-    private void KiaiEffectToggle_PointerEnter(object sender, PointerEventArgs e)
-    {
-        if (sender is not StackPanel) return;
-        Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
-        bool isEnabled = KiaiEffectToggle.IsChecked ?? false;
-        _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Kiai Effect");
-    }
-    */
+    /*
+     private void KiaiEffectToggle_PointerEnter(object sender, PointerEventArgs e)
+     {
+         if (sender is not StackPanel) return;
+         Point point = Tooltips.Tooltips.GetWindowRelativePointer(this, e);
+         bool isEnabled = KiaiEffectToggle.IsChecked ?? false;
+         _tooltipManager.ShowTooltip(this, point, "" + (isEnabled ? "Disable" : "Enable") + " Kiai Effect");
+     }
+     */
 
     private void KiaiEffectToggle_PointerLeave(object sender, PointerEventArgs e)
     {

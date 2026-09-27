@@ -26,8 +26,8 @@ internal sealed class GraphComparer : IEqualityComparer<TosuApi.GraphDataModel>
 
         for (int i = 0; i < a.Series.Count; i++)
         {
-            var seriesA = a.Series[i];
-            var seriesB = b.Series[i];
+            TosuApi.GraphSeries seriesA = a.Series[i];
+            TosuApi.GraphSeries seriesB = b.Series[i];
 
             if (seriesA.Name != seriesB.Name)
                 return false;

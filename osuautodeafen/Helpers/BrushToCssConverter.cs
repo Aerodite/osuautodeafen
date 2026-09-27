@@ -11,13 +11,13 @@ public class BrushToCssConverter : IValueConverter
     {
         if (value is SolidColorBrush solidBrush)
         {
-            var color = solidBrush.Color;
-            
+            Color color = solidBrush.Color;
+
             string hexColor = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
-            
+
             return $"path {{ fill: {hexColor}; }}";
         }
-        
+
         return "path { fill: #FFFFFF; }";
     }
 

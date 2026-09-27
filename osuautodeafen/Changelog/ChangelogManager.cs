@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using osuautodeafen.Settings;
 using osuautodeafen.Update;
 using osuautodeafen.ViewModels;
+using Serilog;
 
 namespace osuautodeafen.Changelog;
 
@@ -32,7 +33,7 @@ public sealed class ChangelogManager
         {
             if (_settingsHandler.LastSeenVersion == currentVersion)
                 return;
-            
+
             VideoPreviewCache.DeleteOldChangelogCaches(currentVersion);
 
             string markdown = await _http.GetStringAsync(ChangelogUrl);
@@ -42,7 +43,7 @@ public sealed class ChangelogManager
         }
         catch (Exception ex)
         {
-            Serilog.Log.Error("Failed to show changelog: {Exception}", ex);
+            Log.Error("Failed to show changelog: {Exception}", ex);
         }
     }
 
@@ -65,7 +66,7 @@ public sealed class ChangelogManager
         }
         catch (Exception ex)
         {
-            Serilog.Log.Error("Failed to dismiss changelog: {Exception}", ex);
+            Log.Error("Failed to dismiss changelog: {Exception}", ex);
         }
     }
 

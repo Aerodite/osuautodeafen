@@ -7,7 +7,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.VisualTree;
 using osuautodeafen.Helpers;
 using osuautodeafen.Tooltips;
 using osuautodeafen.ViewModels;
