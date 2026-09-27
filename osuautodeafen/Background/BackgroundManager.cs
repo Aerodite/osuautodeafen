@@ -41,6 +41,8 @@ public class BackgroundManager(
 
     private readonly Grid _parallaxContainer = new();
 
+    private readonly TranslateTransform _parallaxTransform = new();
+
     private readonly Image _secondBackground = new()
     {
         Stretch = Stretch.UniformToFill,
@@ -54,9 +56,21 @@ public class BackgroundManager(
 
     private bool _hasBeenInitialized;
 
+    private double _lastMouseX;
+    private double _lastMouseY;
+
     private CancellationTokenSource? _opacityCts;
 
+    private CancellationTokenSource? _parallaxCts;
+
+    private CancellationTokenSource? _parallaxResetCts;
+
+    private double _parallaxTargetX;
+    private double _parallaxTargetY;
+
     private bool _showingA = true;
+
+    private bool _wasParallaxEnabled;
 
     public async Task SetBackgroundOpacity(double targetOpacity, int durationMs = 0)
     {
@@ -126,10 +140,18 @@ public class BackgroundManager(
         _parallaxContainer.Children.Add(_firstBackground);
         _parallaxContainer.Children.Add(_secondBackground);
 
+        _parallaxContainer.RenderTransform = _parallaxTransform;
+
         BackgroundBlurEffect ??= new BlurEffect();
         BackgroundBlurEffect.Radius = settingsHandler.BlurRadius;
 
         _parallaxContainer.Effect = BackgroundBlurEffect;
+
+        viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SharedViewModel.IsParallaxEnabled))
+                SetParallaxEnabled(viewModel.IsParallaxEnabled);
+        };
 
         _hasBeenInitialized = true;
     }
@@ -273,24 +295,90 @@ public class BackgroundManager(
         await Dispatcher.UIThread.InvokeAsync(() => { blurEffect.Radius = radius; });
     }
 
+    internal void SetParallaxEnabled(bool enabled)
+    {
+        if (!enabled)
+            SetParallaxTarget(0, 0);
+    }
+
+    private void SetParallaxTarget(double x, double y)
+    {
+        _parallaxTargetX = x;
+        _parallaxTargetY = y;
+
+        if (_parallaxCts != null)
+            return;
+
+        _parallaxCts = new CancellationTokenSource();
+        _ = SmoothParallaxMovement(_parallaxCts.Token);
+    }
+
+    private async Task SmoothParallaxMovement(CancellationToken token)
+    {
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                double dx = _parallaxTargetX - _parallaxTransform.X;
+                double dy = _parallaxTargetY - _parallaxTransform.Y;
+
+                if (Math.Abs(dx) < 0.01 &&
+                    Math.Abs(dy) < 0.01)
+                {
+                    _parallaxTransform.X = _parallaxTargetX;
+                    _parallaxTransform.Y = _parallaxTargetY;
+                    break;
+                }
+
+                const double smoothing = 0.18;
+
+                _parallaxTransform.X += dx * smoothing;
+                _parallaxTransform.Y += dy * smoothing;
+
+                await Task.Delay(16, token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            _parallaxCts?.Dispose();
+            _parallaxCts = null;
+
+            if (Math.Abs(_parallaxTargetX - _parallaxTransform.X) >= 0.01 ||
+                Math.Abs(_parallaxTargetY - _parallaxTransform.Y) >= 0.01)
+                SetParallaxTarget(_parallaxTargetX, _parallaxTargetY);
+        }
+    }
+
     internal void ApplyParallax(double mouseX, double mouseY)
     {
-        if (!viewModel.IsParallaxEnabled || !viewModel.IsBackgroundEnabled)
-        {
-            _parallaxContainer.RenderTransform = new TranslateTransform(0, 0);
-            return;
-        }
+        _lastMouseX = mouseX;
+        _lastMouseY = mouseY;
 
+        if (!viewModel.IsParallaxEnabled ||
+            !viewModel.IsBackgroundEnabled)
+            return;
+
+        SetParallaxTargetFromMouse(mouseX, mouseY);
+    }
+
+    private void SetParallaxTargetFromMouse(double mouseX, double mouseY)
+    {
         double centerX = window.Width / 2;
         double centerY = window.Height / 2;
 
-        double movementX = -(mouseX - centerX) * 0.015;
-        double movementY = -(mouseY - centerY) * 0.015;
+        double movementX = Math.Clamp(
+            -(mouseX - centerX) * 0.015,
+            -15,
+            15);
 
-        movementX = Math.Clamp(movementX, -15, 15);
-        movementY = Math.Clamp(movementY, -15, 15);
+        double movementY = Math.Clamp(
+            -(mouseY - centerY) * 0.015,
+            -15,
+            15);
 
-        _parallaxContainer.RenderTransform =
-            new TranslateTransform(movementX, movementY);
+        SetParallaxTarget(movementX, movementY);
     }
 }

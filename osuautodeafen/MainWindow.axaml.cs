@@ -101,7 +101,6 @@ public partial class MainWindow : Window
     private DateTime _cogSpinStartTime;
     private DispatcherTimer? _cogSpinTimer;
 
-    private CancellationTokenSource? _frameCts;
     private bool _isCogSpinning;
 
     public bool IsDebugConsoleOpen;
@@ -836,15 +835,6 @@ public partial class MainWindow : Window
     private void MainWindow_PointerMoved(object? sender, PointerEventArgs e)
     {
         Point pixelPoint = e.GetPosition(PlotView);
-        LvcPointD dataPoint = PlotView.ScalePixelsToData(new LvcPointD(pixelPoint.X, pixelPoint.Y));
-
-        Tooltips.Tooltips.TooltipType currentTooltipType = _tooltipManager.CurrentTooltipType;
-
-        if (currentTooltipType == osuautodeafen.Tooltips.Tooltips.TooltipType.Deafen)
-        {
-            _ = _chartManager.UpdateDeafenOverlayAsync(_viewModel.MinCompletionPercentage);
-            e.Handled = true;
-        }
 
         MainWindow window = this;
         PixelPoint screenPoint = PlotView.PointToScreen(pixelPoint);
@@ -852,42 +842,51 @@ public partial class MainWindow : Window
 
         _backgroundManager?.ApplyParallax(windowPoint.X, windowPoint.Y);
 
-        // this is really stupid but it just prevents the case where the straingraph's tooltips attempt to show in areas outside of the straingraph
-        if (currentTooltipType == osuautodeafen.Tooltips.Tooltips.TooltipType.Time ||
-            currentTooltipType == osuautodeafen.Tooltips.Tooltips.TooltipType.Section)
+        var tooltipType = _tooltipManager.CurrentTooltipType;
+
+        if (tooltipType == osuautodeafen.Tooltips.Tooltips.TooltipType.Deafen)
         {
-            bool belowBottomLimit = pixelPoint.Y >= PlotView.Bounds.Height - 120;
-            bool withinRightLimit = !_isSettingsPanelOpen || pixelPoint.X <= PlotView.Bounds.Width;
+            e.Handled = true;
+        }
 
-            if (!belowBottomLimit || !withinRightLimit)
-            {
-                if (!_tooltipOutsideBounds)
-                {
-                    _tooltipManager.HideTooltip();
-                    _tooltipOutsideBounds = true;
-                }
+        bool tooltipWithinRange;
 
-                _tooltipManager.MoveTooltipToPosition(windowPoint);
-                return;
-            }
+        if (tooltipType is osuautodeafen.Tooltips.Tooltips.TooltipType.Time or osuautodeafen.Tooltips.Tooltips.TooltipType.Section)
+        {
+            bool belowBottomLimit =
+                pixelPoint.Y >= PlotView.Bounds.Height - 120;
+
+            bool withinRightLimit =
+                !_isSettingsPanelOpen ||
+                pixelPoint.X <= PlotView.Bounds.Width;
+
+            tooltipWithinRange = belowBottomLimit && withinRightLimit;
         }
         else
         {
-            if (pixelPoint.Y < PlotView.Bounds.Height - 120)
-            {
-                if (!_tooltipOutsideBounds)
-                {
-                    _tooltipManager.HideTooltip();
-                    _tooltipOutsideBounds = true;
-                }
+            tooltipWithinRange = pixelPoint.Y >= PlotView.Bounds.Height - 120;
+        }
 
-                _tooltipManager.MoveTooltipToPosition(windowPoint);
-                return;
+        if (!tooltipWithinRange)
+        {
+            if (!_tooltipOutsideBounds)
+            {
+                _tooltipManager.HideTooltip();
+                _tooltipOutsideBounds = true;
             }
+
+            return;
         }
 
         _tooltipOutsideBounds = false;
-        _chartManager.TryShowTooltip(dataPoint, windowPoint, _tooltipManager);
+
+        LvcPointD dataPoint = PlotView.ScalePixelsToData(
+            new LvcPointD(pixelPoint.X, pixelPoint.Y));
+
+        _chartManager.TryShowTooltip(
+            dataPoint,
+            windowPoint,
+            _tooltipManager);
     }
 
     private void InitializeSettings()
@@ -1016,95 +1015,6 @@ public partial class MainWindow : Window
 
         _toggleQueues[target] = newTask;
         return newTask;
-    }
-
-    /// <summary>
-    ///     Starts the frame timer for debug panel to measure frametimes and framerate
-    /// </summary>
-    /// <remarks>
-    ///     ideally this shouldn't be used elsewhere because this might be a bit more resource-intensive than necessary,
-    ///     but for debugging purposes its good enough
-    /// </remarks>
-    /// <param name="targetFps"></param>
-    private void StartStableFrameTimer(int targetFps = 1000)
-    {
-        StopStableFrameTimer();
-
-        targetFps = Math.Clamp(targetFps, 1, 1000);
-        double intervalMs = 1000.0 / targetFps;
-
-        _frameCts = new CancellationTokenSource();
-        _frameStopwatch.Restart();
-
-        double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
-        int frameCount = 0, statsWindow = 100;
-        long lastFrameTicks = _frameStopwatch.ElapsedTicks;
-        double tickMs = 1000.0 / Stopwatch.Frequency;
-
-        Task.Run(async () =>
-        {
-            try
-            {
-                while (!_frameCts!.IsCancellationRequested)
-                {
-                    long frameStartTicks = _frameStopwatch.ElapsedTicks;
-                    double frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
-                    lastFrameTicks = frameStartTicks;
-
-                    frameInterval = Math.Max(frameInterval, 0.01);
-                    minFrame = Math.Min(minFrame, frameInterval);
-                    maxFrame = Math.Max(maxFrame, frameInterval);
-                    sumFrame += frameInterval;
-                    frameCount++;
-
-                    if (frameCount % statsWindow == 0)
-                    {
-                        double avgFrame = sumFrame / frameCount;
-                        await Dispatcher.UIThread.InvokeAsync(() =>
-                        {
-                            _infoPanelLog.LogToInfoPanel(
-                                $"Frame: {frameInterval:F3}ms/{1000.0 / avgFrame:F0}fps",
-                                false, "FrameLatency", order: 23);
-                            _infoPanelLog.LogToInfoPanel(
-                                $"Min/Max/Avg: {minFrame:F3}/{maxFrame:F3}/{avgFrame:F3}ms",
-                                false, "FrameStats", order: 24);
-                        });
-
-                        minFrame = double.MaxValue;
-                        maxFrame = double.MinValue;
-                        sumFrame = 0;
-                        frameCount = 0;
-                    }
-
-                    while (true)
-                    {
-                        double elapsedMs = (_frameStopwatch.ElapsedTicks - frameStartTicks) * tickMs;
-                        double remaining = intervalMs - elapsedMs;
-
-                        if (remaining <= 0)
-                            break;
-
-                        if (remaining > 2.0)
-                            await Task.Delay(1, _frameCts.Token);
-                        else
-                            Thread.SpinWait(100);
-                    }
-                }
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            finally
-            {
-                _frameStopwatch.Stop();
-            }
-        }, _frameCts.Token);
-    }
-
-    private void StopStableFrameTimer()
-    {
-        _frameCts?.Cancel();
-        _frameStopwatch.Stop();
     }
 
     /*
@@ -2105,8 +2015,6 @@ public partial class MainWindow : Window
             StackPanel? debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
             if (debugConsolePanel != null && !debugConsolePanel.IsVisible)
             {
-                StartStableFrameTimer();
-
                 IsDebugConsoleOpen = true;
                 if (sender is Button) _tooltipManager.UpdateTooltipText("Close Debug Console", true);
 
@@ -2126,14 +2034,11 @@ public partial class MainWindow : Window
                     */
 
                     UpdateDebugConsolePanel(debugConsolePanel, currentLogs);
-                    UpdateDebugConsolePanel(debugConsolePanel, currentLogs);
                 };
                 _logUpdateTimer.Start();
             }
             else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
             {
-                StopStableFrameTimer();
-
                 IsDebugConsoleOpen = false;
 
                 if (sender is Button) _tooltipManager.UpdateTooltipText("Open Debug Console", true);

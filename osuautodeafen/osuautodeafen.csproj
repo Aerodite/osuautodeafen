@@ -40,6 +40,7 @@
         <PackageReference Include="Velopack" Version="0.0.1362-gfa48e3c"/>
         <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11"/>
         <PackageReference Include="ILMerge" Version="3.0.41"/>
+        <PackageReference Include="Avalonia.Diagnostics" Version="11.3.5" />
     </ItemGroup>
 
     <ItemGroup>
