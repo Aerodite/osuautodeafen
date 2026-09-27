@@ -39,8 +39,6 @@ public sealed class SharedViewModel : ViewModelBase
 
     private bool _IsPauseUndeafenToggleEnabled;
 
-    private SolidColorBrush _averageColorBrush = new(Colors.Gray);
-
     private string? _beatmapDifficulty;
 
     private string? _beatmapName;
@@ -76,8 +74,6 @@ public sealed class SharedViewModel : ViewModelBase
     private double _starRating;
 
     private string _statusMessage;
-
-    private ExperimentalAcrylicMaterial _tooltipAcrylicMaterial;
 
     private bool _undeafenAfterMiss;
     private IBrush _updateBarBackground = Brushes.Gray;
@@ -264,37 +260,58 @@ public sealed class SharedViewModel : ViewModelBase
 
     public string LongAppVersion => $"Version {UpdateChecker.CurrentVersion}";
 
-    public ExperimentalAcrylicMaterial TooltipAcrylicMaterial
-    {
-        get => _tooltipAcrylicMaterial;
-        set
+    private readonly ExperimentalAcrylicMaterial _tooltipAcrylicMaterial =
+        new()
         {
-            if (_tooltipAcrylicMaterial != value)
-            {
-                _tooltipAcrylicMaterial = value;
-                OnPropertyChanged();
-            }
-        }
-    }
+            TintColor = Colors.White,
+            TintOpacity = 0.25,
+            MaterialOpacity = 0.2
+        };
 
-    public SolidColorBrush AverageColorBrush
+    public ExperimentalAcrylicMaterial TooltipAcrylicMaterial =>
+        _tooltipAcrylicMaterial;
+    
+    private readonly SolidColorBrush _averageColorBrush = new(Colors.White);
+    private readonly SolidColorBrush _averageColorBrushDim = new(Colors.White);
+    private readonly SolidColorBrush _averageColorBrushDark = new(Colors.White);
+    private readonly SolidColorBrush _averageColorBrushLight = new(Colors.White);
+
+    public SolidColorBrush AverageColorBrush => _averageColorBrush;
+    public SolidColorBrush AverageColorBrushDim => _averageColorBrushDim;
+    public SolidColorBrush AverageColorBrushDark => _averageColorBrushDark;
+    public SolidColorBrush AverageColorBrushLight => _averageColorBrushLight;
+
+    public void SetAverageColor(Color color)
     {
-        get => CreateBrush(1f, 1f);
-        set
-        {
-            if (_averageColorBrush == value) return;
-            _averageColorBrush = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(AverageColorBrushDim));
-            OnPropertyChanged(nameof(AverageColorBrushDark));
-            OnPropertyChanged(nameof(AverageColorBrushLight));
-        }
+        if (_averageColorBrush.Color == color)
+            return;
+
+        _averageColorBrush.Color = color;
+
+        _averageColorBrushDim.Color =
+            DesaturateAndLightenColorHsl(
+                color,
+                0.75f,
+                0.75f);
+
+        _averageColorBrushDark.Color =
+            DesaturateAndLightenColorHsl(
+                color,
+                0.6f,
+                0.3f);
+
+        _averageColorBrushLight.Color =
+            DesaturateAndLightenColorHsl(
+                color,
+                0.3f,
+                0.6f);
+
+        OnPropertyChanged(nameof(AverageColorBrush));
+        OnPropertyChanged(nameof(AverageColorBrushDim));
+        OnPropertyChanged(nameof(AverageColorBrushDark));
+        OnPropertyChanged(nameof(AverageColorBrushLight));
     }
-
-    public SolidColorBrush AverageColorBrushDim => CreateBrush(0.75f, 0.75f);
-    public SolidColorBrush AverageColorBrushDark => CreateBrush(0.6f, 0.3f);
-    public SolidColorBrush AverageColorBrushLight => CreateBrush(0.3f, 0.6f);
-
+    
     public bool IsBackgroundEnabled
     {
         get => _isBackgroundEnabled;
@@ -621,16 +638,20 @@ public sealed class SharedViewModel : ViewModelBase
             OnPropertyChanged(nameof(HasAnyPresetsNotCurrent));
     }
 
-    private static Color DesaturateAndLightenColorHsl(Color color, float saturationFactor, float lightnessFactor)
+    private static Color DesaturateAndLightenColorHsl(
+        Color color,
+        float saturationFactor,
+        float lightnessFactor)
     {
-        // convert rgb to hsl
         float red = color.R / 255f;
         float green = color.G / 255f;
         float blue = color.B / 255f;
 
         float maxComponent = Math.Max(red, Math.Max(green, blue));
         float minComponent = Math.Min(red, Math.Min(green, blue));
-        float hue, saturation;
+
+        float hue;
+        float saturation;
 
         float lightness = (maxComponent + minComponent) / 2f;
 
@@ -648,57 +669,60 @@ public sealed class SharedViewModel : ViewModelBase
                 : delta / (maxComponent + minComponent);
 
             if (maxComponent == red)
-                hue = (green - blue) / delta + (green < blue ? 6f : 0f);
+            {
+                hue = (green - blue) / delta +
+                      (green < blue ? 6f : 0f);
+            }
             else if (maxComponent == green)
+            {
                 hue = (blue - red) / delta + 2f;
+            }
             else
+            {
                 hue = (red - green) / delta + 4f;
+            }
 
             hue /= 6f;
         }
 
-        // desaturate and lighten
         saturation *= saturationFactor;
         lightness = Math.Min(lightness * lightnessFactor, 1f);
 
-        // convert the hsl back to rgb
         float q = lightness < 0.5f
             ? lightness * (1f + saturation)
             : lightness + saturation - lightness * saturation;
+
         float p = 2f * lightness - q;
 
-        float[] tempHues = [hue + 1f / 3f, hue, hue - 1f / 3f];
-        float[] rgbComponents = new float[3];
-
-        for (int i = 0; i < 3; i++)
-        {
-            float tempHue = tempHues[i];
-            if (tempHue < 0f) tempHue += 1f;
-            if (tempHue > 1f) tempHue -= 1f;
-
-            switch (tempHue)
-            {
-                case < 1f / 6f:
-                    rgbComponents[i] = p + (q - p) * 6f * tempHue;
-                    break;
-                case < 1f / 2f:
-                    rgbComponents[i] = q;
-                    break;
-                case < 2f / 3f:
-                    rgbComponents[i] = p + (q - p) * (2f / 3f - tempHue) * 6f;
-                    break;
-                default:
-                    rgbComponents[i] = p;
-                    break;
-            }
-        }
+        float r = HueToRgb(p, q, hue + 1f / 3f);
+        float g = HueToRgb(p, q, hue);
+        float b = HueToRgb(p, q, hue - 1f / 3f);
 
         return Color.FromArgb(
             color.A,
-            (byte)(rgbComponents[0] * 255),
-            (byte)(rgbComponents[1] * 255),
-            (byte)(rgbComponents[2] * 255)
-        );
+            (byte)(r * 255),
+            (byte)(g * 255),
+            (byte)(b * 255));
+    }
+
+    private static float HueToRgb(float p, float q, float t)
+    {
+        if (t < 0f)
+            t += 1f;
+
+        if (t > 1f)
+            t -= 1f;
+
+        if (t < 1f / 6f)
+            return p + (q - p) * 6f * t;
+
+        if (t < 1f / 2f)
+            return q;
+
+        if (t < 2f / 3f)
+            return p + (q - p) * (2f / 3f - t) * 6f;
+
+        return p;
     }
 
     public void UpdateMinPPValue()

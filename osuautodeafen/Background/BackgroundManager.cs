@@ -234,7 +234,14 @@ public class BackgroundManager(
             await Task.Delay(duration / steps);
         }
 
-        await Dispatcher.UIThread.InvokeAsync(() => { outgoing.Source = null; });
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            Bitmap? oldBitmap = outgoing.Source as Bitmap;
+
+            outgoing.Source = null;
+
+            oldBitmap?.Dispose();
+        });
 
         _showingA = !_showingA;
     }
