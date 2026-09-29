@@ -44,11 +44,6 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
                     _cachedSKBitmap?.Dispose();
                     _cachedSKBitmap = newSkiaBitmap;
                 }
-                Serilog.Log.Information(
-                    "Logo bitmap: {Width}x{Height}, bytes={Bytes}",
-                    _cachedSKBitmap.Width,
-                    _cachedSKBitmap.Height,
-                    _cachedSKBitmap.ByteCount);
             }
 
             if (_cachedSKBitmap == null) return;
