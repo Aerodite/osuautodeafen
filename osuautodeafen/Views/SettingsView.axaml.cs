@@ -44,13 +44,10 @@ public partial class SettingsView : UserControl
 
     private DispatcherTimer? _debounceSaveTimer;
     private double _pendingBe;
-    private double _pendingBlur;
-    private double _pendingCompletion;
+    private readonly Dictionary<(string Section, string Key), object> _pendingSettings = new();
 
     private double _pendingCompletionPercentage;
 
-    private int _pendingPP;
-    private double _pendingSR;
     private double _pendingStarRating;
 
     private DispatcherTimer? _ppSaveTimer;
@@ -316,7 +313,7 @@ public partial class SettingsView : UserControl
 
     private string GetCompletionPercentageTooltip(double value)
     {
-        return value >= 99.9
+        return value >= 99
             ? $"{value:0.00}% (Deafening disabled)"
             : $"{value:0.00}%";
     }
@@ -710,7 +707,7 @@ public partial class SettingsView : UserControl
         Point point = Extensions.GetWindowRelativePointer(this, e);
         // if this is ever null we have bigger issues
         MainWindow window = TopLevel.GetTopLevel(this) as MainWindow ?? throw new InvalidOperationException();
-        bool isOpen = window._isDebugConsoleOpen;
+        bool isOpen = window.IsDebugConsoleOpen;
         _tooltipManager.ShowTooltip(this, point, isOpen ? "Close Debug Console" : "Open Debug Console");
     }
 
@@ -725,38 +722,47 @@ public partial class SettingsView : UserControl
         window?.ToggleDebugConsole(sender, e);
     }
 
-    private void ScheduleSave(int settingId)
+    private void ScheduleSave(string section, string key, object value)
+    {
+        _pendingSettings[(section, key)] = value;
+
+        if (_debounceSaveTimer == null)
+        {
+            _debounceSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _debounceSaveTimer.Tick += DebounceSaveTimer_Tick;
+        }
+
+        _debounceSaveTimer.Stop();
+        _debounceSaveTimer.Start();
+    }
+
+    private void DebounceSaveTimer_Tick(object? sender, EventArgs e)
+    {
+        try
+        {
+            RemovePendingSettings();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to save pending settings");
+        }
+    }
+
+    public void RemovePendingSettings()
     {
         _debounceSaveTimer?.Stop();
-        string contextDependentSetting = _viewModel.PresetExistsForCurrentChecksum ? "preset: " : "settings: ";
-
-        _debounceSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-        _debounceSaveTimer.Tick += (s, e) =>
+        
+        foreach (var setting in new Dictionary<(string Section, string Key), object>(_pendingSettings))
         {
-            _debounceSaveTimer.Stop();
+            _settingsHandler.SaveSetting(setting.Key.Section, setting.Key.Key, setting.Value);
+            _pendingSettings.Remove(setting.Key);
+        }
+    }
 
-            switch (settingId)
-            {
-                case 1:
-                    _settingsHandler.SaveSetting("General", "MinCompletionPercentage", _pendingCompletion);
-                    Log.Information("Saved new Completion Percentage to " + contextDependentSetting +
-                                    _pendingCompletion + "%");
-                    break;
-                case 2:
-                    _settingsHandler.SaveSetting("General", "StarRating", _pendingSR);
-                    Log.Information("Saved new Star Rating to " + contextDependentSetting + _pendingSR + "*");
-                    break;
-                case 3:
-                    _settingsHandler.SaveSetting("General", "PerformancePoints", _pendingPP);
-                    Log.Information("Saved new pp value to " + contextDependentSetting + _pendingPP + "pp");
-                    break;
-                case 4:
-                    _settingsHandler.SaveSetting("UI", "BlurRadius", _pendingBlur);
-                    Log.Information("Saved new BlurRadius to " + contextDependentSetting + _pendingBlur * 5 + "%");
-                    break;
-            }
-        };
-        _debounceSaveTimer.Start();
+    private void ClearPendingSettings()
+    {
+        _debounceSaveTimer?.Stop();
+        _pendingSettings.Clear();
     }
 
     public async void CompletionPercentageSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
@@ -765,11 +771,9 @@ public partial class SettingsView : UserControl
 
         double roundedValue = Math.Round(slider.Value, 2);
         vm.MinCompletionPercentage = roundedValue;
-        _pendingCompletion = roundedValue;
+        ScheduleSave("General", "MinCompletionPercentage", roundedValue);
 
         await _chartManager.UpdateDeafenOverlayAsync(roundedValue);
-
-        ScheduleSave(1);
     }
 
     public void StarRatingSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
@@ -778,9 +782,7 @@ public partial class SettingsView : UserControl
 
         double roundedValue = Math.Round(slider.Value, 1);
         vm.StarRating = roundedValue;
-        _pendingSR = roundedValue;
-
-        ScheduleSave(2);
+        ScheduleSave("General", "StarRating", roundedValue);
     }
 
     public void PPSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
@@ -789,9 +791,7 @@ public partial class SettingsView : UserControl
 
         int roundedValue = (int)Math.Round(slider.Value);
         vm.PerformancePoints = roundedValue;
-        _pendingPP = roundedValue;
-
-        ScheduleSave(3);
+        ScheduleSave("General", "PerformancePoints", roundedValue);
     }
 
     public void BlurEffectSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
@@ -800,9 +800,7 @@ public partial class SettingsView : UserControl
 
         double roundedValue = Math.Round(slider.Value, 1);
         vm.BlurRadius = roundedValue;
-        _pendingBlur = roundedValue;
-
-        ScheduleSave(4);
+        ScheduleSave("UI", "BlurRadius", roundedValue);
     }
 
     /// <summary>
@@ -812,6 +810,7 @@ public partial class SettingsView : UserControl
     /// <param name="e"></param>
     private void ResetButton_Click(object sender, RoutedEventArgs e)
     {
+        ClearPendingSettings();
         _settingsHandler?.ResetToDefaults();
         UpdateViewModel();
         UpdateDeafenKeybindDisplay();
@@ -832,6 +831,7 @@ public partial class SettingsView : UserControl
     /// <param name="e"></param>
     private void PresetButtonDeleteYes_Click(object sender, RoutedEventArgs e)
     {
+        RemovePendingSettings();
         DeletePresetButton.Flyout?.Hide();
         string checksum = _tosuApi.GetBeatmapChecksum();
         string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -864,6 +864,7 @@ public partial class SettingsView : UserControl
     /// <param name="e"></param>
     private void PresetButtonYes_Click(object sender, RoutedEventArgs e)
     {
+        RemovePendingSettings();
         CreatePresetButton.Flyout?.Hide();
         string checksum = _tosuApi.GetBeatmapChecksum();
         string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -897,6 +898,7 @@ public partial class SettingsView : UserControl
     {
         if (sender is Button btn && btn.DataContext is PresetInfo preset)
         {
+            RemovePendingSettings();
             string selectedPresetPath = preset.FilePath;
             Log.Information("Selected Preset Path: {SelectedPresetPath}", selectedPresetPath);
             string currentChecksum = _tosuApi.GetBeatmapChecksum();
@@ -943,6 +945,7 @@ public partial class SettingsView : UserControl
 
     private void DeleteAllPresetsButtonYes_Click(object sender, RoutedEventArgs e)
     {
+        RemovePendingSettings();
         DeleteAllPresetsButton.Flyout?.Hide();
         string presetsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen", "presets");

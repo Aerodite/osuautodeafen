@@ -7,7 +7,6 @@ using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -17,7 +16,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using LiveChartsCore.Defaults;
@@ -38,8 +36,6 @@ using osuautodeafen.ViewModels;
 using osuautodeafen.Views;
 using ReactiveUI;
 using Serilog;
-using SkiaSharp;
-using Svg.Skia;
 using Animation = Avalonia.Animation.Animation;
 using KeyFrame = Avalonia.Animation.KeyFrame;
 
@@ -94,6 +90,8 @@ public partial class MainWindow : Window
 
     private readonly CancelableAnimator _versionAnimator = new();
     private readonly SharedViewModel _viewModel;
+
+    public bool IsDebugConsoleOpen;
     private CancellationTokenSource? _blurCts;
     private double _cogCurrentAngle;
     private double _cogSpinBpm = 140;
@@ -101,15 +99,12 @@ public partial class MainWindow : Window
     private DateTime _cogSpinStartTime;
     private DispatcherTimer? _cogSpinTimer;
 
-    private CancellationTokenSource? _frameCts;
     private bool _isCogSpinning;
-
-    public bool _isDebugConsoleOpen;
     private bool _isLogoDragging;
 
     private bool _isLogoHovered;
     private bool _isSettingsPanelOpen;
-    private List<string> _lastDisplayedLogs = [];
+    private List<InfoPanelLogEntry> _lastDisplayedLogs = [];
     private GraphData? _lastGraphData;
     private DateTime _lastKeyPressTime = DateTime.MinValue;
     private Key _lastKeyPressed = Key.None;
@@ -177,10 +172,9 @@ public partial class MainWindow : Window
                 retainedFileCountLimit: 5)
             .CreateLogger();
 
-        _tosuApi = new TosuApi();
-
         _settingsHandler = new SettingsHandler();
-        _settingsHandler.LoadSettings();
+
+        _tosuApi = new TosuApi(_settingsHandler);
 
         HomeView = new HomeView();
         _settingsViewModel = new SettingsViewModel();
@@ -188,6 +182,7 @@ public partial class MainWindow : Window
         UpdateKeybindCaptureState();
 
         _viewModel = new SharedViewModel(
+            _settingsHandler,
             _tosuApi,
             _tooltipManager,
             null,
@@ -245,11 +240,11 @@ public partial class MainWindow : Window
         };
 
         _deafenController = new Deafen.Deafen(_tosuApi, _settingsHandler, _viewModel);
-        
+
         // we have to do this to set the app icon on startup
         Dispatcher.UIThread.Post(() =>
             Icon = new WindowIcon(startupIconPath));
-        
+
         _deafenController.DeafenStateChanged += () =>
             Dispatcher.UIThread.Post(() =>
                 Icon = new WindowIcon(_deafenController.Deafened ? deafenIconPath : startupIconPath));
@@ -269,10 +264,22 @@ public partial class MainWindow : Window
 
         ProgressOverlay.Points =
             _progressIndicatorHelper.CalculateSmoothProgressContour(_tosuApi.GetCompletionPercentage());
-        _breakPeriod.BreakPeriodEntered += async () => { _infoPanelLog.LogToInfoPanel("Break: True", false, "Break"); };
-        _breakPeriod.BreakPeriodExited += async () => { _infoPanelLog.LogToInfoPanel("Break: False", false, "Break"); };
-        _kiaiTimes.KiaiPeriodEntered += async () => { _infoPanelLog.LogToInfoPanel("Kiai: True", false, "Kiai"); };
-        _kiaiTimes.KiaiPeriodExited += async () => { _infoPanelLog.LogToInfoPanel("Kiai: False", false, "Kiai"); };
+        _breakPeriod.BreakPeriodEntered += async () =>
+        {
+            _infoPanelLog.LogToInfoPanel("Break: True", false, "Break", order: 4);
+        };
+        _breakPeriod.BreakPeriodExited += async () =>
+        {
+            _infoPanelLog.LogToInfoPanel("Break: False", false, "Break", order: 4);
+        };
+        _kiaiTimes.KiaiPeriodEntered += async () =>
+        {
+            _infoPanelLog.LogToInfoPanel("Kiai: True", false, "Kiai", order: 3);
+        };
+        _kiaiTimes.KiaiPeriodExited += async () =>
+        {
+            _infoPanelLog.LogToInfoPanel("Kiai: False", false, "Kiai", order: 3);
+        };
 
         DockPanel? settingsPanel = SettingsView.FindControl<DockPanel>("SettingsPanel");
         if (settingsPanel != null)
@@ -390,10 +397,8 @@ public partial class MainWindow : Window
 
         if (SettingsView.BackgroundToggle != null && parallaxPanel != null && blurPanel != null)
         {
-            if (parallaxPanel.RenderTransform == null)
-                parallaxPanel.RenderTransform = new TranslateTransform();
-            if (blurPanel.RenderTransform == null)
-                blurPanel.RenderTransform = new TranslateTransform();
+            parallaxPanel.RenderTransform ??= new TranslateTransform();
+            blurPanel.RenderTransform ??= new TranslateTransform();
 
             if (SettingsView.BackgroundToggle.IsChecked == true)
             {
@@ -486,6 +491,8 @@ public partial class MainWindow : Window
             {
                 try
                 {
+                    SettingsView.RemovePendingSettings();
+
                     string checksum = s.BeatmapChecksum ?? "";
 
                     string presetsPath = Path.Combine(
@@ -533,9 +540,9 @@ public partial class MainWindow : Window
                 try
                 {
                     if (s.Client == "lazer")
-                        _infoPanelLog.LogToInfoPanel("State: " + s.RawLazerBanchoStatus, false, "State");
+                        _infoPanelLog.LogToInfoPanel("State: " + s.RawLazerBanchoStatus, false, "State", order: 5);
                     else
-                        _infoPanelLog.LogToInfoPanel("State: " + s.RawBanchoStatus, false, "State");
+                        _infoPanelLog.LogToInfoPanel("State: " + s.RawBanchoStatus, false, "State", order: 5);
 
                     if (s.RawBanchoStatus == 2 || s.RawLazerBanchoStatus == 2)
                         // unfortunately I believe settingspanel being open while playing is kind of a drain on resources
@@ -567,7 +574,10 @@ public partial class MainWindow : Window
                 s.RankedStatus,
                 s.IsBreak,
                 s.CurrentTime,
-                s.FullTime
+                s.FullTime,
+                s.BeatmapBackgroundPath,
+                s.SongsDirectory,
+                s.BeatmapFilePath
             })
             .DistinctUntilChanged()
             .ObserveOn(RxApp.MainThreadScheduler)
@@ -579,37 +589,63 @@ public partial class MainWindow : Window
                     _viewModel.FullBeatmapName = $"{s.BeatmapArtist} - {s.BeatmapTitle}";
                     _viewModel.BeatmapDifficulty = s.BeatmapDifficulty;
 
-                    if (!_isDebugConsoleOpen)
+                    if (!IsDebugConsoleOpen)
                         return;
 
                     string mapInfo = $"{s.BeatmapArtist} - {s.BeatmapTitle}";
                     if (mapInfo.Length > 67)
-                        mapInfo = mapInfo.Substring(0, 67) + "...";
+                        mapInfo = mapInfo[..67] + "...";
 
-                    _infoPanelLog.LogToInfoPanel(
-                        "Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(),
-                        false,
-                        "Client");
+                    string backgroundPath = $"{s.SongsDirectory}/{s.BeatmapBackgroundPath}";
+                    string displayedBackgroundPath = backgroundPath;
+                    if (displayedBackgroundPath.Length > 60)
+                        displayedBackgroundPath = displayedBackgroundPath[..60] + "...";
+
+                    string osuFilePath = $"{s.SongsDirectory}/{s.BeatmapFilePath}";
+                    string displayedOsuFilePath = osuFilePath;
+                    if (displayedOsuFilePath.Length > 60)
+                        displayedOsuFilePath = displayedOsuFilePath[..60] + "...";
 
                     _infoPanelLog.LogToInfoPanel(
                         "Mapset: " + mapInfo,
                         false,
                         "Beatmap changed",
-                        $"https://osu.ppy.sh/b/{s.BeatmapId}");
+                        $"https://osu.ppy.sh/b/{s.BeatmapId}",
+                        0);
 
-                    _infoPanelLog.LogToInfoPanel("Current PP: " + s.CurrentPP, false, "CurrentPP");
-                    _infoPanelLog.LogToInfoPanel("Max PP: " + s.MaxPP, false, "Max PP");
-                    _infoPanelLog.LogToInfoPanel("Max Combo: " + s.MaxCombo, false, "Max Combo");
-                    _infoPanelLog.LogToInfoPanel("Star Rating: " + s.StarRating, false, "Star Rating");
-                    _infoPanelLog.LogToInfoPanel("Mods: " + s.ModNames, false, "Mods");
-                    _infoPanelLog.LogToInfoPanel("Ranked Status: " + s.RankedStatus, false, "Ranked Status");
-                    _infoPanelLog.LogToInfoPanel("Beatmap ID: " + s.BeatmapId, false, "Beatmap ID");
-                    _infoPanelLog.LogToInfoPanel("Beatmap Set ID: " + s.BeatmapSetId, false, "Beatmap Set ID");
-                    _infoPanelLog.LogToInfoPanel("Break: " + s.IsBreak, false, "Break");
+                    _infoPanelLog.LogToInfoPanel(
+                        "Background Path: " + displayedBackgroundPath,
+                        false,
+                        "Background Path",
+                        new Uri(backgroundPath).AbsoluteUri,
+                        21);
+
+                    _infoPanelLog.LogToInfoPanel(
+                        ".osu file path: " + displayedOsuFilePath,
+                        false,
+                        "Beatmap Path",
+                        new Uri(osuFilePath).AbsoluteUri,
+                        22);
+
+                    _infoPanelLog.LogToInfoPanel(
+                        "Client/Server: " + _tosuApi.GetClient() + "/" + _tosuApi.GetServer(),
+                        false,
+                        "Client", order: 1);
+
+                    _infoPanelLog.LogToInfoPanel("Current PP: " + s.CurrentPP, false, "CurrentPP", order: 10);
+                    _infoPanelLog.LogToInfoPanel("Max PP: " + s.MaxPP, false, "Max PP", order: 13);
+                    _infoPanelLog.LogToInfoPanel("Max Combo: " + s.MaxCombo, false, "Max Combo", order: 16);
+                    _infoPanelLog.LogToInfoPanel("Star Rating: " + s.StarRating, false, "Star Rating", order: 14);
+                    _infoPanelLog.LogToInfoPanel("Mods: " + s.ModNames, false, "Mods", order: 15);
+                    _infoPanelLog.LogToInfoPanel("Ranked Status: " + s.RankedStatus, false, "Ranked Status", order: 17);
+                    _infoPanelLog.LogToInfoPanel("Beatmap ID: " + s.BeatmapId, false, "Beatmap ID", order: 19);
+                    _infoPanelLog.LogToInfoPanel("Beatmap Set ID: " + s.BeatmapSetId, false, "Beatmap Set ID",
+                        order: 18);
+                    _infoPanelLog.LogToInfoPanel("Break: " + s.IsBreak, false, "Break", order: 4);
                     _infoPanelLog.LogToInfoPanel(
                         "Kiai: " + _kiaiTimes.IsKiaiPeriod(s.CurrentTime),
                         false,
-                        "Kiai");
+                        "Kiai", order: 3);
                 }
                 catch (Exception e)
                 {
@@ -631,12 +667,12 @@ public partial class MainWindow : Window
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(s =>
             {
-                if (!_isDebugConsoleOpen)
+                if (!IsDebugConsoleOpen)
                     return;
                 _infoPanelLog.LogToInfoPanel("Max PP: " + _tosuApi.GetMaxPP(), false, "Max PP");
                 _infoPanelLog.LogToInfoPanel("Star Rating: " + _tosuApi.GetFullSR(), false, "Star Rating");
-                _infoPanelLog.LogToInfoPanel("Mods: " + s.ModNames, false, "Mods");
-                _infoPanelLog.LogToInfoPanel("BPM: " + s.CurrentBpm, false, "BPM Changed");
+                _infoPanelLog.LogToInfoPanel("Mods: " + s.ModNames, false, "Mods", order: 14);
+                _infoPanelLog.LogToInfoPanel("BPM: " + s.CurrentBpm, false, "BPM Changed", order: 20);
 
                 _viewModel.UpdateMinPPValue();
                 _viewModel.UpdateMinSRValue();
@@ -654,17 +690,17 @@ public partial class MainWindow : Window
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(s =>
             {
-                if (!_isDebugConsoleOpen)
+                if (!IsDebugConsoleOpen)
                     return;
                 _infoPanelLog.LogToInfoPanel(
                     $"Beatmap Progress %: {_tosuApi.GetCompletionPercentage():F2}%",
                     false,
-                    "Map Progress");
+                    "Map Progress", order: 6);
 
                 _infoPanelLog.LogToInfoPanel(
                     $"Song Progress %: {_tosuApi.GetSongProgress():F2}%",
                     false,
-                    "Song Progress");
+                    "Song Progress", order: 7);
 
                 double rate = s.Rate <= 0 || double.IsNaN(s.Rate) || double.IsInfinity(s.Rate)
                     ? 1
@@ -677,12 +713,15 @@ public partial class MainWindow : Window
                 _infoPanelLog.LogToInfoPanel(
                     $"Progress (mm:ss): {TimeSpan.FromMilliseconds(currentMs):mm\\:ss}/{TimeSpan.FromMilliseconds(fullMs):mm\\:ss}",
                     false,
-                    "Current Time");
+                    "Current Time", order: 8);
 
-                _infoPanelLog.LogToInfoPanel("Current PP: " + s.CurrentPP, false, "CurrentPP");
-                _infoPanelLog.LogToInfoPanel("isDeafened: " + _deafenController.Deafened, false, "isDeafened");
-                _infoPanelLog.LogToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating");
-                _infoPanelLog.LogToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false, "Min SS PP");
+                _infoPanelLog.LogToInfoPanel("Current PP: " + s.CurrentPP, false, "CurrentPP", order: 10);
+                _infoPanelLog.LogToInfoPanel("isDeafened: " + _deafenController.Deafened, false, "isDeafened",
+                    order: 9);
+                _infoPanelLog.LogToInfoPanel("Min Star Rating: " + _viewModel.StarRating, false, "Min Star Rating",
+                    order: 12);
+                _infoPanelLog.LogToInfoPanel("Min SS PP: " + _viewModel.PerformancePoints, false, "Min SS PP",
+                    order: 11);
             });
 
         _tosuApi.StateStream
@@ -704,7 +743,7 @@ public partial class MainWindow : Window
                         double _ = x.CurrentBpm;
                     }
 
-                    if (!_isDebugConsoleOpen)
+                    if (!IsDebugConsoleOpen)
                         return;
                     _infoPanelLog.LogToInfoPanel(
                         "BPM: " + x.CurrentBpm,
@@ -723,7 +762,7 @@ public partial class MainWindow : Window
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(state =>
             {
-                if (!_isDebugConsoleOpen)
+                if (!IsDebugConsoleOpen)
                     return;
                 _infoPanelLog.LogToInfoPanel("State: " + state, false, "State");
             });
@@ -736,7 +775,7 @@ public partial class MainWindow : Window
                 g => _ = OnGraphDataUpdated(g),
                 ex => Log.Error(ex, "StateStream error"));
 
-        _infoPanelLog.LogToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack");
+        _infoPanelLog.LogToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack", order: 2);
     }
 
     public static TooltipManager Tooltips { get; private set; } = null!;
@@ -751,25 +790,35 @@ public partial class MainWindow : Window
             _settingsViewModel.IsKeybindCaptureEnabled = true;
     }
 
-    private async Task ReloadSettingsSafe()
+    private async Task ReloadSettings()
     {
-        for (int i = 0; i < 5; i++)
+        for (int attempt = 0; attempt < 5; attempt++)
         {
-            if (_settingsHandler != null && _settingsHandler.ReloadFromDisk())
+            bool reloaded = await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    string? oldDiscord = _settingsHandler.DiscordClient;
+                if (_settingsHandler == null)
+                    return false;
 
-                    _settingsHandler.LoadSettings();
+                string? oldDiscord = _settingsHandler.DiscordClient;
 
-                    if (oldDiscord != _settingsHandler.DiscordClient) UpdateKeybindCaptureState();
-                });
+                if (!_settingsHandler.ReloadFromDisk())
+                    return false;
+
+                _settingsHandler.LoadSettings();
+
+                if (oldDiscord != _settingsHandler.DiscordClient)
+                    UpdateKeybindCaptureState();
+
+                return true;
+            });
+
+            if (reloaded)
                 return;
-            }
 
             await Task.Delay(100);
         }
+
+        Log.Warning("Could not reload settings");
     }
 
     private void OnSettingsFileChanged(object? sender, FileSystemEventArgs e)
@@ -786,7 +835,7 @@ public partial class MainWindow : Window
                 await Task.Delay(300, token);
 
                 if (!token.IsCancellationRequested)
-                    await ReloadSettingsSafe();
+                    await ReloadSettings();
             }
             catch (TaskCanceledException ex)
             {
@@ -978,95 +1027,6 @@ public partial class MainWindow : Window
 
         _toggleQueues[target] = newTask;
         return newTask;
-    }
-
-    /// <summary>
-    ///     Starts the frame timer for debug panel to measure frametimes and framerate
-    /// </summary>
-    /// <remarks>
-    ///     ideally this shouldn't be used elsewhere because this might be a bit more resource-intensive than necessary,
-    ///     but for debugging purposes its good enough
-    /// </remarks>
-    /// <param name="targetFps"></param>
-    private void StartStableFrameTimer(int targetFps = 1000)
-    {
-        StopStableFrameTimer();
-
-        targetFps = Math.Clamp(targetFps, 1, 1000);
-        double intervalMs = 1000.0 / targetFps;
-
-        _frameCts = new CancellationTokenSource();
-        _frameStopwatch.Restart();
-
-        double minFrame = double.MaxValue, maxFrame = double.MinValue, sumFrame = 0;
-        int frameCount = 0, statsWindow = 100;
-        long lastFrameTicks = _frameStopwatch.ElapsedTicks;
-        double tickMs = 1000.0 / Stopwatch.Frequency;
-
-        Task.Run(async () =>
-        {
-            try
-            {
-                while (!_frameCts!.IsCancellationRequested)
-                {
-                    long frameStartTicks = _frameStopwatch.ElapsedTicks;
-                    double frameInterval = (frameStartTicks - lastFrameTicks) * tickMs;
-                    lastFrameTicks = frameStartTicks;
-
-                    frameInterval = Math.Max(frameInterval, 0.01);
-                    minFrame = Math.Min(minFrame, frameInterval);
-                    maxFrame = Math.Max(maxFrame, frameInterval);
-                    sumFrame += frameInterval;
-                    frameCount++;
-
-                    if (frameCount % statsWindow == 0)
-                    {
-                        double avgFrame = sumFrame / frameCount;
-                        await Dispatcher.UIThread.InvokeAsync(() =>
-                        {
-                            _infoPanelLog.LogToInfoPanel(
-                                $"Frame: {frameInterval:F3}ms/{1000.0 / avgFrame:F0}fps",
-                                false, "FrameLatency");
-                            _infoPanelLog.LogToInfoPanel(
-                                $"Min/Max/Avg: {minFrame:F3}/{maxFrame:F3}/{avgFrame:F3}ms",
-                                false, "FrameStats");
-                        });
-
-                        minFrame = double.MaxValue;
-                        maxFrame = double.MinValue;
-                        sumFrame = 0;
-                        frameCount = 0;
-                    }
-
-                    while (true)
-                    {
-                        double elapsedMs = (_frameStopwatch.ElapsedTicks - frameStartTicks) * tickMs;
-                        double remaining = intervalMs - elapsedMs;
-
-                        if (remaining <= 0)
-                            break;
-
-                        if (remaining > 2.0)
-                            await Task.Delay(1, _frameCts.Token);
-                        else
-                            Thread.SpinWait(100);
-                    }
-                }
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            finally
-            {
-                _frameStopwatch.Stop();
-            }
-        }, _frameCts.Token);
-    }
-
-    private void StopStableFrameTimer()
-    {
-        _frameCts?.Cancel();
-        _frameStopwatch.Stop();
     }
 
     /*
@@ -1419,7 +1379,6 @@ public partial class MainWindow : Window
         displaySw.Stop();
 
         // sorry guys sunk cost fallacy this took too long to implement
-        // have fun with your "slow" wifi :tf:
         if (_updateProgressBar != null && _updateProgressBar.Value < 100)
         {
             int steps = 30;
@@ -1546,7 +1505,7 @@ public partial class MainWindow : Window
             _backgroundManager!.LogoUpdater =
                 new LogoUpdater(_getLowResBackground, ViewModel);
 
-            Log.Information("LogoUpdater initialized.");
+            Log.Information("Logo initialized successfully");
         }
         catch (Exception ex)
         {
@@ -1554,39 +1513,21 @@ public partial class MainWindow : Window
         }
     }
 
-    private Bitmap ConvertSvgToBitmap(SKSvg svg, int width, int height)
+    private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
-        if (svg == null)
-            throw new ArgumentNullException(nameof(svg));
-        if (svg.Picture == null)
-            throw new InvalidOperationException("SVG does not contain a valid picture.");
-
-        SKImageInfo info = new(width, height);
+        if (e.Cancel) return;
 
         try
         {
-            using SKSurface? surface = SKSurface.Create(info);
-            if (surface == null)
-                throw new InvalidOperationException("Failed to create SKSurface.");
-
-            SKCanvas? canvas = surface.Canvas;
-            canvas.Clear(SKColors.Transparent);
-            canvas.DrawPicture(svg.Picture);
-
-            using SKImage? image = surface.Snapshot();
-            using SKData? data = image.Encode();
-            using MemoryStream stream = new(data.ToArray());
-            return new Bitmap(stream);
+            SettingsView.RemovePendingSettings();
         }
         catch (Exception ex)
         {
-            Log.Error("ConvertSvgToBitmap failed: {ExMessage}", ex.Message);
-            throw;
+            Log.Error(ex, "Failed to save pending settings before closing");
+            e.Cancel = true;
+            return;
         }
-    }
 
-    private void MainWindow_Closing(object? sender, CancelEventArgs e)
-    {
         _mainTimer?.Stop();
         _cogSpinTimer?.Stop();
         _tosuApi.Dispose();
@@ -1925,11 +1866,7 @@ public partial class MainWindow : Window
         await Dispatcher.UIThread.InvokeAsync(() => { debugConsolePanel.IsVisible = false; });
     }
 
-    /// <summary>
-    ///     Ensures the Settings Cog is centered before applying any transform to it
-    /// </summary>
-    /// <param name="cogImage"></param>
-    /// <returns></returns>
+    // If we don't have the cog centered before we apply any transforms it will spin off-center
     private static Task EnsureCogCenterAsync(Avalonia.Svg.Svg cogImage)
     {
         return Dispatcher.UIThread.InvokeAsync(() =>
@@ -1941,7 +1878,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///     Calculates the interval for cog spinning based on the current BPM
+    ///     Calculate the interval for cog spinning based on the current BPM
     /// </summary>
     /// <param name="bpm"></param>
     /// <param name="updatesPerBeat"></param>
@@ -2012,7 +1949,7 @@ public partial class MainWindow : Window
         double start = 0;
         await Dispatcher.UIThread.InvokeAsync(() => start = rotate.Angle);
 
-        // tldr the fontawesome cog has 6 teeth so we should snap to the nearest 1/6
+        // the fontawesome cog has 6 teeth so we should snap to the nearest 1/6
         double target = Math.Round(start / 60.0) * 60.0;
 
         int duration = 150;
@@ -2048,7 +1985,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    ///     Shows or hides the debug console panel
+    ///     Toggle the debug console panel (which is technically not a console, or a panel for that matter)
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
@@ -2059,9 +1996,7 @@ public partial class MainWindow : Window
             StackPanel? debugConsolePanel = this.FindControl<StackPanel>("DebugConsolePanel");
             if (debugConsolePanel != null && !debugConsolePanel.IsVisible)
             {
-                StartStableFrameTimer();
-
-                _isDebugConsoleOpen = true;
+                IsDebugConsoleOpen = true;
                 if (sender is Button) _tooltipManager.UpdateTooltipText("Close Debug Console", true);
 
                 await SetupDebugConsoleTransitionsAsync(debugConsolePanel);
@@ -2071,16 +2006,21 @@ public partial class MainWindow : Window
                 _logUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
                 _logUpdateTimer.Tick += (_, __) =>
                 {
-                    var currentLogs = _infoPanelLog.Logs.Values.ToList();
+                    var currentLogs = _infoPanelLog.Logs.Values
+                        .OrderBy(x => x.Order)
+                        .ToList();
+                    /*
+                     foreach (var log in currentLogs)
+                        Log.Debug("Order: {Order}, Text: {Text}", log.Order, log.Text);
+                    */
+
                     UpdateDebugConsolePanel(debugConsolePanel, currentLogs);
                 };
                 _logUpdateTimer.Start();
             }
             else if (debugConsolePanel != null && debugConsolePanel.IsVisible)
             {
-                StopStableFrameTimer();
-
-                _isDebugConsoleOpen = false;
+                IsDebugConsoleOpen = false;
 
                 if (sender is Button) _tooltipManager.UpdateTooltipText("Open Debug Console", true);
 
@@ -2100,17 +2040,12 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    ///     Updates the debug console panel with the current important logs
-    /// </summary>
-    /// <param name="debugConsolePanel"></param>
-    /// <param name="currentLogs"></param>
-    private void UpdateDebugConsolePanel(StackPanel debugConsolePanel, List<string> currentLogs)
+    private void UpdateDebugConsolePanel(StackPanel debugConsolePanel, List<InfoPanelLogEntry> currentLogs)
     {
         if (debugConsolePanel.Children.Count != currentLogs.Count)
         {
             debugConsolePanel.Children.Clear();
-            foreach (string logText in currentLogs)
+            foreach (InfoPanelLogEntry logText in currentLogs)
                 debugConsolePanel.Children.Add(CreateLogElement(logText));
         }
         else
@@ -2126,26 +2061,25 @@ public partial class MainWindow : Window
     /// <summary>
     ///     Creates a log textblock for the debug panel
     /// </summary>
-    /// <param name="logText"></param>
+    /// <param name="logEntry"></param>
     /// <remarks>
-    ///     This contains hyperlink support if the text contains a URL
+    ///     Supports hyperlinks stored in the log entry
     /// </remarks>
     /// <returns></returns>
-    private static Control CreateLogElement(string logText)
+    private static Control CreateLogElement(InfoPanelLogEntry logEntry)
     {
-        string? hyperlink = ExtractHyperlink(logText);
-
-        if (string.IsNullOrEmpty(hyperlink))
-            return new TextBlock { Text = logText, Foreground = Brushes.White };
-
-        // remove the hyperlink from the displayed text
-        string displayText = logText.Replace(hyperlink, "").TrimEnd();
+        if (string.IsNullOrEmpty(logEntry.Hyperlink))
+            return new TextBlock
+            {
+                Text = logEntry.Text,
+                Foreground = Brushes.White
+            };
 
         Button linkButton = new()
         {
             Content = new TextBlock
             {
-                Text = displayText,
+                Text = logEntry.Text,
                 Foreground = Brushes.LightBlue,
                 TextDecorations = TextDecorations.Underline,
                 Cursor = new Cursor(StandardCursorType.Hand)
@@ -2155,22 +2089,17 @@ public partial class MainWindow : Window
             Padding = new Thickness(0),
             Margin = new Thickness(0, 0, 4, 0)
         };
+
         linkButton.Click += (_, __) =>
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = hyperlink,
+                FileName = logEntry.Hyperlink,
                 UseShellExecute = true
             });
         };
-        return linkButton;
-    }
 
-    private static string? ExtractHyperlink(string logText)
-    {
-        Regex urlRegex = new(@"https?://\S+");
-        Match match = urlRegex.Match(logText);
-        return match.Success ? match.Value : null;
+        return linkButton;
     }
 
     public class HotKey

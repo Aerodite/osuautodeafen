@@ -33,6 +33,11 @@ public class BackgroundManager(
 
     private const double BackgroundOpacity = 0.5f;
 
+    private static readonly IEasing BackgroundFadeEase =
+        new CubicEaseOut();
+
+    private readonly SemaphoreSlim _backgroundSwapLock = new(1, 1);
+
     private readonly Image _firstBackground = new()
     {
         Stretch = Stretch.UniformToFill,
@@ -40,6 +45,8 @@ public class BackgroundManager(
     };
 
     private readonly Grid _parallaxContainer = new();
+
+    private readonly TranslateTransform _parallaxTransform = new();
 
     private readonly Image _secondBackground = new()
     {
@@ -49,6 +56,8 @@ public class BackgroundManager(
 
     public BlurEffect? BackgroundBlurEffect;
     public required LogoUpdater? LogoUpdater;
+
+    private Grid? _backgroundLayer;
     private string? _currentBackgroundDirectory;
     private double _currentBackgroundOpacity = 0.5f;
 
@@ -56,43 +65,58 @@ public class BackgroundManager(
 
     private CancellationTokenSource? _opacityCts;
 
+    private CancellationTokenSource? _parallaxCts;
+
+    private double _parallaxTargetX;
+    private double _parallaxTargetY;
+
+    private Bitmap? _pendingBackground;
+    private string? _pendingBackgroundPath;
+
     private bool _showingA = true;
 
-    public async Task SetBackgroundOpacity(double targetOpacity, int durationMs = 0)
+    public async Task SetBackgroundOpacity(
+        double targetOpacity,
+        int durationMs = 0)
     {
         Grid layer = EnsureBackgroundLayerExists();
 
-        targetOpacity = Math.Clamp(targetOpacity, 0f, 0.5f);
+        targetOpacity = Math.Clamp(targetOpacity, 0.0, 0.5);
 
         _opacityCts?.Cancel();
+        _opacityCts?.Dispose();
+
         _opacityCts = new CancellationTokenSource();
         CancellationToken token = _opacityCts.Token;
 
         if (durationMs <= 0)
         {
             _currentBackgroundOpacity = targetOpacity;
-            layer.Opacity = _currentBackgroundOpacity;
+            layer.Opacity = targetOpacity;
             return;
         }
 
         double start = _currentBackgroundOpacity;
 
-        for (int i = 0; i <= FadeSteps; i++)
+        try
         {
-            if (token.IsCancellationRequested)
-                return;
+            for (int i = 1; i <= FadeSteps; i++)
+            {
+                double t = (double)i / FadeSteps;
 
-            double t = (double)i / FadeSteps;
+                _currentBackgroundOpacity =
+                    start + (targetOpacity - start) * t;
 
-            _currentBackgroundOpacity = start + (targetOpacity - start) * t;
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                    layer.Opacity = _currentBackgroundOpacity);
 
-            await Dispatcher.UIThread.InvokeAsync(() => { layer.Opacity = _currentBackgroundOpacity; });
-
-            await Task.Delay(durationMs / FadeSteps, token);
+                if (i < FadeSteps)
+                    await Task.Delay(durationMs / FadeSteps, token);
+            }
         }
-
-        _currentBackgroundOpacity = targetOpacity;
-        layer.Opacity = _currentBackgroundOpacity;
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     public async Task SetBackgroundEnabledState(bool enabled, bool? isPanelOpen)
@@ -126,18 +150,22 @@ public class BackgroundManager(
         _parallaxContainer.Children.Add(_firstBackground);
         _parallaxContainer.Children.Add(_secondBackground);
 
+        _parallaxContainer.RenderTransform = _parallaxTransform;
+
         BackgroundBlurEffect ??= new BlurEffect();
         BackgroundBlurEffect.Radius = settingsHandler.BlurRadius;
 
         _parallaxContainer.Effect = BackgroundBlurEffect;
 
+        viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SharedViewModel.IsParallaxEnabled))
+                SetParallaxEnabled(viewModel.IsParallaxEnabled);
+        };
+
         _hasBeenInitialized = true;
     }
-
-    /// <summary>
-    ///     Sets the default properties for the backgrounds' appearance
-    /// </summary>
-    /// <param name="image"></param>
+    
     private static void ConfigureImage(Image image)
     {
         image.Stretch = Stretch.UniformToFill;
@@ -156,63 +184,80 @@ public class BackgroundManager(
 
     private Grid EnsureBackgroundLayerExists()
     {
+        if (_backgroundLayer != null)
+            return _backgroundLayer;
+
         if (window.Content is not Grid mainGrid)
         {
             mainGrid = new Grid();
             window.Content = mainGrid;
         }
 
-        Grid? layer = mainGrid.Children
+        _backgroundLayer = mainGrid.Children
             .OfType<Grid>()
             .FirstOrDefault(x => x.Name == "BackgroundLayer");
 
-        if (layer == null)
+        if (_backgroundLayer == null)
         {
-            layer = new Grid
+            _backgroundLayer = new Grid
             {
                 Name = "BackgroundLayer",
                 ZIndex = -1
             };
 
-            mainGrid.Children.Insert(0, layer);
+            mainGrid.Children.Insert(0, _backgroundLayer);
         }
 
         if (_parallaxContainer.Parent == null)
-            layer.Children.Add(_parallaxContainer);
+            _backgroundLayer.Children.Add(_parallaxContainer);
 
-        return layer;
+        return _backgroundLayer;
     }
 
     private async Task SwapBackgroundAsync(Bitmap bitmap)
     {
         EnsureInitialized();
 
-        IEasing easing = new CubicEaseOut();
+        Image incoming = _showingA
+            ? _secondBackground
+            : _firstBackground;
 
-        Image incoming = _showingA ? _secondBackground : _firstBackground;
-        Image outgoing = _showingA ? _firstBackground : _secondBackground;
+        Image outgoing = _showingA
+            ? _firstBackground
+            : _secondBackground;
 
         incoming.Source = bitmap;
         incoming.Opacity = 0;
 
-        const int duration = 150;
-        const int steps = 15;
+        const int duration = 250;
+        const int steps = 25;
 
-        for (int i = 0; i <= steps; i++)
+        for (int i = 1; i <= steps; i++)
         {
             double t = (double)i / steps;
-            double eased = easing.Ease(t);
+            double eased = BackgroundFadeEase.Ease(t);
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 incoming.Opacity = eased;
-                outgoing.Opacity = 1 - eased;
+                outgoing.Opacity = 1.0 - eased;
             });
 
-            await Task.Delay(duration / steps);
+            if (i < steps)
+                await Task.Delay(duration / steps);
         }
 
-        await Dispatcher.UIThread.InvokeAsync(() => { outgoing.Source = null; });
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            Bitmap? oldBitmap = outgoing.Source as Bitmap;
+
+            outgoing.Source = null;
+            outgoing.Opacity = 0;
+
+            oldBitmap?.Dispose();
+
+            incoming.Opacity = 1;
+        });
 
         _showingA = !_showingA;
     }
@@ -221,47 +266,110 @@ public class BackgroundManager(
     {
         try
         {
-            await SetBackgroundEnabledState(viewModel.IsBackgroundEnabled, isPanelOpen);
-
             if (!viewModel.IsBackgroundEnabled)
+            {
+                await SetBackgroundEnabledState(false, isPanelOpen);
                 return;
+            }
 
             string path = tosuApi.GetBackgroundPath() ?? string.Empty;
 
             if (string.IsNullOrWhiteSpace(path))
                 return;
 
-            if (path == _currentBackgroundDirectory)
+            Task opacityTask =
+                SetBackgroundEnabledState(true, isPanelOpen);
+
+            if (path == _currentBackgroundDirectory ||
+                path == _pendingBackgroundPath)
+            {
+                await opacityTask;
                 return;
+            }
 
-            _currentBackgroundDirectory = path;
+            Bitmap? bitmap = await LoadBitmapAsync(path);
 
-            Bitmap? newBitmap = await LoadBitmapAsync(path);
-            if (newBitmap == null)
+            if (bitmap == null)
                 return;
+            
+            if (!_backgroundSwapLock.Wait(0))
+            {
+                Bitmap? oldPending =
+                    Interlocked.Exchange(ref _pendingBackground, bitmap);
 
-            await SwapBackgroundAsync(newBitmap);
+                oldPending?.Dispose();
+
+                _pendingBackgroundPath = path;
+
+                await opacityTask;
+                return;
+            }
+
+            try
+            {
+                Bitmap? nextBitmap = bitmap;
+                string nextPath = path;
+
+                while (nextBitmap != null)
+                {
+                    await SwapBackgroundAsync(nextBitmap);
+
+                    _currentBackgroundDirectory = nextPath;
+                    
+                    nextBitmap = Interlocked.Exchange(ref _pendingBackground, null);
+
+                    if (nextBitmap != null)
+                    {
+                        nextPath =
+                            _pendingBackgroundPath ?? nextPath;
+
+                        _pendingBackgroundPath = null;
+                    }
+                }
+            }
+            finally
+            {
+                _backgroundSwapLock.Release();
+            }
+
+            await opacityTask;
 
             if (LogoUpdater != null)
                 await LogoUpdater.UpdateLogoAsync();
         }
         catch (Exception ex)
         {
-            Log.Error("UpdateBackground exited with exception: " + ex);
+            Log.Error(
+                ex,
+                "UpdateBackground exited with exception");
         }
     }
 
-    private static async Task<Bitmap?> LoadBitmapAsync(string path)
+    private static Task<Bitmap?> LoadBitmapAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-            return null;
+            return Task.FromResult<Bitmap?>(null);
 
-        await using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-
-        return await Task.Run(() =>
+        return Task.Run<Bitmap?>(() =>
         {
-            Bitmap bmp = Bitmap.DecodeToWidth(stream, 1024, BitmapInterpolationMode.LowQuality);
-            return bmp;
+            try
+            {
+                using FileStream stream = new(
+                    path,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.ReadWrite);
+
+                return Bitmap.DecodeToWidth(
+                    stream,
+                    1024,
+                    BitmapInterpolationMode.MediumQuality);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to load background {Path}", path);
+                return null;
+            }
         });
     }
 
@@ -273,24 +381,87 @@ public class BackgroundManager(
         await Dispatcher.UIThread.InvokeAsync(() => { blurEffect.Radius = radius; });
     }
 
+    internal void SetParallaxEnabled(bool enabled)
+    {
+        if (!enabled)
+            SetParallaxTarget(0, 0);
+    }
+
+    private void SetParallaxTarget(double x, double y)
+    {
+        _parallaxTargetX = x;
+        _parallaxTargetY = y;
+
+        if (_parallaxCts != null)
+            return;
+
+        _parallaxCts = new CancellationTokenSource();
+        _ = SmoothParallaxMovement(_parallaxCts.Token);
+    }
+
+    private async Task SmoothParallaxMovement(CancellationToken token)
+    {
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                double dx = _parallaxTargetX - _parallaxTransform.X;
+                double dy = _parallaxTargetY - _parallaxTransform.Y;
+
+                if (Math.Abs(dx) < 0.01 &&
+                    Math.Abs(dy) < 0.01)
+                {
+                    _parallaxTransform.X = _parallaxTargetX;
+                    _parallaxTransform.Y = _parallaxTargetY;
+                    break;
+                }
+
+                const double smoothing = 0.18;
+
+                _parallaxTransform.X += dx * smoothing;
+                _parallaxTransform.Y += dy * smoothing;
+
+                await Task.Delay(16, token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            _parallaxCts?.Dispose();
+            _parallaxCts = null;
+
+            if (Math.Abs(_parallaxTargetX - _parallaxTransform.X) >= 0.01 ||
+                Math.Abs(_parallaxTargetY - _parallaxTransform.Y) >= 0.01)
+                SetParallaxTarget(_parallaxTargetX, _parallaxTargetY);
+        }
+    }
+
     internal void ApplyParallax(double mouseX, double mouseY)
     {
-        if (!viewModel.IsParallaxEnabled || !viewModel.IsBackgroundEnabled)
-        {
-            _parallaxContainer.RenderTransform = new TranslateTransform(0, 0);
+        if (!viewModel.IsParallaxEnabled ||
+            !viewModel.IsBackgroundEnabled)
             return;
-        }
 
+        SetParallaxTargetFromMouse(mouseX, mouseY);
+    }
+
+    private void SetParallaxTargetFromMouse(double mouseX, double mouseY)
+    {
         double centerX = window.Width / 2;
         double centerY = window.Height / 2;
 
-        double movementX = -(mouseX - centerX) * 0.015;
-        double movementY = -(mouseY - centerY) * 0.015;
+        double movementX = Math.Clamp(
+            -(mouseX - centerX) * 0.015,
+            -15,
+            15);
 
-        movementX = Math.Clamp(movementX, -15, 15);
-        movementY = Math.Clamp(movementY, -15, 15);
+        double movementY = Math.Clamp(
+            -(mouseY - centerY) * 0.015,
+            -15,
+            15);
 
-        _parallaxContainer.RenderTransform =
-            new TranslateTransform(movementX, movementY);
+        SetParallaxTarget(movementX, movementY);
     }
 }

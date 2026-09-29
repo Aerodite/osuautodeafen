@@ -18,6 +18,8 @@ namespace osuautodeafen.Deafen;
 
 public class Deafen : IDisposable
 {
+    private bool _metDeafenConditions;
+    
     private static readonly bool IsHyprland = Environment.GetEnvironmentVariable("HYPRLAND_INSTANCE_SIGNATURE") != null;
     private static readonly bool IsWayland = Environment.GetEnvironmentVariable("WAYLAND_DISPLAY") != null;
 
@@ -293,43 +295,55 @@ public class Deafen : IDisposable
         int status = ClientBanchoStatus();
         bool isPlaying = status == 2;
         bool isSpectating = _tosuAPI.GetRawBanchoStatus() == 6;
-        bool hasHitObjects = _tosuAPI.GetMaxPlayCombo() != 0;
+        bool hasHitObjects = _tosuAPI.GetMaxPlayCombo() > 0;
         bool isHoldingFC = _tosuAPI.IsHoldingFullCombo();
-        double completionPercentage = Math.Round(_tosuAPI.GetCompletionPercentage(), 2);
 
-        if (_sharedViewModel.MinCompletionPercentage >= 99.9)
-            // assume the user doesnt want to deafen but wants to keep osuautodeafen open still
+        if (_sharedViewModel.MinCompletionPercentage >= 99 ||
+            isSpectating ||
+            !isPlaying ||
+            _tosuAPI.HasFailed())
+        {
+            _metDeafenConditions = false;
+            return false;
+        }
+
+        if (!hasHitObjects)
+        {
+            _metDeafenConditions = false;
+            return false;
+        }
+
+        double completionPercentage = _tosuAPI.GetCompletionPercentage();
+        double starRating = _tosuAPI.GetFullSR();
+        double maxPP = _tosuAPI.GetMaxPP() ?? double.NaN;
+
+        bool thresholdsMet =
+            double.IsFinite(completionPercentage) &&
+            double.IsFinite(starRating) &&
+            double.IsFinite(maxPP) &&
+            completionPercentage >= _sharedViewModel.MinCompletionPercentage &&
+            starRating >= _sharedViewModel.StarRating &&
+            maxPP >= _sharedViewModel.PerformancePoints;
+
+        if (thresholdsMet &&
+            (!_sharedViewModel.IsFCRequired || isHoldingFC))
+        {
+            _metDeafenConditions = true;
+        }
+
+        bool fcRequirementMet =
+            !_sharedViewModel.IsFCRequired ||
+            isHoldingFC ||
+            (_metDeafenConditions && !IsUndeafenAfterMissEnabled);
+
+        if (!thresholdsMet || !fcRequirementMet)
+            return false;
+        
+        if (_sharedViewModel.IsPauseUndeafenToggleEnabled &&
+            _tosuAPI.IsPaused())
             return false;
 
-        if (isSpectating)
-            return false;
-
-        // prevents deafening on like first tick (just makes sure you've actually hit at least 1 circle)
-        if (!isPlaying || !hasHitObjects)
-            return false;
-
-        // undeafen if paused and the toggle is enabled
-        if (_sharedViewModel.IsPauseUndeafenToggleEnabled && _tosuAPI.IsPaused())
-            return false;
-
-        // undeafen if in break period and the toggle is enabled
         if (IsBreakUndeafenToggleEnabled && _tosuAPI.IsBreakPeriod())
-            return false;
-
-        // fc logic or something
-        bool fcRequirementMet = !_sharedViewModel.IsFCRequired || isHoldingFC;
-        bool missConditionMet = !IsUndeafenAfterMissEnabled || isHoldingFC;
-        if (!fcRequirementMet || !missConditionMet)
-            return false;
-
-        // the main conditions
-        if (completionPercentage < _sharedViewModel.MinCompletionPercentage)
-            return false;
-
-        if (_tosuAPI.GetFullSR() < _sharedViewModel.StarRating)
-            return false;
-
-        if (_tosuAPI.GetMaxPP() < _sharedViewModel.PerformancePoints)
             return false;
 
         return true;

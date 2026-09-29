@@ -1,5 +1,6 @@
 ﻿using System;
 using Avalonia;
+using Avalonia.Rendering.Composition;
 using Serilog;
 using Velopack;
 
@@ -42,6 +43,14 @@ internal class Program
         return AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .UseSkia()
-            .WithInterFont();
+            .WithInterFont() 
+            .With(new SkiaOptions
+            {
+                MaxGpuResourceSizeBytes = 256 * 1024 * 1024 // 256mb
+            })
+            .With(new CompositionOptions
+            {
+                UseRegionDirtyRectClipping = true
+            });
     }
 }

@@ -17,5 +17,8 @@ public class App : Application
             desktop.MainWindow = new MainWindow();
 
         base.OnFrameworkInitializationCompleted();
+#if DEBUG
+        this.AttachDevTools();
+#endif
     }
 }

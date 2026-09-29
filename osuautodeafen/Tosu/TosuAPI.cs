@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Input;
+using Avalonia.Threading;
 using osuautodeafen.Settings;
 using osuautodeafen.StrainGraph;
 using Serilog;
@@ -28,11 +29,16 @@ public class TosuApi : IDisposable
     private readonly Timer? _timer;
     private string? _modNames;
     private ClientWebSocket _webSocket;
+    private readonly SettingsHandler _settingsHandler;
 
-    public TosuApi()
+    public TosuApi(SettingsHandler settingsHandler)
     {
+        _settingsHandler = settingsHandler
+                           ?? throw new ArgumentNullException(nameof(settingsHandler));
+
         _webSocket = new ClientWebSocket();
         _dynamicBuffer = new List<byte>();
+
         _ = InitializeConnectionAsync();
     }
 
@@ -94,26 +100,32 @@ public class TosuApi : IDisposable
     ///     Connects to the Tosu WebSocket API
     /// </summary>
     /// <param name="cancellationToken"></param>
-    private async Task ConnectAsync(CancellationToken cancellationToken = default)
+    private async Task ConnectAsync(
+        CancellationToken cancellationToken = default)
     {
         await _connectLock.WaitAsync(cancellationToken);
 
         try
         {
-            SettingsHandler settings = new();
+            var endpoint = await Dispatcher.UIThread.InvokeAsync(() => (
+                Ip: _settingsHandler.tosuApiIp ?? "",
+                Port: _settingsHandler.tosuApiPort ?? ""
+            ));
 
-            string ip = settings.tosuApiIp ?? "";
-            string port = settings.tosuApiPort ?? "";
             string counterPath = "osuautodeafen";
 
-            string uri = $"ws://{ip}:{port}/websocket/v2?l={Uri.EscapeDataString(counterPath)}";
+            string uri =
+                $"ws://{endpoint.Ip}:{endpoint.Port}/websocket/v2" +
+                $"?l={Uri.EscapeDataString(counterPath)}";
 
             _webSocket?.Dispose();
             _webSocket = new ClientWebSocket();
 
             Log.Information("Connecting to Tosu: {Uri}", uri);
 
-            await _webSocket.ConnectAsync(new Uri(uri), cancellationToken);
+            await _webSocket.ConnectAsync(
+                new Uri(uri),
+                cancellationToken);
 
             Log.Information("Connected to Tosu WebSocket");
         }

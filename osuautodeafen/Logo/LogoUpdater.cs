@@ -13,6 +13,9 @@ namespace osuautodeafen.Logo;
 
 public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewModel viewModel)
 {
+    private SolidColorBrush? _averageColorBrush;
+    private ExperimentalAcrylicMaterial? _tooltipAcrylicMaterial;
+    
     private string? _cachedBitmapPath;
     private SKBitmap? _cachedSKBitmap;
     private CancellationTokenSource? _colorTransitionCts;
@@ -59,19 +62,34 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
             }
 
             if (_colorTransitionCts != null)
+            {
                 await _colorTransitionCts.CancelAsync();
+                _colorTransitionCts.Dispose();
+            }
 
             _colorTransitionCts = new CancellationTokenSource();
 
-            int closestIndex = FindClosestColorIndex(_lastRenderedColor, newSectionColors);
-            SKColor firstColor = newSectionColors[closestIndex];
+            try
+            {
+                int closestIndex =
+                    FindClosestColorIndex(_lastRenderedColor, newSectionColors);
 
-            await InterpolateColor(_lastRenderedColor, firstColor, _colorTransitionCts.Token);
+                SKColor firstColor = newSectionColors[closestIndex];
+
+                await InterpolateColor(
+                    _lastRenderedColor,
+                    firstColor,
+                    _colorTransitionCts.Token);
 
             _currentSectionIndex = closestIndex;
             _sectionColors = newSectionColors;
 
-            _ = InterpolateColorLoop(_colorTransitionCts.Token);
+                _ = InterpolateColorLoop(_colorTransitionCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
         }
         catch (Exception)
         {
@@ -83,9 +101,49 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
     {
         try
         {
-            using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using FileStream stream = new(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite);
+
             using SKManagedStream managedStream = new(stream);
-            return SKBitmap.Decode(managedStream);
+
+            using SKBitmap? original = SKBitmap.Decode(managedStream);
+
+            if (original == null)
+                return null;
+
+            const int targetWidth = 256;
+
+            if (original.Width <= targetWidth)
+            {
+                return original.Copy();
+            }
+
+            double scale = targetWidth / (double)original.Width;
+
+            int targetHeight = Math.Max(
+                1,
+                (int)Math.Round(original.Height * scale));
+
+            var resized = new SKBitmap(
+                targetWidth,
+                targetHeight,
+                original.ColorType,
+                original.AlphaType);
+
+            bool success = original.ScalePixels(
+                resized,
+                SKFilterQuality.Low);
+
+            if (!success)
+            {
+                resized.Dispose();
+                return null;
+            }
+
+            return resized;
         }
         catch
         {
@@ -139,15 +197,20 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
 
     private void UpdateViewModelColors(SKColor color)
     {
-        Color avaloniaColor = Color.FromArgb(color.Alpha, color.Red, color.Green, color.Blue);
+        if (color == _lastRenderedColor)
+            return;
 
-        viewModel.AverageColorBrush = new SolidColorBrush(avaloniaColor);
-        viewModel.TooltipAcrylicMaterial = new ExperimentalAcrylicMaterial
-        {
-            TintColor = avaloniaColor,
-            TintOpacity = 0.25,
-            MaterialOpacity = 0.2
-        };
+        Color avaloniaColor = Color.FromArgb(
+            color.Alpha,
+            color.Red,
+            color.Green,
+            color.Blue);
+
+        viewModel.SetAverageColor(avaloniaColor);
+
+        viewModel.TooltipAcrylicMaterial.TintColor =
+            avaloniaColor;
+
         _lastRenderedColor = color;
     }
 
@@ -155,23 +218,31 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
     {
         int height = bitmap.Height;
         int sectionHeight = height / 3;
-        var colors = new List<SKColor>();
+
+        var colors = new List<SKColor>(3);
+
         for (int section = 0; section < 3; section++)
         {
             int yStart = section * sectionHeight;
-            int yEnd = section == 2 ? height : yStart + sectionHeight;
+            int yEnd = section == 2
+                ? height
+                : yStart + sectionHeight;
+
             SKColor color = CalculateAverageColor(bitmap, yStart, yEnd);
 
-            byte max = Math.Max(color.Red, Math.Max(color.Green, color.Blue));
+            byte max = Math.Max(
+                color.Red,
+                Math.Max(color.Green, color.Blue));
+
             if (max > 0)
             {
                 float scale = 200f / max;
+
                 color = new SKColor(
                     (byte)Math.Clamp(color.Red * scale, 16, 200),
                     (byte)Math.Clamp(color.Green * scale, 16, 200),
                     (byte)Math.Clamp(color.Blue * scale, 16, 200),
-                    color.Alpha
-                );
+                    color.Alpha);
             }
 
             colors.Add(color);
@@ -180,36 +251,45 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
         return colors;
     }
 
-    private static unsafe SKColor CalculateAverageColor(SKBitmap bitmap, int yStart, int yEnd)
+    private static SKColor CalculateAverageColor(
+        SKBitmap bitmap,
+        int yStart,
+        int yEnd)
     {
         int width = bitmap.Width;
-        long totalR = 0, totalG = 0, totalB = 0;
-        long pixelCount = (long)width * (yEnd - yStart);
+        int height = bitmap.Height;
 
-        if (!bitmap.IsImmutable)
-            bitmap.SetImmutable();
+        yStart = Math.Clamp(yStart, 0, height);
+        yEnd = Math.Clamp(yEnd, yStart, height);
 
-        fixed (void* ptr = &bitmap.GetPixelSpan()[0])
+        if (width <= 0 || yEnd <= yStart)
+            return SKColors.Black;
+
+        long totalR = 0;
+        long totalG = 0;
+        long totalB = 0;
+        long pixelCount = 0;
+
+        for (int y = yStart; y < yEnd; y++)
         {
-            uint* pixels = (uint*)ptr;
-            for (int y = yStart; y < yEnd; y++)
+            for (int x = 0; x < width; x++)
             {
-                int rowOffset = y * width;
-                for (int x = 0; x < width; x++)
-                {
-                    uint pixel = pixels[rowOffset + x];
-                    totalB += pixel & 0xFF;
-                    totalG += (pixel >> 8) & 0xFF;
-                    totalR += (pixel >> 16) & 0xFF;
-                }
+                SKColor pixel = bitmap.GetPixel(x, y);
+
+                totalR += pixel.Red;
+                totalG += pixel.Green;
+                totalB += pixel.Blue;
+                pixelCount++;
             }
         }
 
+        if (pixelCount == 0)
+            return SKColors.Black;
+
         return new SKColor(
-            (byte)Math.Clamp(totalR / pixelCount, 0, 255),
-            (byte)Math.Clamp(totalG / pixelCount, 0, 255),
-            (byte)Math.Clamp(totalB / pixelCount, 0, 255)
-        );
+            (byte)(totalR / pixelCount),
+            (byte)(totalG / pixelCount),
+            (byte)(totalB / pixelCount));
     }
 
     private static int FindClosestColorIndex(SKColor target, List<SKColor> colors)
