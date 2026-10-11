@@ -41,7 +41,7 @@ public class SectionManager
             _sectionFillTimers.Remove(section);
         }
 
-        DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(16) };
+        DispatcherTimer timer = new(DispatcherPriority.Background, Dispatcher.UIThread) { Interval = TimeSpan.FromMilliseconds(16) };
         DateTime startTime = DateTime.UtcNow;
 
         timer.Tick += (_, _) =>

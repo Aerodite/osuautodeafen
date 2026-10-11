@@ -816,7 +816,7 @@ private static void SetExpanderState(
 
         if (_debounceSaveTimer == null)
         {
-            _debounceSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _debounceSaveTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher.UIThread) { Interval = TimeSpan.FromMilliseconds(500) };
             _debounceSaveTimer.Tick += DebounceSaveTimer_Tick;
         }
 
