@@ -15,6 +15,8 @@ public class TooltipManager
     private const double TooltipOffset = 4;
 
     private const double TooltipTargetOpacity = 0.78;
+    
+    private const double TooltipMaxWidth = 350;
 
     public Tooltips.TooltipType CurrentTooltipType;
     private bool _isTooltipHiding;
@@ -66,7 +68,7 @@ public class TooltipManager
         Tooltip.ClipToBounds = true;
         _tooltipText.Width = double.NaN;
 
-        _tooltipText.TextWrapping = TextWrapping.NoWrap;
+        _tooltipText.TextWrapping = TextWrapping.Wrap;
 
         DispatcherTimer.Run(() =>
         {
@@ -109,24 +111,11 @@ public class TooltipManager
             return;
         }
 
-        _lastTooltipText ??= "";
+        _lastTooltipText = text;
         _tooltipText.Text = text;
-        _tooltipText.Width = double.NaN;
 
-        _tooltipText.Measure(new Size(_mainWindow.ClientSize.Width * 0.5, double.PositiveInfinity));
-        if (TooltipBackground != null)
-        {
-            double tooltipWidth = _tooltipText.DesiredSize.Width + TooltipBackground.Padding.Left +
-                                  TooltipBackground.Padding.Right;
-            double tooltipHeight =
-                _tooltipText.DesiredSize.Height + TooltipBackground.Padding.Top + TooltipBackground.Padding.Bottom;
-
-            _tooltipSize = (tooltipWidth, tooltipHeight);
-            _targetPosition = pointerPos;
-
-            Tooltip.Width = tooltipWidth;
-            Tooltip.Height = tooltipHeight;
-        }
+        UpdateTooltipSize();
+        _targetPosition = pointerPos;
 
         // this is just to prevent tooltips from perma-hiding if the previous one is fading out
         if (_isTooltipHiding)
@@ -140,6 +129,47 @@ public class TooltipManager
             Tooltip.IsVisible = true;
             _ = SetTooltipVisibility(Tooltip, true, token);
         }
+    }
+    
+    private void UpdateTooltipSize()
+    {
+        if (Tooltip == null || _tooltipText == null ||
+            TooltipBackground == null || _mainWindow == null)
+            return;
+
+        double horizontalPadding =
+            TooltipBackground.Padding.Left +
+            TooltipBackground.Padding.Right;
+
+        double verticalPadding =
+            TooltipBackground.Padding.Top +
+            TooltipBackground.Padding.Bottom;
+
+        double maxWidth = Math.Min(
+            TooltipMaxWidth,
+            _mainWindow.ClientSize.Width * 0.5
+        );
+
+        double maxTextWidth = Math.Max(0, maxWidth - horizontalPadding);
+
+        _tooltipText.Width = double.NaN;
+        _tooltipText.MaxWidth = maxTextWidth;
+        _tooltipText.TextWrapping = TextWrapping.Wrap;
+
+        _tooltipText.Measure(
+            new Size(maxTextWidth, double.PositiveInfinity)
+        );
+
+        double tooltipWidth =
+            _tooltipText.DesiredSize.Width + horizontalPadding;
+
+        double tooltipHeight =
+            _tooltipText.DesiredSize.Height + verticalPadding;
+
+        _tooltipSize = (tooltipWidth, tooltipHeight);
+
+        Tooltip.Width = tooltipWidth;
+        Tooltip.Height = tooltipHeight;
     }
 
     /// <summary>
@@ -175,8 +205,9 @@ public class TooltipManager
             top = position.Y + TooltipOffset;
         }
 
-        left = Math.Clamp(left, 0, _mainWindow.ClientSize.Width - width);
-        top = Math.Clamp(top, 0, _mainWindow.ClientSize.Height - height);
+        left = Math.Clamp(left, 0, Math.Max(0, _mainWindow.ClientSize.Width - width));
+
+        top = Math.Clamp(top, 0, Math.Max(0, _mainWindow.ClientSize.Height - height));
 
         double currentLeft = Canvas.GetLeft(Tooltip);
         if (double.IsNaN(currentLeft)) currentLeft = 0;
@@ -221,8 +252,11 @@ public class TooltipManager
         _lastTooltipText = newText;
         _tooltipText.Text = newText;
 
-        if (!forceResize)
-            return;
+        if (forceResize)
+        {
+            UpdateTooltipSize();
+            MoveTooltipToPosition(_targetPosition);
+        }
 
         _tooltipText.Width = double.NaN;
         _tooltipText.Measure(new Size(_mainWindow.ClientSize.Width * 0.5, double.PositiveInfinity));

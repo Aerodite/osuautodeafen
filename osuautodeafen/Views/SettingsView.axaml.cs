@@ -1215,7 +1215,7 @@ private static void SetExpanderState(
         if (sender is not RadioButton) return;
         Point point = Extensions.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point,
-            "Send deafen commands through Vesktop's native socket \n (only if you use the global-shortcuts branch)");
+            "Send deafen commands through Vesktop's native socket (only if you use the global-shortcuts branch)");
     }
 
     private void VesktopMethodButton_OnPointerExited(object? sender, PointerEventArgs e)
