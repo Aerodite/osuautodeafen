@@ -12,19 +12,16 @@ public sealed class UpdateChecker
 {
     public const string CurrentVersion = "1.1.3";
     public const string CurrentVersionNumeric = "113";
-    
+
     private static readonly GithubSource UpdateSource = new(
         "https://github.com/Aerodite/osuautodeafen",
         null,
         false);
-    
-    public bool IsInstalled => _updateManager.IsInstalled;
-    
-    private readonly UpdateManager _updateManager = new(UpdateSource);
+
     private readonly Button? _notificationButton;
     private readonly ProgressBar? _progressBar;
-    
-    public UpdateInfo? UpdateInfo { get; private set; }
+
+    private readonly UpdateManager _updateManager = new(UpdateSource);
 
     public UpdateChecker(
         Button? notificationButton,
@@ -33,6 +30,10 @@ public sealed class UpdateChecker
         _notificationButton = notificationButton;
         _progressBar = progressBar;
     }
+
+    public bool IsInstalled => _updateManager.IsInstalled;
+
+    public UpdateInfo? UpdateInfo { get; private set; }
 
     public async Task CheckForUpdatesAsync()
     {
@@ -77,7 +78,7 @@ public sealed class UpdateChecker
         _progressBar.Value = 0;
         _progressBar.Foreground = Brushes.Green;
     }
-    
+
     public Task DownloadUpdateAsync(Action<int>? progress = null)
     {
         if (UpdateInfo is null)

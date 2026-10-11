@@ -44,7 +44,7 @@ internal class Program
         return AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .UseSkia()
-            .WithInterFont() 
+            .WithInterFont()
             .UseAcrylicPerformanceDefaults()
             .With(new SkiaOptions
             {

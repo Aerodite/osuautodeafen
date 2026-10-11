@@ -14,17 +14,17 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="AnimatedImage.Avalonia" Version="2.1.4" />
+        <PackageReference Include="AnimatedImage.Avalonia" Version="2.1.4"/>
         <PackageReference Include="AnimatedImage.Native" Version="2.1.2"/>
-        <PackageReference Include="Avalonia.Controls.ItemsRepeater" Version="12.0.0" />
-        <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
-        <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
-        <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
-        <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
-        <PackageReference Include="Fluid.Avalonia.Acrylic" Version="1.4.0" />
+        <PackageReference Include="Avalonia.Controls.ItemsRepeater" Version="12.0.0"/>
+        <PackageReference Include="Avalonia.Desktop" Version="12.1.4"/>
+        <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4"/>
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4"/>
+        <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3"/>
+        <PackageReference Include="Fluid.Avalonia.Acrylic" Version="1.4.0"/>
         <PackageReference Include="ini-parser" Version="2.5.2"/>
-        <PackageReference Include="LiveChartsCore.SkiaSharpView" Version="2.1.0-dev-798" />
-        <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.1.0-dev-798" />
+        <PackageReference Include="LiveChartsCore.SkiaSharpView" Version="2.1.0-dev-798"/>
+        <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.1.0-dev-798"/>
         <PackageReference Include="Markdig" Version="0.44.0"/>
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4-beta1"/>
         <PackageReference Include="ReactiveUI" Version="21.0.1"/>
@@ -37,7 +37,7 @@
         <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="3.119.4"/>
         <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.4"/>
         <PackageReference Include="SkiaSharp.Views" Version="3.119.4"/>
-        <PackageReference Include="Svg.Controls.Avalonia" Version="12.0.0.17" />
+        <PackageReference Include="Svg.Controls.Avalonia" Version="12.0.0.17"/>
         <PackageReference Include="Svg.Skia" Version="3.0.6"/>
         <PackageReference Include="Velopack" Version="0.0.1362-gfa48e3c"/>
         <PackageReference Include="WebSocketSharp" Version="1.0.3-rc11"/>
@@ -49,12 +49,12 @@
         <EmbeddedResource Include="Resources\favicon.ico"/>
         <None Remove="Resources\favicon_d.ico"/>
         <EmbeddedResource Include="Resources\favicon_d.ico"/>
-        <None Remove="Icons\headphones.svg" />
-        <AvaloniaResource Include="Icons\headphones.svg" />
-        <None Remove="Icons\equibop.svg" />
-        <AvaloniaResource Include="Icons\equibop.svg" />
-        <None Remove="Icons\vesktop.svg" />
-        <AvaloniaResource Include="Icons\vesktop.svg" />
+        <None Remove="Icons\headphones.svg"/>
+        <AvaloniaResource Include="Icons\headphones.svg"/>
+        <None Remove="Icons\equibop.svg"/>
+        <AvaloniaResource Include="Icons\equibop.svg"/>
+        <None Remove="Icons\vesktop.svg"/>
+        <AvaloniaResource Include="Icons\vesktop.svg"/>
     </ItemGroup>
 
     <ItemGroup>

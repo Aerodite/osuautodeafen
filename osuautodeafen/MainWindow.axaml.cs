@@ -249,7 +249,8 @@ public partial class MainWindow : Window
             Dispatcher.UIThread.Post(() =>
                 Icon = new WindowIcon(_deafenController.Deafened ? deafenIconPath : startupIconPath));
 
-        _mainTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher.UIThread) { Interval = TimeSpan.FromMilliseconds(16) };
+        _mainTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher.UIThread)
+            { Interval = TimeSpan.FromMilliseconds(16) };
         _mainTimer.Tick += MainTimer_Tick;
         _mainTimer.Start();
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
@@ -1196,7 +1197,8 @@ public partial class MainWindow : Window
                 if (_modifierOnlyTimer == null || !_modifierOnlyTimer.IsEnabled)
                 {
                     _modifierOnlyTimer?.Stop();
-                    _modifierOnlyTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher.UIThread) { Interval = TimeSpan.FromMilliseconds(50) };
+                    _modifierOnlyTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher.UIThread)
+                        { Interval = TimeSpan.FromMilliseconds(50) };
                     _modifierOnlyTimer.Start();
                 }
 
@@ -1918,7 +1920,8 @@ public partial class MainWindow : Window
 
             double intervalMs = CalculateCogSpinInterval(_cogSpinBpm);
 
-            _cogSpinTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher.UIThread) { Interval = TimeSpan.FromMilliseconds(intervalMs) };
+            _cogSpinTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher.UIThread)
+                { Interval = TimeSpan.FromMilliseconds(intervalMs) };
             _cogSpinTimer.Tick += (s, ev) =>
             {
                 double elapsed = (DateTime.UtcNow - _cogSpinStartTime).TotalMinutes;
@@ -2003,7 +2006,8 @@ public partial class MainWindow : Window
                 debugConsolePanel.IsVisible = true;
                 await AnimateDebugConsoleInAsync(debugConsolePanel);
 
-                _logUpdateTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher.UIThread) { Interval = TimeSpan.FromMilliseconds(16) };
+                _logUpdateTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher.UIThread)
+                    { Interval = TimeSpan.FromMilliseconds(16) };
                 _logUpdateTimer.Tick += (_, __) =>
                 {
                     var currentLogs = _infoPanelLog.Logs.Values

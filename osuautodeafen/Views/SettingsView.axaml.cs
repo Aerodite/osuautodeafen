@@ -33,9 +33,8 @@ public partial class SettingsView : UserControl
     private static Button? _updateNotificationBarButton;
     private static ProgressBar? _updateProgressBar;
     private readonly KeybindHelper _keybindHelper = new();
+    private readonly Dictionary<(string Section, string Key), object> _pendingSettings = new();
     private readonly SettingsHandler _settingsHandler;
-
-    private bool _loadingDeafenMethod;
     private readonly SemaphoreSlim _updateCheckLock = new(1, 1);
 
     private readonly UpdateChecker _updateChecker = new(_updateNotificationBarButton, _updateProgressBar);
@@ -45,8 +44,9 @@ public partial class SettingsView : UserControl
     private DispatcherTimer? _completionPercentageSaveTimer;
 
     private DispatcherTimer? _debounceSaveTimer;
+
+    private bool _loadingDeafenMethod;
     private double _pendingBe;
-    private readonly Dictionary<(string Section, string Key), object> _pendingSettings = new();
 
     private double _pendingCompletionPercentage;
 
@@ -174,7 +174,7 @@ public partial class SettingsView : UserControl
         ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
     }
 
-private static void SetExpanderState(
+    private static void SetExpanderState(
         Control control,
         bool expanded)
     {
@@ -690,12 +690,12 @@ private static void SetExpanderState(
         Button? button = panel.FindControl<Button>("DeafenKeybindButton");
         if (button == null)
             return;
-        
+
 
         Point point = Extensions.GetWindowRelativePointer(this, e);
         _tooltipManager.ShowTooltip(this, point, "Set Deafen Keybind");
     }
-    
+
     private void EquibopFlatpakToggle_IsCheckedChanged(
         object? sender,
         RoutedEventArgs e)
@@ -816,7 +816,8 @@ private static void SetExpanderState(
 
         if (_debounceSaveTimer == null)
         {
-            _debounceSaveTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher.UIThread) { Interval = TimeSpan.FromMilliseconds(500) };
+            _debounceSaveTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher.UIThread)
+                { Interval = TimeSpan.FromMilliseconds(500) };
             _debounceSaveTimer.Tick += DebounceSaveTimer_Tick;
         }
 
@@ -839,7 +840,7 @@ private static void SetExpanderState(
     public void RemovePendingSettings()
     {
         _debounceSaveTimer?.Stop();
-        
+
         foreach (var setting in new Dictionary<(string Section, string Key), object>(_pendingSettings))
         {
             _settingsHandler.SaveSetting(setting.Key.Section, setting.Key.Key, setting.Value);
@@ -1184,7 +1185,7 @@ private static void SetExpanderState(
             UseShellExecute = true
         });
     }
-    
+
     private void KeybindMethodButton_OnPointerEntered(object? sender, PointerEventArgs e)
     {
         if (sender is not RadioButton) return;
@@ -1239,7 +1240,8 @@ private static void SetExpanderState(
     {
         if (sender is not ToggleButton) return;
         Point point = Extensions.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, "Use Flatpak query for Equibop\n(flatpak run org.equicord.equibop --toggle-deafen)");
+        _tooltipManager.ShowTooltip(this, point,
+            "Use Flatpak query for Equibop\n(flatpak run org.equicord.equibop --toggle-deafen)");
     }
 
     private void EquibopFlatpakToggle_OnPointerExited(object? sender, PointerEventArgs e)

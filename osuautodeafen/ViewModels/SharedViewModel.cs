@@ -34,8 +34,6 @@ public sealed class SharedViewModel : ViewModelBase
     private readonly TooltipManager _tooltipManager;
 
     private readonly TosuApi _tosuApi;
-    
-    private bool _isFlatpakEnabled;
 
     private bool _IsBreakUndeafenToggleEnabled;
 
@@ -58,6 +56,8 @@ public sealed class SharedViewModel : ViewModelBase
     private bool _isBackgroundEnabled;
 
     private bool _isFCRequired;
+
+    private bool _isFlatpakEnabled;
 
     private bool _isParallaxEnabled;
 
@@ -262,58 +262,21 @@ public sealed class SharedViewModel : ViewModelBase
 
     public string LongAppVersion => $"Version {UpdateChecker.CurrentVersion}";
 
-    private readonly ExperimentalAcrylicMaterial _tooltipAcrylicMaterial =
-        new()
-        {
-            TintColor = Colors.White,
-            TintOpacity = 0.25,
-            MaterialOpacity = 0.2
-        };
-
-    public ExperimentalAcrylicMaterial TooltipAcrylicMaterial =>
-        _tooltipAcrylicMaterial;
-    
-    private readonly SolidColorBrush _averageColorBrush = new(Colors.Gray);
-    private readonly SolidColorBrush _averageColorBrushDim = new(Colors.Gray);
-    private readonly SolidColorBrush _averageColorBrushDark = new(Colors.Gray);
-    private readonly SolidColorBrush _averageColorBrushLight = new(Colors.Gray);
-
-    public SolidColorBrush AverageColorBrush => _averageColorBrush;
-    public SolidColorBrush AverageColorBrushDim => _averageColorBrushDim;
-    public SolidColorBrush AverageColorBrushDark => _averageColorBrushDark;
-    public SolidColorBrush AverageColorBrushLight => _averageColorBrushLight;
-
-    public void SetAverageColor(Color color)
+    public ExperimentalAcrylicMaterial TooltipAcrylicMaterial { get; } = new()
     {
-        if (_averageColorBrush.Color == color)
-            return;
+        TintColor = Colors.White,
+        TintOpacity = 0.25,
+        MaterialOpacity = 0.2
+    };
 
-        _averageColorBrush.Color = color;
+    public SolidColorBrush AverageColorBrush { get; } = new(Colors.Gray);
 
-        _averageColorBrushDim.Color =
-            DesaturateAndLightenColorHsl(
-                color,
-                0.75f,
-                0.75f);
+    public SolidColorBrush AverageColorBrushDim { get; } = new(Colors.Gray);
 
-        _averageColorBrushDark.Color =
-            DesaturateAndLightenColorHsl(
-                color,
-                0.6f,
-                0.3f);
+    public SolidColorBrush AverageColorBrushDark { get; } = new(Colors.Gray);
 
-        _averageColorBrushLight.Color =
-            DesaturateAndLightenColorHsl(
-                color,
-                0.3f,
-                0.6f);
+    public SolidColorBrush AverageColorBrushLight { get; } = new(Colors.Gray);
 
-        OnPropertyChanged(nameof(AverageColorBrush));
-        OnPropertyChanged(nameof(AverageColorBrushDim));
-        OnPropertyChanged(nameof(AverageColorBrushDark));
-        OnPropertyChanged(nameof(AverageColorBrushLight));
-    }
-    
     public bool IsBackgroundEnabled
     {
         get => _isBackgroundEnabled;
@@ -401,7 +364,7 @@ public sealed class SharedViewModel : ViewModelBase
             }
         }
     }
-    
+
     public bool IsFlatpakEnabled
     {
         get => _isFlatpakEnabled;
@@ -519,9 +482,40 @@ public sealed class SharedViewModel : ViewModelBase
 
     public object MinSRValue => _tosuApi.GetFullSR();
 
+    public void SetAverageColor(Color color)
+    {
+        if (AverageColorBrush.Color == color)
+            return;
+
+        AverageColorBrush.Color = color;
+
+        AverageColorBrushDim.Color =
+            DesaturateAndLightenColorHsl(
+                color,
+                0.75f,
+                0.75f);
+
+        AverageColorBrushDark.Color =
+            DesaturateAndLightenColorHsl(
+                color,
+                0.6f,
+                0.3f);
+
+        AverageColorBrushLight.Color =
+            DesaturateAndLightenColorHsl(
+                color,
+                0.3f,
+                0.6f);
+
+        OnPropertyChanged(nameof(AverageColorBrush));
+        OnPropertyChanged(nameof(AverageColorBrushDim));
+        OnPropertyChanged(nameof(AverageColorBrushDark));
+        OnPropertyChanged(nameof(AverageColorBrushLight));
+    }
+
     private SolidColorBrush CreateBrush(float saturation, float lightness)
     {
-        Color color = _averageColorBrush.Color;
+        Color color = AverageColorBrush.Color;
         Color adjusted = DesaturateAndLightenColorHsl(color, saturation, lightness);
         return new SolidColorBrush(adjusted);
     }
@@ -684,18 +678,12 @@ public sealed class SharedViewModel : ViewModelBase
                 : delta / (maxComponent + minComponent);
 
             if (maxComponent == red)
-            {
                 hue = (green - blue) / delta +
                       (green < blue ? 6f : 0f);
-            }
             else if (maxComponent == green)
-            {
                 hue = (blue - red) / delta + 2f;
-            }
             else
-            {
                 hue = (red - green) / delta + 4f;
-            }
 
             hue /= 6f;
         }

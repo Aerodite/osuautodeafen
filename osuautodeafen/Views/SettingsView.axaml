@@ -13,7 +13,6 @@
         <presets:BackgroundPathToBrushConverter x:Key="BackgroundPathToBrushConverter" />
         <helpers:InverseBooleanConverter x:Key="InverseBooleanConverter" />
         <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
-        <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
 
         <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
                          x:DataType="viewModels:SharedViewModel" />
@@ -23,7 +22,7 @@
                          x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="CheckBoxBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
                          x:DataType="viewModels:SharedViewModel" />
-        
+
     </UserControl.Resources>
 
     <UserControl.Styles>
@@ -65,7 +64,7 @@
                 <TranslateTransform Y="0" />
             </Setter>
         </Style>
-        
+
         <Style Selector="Button.keybind-button">
             <Setter Property="Background" Value="#24FFFFFF" />
             <Setter Property="BorderBrush" Value="#40FFFFFF" />
@@ -78,8 +77,8 @@
         <Style Selector="Button.keybind-button:pointerover">
             <Setter Property="Background" Value="#34FFFFFF" />
             <Setter Property="BorderBrush"
-                    Value="{Binding AverageColorBrush}" 
-                    x:DataType="viewModels:SharedViewModel"/>
+                    Value="{Binding AverageColorBrush}"
+                    x:DataType="viewModels:SharedViewModel" />
         </Style>
 
         <Style Selector="ToggleButton.mini-toggle">
@@ -174,7 +173,7 @@
                                 VerticalContentAlignment="Center" />
 
                         </Border>
-                        
+
                         <Border x:Name="SelectedIndicator"
                                 Width="6"
                                 Height="26"
@@ -189,7 +188,7 @@
                 </ControlTemplate>
             </Setter>
         </Style>
-        
+
         <Style Selector="RadioButton.deafen-method-card:checked /template/ Border#SelectedIndicator">
             <Setter Property="Opacity" Value="1" />
         </Style>
@@ -796,7 +795,7 @@
                                     </StackPanel>
 
                                 </RadioButton>
-                                
+
                                 <Border Height="1"
                                         Background="{Binding AverageColorBrush}"
                                         Opacity="0.45"

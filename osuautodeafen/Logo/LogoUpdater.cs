@@ -14,8 +14,7 @@ namespace osuautodeafen.Logo;
 public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewModel viewModel)
 {
     private SolidColorBrush? _averageColorBrush;
-    private ExperimentalAcrylicMaterial? _tooltipAcrylicMaterial;
-    
+
     private string? _cachedBitmapPath;
     private SKBitmap? _cachedSKBitmap;
     private CancellationTokenSource? _colorTransitionCts;
@@ -23,6 +22,7 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
     private int _currentSectionIndex;
     private SKColor _lastRenderedColor = new(255, 255, 255, 255);
     private List<SKColor> _sectionColors = new();
+    private ExperimentalAcrylicMaterial? _tooltipAcrylicMaterial;
     public SKColor AverageColor1 { get; private set; }
     public SKColor AverageColor2 { get; private set; }
     public SKColor AverageColor3 { get; private set; }
@@ -81,14 +81,13 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
                     firstColor,
                     _colorTransitionCts.Token);
 
-            _currentSectionIndex = closestIndex;
-            _sectionColors = newSectionColors;
+                _currentSectionIndex = closestIndex;
+                _sectionColors = newSectionColors;
 
                 _ = InterpolateColorLoop(_colorTransitionCts.Token);
             }
             catch (OperationCanceledException)
             {
-                return;
             }
         }
         catch (Exception)
@@ -116,10 +115,7 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
 
             const int targetWidth = 256;
 
-            if (original.Width <= targetWidth)
-            {
-                return original.Copy();
-            }
+            if (original.Width <= targetWidth) return original.Copy();
 
             double scale = targetWidth / (double)original.Width;
 
@@ -127,7 +123,7 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
                 1,
                 (int)Math.Round(original.Height * scale));
 
-            var resized = new SKBitmap(
+            SKBitmap resized = new(
                 targetWidth,
                 targetHeight,
                 original.ColorType,
@@ -271,16 +267,14 @@ public class LogoUpdater(GetLowResBackground getLowResBackground, SharedViewMode
         long pixelCount = 0;
 
         for (int y = yStart; y < yEnd; y++)
+        for (int x = 0; x < width; x++)
         {
-            for (int x = 0; x < width; x++)
-            {
-                SKColor pixel = bitmap.GetPixel(x, y);
+            SKColor pixel = bitmap.GetPixel(x, y);
 
-                totalR += pixel.Red;
-                totalG += pixel.Green;
-                totalB += pixel.Blue;
-                pixelCount++;
-            }
+            totalR += pixel.Red;
+            totalG += pixel.Green;
+            totalB += pixel.Blue;
+            pixelCount++;
         }
 
         if (pixelCount == 0)

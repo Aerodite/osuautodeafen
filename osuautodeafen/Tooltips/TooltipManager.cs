@@ -15,7 +15,7 @@ public class TooltipManager
     private const double TooltipOffset = 4;
 
     private const double TooltipTargetOpacity = 0.78;
-    
+
     private const double TooltipMaxWidth = 350;
 
     public Tooltips.TooltipType CurrentTooltipType;
@@ -130,7 +130,7 @@ public class TooltipManager
             _ = SetTooltipVisibility(Tooltip, true, token);
         }
     }
-    
+
     private void UpdateTooltipSize()
     {
         if (Tooltip == null || _tooltipText == null ||

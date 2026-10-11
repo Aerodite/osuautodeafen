@@ -93,11 +93,11 @@ public class Deafen : IDisposable
 
     private DateTime _deafenEnteredAt = DateTime.MinValue;
     private bool _desiredDeafenState;
-    
+
     private bool _hasAppliedFirstDeafen;
-    
+
     private bool _isDeafened;
-    
+
     private DateTime _lastToggleAt = DateTime.MinValue;
     private bool _metDeafenConditions;
 
@@ -134,7 +134,7 @@ public class Deafen : IDisposable
         _timer.Stop();
         _hook.Dispose();
         _timer.Dispose();
-        
+
         GC.SuppressFinalize(this);
     }
 
@@ -179,7 +179,6 @@ public class Deafen : IDisposable
                             CreateNoWindow = true
                         };
                     else
-                    {
                         psi = new ProcessStartInfo
                         {
                             FileName = "equibop",
@@ -189,7 +188,6 @@ public class Deafen : IDisposable
                             RedirectStandardError = false,
                             CreateNoWindow = true
                         };
-                    }
 
                     process = Process.Start(psi);
 
@@ -429,7 +427,7 @@ public class Deafen : IDisposable
 
         return true;
     }
-    
+
     private void EvaluateDeafenState()
     {
         // bunch of annoying stuff that allows spectating to not be annoying
@@ -460,8 +458,8 @@ public class Deafen : IDisposable
             _metDeafenConditions = false;
             _desiredDeafenState = false;
             _nextStateChangedAt = DateTime.Now;
-            
-            if (_isDeafened) 
+
+            if (_isDeafened)
                 ApplyDeafenState(false);
 
             return;
@@ -514,7 +512,6 @@ public class Deafen : IDisposable
     {
         try
         {
-
             if (_settingsHandler.DeafenMethod.Equals(
                     "disabled",
                     StringComparison.OrdinalIgnoreCase))
@@ -530,9 +527,7 @@ public class Deafen : IDisposable
 
             if (OperatingSystem.IsLinux() &&
                 IsSpecialLinuxDiscordClient())
-            {
                 TryDeafen(nextState);
-            }
         }
         catch
         {
@@ -586,10 +581,7 @@ public class Deafen : IDisposable
                 return;
             }
 
-            if (SimulateDeafenKey())
-            {
-                SetDeafened(desiredState);
-            }
+            if (SimulateDeafenKey()) SetDeafened(desiredState);
         }
     }
 

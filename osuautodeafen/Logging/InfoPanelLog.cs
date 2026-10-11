@@ -17,7 +17,7 @@ public class InfoPanelLog
         bool includeTimestamp = true,
         string? keyword = null,
         string? hyperLink = null,
-        int order = Int32.MaxValue)
+        int order = int.MaxValue)
     {
         string text = includeTimestamp
             ? $"[{DateTime.Now:MM-dd HH:mm:ss.fff}] {message}"

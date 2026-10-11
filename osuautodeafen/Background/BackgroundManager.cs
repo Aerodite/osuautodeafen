@@ -165,7 +165,7 @@ public class BackgroundManager(
 
         _hasBeenInitialized = true;
     }
-    
+
     private static void ConfigureImage(Image image)
     {
         image.Stretch = Stretch.UniformToFill;
@@ -291,7 +291,7 @@ public class BackgroundManager(
 
             if (bitmap == null)
                 return;
-            
+
             if (!_backgroundSwapLock.Wait(0))
             {
                 Bitmap? oldPending =
@@ -315,7 +315,7 @@ public class BackgroundManager(
                     await SwapBackgroundAsync(nextBitmap);
 
                     _currentBackgroundDirectory = nextPath;
-                    
+
                     nextBitmap = Interlocked.Exchange(ref _pendingBackground, null);
 
                     if (nextBitmap != null)

@@ -23,7 +23,7 @@
             <helpers:StringIsNotNullOrEmptyConverter x:Key="StringIsNotNullOrEmptyConverter" />
 
             <Color x:Key="BaseBackgroundColor">#171717</Color>
-            
+
         </ResourceDictionary>
     </Application.Resources>
 </Application>

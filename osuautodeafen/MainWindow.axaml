@@ -4,12 +4,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:osuautodeafen"
         xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
-        xmlns:global="clr-namespace:"
-        xmlns:transitions="clr-namespace:Avalonia.Animation;assembly=Avalonia.Animation"
         xmlns:views="clr-namespace:osuautodeafen.Views"
         xmlns:viewModels="clr-namespace:osuautodeafen.ViewModels"
         xmlns:helpers="clr-namespace:osuautodeafen.Helpers"
-        xmlns:presets="clr-namespace:osuautodeafen.Settings.Presets"
         xmlns:settings="clr-namespace:osuautodeafen.Settings"
         xmlns:progressIndicator="clr-namespace:osuautodeafen.StrainGraph.ProgressIndicator"
         xmlns:acrylic="clr-namespace:Fluid.Avalonia.Acrylic;assembly=Fluid.Avalonia.Acrylic"
@@ -17,54 +14,29 @@
         x:Class="osuautodeafen.MainWindow"
         Title="osuautodeafen"
         x:DataType="local:MainWindow">
-    
+
     <Window.DataTemplates>
         <DataTemplate DataType="viewModels:ChangelogViewModel">
             <views:ChangelogView />
         </DataTemplate>
     </Window.DataTemplates>
-    
+
     <Window.Resources>
         <helpers:NullToBoolConverter x:Key="NullToBoolConverter" />
-        <helpers:BrushToCssConverter x:Key="BrushToCssConverter"></helpers:BrushToCssConverter>
-        <settings:ColorBlendConverter x:Key="ColorBlendConverter" />
+        <helpers:BrushToCssConverter x:Key="BrushToCssConverter" />
         <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
         <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
-        <SolidColorBrush x:Key="SliderThumbBackground" Color="{Binding AverageColorBrushDim.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderTrackValueFill" Color="{Binding AverageColorBrushDim.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
 
         <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
                          x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="ButtonBackgroundBrushPointerOver" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="ButtonBackgroundBrushPressed" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonBackgroundBrushDisabled" Color="{Binding AverageColorBrushDark.Color}"
                          x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="ButtonBorderBrush" Color="{Binding AverageColorBrush.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="ButtonForegroundBrush" Color="{Binding AverageColorBrushDim.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="ButtonHighlightBrush" Color="{Binding AverageColorBrush.Color}"
                          x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="CheckBoxBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
                          x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="TooltipColorBrush" Color="{Binding AverageColorBrushDim.Color}"
                          x:DataType="viewModels:SharedViewModel" />
-        <ExperimentalAcrylicMaterial x:Key="AcrylicMaterial"
-                                     MaterialOpacity="0.2"
-                                     TintColor="{Binding Source={StaticResource BaseBackgroundBrush}, Path=Color}"
-                                     TintOpacity="0.25" />
     </Window.Resources>
     <Window.Styles>
 
@@ -131,15 +103,15 @@
             <Setter Property="Background" Value="#444" />
         </Style>
     </Window.Styles>
-    
+
     <Grid ZIndex="5" x:DataType="viewModels:SharedViewModel">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="0"/>
+            <ColumnDefinition Width="0" />
         </Grid.ColumnDefinitions>
-        
-        <ContentControl Content="{Binding CurrentPage}" x:DataType="viewModels:SharedViewModel"/>
-        
+
+        <ContentControl Content="{Binding CurrentPage}" x:DataType="viewModels:SharedViewModel" />
+
         <Canvas Grid.Column="0" ZIndex="99" IsHitTestVisible="False">
 
             <Grid x:Name="TooltipRoot"
@@ -147,7 +119,7 @@
                   Opacity="0"
                   IsVisible="False"
                   Background="Transparent">
-                
+
                 <Border x:Name="TooltipBackground"
                         CornerRadius="8"
                         Padding="0"
@@ -168,11 +140,11 @@
                         CornerRadius="8">
 
                         <Border Background="{Binding Source={StaticResource TooltipColorBrush}}"
-                                Opacity="0.5"/>
+                                Opacity="0.5" />
 
                     </acrylic:AcrylicSurface>
                 </Border>
-                
+
                 <TextBlock x:Name="TooltipText"
                            TextWrapping="Wrap"
                            Foreground="White"
@@ -181,7 +153,7 @@
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
                            TextAlignment="Center"
-                           Margin="8"/>
+                           Margin="8" />
             </Grid>
         </Canvas>
 
@@ -199,7 +171,7 @@
                             PointerEntered="LogoPanel_PointerEnter"
                             PointerExited="LogoPanel_PointerExit"
                             Background="Transparent">
-                    
+
                     <Image Name="osuLogo"
                            Source="avares://osuautodeafen/Resources/osu_whitestroke.png"
                            Height="60" />
@@ -210,7 +182,7 @@
                              Css="{Binding AverageColorBrush, Converter={StaticResource BrushToCssConverter}}" />
                     </Grid>
                 </StackPanel>
-                
+
                 <TextBlock Text="{Binding CurrentAppVersion}"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
@@ -230,7 +202,7 @@
                 </TextBlock>
             </StackPanel>
         </Grid>
-        
+
         <Grid Grid.Column="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -276,7 +248,7 @@
                         <acrylic:AcrylicSurface.OpacityMask>
                             <ImageBrush
                                 Source="avares://osuautodeafen/Icons/outline.png"
-                                Stretch="Uniform"/>
+                                Stretch="Uniform" />
                         </acrylic:AcrylicSurface.OpacityMask>
 
                     </acrylic:AcrylicSurface>
@@ -302,9 +274,9 @@
                 </Grid>
             </Border>
         </Grid>
-        
+
         <Grid Grid.Column="0" x:Name="MainContainer" />
-        
+
         <Grid Grid.Column="0" VerticalAlignment="Bottom">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -339,37 +311,68 @@
                         x:DataType="viewModels:SharedViewModel" />
             </Grid>
 
-            <Grid HorizontalAlignment="Stretch" x:Name="UpdateNotificationGrid" VerticalAlignment="Bottom"
-                  Grid.Row="2" IsVisible="{Binding IsVisible, ElementName=UpdateNotificationBar}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+
+            <Grid Grid.Row="2"
+                  x:Name="UpdateNotificationGrid"
+                  HorizontalAlignment="Stretch"
+                  VerticalAlignment="Bottom"
+                  IsVisible="{Binding IsVisible, ElementName=UpdateNotificationBar}">
 
                 <Button x:Name="UpdateNotificationBar"
+                        Classes="update-bar"
                         IsVisible="False"
                         HorizontalAlignment="Stretch"
+                        Height="36"
+                        Padding="0"
                         FontSize="12"
                         Foreground="White"
                         x:DataType="viewModels:SharedViewModel"
-                        Background="{Binding UpdateBarBackground}"
                         Click="UpdateNotificationBar_Click">
+
                     <Grid>
+                        <acrylic:AcrylicSurface
+                            CornerRadius="6"
+                            TintColor="{Binding AverageColorBrushDark}"
+                            BlurRadius="18"
+                            Vibrancy="0.18"
+                            Contrast="1.08"
+                            RefractionAmount="2"
+                            DepthEffect="True"
+                            ChromaticAberration="True"
+                            HighlightEnabled="True"
+                            ShadowEnabled="True"
+                            IsHitTestVisible="False" />
+
                         <ProgressBar x:Name="UpdateProgressBar"
                                      Minimum="0"
                                      Maximum="100"
                                      Value="{Binding UpdateProgress}"
-                                     Foreground="Green"
+                                     Foreground="{Binding AverageColorBrush}"
                                      Background="Transparent"
+                                     BorderThickness="0"
                                      IsHitTestVisible="False"
                                      VerticalAlignment="Stretch"
-                                     HorizontalAlignment="Stretch" />
+                                     HorizontalAlignment="Stretch"
+                                     Opacity="0.65">
+
+                            <ProgressBar.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Value"
+                                                      Duration="0:0:0.20" />
+                                </Transitions>
+                            </ProgressBar.Transitions>
+                        </ProgressBar>
+
                         <TextBlock Text="A new update is available!"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
-                                   Margin="0" />
+                                   FontWeight="SemiBold"
+                                   Foreground="White"
+                                   IsHitTestVisible="False" />
                     </Grid>
                 </Button>
             </Grid>
+
         </Grid>
         <Border
             Background="#AA000000"
@@ -379,7 +382,7 @@
             <ContentControl
                 Content="{Binding Changelog}"
                 HorizontalAlignment="Center"
-                VerticalAlignment="Center"/>
+                VerticalAlignment="Center" />
         </Border>
     </Grid>
 </Window>
