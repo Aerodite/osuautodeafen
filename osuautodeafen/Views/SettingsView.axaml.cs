@@ -1120,10 +1120,10 @@ public partial class SettingsView : UserControl
 
             if (_updateChecker.UpdateInfo == null)
             {
-                button.Content = "No updates found";
-                await Task.Delay(1000);
-
-                button.Content = "Check for Updates";
+                await _viewModel.ShowNotificationAsync(NotificationType.Info,
+                    "No updates found",
+                    "You are up to date :D",
+                    TimeSpan.FromSeconds(10));
                 return;
             }
 
