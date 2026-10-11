@@ -2,7 +2,6 @@
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
-using System.Threading;
 using Avalonia.Controls;
 using IniParser;
 using IniParser.Model;
@@ -16,12 +15,11 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private readonly string _iniPath;
     private readonly FileIniDataParser _parser = new();
 
-    public IniData Data => CurrentData;
-
     private string? _activePresetPath;
     private double _blurRadius;
 
-    private string? _discordClient;
+    private string _deafenMethod = "keybind";
+    private bool _equibopFlatpak;
 
     private bool _isBreakUndeafenToggleEnabled;
     private bool _isPauseUndeafenToggleEnabled;
@@ -63,6 +61,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         LoadSettings();
     }
 
+    public IniData Data => CurrentData;
+
     public int DeafenKeybindKey { get; private set; }
     public int DeafenKeybindControlSide { get; private set; }
     public int DeafenKeybindAltSide { get; private set; }
@@ -72,13 +72,29 @@ public class SettingsHandler : Control, INotifyPropertyChanged
     private IniData CurrentData => IsPresetActive ? _presetData! : _mainData;
     private string ActivePath => _activePresetPath ?? _iniPath;
 
-    public string? DiscordClient
+    public string DeafenMethod
     {
-        get => _discordClient;
+        get => _deafenMethod;
         set
         {
-            if (Set(ref _discordClient, value))
-                SaveSetting("Linux", "discordClient", value);
+            if (Set(ref _deafenMethod, value))
+                SaveSetting(
+                    "Behavior",
+                    "DeafenMethod",
+                    value);
+        }
+    }
+
+    public bool EquibopFlatpak
+    {
+        get => _equibopFlatpak;
+        set
+        {
+            if (Set(ref _equibopFlatpak, value))
+                SaveSetting(
+                    "Linux",
+                    "EquibopFlatpak",
+                    value);
         }
     }
 
@@ -251,6 +267,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         data["Behavior"]["UndeafenAfterMiss"] = "False";
         data["Behavior"]["IsBreakUndeafenToggleEnabled"] = "False";
         data["Behavior"]["IsPauseUndeafenToggleEnabled"] = "True";
+        data["Behavior"]["DeafenMethod"] = "keybind";
 
         data.Sections.AddSection("Hotkeys");
         data["Hotkeys"]["DeafenKeybindKey"] = "47"; // D
@@ -271,15 +288,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         data["Network"]["tosuApiPort"] = "24050";
 
         data.Sections.AddSection("Linux");
-        data["Linux"]["discordClient"] = "";
-        data.Sections["Linux"]
-            .GetKeyData("discordClient")
-            .Comments.Add(
-                "Leave this blank if you want osuautodeafen to just try using keybinds directly on Linux,"
-                + " otherwise, specify the discord client you use (e.g. vesktop, equibop, discord) and osuautodeafen will try dispatching the command if you're on hyprland."
-                + " if you use Equibop or Vesktop (specifically global shortcuts branch), you can put 'equibop' or 'vesktop-global-shortcuts' here and it will directly deafen using the built in command"
-                + " see more info here: https://github.com/Aerodite/osuautodeafen/wiki/Linux-and-Custom-Discord-Clients"
-            );
+        data["Linux"]["EquibopFlatpak"] = "False";
 
         data.Sections.AddSection("Updates");
         data["Updates"]["LastSeenVersion"] = "0";
@@ -315,7 +324,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
             IniData mainData = _parser.ReadFile(_iniPath);
             _mainData = mainData;
-            
+
             return true;
         }
         catch (IOException)
@@ -361,6 +370,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
             bool.TryParse(Data["Behavior"]["IsPauseUndeafenToggleEnabled"], out bool pu) && pu;
         IsFCRequired = bool.TryParse(Data["Behavior"]["IsFCRequired"], out bool fc) && fc;
         UndeafenAfterMiss = bool.TryParse(Data["Behavior"]["UndeafenAfterMiss"], out bool uam) && uam;
+        _deafenMethod = CurrentData["Behavior"]["DeafenMethod"];
 
         DeafenKeybindKey = int.TryParse(Data["Hotkeys"]["DeafenKeybindKey"], out int keyVal) ? keyVal : 0;
         DeafenKeybindControlSide =
@@ -378,7 +388,11 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         tosuApiIp = _mainData["Network"]["tosuApiIp"];
         tosuApiPort = _mainData["Network"]["tosuApiPort"];
 
-        _discordClient = _mainData["Linux"]["discordClient"];
+        _equibopFlatpak =
+            bool.TryParse(
+                _mainData["Linux"]["EquibopFlatpak"],
+                out bool equibopFlatpak)
+            && equibopFlatpak;
 
         _lastSeenVersion = _mainData["Updates"]["LastSeenVersion"];
 
@@ -399,8 +413,8 @@ public class SettingsHandler : Control, INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindControlSide)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindAltSide)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenKeybindShiftSide)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DiscordClient)));
-
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DeafenMethod)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EquibopFlatpak)));
         SettingsReloaded?.Invoke();
         DeafenKeybindChanged?.Invoke();
     }
@@ -432,7 +446,7 @@ public class SettingsHandler : Control, INotifyPropertyChanged
 
             Log.Information("Writing new settings to: {Path}", path);
             _parser.WriteFile(path, targetData);
-            
+
             IniData activeData = CurrentData;
 
             DeafenKeybindKey =

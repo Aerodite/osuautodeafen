@@ -1,0 +1,185 @@
+<Styles
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:viewModels="clr-namespace:osuautodeafen.ViewModels">
+
+    <Style Selector="Button">
+        <Setter
+            Property="Background"
+            Value="{StaticResource ButtonBackgroundBrush}" />
+        <Setter
+            Property="BorderBrush"
+            Value="{StaticResource ButtonBackgroundBrush}" />
+    </Style>
+    
+    <Style Selector="Button.update-bar">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Opacity" Value="1" />
+        <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition
+                    Property="RenderTransform"
+                    Duration="0:0:0.15" />
+            </Transitions>
+        </Setter>
+
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="{TemplateBinding CornerRadius}">
+
+                    <ContentPresenter
+                        Content="{TemplateBinding Content}"
+                        HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                        VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                        Padding="{TemplateBinding Padding}" />
+
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="Button.update-bar">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{Binding AverageColorBrush}" 
+                x:DataType="viewModels:SharedViewModel"/>
+        <Setter Property="Background" Value="{Binding AverageColorBrushDim}" 
+                x:DataType="viewModels:SharedViewModel"/>
+        <Setter Property="Opacity" Value="0.9" />
+
+        <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition
+                    Property="RenderTransform"
+                    Duration="0:0:0.20" />
+
+                <DoubleTransition
+                    Property="Opacity"
+                    Duration="0:0:0.20" />
+            </Transitions>
+        </Setter>
+
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="7">
+
+                    <ContentPresenter
+                        Content="{TemplateBinding Content}"
+                        HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                        VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                        Padding="{TemplateBinding Padding}" />
+
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="Button.update-bar:pointerover">
+        <Setter Property="Background" Value="{Binding AverageColorBrush}" 
+                x:DataType="viewModels:SharedViewModel"/>
+        <Setter Property="Opacity" Value="1" />
+        <Setter Property="RenderTransform" Value="scale(1.02)" />
+    </Style>
+
+    <Style Selector="Button.update-bar:pressed">
+        <Setter Property="Background" Value="{Binding AverageColorBrush}" 
+                x:DataType="viewModels:SharedViewModel"/>
+        <Setter Property="Opacity" Value="0.85" />
+        <Setter Property="RenderTransform" Value="scale(0.985)" />
+    </Style>
+
+    <Style Selector="CheckBox.custom">
+        <Setter
+            Property="Background"
+            Value="{StaticResource CheckBoxBackgroundBrush}" />
+
+        <Setter Property="Template">
+            <ControlTemplate>
+                <StackPanel
+                    Orientation="Horizontal"
+                    VerticalAlignment="Center">
+
+                    <Border
+                        Width="18"
+                        Height="18"
+                        CornerRadius="3"
+                        BorderBrush="Gray"
+                        BorderThickness="1"
+                        Margin="0,0,6,0"
+                        VerticalAlignment="Center">
+
+                        <Border.Background>
+                            <MultiBinding
+                                Converter="{StaticResource CheckBoxBackgroundConverter}">
+                                <Binding
+                                    Path="IsChecked"
+                                    RelativeSource="{RelativeSource TemplatedParent}" />
+                                <Binding
+                                    Path="Background"
+                                    RelativeSource="{RelativeSource TemplatedParent}" />
+                            </MultiBinding>
+                        </Border.Background>
+
+                        <Canvas Width="18" Height="18">
+                            <Path
+                                Classes="custom-checkmark"
+                                Data="M4,9 L8,13 L14,5"
+                                Stroke="White"
+                                StrokeThickness="2"
+                                IsVisible="{TemplateBinding IsChecked}" />
+                        </Canvas>
+
+                    </Border>
+
+                    <ContentPresenter
+                        Content="{TemplateBinding Content}"
+                        VerticalAlignment="Center"
+                        Foreground="White" />
+
+                </StackPanel>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="CheckBox.custom Path.custom-checkmark:disabled">
+        <Setter Property="Opacity" Value="0.3" />
+    </Style>
+
+    <Style Selector="CheckBox.custom:disabled">
+        <Setter Property="Background" Value="#444" />
+    </Style>
+
+    <Style Selector="Button.preset-list-item:pointerover">
+        <Setter Property="BorderBrush" Value="#FFF" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="Background" Value="#22000000" />
+    </Style>
+
+    <Style Selector="Button.preset-list-item:pressed">
+        <Setter Property="BorderBrush" Value="#FF66CCFF" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="Background" Value="#44000000" />
+    </Style>
+
+    <Style Selector="Button:disabled">
+        <Setter
+            Property="Background"
+            Value="{StaticResource ButtonBackgroundBrushDisabled}" />
+        <Setter
+            Property="Foreground"
+            Value="{StaticResource ButtonForegroundBrush}" />
+    </Style>
+
+</Styles>

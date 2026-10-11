@@ -23,6 +23,7 @@ using osuautodeafen.Tooltips;
 using osuautodeafen.Tosu;
 using osuautodeafen.Update;
 using osuautodeafen.ViewModels;
+using ReactiveUI;
 using Serilog;
 
 namespace osuautodeafen.Views;
@@ -34,6 +35,7 @@ public partial class SettingsView : UserControl
     private readonly KeybindHelper _keybindHelper = new();
     private readonly SettingsHandler _settingsHandler;
 
+    private bool _loadingDeafenMethod;
     private readonly SemaphoreSlim _updateCheckLock = new(1, 1);
 
     private readonly UpdateChecker _updateChecker = new(_updateNotificationBarButton, _updateProgressBar);
@@ -142,6 +144,7 @@ public partial class SettingsView : UserControl
         _viewModel.UndeafenAfterMiss = _settingsHandler.UndeafenAfterMiss;
         _viewModel.IsBreakUndeafenToggleEnabled = _settingsHandler.IsBreakUndeafenToggleEnabled;
         _viewModel.IsPauseUndeafenToggleEnabled = _settingsHandler.IsPauseUndeafenToggleEnabled;
+        _viewModel.IsFlatpakEnabled = _settingsHandler.EquibopFlatpak;
 
         _viewModel.IsBackgroundEnabled = _settingsHandler.IsBackgroundEnabled;
         _viewModel.IsParallaxEnabled = _settingsHandler.IsParallaxEnabled;
@@ -165,10 +168,91 @@ public partial class SettingsView : UserControl
         UndeafenOnMissToggle.IsChecked = _viewModel.UndeafenAfterMiss;
         BreakUndeafenToggle.IsChecked = _viewModel.IsBreakUndeafenToggleEnabled;
         PauseUndeafenToggle.IsChecked = _viewModel.IsPauseUndeafenToggleEnabled;
+        EquibopFlatpakToggle.IsChecked = _viewModel.IsFlatpakEnabled;
 
         BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
         ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
-        //KiaiEffectToggle.IsChecked = _viewModel.IsKiaiEffectEnabled;
+    }
+
+private static void SetExpanderState(
+        Control control,
+        bool expanded)
+    {
+        control.Classes.Set(
+            "open",
+            expanded);
+    }
+
+    private async void DeafenMethodButton_Click(
+        object? sender,
+        RoutedEventArgs e)
+    {
+        try
+        {
+            if (_loadingDeafenMethod)
+                return;
+
+            if (sender is not RadioButton button ||
+                button.Tag is not string method)
+                return;
+
+            SetExpanderState(
+                KeybindSettingsPanel,
+                method == "keybind");
+
+            SetExpanderState(
+                EquibopSettingsPanel,
+                method == "equibop");
+
+            _settingsHandler.DeafenMethod = method;
+        }
+        catch (Exception ex)
+        {
+            throw new UnhandledErrorException("DeafenMethodButton_Click threw an exception: ", ex);
+        }
+    }
+
+    private void LoadDeafenMethod()
+    {
+        string method =
+            _settingsHandler.DeafenMethod;
+
+        if (string.IsNullOrWhiteSpace(method))
+            method = "native";
+
+        _loadingDeafenMethod = true;
+
+        try
+        {
+            SelectDeafenMethod(method);
+        }
+        finally
+        {
+            _loadingDeafenMethod = false;
+        }
+    }
+
+    private void SelectDeafenMethod(string method)
+    {
+        DisabledMethodButton.IsChecked =
+            method == "disabled";
+
+        KeybindMethodButton.IsChecked =
+            method == "keybind";
+
+        EquibopMethodButton.IsChecked =
+            method == "equibop";
+
+        VesktopMethodButton.IsChecked =
+            method == "vesktop-global-shortcuts";
+
+        SetExpanderState(
+            KeybindSettingsPanel,
+            method == "keybind");
+
+        SetExpanderState(
+            EquibopSettingsPanel,
+            method == "equibop");
     }
 
     /// <summary>
@@ -606,14 +690,18 @@ public partial class SettingsView : UserControl
         Button? button = panel.FindControl<Button>("DeafenKeybindButton");
         if (button == null)
             return;
-
-        string text = button.IsEnabled
-            ? "Set Deafen Keybind"
-            : $"Keybinds disabled due to Linux client being set.\nsettings.ini: discordClient={_settingsHandler.DiscordClient}";
-
+        
 
         Point point = Extensions.GetWindowRelativePointer(this, e);
-        _tooltipManager.ShowTooltip(this, point, text);
+        _tooltipManager.ShowTooltip(this, point, "Set Deafen Keybind");
+    }
+    
+    private void EquibopFlatpakToggle_IsCheckedChanged(
+        object? sender,
+        RoutedEventArgs e)
+    {
+        _settingsHandler.EquibopFlatpak =
+            EquibopFlatpakToggle.IsChecked ?? false;
     }
 
     private void DeafenKeybindPanel_PointerLeave(object sender, PointerEventArgs e)
@@ -1095,5 +1183,67 @@ public partial class SettingsView : UserControl
             FileName = issueUrl,
             UseShellExecute = true
         });
+    }
+    
+    private void KeybindMethodButton_OnPointerEntered(object? sender, PointerEventArgs e)
+    {
+        if (sender is not RadioButton) return;
+        Point point = Extensions.GetWindowRelativePointer(this, e);
+        _tooltipManager.ShowTooltip(this, point, "Use keybind simulation to toggle deafen");
+    }
+
+    private void KeybindMethodButton_OnPointerExited(object? sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+
+    private void EquibopMethodButton_OnPointerEntered(object? sender, PointerEventArgs e)
+    {
+        if (sender is not RadioButton) return;
+        Point point = Extensions.GetWindowRelativePointer(this, e);
+        _tooltipManager.ShowTooltip(this, point,
+            "Use Equibop's native query command to deafen\n(equibop --toggle-deafen)");
+    }
+
+    private void EquibopMethodButton_OnPointerExited(object? sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+
+    private void VesktopMethodButton_OnPointerEntered(object? sender, PointerEventArgs e)
+    {
+        if (sender is not RadioButton) return;
+        Point point = Extensions.GetWindowRelativePointer(this, e);
+        _tooltipManager.ShowTooltip(this, point,
+            "Send deafen commands through Vesktop's native socket \n (only if you use the global-shortcuts branch)");
+    }
+
+    private void VesktopMethodButton_OnPointerExited(object? sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+
+    private void DisabledMethodButton_OnPointerEntered(object? sender, PointerEventArgs e)
+    {
+        if (sender is not RadioButton) return;
+        Point point = Extensions.GetWindowRelativePointer(this, e);
+        _tooltipManager.ShowTooltip(this, point, "Disable any form of deafening");
+    }
+
+    private void DisabledMethodButton_OnPointerExited(object? sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
+    }
+
+    private void EquibopFlatpakToggle_OnPointerEntered(object? sender, PointerEventArgs e)
+    {
+        if (sender is not ToggleButton) return;
+        Point point = Extensions.GetWindowRelativePointer(this, e);
+        _tooltipManager.ShowTooltip(this, point, "Use Flatpak query for Equibop\n(flatpak run org.equicord.equibop --toggle-deafen)");
+    }
+
+    private void EquibopFlatpakToggle_OnPointerExited(object? sender, PointerEventArgs e)
+    {
+        _tooltipManager.HideTooltip();
     }
 }

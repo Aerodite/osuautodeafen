@@ -24,12 +24,12 @@ public class TosuApi : IDisposable
     private readonly List<byte> _dynamicBuffer;
     private readonly string _errorMessage = "";
     private readonly StringBuilder _messageAccumulator = new();
+    private readonly SettingsHandler _settingsHandler;
 
     private readonly Subject<TosuState> _stateStream = new();
     private readonly Timer? _timer;
     private string? _modNames;
     private ClientWebSocket _webSocket;
-    private readonly SettingsHandler _settingsHandler;
 
     public TosuApi(SettingsHandler settingsHandler)
     {
@@ -50,9 +50,6 @@ public class TosuApi : IDisposable
 
     private GraphData Graph { get; } = null!;
 
-    /// <summary>
-    ///     Disposes the WebSocket and timers when done
-    /// </summary>
     public void Dispose()
     {
         _timer?.Dispose();
@@ -70,9 +67,6 @@ public class TosuApi : IDisposable
         _webSocket.Dispose();
     }
 
-    /// <summary>
-    ///     Attempts connection to the Tosu websocket and handles reconnects gracefully
-    /// </summary>
     private async Task InitializeConnectionAsync(CancellationToken cancellationToken = default)
     {
         TimeSpan delay = TimeSpan.FromSeconds(1);
@@ -107,7 +101,7 @@ public class TosuApi : IDisposable
 
         try
         {
-            var endpoint = await Dispatcher.UIThread.InvokeAsync(() => (
+            (string Ip, string Port) endpoint = await Dispatcher.UIThread.InvokeAsync(() => (
                 Ip: _settingsHandler.tosuApiIp ?? "",
                 Port: _settingsHandler.tosuApiPort ?? ""
             ));
@@ -135,11 +129,6 @@ public class TosuApi : IDisposable
         }
     }
 
-    /// <summary>
-    ///     Receives messages from the WebSocket and processes them into variables that can be used anywhere
-    /// </summary>
-    /// <returns></returns>
-    /// <exception cref="InvalidOperationException"></exception>
     public async Task ReceiveAsync(CancellationToken cancellationToken)
     {
         const int bufferSize = 4096;
@@ -213,9 +202,11 @@ public class TosuApi : IDisposable
 
                 bool hasFailed = false;
                 bool isPaused = false;
+                string? profileName = null;
+                string? playerName = null;
 
                 int rawLazerBanchoStatus = 0;
-                int rawBanchoStatus = 0;
+                int rawBanchoStatus = -1;
 
                 string? client = null;
                 string? server = null;
@@ -305,6 +296,11 @@ public class TosuApi : IDisposable
                             maxPlayCombo = maxComboProperty.GetDouble();
                     }
 
+                    if (currentPlayProperty.TryGetProperty(
+                            "playerName",
+                            out JsonElement playerNameProperty))
+                        playerName = playerNameProperty.GetString();
+
                     if (currentPlayProperty.TryGetProperty("pp", out JsonElement ppProperty) &&
                         ppProperty.TryGetProperty("current", out JsonElement currentPpProperty))
                         currentPP = currentPpProperty.GetDouble();
@@ -350,10 +346,21 @@ public class TosuApi : IDisposable
                 if (root.TryGetProperty("client", out JsonElement clientProperty))
                     client = clientProperty.GetString();
 
-                if (root.TryGetProperty("profile", out JsonElement profileProperty) &&
-                    profileProperty.TryGetProperty("banchoStatus", out JsonElement banchoStatusProperty) &&
-                    banchoStatusProperty.TryGetProperty("number", out JsonElement banchoStatusNumProperty))
-                    rawBanchoStatus = banchoStatusNumProperty.GetInt32();
+                if (root.TryGetProperty("profile", out JsonElement profileProperty))
+                {
+                    if (profileProperty.TryGetProperty(
+                            "name",
+                            out JsonElement profileNameProperty))
+                        profileName = profileNameProperty.GetString();
+
+                    if (profileProperty.TryGetProperty(
+                            "banchoStatus",
+                            out JsonElement banchoStatusProperty) &&
+                        banchoStatusProperty.TryGetProperty(
+                            "number",
+                            out JsonElement banchoStatusNumProperty))
+                        rawBanchoStatus = banchoStatusNumProperty.GetInt32();
+                }
 
                 if (root.TryGetProperty("folders", out JsonElement folders) &&
                     folders.TryGetProperty("songs", out JsonElement songsFolderProperty))
@@ -410,6 +417,8 @@ public class TosuApi : IDisposable
                     isPaused,
                     rawLazerBanchoStatus,
                     rawBanchoStatus,
+                    profileName,
+                    playerName,
                     client,
                     server,
                     k1,
@@ -518,9 +527,6 @@ public class TosuApi : IDisposable
     /// <returns>
     ///     Server as a string
     /// </returns>
-    /// <remarks>
-    ///     Info only seen in the debug console (Ctrl + D)
-    /// </remarks>
     public string GetServer()
     {
         return LatestState?.Server ?? "Unknown Server";
@@ -532,9 +538,6 @@ public class TosuApi : IDisposable
     /// <returns>
     ///     Client as a string
     /// </returns>
-    /// <remarks>
-    ///     Info only seen on the debug console (Ctrl + D)
-    /// </remarks>
     public string GetClient()
     {
         return LatestState?.Client ?? "Unknown Client";
@@ -833,6 +836,24 @@ public class TosuApi : IDisposable
         return LatestState?.RawLazerBanchoStatus ?? -1;
     }
 
+    // we have to do this shitty fucking workaround because of
+    // https://github.com/tosuapp/tosu/commit/82df1492b76c9260d84dc740d1d46e901cc1c397
+    // (genuinely why was this reverted dude)
+    public bool IsCurrentUserPlaying()
+    {
+        string? profileName = LatestState?.ProfileName;
+        string? playerName = LatestState?.PlayerName;
+
+        if (string.IsNullOrWhiteSpace(profileName) ||
+            string.IsNullOrWhiteSpace(playerName))
+            return true;
+
+        return string.Equals(
+            profileName,
+            playerName,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>
     ///     Gets the beatmap ID of the current beatmap
     /// </summary>
@@ -992,6 +1013,8 @@ public class TosuApi : IDisposable
         bool IsPaused,
         int RawLazerBanchoStatus,
         int RawBanchoStatus,
+        string? ProfileName,
+        string? PlayerName,
         string? Client,
         string? Server,
         string? K1Bind,

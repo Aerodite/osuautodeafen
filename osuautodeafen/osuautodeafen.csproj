@@ -48,6 +48,12 @@
         <EmbeddedResource Include="Resources\favicon.ico"/>
         <None Remove="Resources\favicon_d.ico"/>
         <EmbeddedResource Include="Resources\favicon_d.ico"/>
+        <None Remove="Icons\headphones.svg" />
+        <AvaloniaResource Include="Icons\headphones.svg" />
+        <None Remove="Icons\equibop.svg" />
+        <AvaloniaResource Include="Icons\equibop.svg" />
+        <None Remove="Icons\vesktop.svg" />
+        <AvaloniaResource Include="Icons\vesktop.svg" />
     </ItemGroup>
 
     <ItemGroup>
