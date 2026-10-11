@@ -4,8 +4,8 @@
              xmlns:settings="clr-namespace:osuautodeafen.Settings"
              xmlns:presets="clr-namespace:osuautodeafen.Settings.Presets"
              xmlns:viewModels="clr-namespace:osuautodeafen.ViewModels"
-             xmlns:controls="clr-namespace:osuautodeafen.Controls"
              xmlns:helpers="clr-namespace:osuautodeafen.Helpers"
+             xmlns:acrylic="clr-namespace:Fluid.Avalonia.Acrylic;assembly=Fluid.Avalonia.Acrylic"
              DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
 
     <UserControl.Resources>
@@ -23,11 +23,7 @@
                          x:DataType="viewModels:SharedViewModel" />
         <SolidColorBrush x:Key="CheckBoxBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
                          x:DataType="viewModels:SharedViewModel" />
-
-        <ExperimentalAcrylicMaterial x:Key="AcrylicMaterial"
-                                     MaterialOpacity="0.10"
-                                     TintColor="{Binding Source={StaticResource BaseBackgroundBrush}, Path=Color}"
-                                     TintOpacity="1" />
+        
     </UserControl.Resources>
 
     <UserControl.Styles>
@@ -304,9 +300,31 @@
                    x:DataType="viewModels:SharedViewModel"
                    HorizontalAlignment="Right"
                    Margin="0,42,0,0">
-            <Border Width="200" CornerRadius="0,16,16,16" ClipToBounds="True">
-                <controls:BackdropBlurControl Width="200"
-                                              Material="{StaticResource AcrylicMaterial}">
+            <Border Width="200" CornerRadius="0,16,16,0" ClipToBounds="True">
+                <acrylic:AcrylicSurface
+                    Width="200"
+                    CornerRadius="0,16,16,0"
+
+                    TintColor="{Binding AverageColorBrushDark}"
+
+                    BlurRadius="12"
+                    Vibrancy="0.18"
+                    Brightness="0.08"
+                    Contrast="1.08"
+                    GammaPower="1"
+                    RevealBorderEnabled="True"
+                    RevealBorderIntensity="0.2"
+                    RevealBorderRadius="125"
+
+                    BackdropZoom="1"
+                    BackdropOpacity="1"
+
+                    RefractionAmount="25"
+                    DepthEffect="True"
+                    ChromaticAberration="True"
+
+                    HighlightEnabled="True"
+                    ShadowEnabled="False">
                     <ScrollViewer VerticalScrollBarVisibility="Visible" Margin="0,0,0,0">
                         <StackPanel HorizontalAlignment="Center">
                             <StackPanel Margin="0,5,0,0">
@@ -1159,7 +1177,7 @@
                             </StackPanel>
                         </StackPanel>
                     </ScrollViewer>
-                </controls:BackdropBlurControl>
+                </acrylic:AcrylicSurface>
             </Border>
         </DockPanel>
     </Grid>

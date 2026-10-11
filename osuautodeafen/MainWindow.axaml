@@ -12,7 +12,7 @@
         xmlns:presets="clr-namespace:osuautodeafen.Settings.Presets"
         xmlns:settings="clr-namespace:osuautodeafen.Settings"
         xmlns:progressIndicator="clr-namespace:osuautodeafen.StrainGraph.ProgressIndicator"
-        xmlns:controls="clr-namespace:osuautodeafen.Controls"
+        xmlns:acrylic="clr-namespace:Fluid.Avalonia.Acrylic;assembly=Fluid.Avalonia.Acrylic"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
         x:Class="osuautodeafen.MainWindow"
         Title="osuautodeafen"
@@ -153,13 +153,24 @@
                         Padding="0"
                         ClipToBounds="True">
 
-                    <controls:BackdropBlurControl
-                        Material="{Binding TooltipAcrylicMaterial}">
+                    <acrylic:AcrylicSurface
+                        TintColor="{Binding AverageColorBrushDim}"
+                        BlurRadius="12"
+                        Vibrancy="0.25"
+                        HighlightEnabled="True"
+                        ShadowEnabled="True"
+                        RefractionAmount="25"
+                        DepthEffect="True"
+                        ChromaticAberration="True"
+                        RevealBorderEnabled="True"
+                        RevealBorderRadius="35"
+                        RevealBorderIntensity="0.25"
+                        CornerRadius="8">
 
                         <Border Background="{Binding Source={StaticResource TooltipColorBrush}}"
-                                Opacity="0.25"/>
+                                Opacity="0.5"/>
 
-                    </controls:BackdropBlurControl>
+                    </acrylic:AcrylicSurface>
                 </Border>
                 
                 <TextBlock x:Name="TooltipText"
@@ -248,16 +259,27 @@
                     PointerExited="SettingsButton_PointerLeave">
                 <Grid HorizontalAlignment="Right" VerticalAlignment="Top">
 
-                    <Image Source="avares://osuautodeafen/Icons/outline.png"
-                           Width="50" Height="50">
-                        <Image.OpacityMask>
-                            <MultiBinding Converter="{StaticResource ColorBlendConverter}"
-                                          x:DataType="viewModels:SharedViewModel">
-                                <Binding Path="Color" Source="{StaticResource BaseBackgroundBrush}" />
-                                <Binding Path="AverageColorBrush.Color" />
-                            </MultiBinding>
-                        </Image.OpacityMask>
-                    </Image>
+                    <acrylic:AcrylicSurface
+                        Width="50"
+                        Height="50"
+                        TintColor="{Binding AverageColorBrushDark}"
+                        BlurRadius="24"
+                        Vibrancy="0.25"
+                        HighlightEnabled="True"
+                        ShadowEnabled="True"
+                        CornerRadius="8,0,0,8"
+                        RevealBorderEnabled="True"
+                        RevealBorderIntensity="0.1"
+                        RevealBorderRadius="50"
+                        RefractionAmount="5">
+
+                        <acrylic:AcrylicSurface.OpacityMask>
+                            <ImageBrush
+                                Source="avares://osuautodeafen/Icons/outline.png"
+                                Stretch="Uniform"/>
+                        </acrylic:AcrylicSurface.OpacityMask>
+
+                    </acrylic:AcrylicSurface>
                     <Button x:Name="SettingsButton"
                             Width="50" Height="50"
                             Background="{x:Null}"
