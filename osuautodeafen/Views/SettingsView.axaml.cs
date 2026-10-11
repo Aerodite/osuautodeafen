@@ -90,13 +90,19 @@ public partial class SettingsView : UserControl
         _settingsHandler.SettingsReloaded += UpdateViewModel;
 
         DeafenKeybindButton.DataContext = _settingsViewModel;
+
         if (DeafenKeybindButton.Flyout is Flyout { Content: Control content })
             content.DataContext = _settingsViewModel;
 
         _settingsHandler.DeafenKeybindChanged += () =>
         {
-            _settingsViewModel.DeafenKeybindDisplay = RetrieveKeybindFromSettings();
+            _settingsViewModel.DeafenKeybindDisplay =
+                RetrieveKeybindFromSettings();
         };
+        
+        LinuxDeafenMethods.IsVisible = OperatingSystem.IsLinux();
+        
+        LoadDeafenMethod();
     }
 
     public void AttachManagers(
@@ -171,6 +177,8 @@ public partial class SettingsView : UserControl
 
         BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
         ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
+        
+        LoadDeafenMethod();
     }
 
     private static void SetExpanderState(
@@ -217,7 +225,7 @@ public partial class SettingsView : UserControl
             _settingsHandler.DeafenMethod;
 
         if (string.IsNullOrWhiteSpace(method))
-            method = "native";
+            method = "keybind";
 
         _loadingDeafenMethod = true;
 
@@ -1097,17 +1105,16 @@ public partial class SettingsView : UserControl
             if (button == null) return;
 
             button.Content = "Checking for updates...";
-            await Task.Delay(1000);
 
             await _updateChecker.CheckForUpdatesAsync();
 
             if (!_updateChecker.IsInstalled)
             {
+                button.Content = "Check for Updates";
                 await _viewModel.ShowNotificationAsync(NotificationType.Error,
                     "Failed to check for updates",
                     "osuautodeafen can't reach Velopack, please reinstall osuautodeafen",
                     TimeSpan.FromSeconds(10));
-                button.Content = "Check for Updates";
                 return;
             }
 
