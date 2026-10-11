@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+    <id>osuautodeafen</id>
+
+    <metadata_license>CC0-1.0</metadata_license>
+    <project_license>MIT</project_license>
+
+    <name>osuautodeafen</name>
+    <summary>Automatic discord deafener for osu!</summary>
+
+    <description>
+        <p>
+            osuautodeafen simulates your Discord "Toggle Deafen" keybind whenever you reach a certain point in a map
+            (customizable), allowing you to deafen and undeafen yourself automatically
+        </p>
+    </description>
+
+    <launchable type="desktop-id">osuautodeafen.desktop</launchable>
+
+    <url type="homepage">https://github.com/Aerodite/osuautodeafen</url>
+    <url type="bugtracker">https://github.com/Aerodite/osuautodeafen/issues</url>
+
+    <provides>
+        <binary>osuautodeafen</binary>
+    </provides>
+</component>
