@@ -70,7 +70,7 @@ public class TosuApi : IDisposable
     private async Task InitializeConnectionAsync(CancellationToken cancellationToken = default)
     {
         TimeSpan delay = TimeSpan.FromSeconds(1);
-        TimeSpan maxDelay = TimeSpan.FromSeconds(16);
+        TimeSpan maxDelay = TimeSpan.FromSeconds(4);
 
         while (!cancellationToken.IsCancellationRequested)
             try
