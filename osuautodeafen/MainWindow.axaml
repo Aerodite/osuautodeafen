@@ -22,86 +22,15 @@
     </Window.DataTemplates>
 
     <Window.Resources>
-        <helpers:NullToBoolConverter x:Key="NullToBoolConverter" />
-        <helpers:BrushToCssConverter x:Key="BrushToCssConverter" />
-        <settings:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
-        <SolidColorBrush x:Key="BaseBackgroundBrush" Color="#171717" />
-
-        <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="ButtonBackgroundBrushDisabled" Color="{Binding AverageColorBrushDark.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="ButtonForegroundBrush" Color="{Binding AverageColorBrushDim.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="CheckBoxBackgroundBrush" Color="{Binding AverageColorBrushLight.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
-        <SolidColorBrush x:Key="TooltipColorBrush" Color="{Binding AverageColorBrushDim.Color}"
-                         x:DataType="viewModels:SharedViewModel" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="/Styles/Brushes.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Window.Resources>
+
     <Window.Styles>
-
-        <Style Selector="Button">
-            <Setter Property="Background" Value="{StaticResource ButtonBackgroundBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource ButtonBackgroundBrush}" />
-        </Style>
-
-        <Style Selector="CheckBox.custom">
-            <Setter Property="Background" Value="{StaticResource CheckBoxBackgroundBrush}" />
-        </Style>
-
-        <Style Selector="Button.preset-list-item:pointerover">
-            <Setter Property="BorderBrush" Value="#FFF" />
-            <Setter Property="BorderThickness" Value="2" />
-            <Setter Property="Background" Value="#22000000" />
-        </Style>
-        <Style Selector="Button.preset-list-item:pressed">
-            <Setter Property="BorderBrush" Value="#FF66CCFF" />
-            <Setter Property="BorderThickness" Value="2" />
-            <Setter Property="Background" Value="#44000000" />
-        </Style>
-        <Style Selector="Button:disabled">
-            <Setter Property="Background" Value="{StaticResource ButtonBackgroundBrushDisabled}" />
-            <Setter Property="Foreground" Value="{StaticResource ButtonForegroundBrush}" />
-        </Style>
-        <Style Selector="CheckBox.custom">
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border Width="18" Height="18"
-                                CornerRadius="3"
-                                BorderBrush="Gray"
-                                BorderThickness="1"
-                                Margin="0,0,6,0"
-                                VerticalAlignment="Center">
-                            <Border.Background>
-                                <MultiBinding Converter="{StaticResource CheckBoxBackgroundConverter}">
-                                    <Binding Path="IsChecked" RelativeSource="{RelativeSource TemplatedParent}" />
-                                    <Binding Path="Background" RelativeSource="{RelativeSource TemplatedParent}" />
-                                </MultiBinding>
-                            </Border.Background>
-                            <Canvas Width="18" Height="18">
-                                <Path
-                                    Classes="custom-checkmark"
-                                    Data="M4,9 L8,13 L14,5"
-                                    Stroke="White"
-                                    StrokeThickness="2"
-                                    IsVisible="{TemplateBinding IsChecked}" />
-                            </Canvas>
-                        </Border>
-                        <ContentPresenter Content="{TemplateBinding Content}"
-                                          VerticalAlignment="Center"
-                                          Foreground="White" />
-                    </StackPanel>
-                </ControlTemplate>
-            </Setter>
-            <Setter Property="Background" Value="{StaticResource ButtonBackgroundBrush}" />
-        </Style>
-        <Style Selector="CheckBox.custom Path.custom-checkmark:disabled">
-            <Setter Property="Opacity" Value="0.3" />
-        </Style>
-        <Style Selector="CheckBox.custom:disabled">
-            <Setter Property="Background" Value="#444" />
-        </Style>
+        <StyleInclude Source="/Styles/Controls.axaml" />
     </Window.Styles>
 
     <Grid ZIndex="5" x:DataType="viewModels:SharedViewModel">

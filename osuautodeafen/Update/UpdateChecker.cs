@@ -10,8 +10,8 @@ namespace osuautodeafen.Update;
 
 public sealed class UpdateChecker
 {
-    public const string CurrentVersion = "1.1.3";
-    public const string CurrentVersionNumeric = "113";
+    public const string CurrentVersion = "1.1.5";
+    public const string CurrentVersionNumeric = "115";
 
     private static readonly GithubSource UpdateSource = new(
         "https://github.com/Aerodite/osuautodeafen",
