@@ -261,16 +261,18 @@
                                                                    FontWeight="SemiBold"
                                                                    Foreground="#CFCFCF"
                                                                    Margin="0,12,0,4" />
-                                                        <ItemsRepeater ItemsSource="{Binding Blocks}">
-                                                            <ItemsRepeater.Layout>
-                                                                <StackLayout Spacing="10" />
-                                                            </ItemsRepeater.Layout>
-                                                            <ItemsRepeater.ItemTemplate>
+                                                        <ItemsControl ItemsSource="{Binding Blocks}">
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate>
+                                                                    <StackPanel Spacing="10" />
+                                                                </ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
                                                                 <DataTemplate>
                                                                     <ContentControl Content="{Binding}" />
                                                                 </DataTemplate>
-                                                            </ItemsRepeater.ItemTemplate>
-                                                        </ItemsRepeater>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
                                                     </StackPanel>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>

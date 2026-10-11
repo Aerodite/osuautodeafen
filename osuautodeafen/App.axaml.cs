@@ -1,6 +1,9 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+#if DEBUG
+using Avalonia.Diagnostics;
+#endif
 
 namespace osuautodeafen;
 
@@ -9,6 +12,9 @@ public class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+#if DEBUG
+        this.AttachDeveloperTools();
+#endif
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -17,8 +23,5 @@ public class App : Application
             desktop.MainWindow = new MainWindow();
 
         base.OnFrameworkInitializationCompleted();
-#if DEBUG
-        this.AttachDevTools();
-#endif
     }
 }
