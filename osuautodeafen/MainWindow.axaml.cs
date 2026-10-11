@@ -24,7 +24,6 @@ using osuautodeafen.Background;
 using osuautodeafen.Helpers;
 using osuautodeafen.Logging;
 using osuautodeafen.Logo;
-using osuautodeafen.Notifications;
 using osuautodeafen.Settings;
 using osuautodeafen.Settings.Keybinds;
 using osuautodeafen.Settings.Presets;
@@ -53,7 +52,7 @@ public partial class MainWindow : Window
 
     private const double HoverAngle = 15;
     private const double NormalAngle = 0;
-    
+
     private readonly HomeView HomeView;
 
     public readonly SettingsView SettingsView;
@@ -204,7 +203,7 @@ public partial class MainWindow : Window
             _tooltipManager,
             _settingsViewModel
         );
-        
+
         _viewModel.NotificationRequested += (type, title, description, duration) =>
             NotificationsPanel.ShowNotificationAsync(
                 type,
@@ -248,10 +247,7 @@ public partial class MainWindow : Window
             {
                 await _updateChecker.CheckForUpdatesAsync();
 
-                if (_updateChecker.UpdateInfo != null)
-                {
-                    await NotificationsPanel.SetUpdateAvailableAsync(true);
-                }
+                if (_updateChecker.UpdateInfo != null) await NotificationsPanel.SetUpdateAvailableAsync(true);
             }
             catch (Exception ex)
             {
@@ -377,7 +373,7 @@ public partial class MainWindow : Window
             _isLogoDragging = dragging;
             UpdateVersionPanelVisibility();
         };
-        
+
         UpdateTosuWarning(_viewModel.ShowTosuWarning);
 
         CheckBox? FCToggle = SettingsView.FindControl<CheckBox>("FCToggle");
@@ -1370,7 +1366,7 @@ public partial class MainWindow : Window
             flyout?.Hide();
         }
     }
-    
+
     public Task ShowUpdateNotificationAsync()
     {
         return NotificationsPanel.SetUpdateAvailableAsync(true);
@@ -1442,14 +1438,14 @@ public partial class MainWindow : Window
                 versionPanel.IsVisible = false;
         });
     }
-    
+
     private void UpdateTosuWarning(bool show)
     {
-        var panel = this.FindControl<Notifications.Notifications>("NotificationsPanel");
+        Notifications.Notifications? panel = this.FindControl<Notifications.Notifications>("NotificationsPanel");
 
         panel?.SetTosuDisconnected(show);
     }
-    
+
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);

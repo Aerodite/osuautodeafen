@@ -3,15 +3,14 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:acrylic="clr-namespace:Fluid.Avalonia.Acrylic;assembly=Fluid.Avalonia.Acrylic"
-             xmlns:local="clr-namespace:osuautodeafen.Notifications"
              mc:Ignorable="d"
              x:Class="osuautodeafen.Notifications.Notifications">
 
     <StackPanel Spacing="8">
-        
+
         <StackPanel x:Name="CustomNotifications"
                     Spacing="8" />
-        
+
         <Border x:Name="TosuWarningPill"
                 Width="170"
                 HorizontalAlignment="Left"

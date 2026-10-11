@@ -65,6 +65,9 @@ public sealed class SharedViewModel : ViewModelBase
     private bool _isParallaxEnabled;
 
     private bool _isSliderTooltipOpen;
+
+
+    private bool _isTosuConnected;
     private bool _isUpdateReady;
 
     private double _minCompletionPercentage;
@@ -74,21 +77,18 @@ public sealed class SharedViewModel : ViewModelBase
     private bool _presetExistsForCurrentChecksum;
 
     private GridLength _settingsPanelWidth = new(0);
+    private bool _showTosuWarning;
 
     private double _sliderTooltipOffsetX;
     private double _starRating;
 
     private string _statusMessage;
+    private CancellationTokenSource? _tosuWarningCts;
 
     private bool _undeafenAfterMiss;
     private IBrush _updateBarBackground = Brushes.Gray;
 
     private int _updateProgress;
-    
-    
-    private bool _isTosuConnected;
-    private bool _showTosuWarning;
-    private CancellationTokenSource? _tosuWarningCts;
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
 
@@ -102,7 +102,7 @@ public sealed class SharedViewModel : ViewModelBase
         _settingsHandler = settingsHandler ?? throw new ArgumentNullException(nameof(settingsHandler));
         _tosuApi = tosuApi;
         _tooltipManager = tooltipManager;
-        
+
         _tosuApi.ConnectionStateChanged += OnTosuConnectionStateChanged;
 
         OnTosuConnectionStateChanged(
@@ -119,56 +119,7 @@ public sealed class SharedViewModel : ViewModelBase
 
         CreateAndShowChangelog();
     }
-    
-    public event Func<NotificationType, string, string, TimeSpan?, Task>?
-        NotificationRequested;
 
-    public Task ShowNotificationAsync(
-        NotificationType type,
-        string title,
-        string description,
-        TimeSpan? duration = null)
-    {
-        return NotificationRequested?.Invoke(type, title, description, duration)
-               ?? Task.CompletedTask;
-    }
-    
-    private void OnTosuConnectionStateChanged(bool connected)
-    {
-        Dispatcher.UIThread.Post(() =>
-        {
-            IsTosuConnected = connected;
-            _ = UpdateTosuWarningAsync(connected);
-        });
-    }
-
-    private async Task UpdateTosuWarningAsync(bool connected)
-    {
-        _tosuWarningCts?.Cancel();
-        _tosuWarningCts?.Dispose();
-
-        _tosuWarningCts = new CancellationTokenSource();
-        CancellationToken token = _tosuWarningCts.Token;
-
-        if (connected)
-        {
-            ShowTosuWarning = false;
-            return;
-        }
-
-        try
-        {
-            await Task.Delay(2500, token);
-
-            if (!token.IsCancellationRequested && !IsTosuConnected)
-                ShowTosuWarning = true;
-        }
-        catch (OperationCanceledException)
-        {
-            // ignored
-        }
-    }
-    
     public bool IsTosuConnected
     {
         get => _isTosuConnected;
@@ -569,6 +520,55 @@ public sealed class SharedViewModel : ViewModelBase
     public object MinPPValue => _tosuApi.GetMaxPP();
 
     public object MinSRValue => _tosuApi.GetFullSR();
+
+    public event Func<NotificationType, string, string, TimeSpan?, Task>?
+        NotificationRequested;
+
+    public Task ShowNotificationAsync(
+        NotificationType type,
+        string title,
+        string description,
+        TimeSpan? duration = null)
+    {
+        return NotificationRequested?.Invoke(type, title, description, duration)
+               ?? Task.CompletedTask;
+    }
+
+    private void OnTosuConnectionStateChanged(bool connected)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            IsTosuConnected = connected;
+            _ = UpdateTosuWarningAsync(connected);
+        });
+    }
+
+    private async Task UpdateTosuWarningAsync(bool connected)
+    {
+        _tosuWarningCts?.Cancel();
+        _tosuWarningCts?.Dispose();
+
+        _tosuWarningCts = new CancellationTokenSource();
+        CancellationToken token = _tosuWarningCts.Token;
+
+        if (connected)
+        {
+            ShowTosuWarning = false;
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(2500, token);
+
+            if (!token.IsCancellationRequested && !IsTosuConnected)
+                ShowTosuWarning = true;
+        }
+        catch (OperationCanceledException)
+        {
+            // ignored
+        }
+    }
 
     public void SetAverageColor(Color color)
     {

@@ -6,8 +6,6 @@
         xmlns:avalonia1="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
         xmlns:views="clr-namespace:osuautodeafen.Views"
         xmlns:viewModels="clr-namespace:osuautodeafen.ViewModels"
-        xmlns:helpers="clr-namespace:osuautodeafen.Helpers"
-        xmlns:settings="clr-namespace:osuautodeafen.Settings"
         xmlns:notifications="clr-namespace:osuautodeafen.Notifications"
         xmlns:progressIndicator="clr-namespace:osuautodeafen.StrainGraph.ProgressIndicator"
         xmlns:acrylic="clr-namespace:Fluid.Avalonia.Acrylic;assembly=Fluid.Avalonia.Acrylic"
@@ -39,7 +37,7 @@
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="0" />
         </Grid.ColumnDefinitions>
-        
+
         <notifications:Notifications
             x:Name="NotificationsPanel"
             HorizontalAlignment="Left"
@@ -93,16 +91,16 @@
                            Margin="8" />
             </Grid>
         </Canvas>
-        
+
         <Grid Grid.Column="0"
               HorizontalAlignment="Center"
               VerticalAlignment="Top"
               Margin="0,82,0,0"
               ClipToBounds="False">
-            
+
             <StackPanel x:Name="LogoStackPanel"
                         ZIndex="1">
-                
+
                 <StackPanel.RenderTransform>
                     <TransformGroup>
                         <TranslateTransform />
@@ -145,10 +143,10 @@
                         <TranslateTransform />
                     </TextBlock.RenderTransform>
                 </TextBlock>
-                
+
             </StackPanel>
         </Grid>
-        
+
         <Grid Grid.Column="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />

@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Threading.Tasks;
-using Avalonia.Controls;
-using Avalonia.Media;
 using Serilog;
 using Velopack;
 using Velopack.Sources;
@@ -12,7 +10,6 @@ public sealed class UpdateChecker
 {
     public const string CurrentVersion = "1.1.5";
     public const string CurrentVersionNumeric = "115";
-    public string? NewestAvailableVersion { get; private set; }
 
     private static readonly GithubSource UpdateSource = new(
         "https://github.com/Aerodite/osuautodeafen",
@@ -20,7 +17,8 @@ public sealed class UpdateChecker
         false);
 
     private readonly UpdateManager _updateManager = new(UpdateSource);
-    
+    public string? NewestAvailableVersion { get; private set; }
+
     public bool IsInstalled => _updateManager.IsInstalled;
 
     public UpdateInfo? UpdateInfo { get; private set; }

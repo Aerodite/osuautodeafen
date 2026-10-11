@@ -12,9 +12,9 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Fluid.Avalonia.Acrylic;
+using osuautodeafen.Helpers;
 using osuautodeafen.Tooltips;
 using osuautodeafen.Update;
-using osuautodeafen.Helpers;
 using Serilog;
 
 namespace osuautodeafen.Notifications;
@@ -22,24 +22,23 @@ namespace osuautodeafen.Notifications;
 public partial class Notifications : UserControl
 {
     private readonly Border _tosuWarning;
-    private CancellationTokenSource? _tosuAnimationCts;
-    
-    private readonly Border _updateNotification;
     private readonly Button _updateButton;
-    private readonly ProgressBar _updateProgressBar;
-    private readonly TextBlock _updateTitle;
     private readonly TextBlock _updateDescription;
 
+    private readonly Border _updateNotification;
+    private readonly ProgressBar _updateProgressBar;
+    private readonly TextBlock _updateTitle;
+    private bool _isInstallingUpdate;
+
     private TooltipManager _tooltipManager;
+    private CancellationTokenSource? _tosuAnimationCts;
 
     private CancellationTokenSource? _updateAnimationCts;
     private UpdateChecker? _updateChecker;
-    private bool _isInstallingUpdate;
 
     public Notifications(TooltipManager tooltipManager)
     {
         _tooltipManager = tooltipManager;
-        
     }
 
     public Notifications()
@@ -52,8 +51,9 @@ public partial class Notifications : UserControl
         _updateTitle = this.FindControl<TextBlock>("UpdateTitle")!;
         _updateDescription = this.FindControl<TextBlock>("UpdateDescription")!;
     }
-    
-    public async Task ShowNotificationAsync(NotificationType type, string title, string description, TimeSpan? duration = null)
+
+    public async Task ShowNotificationAsync(NotificationType type, string title, string description,
+        TimeSpan? duration = null)
     {
         if (!Dispatcher.UIThread.CheckAccess())
         {
@@ -64,15 +64,15 @@ public partial class Notifications : UserControl
 
         duration ??= TimeSpan.FromSeconds(4);
 
-        var accent = type switch
+        Color accent = type switch
         {
             NotificationType.Error => Color.Parse("#FF6464"),
             NotificationType.Success => Color.Parse("#60D394"),
             NotificationType.Warning => Color.Parse("#FFCB66"),
             _ => Color.Parse("#80CFFF")
         };
-        
-        var content = new Grid
+
+        Grid content = new()
         {
             ColumnDefinitions = new ColumnDefinitions("3,*"),
             Children =
@@ -109,7 +109,7 @@ public partial class Notifications : UserControl
             }
         };
 
-        var card = new Border
+        Border card = new()
         {
             Width = 170,
             CornerRadius = new CornerRadius(10),
@@ -135,7 +135,7 @@ public partial class Notifications : UserControl
             }
         };
 
-        var container = this.FindControl<StackPanel>("CustomNotifications");
+        StackPanel? container = this.FindControl<StackPanel>("CustomNotifications");
 
         if (container is null)
             return;
@@ -144,7 +144,7 @@ public partial class Notifications : UserControl
 
         async Task AnimateAsync(bool show)
         {
-            var animation = new Animation
+            Animation animation = new()
             {
                 Duration = TimeSpan.FromMilliseconds(350),
                 Easing = new CubicEaseOut(),
@@ -192,12 +192,12 @@ public partial class Notifications : UserControl
     {
         _updateChecker = checker;
     }
-    
+
     public async Task SetUpdateAvailableAsync(bool available)
     {
         _updateAnimationCts?.Cancel();
 
-        var cts = new CancellationTokenSource();
+        CancellationTokenSource cts = new();
         _updateAnimationCts = cts;
 
         try
@@ -225,7 +225,7 @@ public partial class Notifications : UserControl
                         Setters =
                         {
                             new Setter(
-                                Visual.OpacityProperty,
+                                OpacityProperty,
                                 _updateNotification.Opacity),
 
                             new Setter(
@@ -239,7 +239,7 @@ public partial class Notifications : UserControl
                         Setters =
                         {
                             new Setter(
-                                Visual.OpacityProperty,
+                                OpacityProperty,
                                 available ? 1.0 : 0.0),
 
                             new Setter(
@@ -267,7 +267,7 @@ public partial class Notifications : UserControl
             cts.Dispose();
         }
     }
-    
+
     private async void UpdateNotification_Click(
         object? sender,
         RoutedEventArgs e)
@@ -283,17 +283,11 @@ public partial class Notifications : UserControl
             _updateProgressBar.Value = 0;
             _updateProgressBar.IsVisible = true;
 
-            var progress = new Progress<int>(value =>
-            {
-                _updateProgressBar.Value = Math.Clamp(value, 0, 100);
-            });
+            var progress = new Progress<int>(value => { _updateProgressBar.Value = Math.Clamp(value, 0, 100); });
 
             await _updateChecker.DownloadUpdateAsync(value =>
             {
-                Dispatcher.UIThread.Post(() =>
-                {
-                    ((IProgress<int>)progress).Report(value);
-                });
+                Dispatcher.UIThread.Post(() => { ((IProgress<int>)progress).Report(value); });
             });
 
             _updateProgressBar.Value = 100;
@@ -306,7 +300,7 @@ public partial class Notifications : UserControl
 
             _updateButton.IsEnabled = true;
             _isInstallingUpdate = false;
-            
+
             await ShowNotificationAsync(NotificationType.Error,
                 "Update failed",
                 "Could not install the update. Please try again.",
@@ -323,7 +317,7 @@ public partial class Notifications : UserControl
     {
         _tosuAnimationCts?.Cancel();
 
-        var cts = new CancellationTokenSource();
+        CancellationTokenSource cts = new();
         _tosuAnimationCts = cts;
 
         CancellationToken token = cts.Token;

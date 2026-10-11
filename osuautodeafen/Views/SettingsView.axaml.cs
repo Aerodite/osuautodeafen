@@ -99,9 +99,9 @@ public partial class SettingsView : UserControl
             _settingsViewModel.DeafenKeybindDisplay =
                 RetrieveKeybindFromSettings();
         };
-        
+
         LinuxDeafenMethods.IsVisible = OperatingSystem.IsLinux();
-        
+
         LoadDeafenMethod();
     }
 
@@ -177,7 +177,7 @@ public partial class SettingsView : UserControl
 
         BackgroundToggle.IsChecked = _viewModel.IsBackgroundEnabled;
         ParallaxToggle.IsChecked = _viewModel.IsParallaxEnabled;
-        
+
         LoadDeafenMethod();
     }
 
@@ -1128,11 +1128,8 @@ public partial class SettingsView : UserControl
             }
 
             button.Content = "Update available!";
-            
-            if (TopLevel.GetTopLevel(this) is MainWindow mainWindow)
-            {
-                await mainWindow.ShowUpdateNotificationAsync();
-            }
+
+            if (TopLevel.GetTopLevel(this) is MainWindow mainWindow) await mainWindow.ShowUpdateNotificationAsync();
 
             await Task.Delay(1000);
             button.Content = "Check for Updates";

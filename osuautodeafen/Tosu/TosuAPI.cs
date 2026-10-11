@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 using Avalonia.Input;
 using Avalonia.Threading;
 using osuautodeafen.Settings;
-using osuautodeafen.StrainGraph;
 using Serilog;
 
 namespace osuautodeafen.Tosu;
@@ -23,25 +22,11 @@ public class TosuApi : IDisposable
     private readonly List<byte> _dynamicBuffer;
     private readonly StringBuilder _messageAccumulator = new();
     private readonly SettingsHandler _settingsHandler;
-    
-    public event Action<bool>? ConnectionStateChanged;
-
-    private bool _isConnected;
-
-    public bool IsTosuConnected => _isConnected;
 
     private readonly Subject<TosuState> _stateStream = new();
+
     private string? _modNames;
     private ClientWebSocket _webSocket;
-    
-    private void SetConnectionState(bool connected)
-    {
-        if (_isConnected == connected)
-            return;
-
-        _isConnected = connected;
-        ConnectionStateChanged?.Invoke(connected);
-    }
 
     public TosuApi(SettingsHandler settingsHandler)
     {
@@ -53,6 +38,8 @@ public class TosuApi : IDisposable
 
         _ = InitializeConnectionAsync();
     }
+
+    public bool IsTosuConnected { get; private set; }
 
     public TosuState? LatestState { get; private set; }
 
@@ -74,6 +61,17 @@ public class TosuApi : IDisposable
         _webSocket.Dispose();
     }
 
+    public event Action<bool>? ConnectionStateChanged;
+
+    private void SetConnectionState(bool connected)
+    {
+        if (IsTosuConnected == connected)
+            return;
+
+        IsTosuConnected = connected;
+        ConnectionStateChanged?.Invoke(connected);
+    }
+
     private async Task InitializeConnectionAsync(
         CancellationToken cancellationToken = default)
     {
@@ -86,7 +84,7 @@ public class TosuApi : IDisposable
                 await ConnectAsync(cancellationToken);
 
                 await ReceiveAsync(cancellationToken);
-                
+
                 SetConnectionState(false);
             }
             catch (OperationCanceledException)
