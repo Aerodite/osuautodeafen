@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Input;
 using osuautodeafen.Settings;
 using osuautodeafen.Settings.Keybinds;
@@ -18,11 +19,6 @@ namespace osuautodeafen.Deafen;
 
 public class Deafen : IDisposable
 {
-    private bool _metDeafenConditions;
-    
-    private static readonly bool IsHyprland = Environment.GetEnvironmentVariable("HYPRLAND_INSTANCE_SIGNATURE") != null;
-    private static readonly bool IsWayland = Environment.GetEnvironmentVariable("WAYLAND_DISPLAY") != null;
-
     private static readonly Dictionary<Key, KeyCode> AvaloniaToSharpHookMap = new()
     {
         { Key.LeftCtrl, KeyCode.VcLeftControl },
@@ -83,6 +79,8 @@ public class Deafen : IDisposable
         AvaloniaToSharpHookMap.ToDictionary(kv => kv.Value, kv => kv.Key);
 
     private readonly Lock _deafenLock = new();
+    private readonly CancellationTokenSource _discordCancellation = new();
+
     private readonly EventSimulator _eventSimulator = new();
     private readonly SimpleGlobalHook _hook;
     private readonly SettingsHandler _settingsHandler;
@@ -95,36 +93,48 @@ public class Deafen : IDisposable
 
     private DateTime _deafenEnteredAt = DateTime.MinValue;
     private bool _desiredDeafenState;
+    
     private bool _hasAppliedFirstDeafen;
+    
     private bool _isDeafened;
+    
     private DateTime _lastToggleAt = DateTime.MinValue;
+    private bool _metDeafenConditions;
 
     private DateTime _nextStateChangedAt = DateTime.MinValue;
 
-    public Deafen(TosuApi tosuAPI, SettingsHandler settingsHandler, SharedViewModel sharedViewModel)
+    private bool _wasPlaying;
+
+    public Deafen(
+        TosuApi tosuAPI,
+        SettingsHandler settingsHandler,
+        SharedViewModel sharedViewModel)
     {
         Deafened = false;
+
         _tosuAPI = tosuAPI;
         _hook = new SimpleGlobalHook();
         _sharedViewModel = sharedViewModel;
         _settingsHandler = settingsHandler;
 
         _timer = new Timer(100);
-        _timer.Elapsed += (_, _) => EvaluateDeafenState();
+        _timer.Elapsed += (_, _) =>
+            EvaluateDeafenState();
+
         _timer.Start();
     }
+
+    public bool DiscordDeafenState { get; private set; }
 
     private bool IsUndeafenAfterMissEnabled => _sharedViewModel.UndeafenAfterMiss;
     private bool IsBreakUndeafenToggleEnabled => _sharedViewModel.IsBreakUndeafenToggleEnabled;
 
-    /// <summary>
-    ///     Cleans up resources used by the Deafen class
-    /// </summary>
     public void Dispose()
     {
-        Log.Debug("Disposing Deafen resources.");
+        _timer.Stop();
         _hook.Dispose();
         _timer.Dispose();
+        
         GC.SuppressFinalize(this);
     }
 
@@ -134,12 +144,12 @@ public class Deafen : IDisposable
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient))
+            if (string.IsNullOrWhiteSpace(_settingsHandler.DeafenMethod))
                 return false;
 
             Process? process;
             ProcessStartInfo psi;
-            switch (_settingsHandler.DiscordClient.ToLowerInvariant())
+            switch (_settingsHandler.DeafenMethod.ToLowerInvariant())
             {
                 case "vesktop-global-shortcuts":
                 {
@@ -157,40 +167,49 @@ public class Deafen : IDisposable
                 }
                 case "equibop":
                 {
-                    psi = new ProcessStartInfo
+                    if (_settingsHandler.EquibopFlatpak)
+                        psi = new ProcessStartInfo
+                        {
+                            FileName = "flatpak",
+                            Arguments =
+                                "run org.equicord.equibop --toggle-deafen",
+                            UseShellExecute = false,
+                            RedirectStandardOutput = false,
+                            RedirectStandardError = false,
+                            CreateNoWindow = true
+                        };
+                    else
                     {
-                        FileName = "equibop",
-                        Arguments = "--toggle-deafen",
-                        UseShellExecute = false,
-                        RedirectStandardOutput = false,
-                        RedirectStandardError = false,
-                        CreateNoWindow = true
-                    };
+                        psi = new ProcessStartInfo
+                        {
+                            FileName = "equibop",
+                            Arguments = "--toggle-deafen",
+                            UseShellExecute = false,
+                            RedirectStandardOutput = false,
+                            RedirectStandardError = false,
+                            CreateNoWindow = true
+                        };
+                    }
 
-                    Process.Start(psi);
-                    return true;
+                    process = Process.Start(psi);
+
+                    if (process == null)
+                    {
+                        Log.Error("Failed to change deafen state using Equibop");
+                        return false;
+                    }
+
+                    if (!process.WaitForExit(3000))
+                    {
+                        Log.Warning("Equibop timed out during deafen state change");
+                        return false;
+                    }
+
+                    return process.ExitCode == 0;
                 }
                 default:
                 {
-                    if (!IsHyprland)
-                        return false;
-
-                    psi = new ProcessStartInfo
-                    {
-                        FileName = "hyprctl",
-                        Arguments = "dispatch sendshortcut CTRL+SHIFT,D,class:" + _settingsHandler.DiscordClient,
-                        UseShellExecute = false,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        CreateNoWindow = true
-                    };
-                    process = Process.Start(psi);
-                    if (process == null)
-                        return false;
-
-                    process.WaitForExit(600);
-
-                    return process.ExitCode == 0;
+                    return false;
                 }
             }
         }
@@ -199,85 +218,146 @@ public class Deafen : IDisposable
             Log.Error("sendshortcut failed: {ExMessage}", ex.Message);
             return false;
         }
-
-        return false;
     }
 
-    /// <summary>
-    ///     Attempts to simulate the press(ing) of keybinds to deafen/undeafen in Discord.
-    /// </summary>
-    private void SimulateDeafenKey()
+    private bool SimulateDeafenKey()
     {
         try
         {
             var osuKeybinds = _tosuAPI.GetOsuKeybinds();
-            var keys = osuKeybinds as Key[] ?? osuKeybinds.ToArray();
+            var keys = osuKeybinds as Key[] ?? [.. osuKeybinds];
 
-            Key configuredKey = (Key)_settingsHandler.DeafenKeybindKey;
+            Key configuredKey =
+                (Key)_settingsHandler.DeafenKeybindKey;
 
             bool hasAnyModifier =
                 _settingsHandler.DeafenKeybindControlSide != 0 ||
                 _settingsHandler.DeafenKeybindAltSide != 0 ||
                 _settingsHandler.DeafenKeybindShiftSide != 0;
 
-            if (!hasAnyModifier && keys.Contains(configuredKey))
+            if (!hasAnyModifier &&
+                keys.Contains(configuredKey))
             {
                 Log.Error("Nice try.");
-                return;
+
+                return false;
             }
 
             List<ModifierWithSide> modifiers = [];
 
-            KeyCode key = MapAvaloniaKeyToSharpHook((Key)_settingsHandler.DeafenKeybindKey);
+            KeyCode key =
+                MapAvaloniaKeyToSharpHook(configuredKey);
 
-            int controlSide = _settingsHandler.DeafenKeybindControlSide;
-            int altSide = _settingsHandler.DeafenKeybindAltSide;
-            int shiftSide = _settingsHandler.DeafenKeybindShiftSide;
+            if (key == KeyCode.VcUndefined)
+            {
+                Log.Error("Unable to simulate Discord deafen key: unsupported key {Key}", configuredKey);
+
+                return false;
+            }
+
+            int controlSide =
+                _settingsHandler.DeafenKeybindControlSide;
+
+            int altSide =
+                _settingsHandler.DeafenKeybindAltSide;
+
+            int shiftSide =
+                _settingsHandler.DeafenKeybindShiftSide;
 
             Log.Debug(
-                "[SimulateDeafenKey] Retrieved keybind from settings: Key={KeyCode}, ControlSide={ControlSide}, AltSide={AltSide}, ShiftSide={ShiftSide}",
-                key, controlSide, altSide, shiftSide);
+                "Retrieved keybind from settings: Key={KeyCode}, ControlSide={ControlSide}, AltSide={AltSide}, ShiftSide={ShiftSide}",
+                key,
+                controlSide,
+                altSide,
+                shiftSide);
 
             if (controlSide != 0)
                 modifiers.Add(new ModifierWithSide
                 {
-                    Modifier = controlSide == 2 ? KeyCode.VcRightControl : KeyCode.VcLeftControl,
-                    Side = controlSide == 2 ? Modifiers.ModifierSide.Right : Modifiers.ModifierSide.Left
+                    Modifier = controlSide == 2
+                        ? KeyCode.VcRightControl
+                        : KeyCode.VcLeftControl,
+
+                    Side = controlSide == 2
+                        ? Modifiers.ModifierSide.Right
+                        : Modifiers.ModifierSide.Left
                 });
+
             if (altSide != 0)
                 modifiers.Add(new ModifierWithSide
                 {
-                    Modifier = altSide == 2 ? KeyCode.VcRightAlt : KeyCode.VcLeftAlt,
-                    Side = altSide == 2 ? Modifiers.ModifierSide.Right : Modifiers.ModifierSide.Left
+                    Modifier = altSide == 2
+                        ? KeyCode.VcRightAlt
+                        : KeyCode.VcLeftAlt,
+
+                    Side = altSide == 2
+                        ? Modifiers.ModifierSide.Right
+                        : Modifiers.ModifierSide.Left
                 });
+
             if (shiftSide != 0)
                 modifiers.Add(new ModifierWithSide
                 {
-                    Modifier = shiftSide == 2 ? KeyCode.VcRightShift : KeyCode.VcLeftShift,
-                    Side = shiftSide == 2 ? Modifiers.ModifierSide.Right : Modifiers.ModifierSide.Left
+                    Modifier = shiftSide == 2
+                        ? KeyCode.VcRightShift
+                        : KeyCode.VcLeftShift,
+
+                    Side = shiftSide == 2
+                        ? Modifiers.ModifierSide.Right
+                        : Modifiers.ModifierSide.Left
                 });
 
-            Log.Information("Simulating modifier keys: {Join}",
-                string.Join(", ",
-                    modifiers.Select(m => m.Modifier + (m.Side != Modifiers.ModifierSide.None ? $"({m.Side})" : ""))));
-            foreach (ModifierWithSide mod in modifiers) _eventSimulator.SimulateKeyPress(mod.Modifier);
+            Log.Information(
+                "Simulating modifier keys: {Join}",
+                string.Join(
+                    ", ",
+                    modifiers.Select(m =>
+                        m.Modifier +
+                        (m.Side != Modifiers.ModifierSide.None
+                            ? $"({m.Side})"
+                            : ""))));
 
-            Log.Information("Simulating main key: {KeyCode}", key);
+            foreach (ModifierWithSide mod in modifiers)
+                _eventSimulator.SimulateKeyPress(mod.Modifier);
+
+            Log.Information(
+                "Simulating primary key: {KeyCode}",
+                key);
+
             _eventSimulator.SimulateKeyPress(key);
-
             _eventSimulator.SimulateKeyRelease(key);
-            Log.Information("Released main key: {KeyCode}", key);
 
-            foreach (ModifierWithSide mod in modifiers.AsEnumerable().Reverse())
-                _eventSimulator.SimulateKeyRelease(mod.Modifier);
-            Log.Information("Released modifiers: {Join}",
-                string.Join(", ",
-                    modifiers.AsEnumerable().Reverse().Select(m =>
-                        m.Modifier + (m.Side != Modifiers.ModifierSide.None ? $"({m.Side})" : ""))));
+            Log.Information(
+                "Released primary key: {KeyCode}",
+                key);
+
+            foreach (ModifierWithSide mod in
+                     modifiers.AsEnumerable().Reverse())
+                _eventSimulator.SimulateKeyRelease(
+                    mod.Modifier);
+
+            Log.Information(
+                "Released modifiers: {Join}",
+                string.Join(
+                    ", ",
+                    modifiers
+                        .AsEnumerable()
+                        .Reverse()
+                        .Select(m =>
+                            m.Modifier +
+                            (m.Side != Modifiers.ModifierSide.None
+                                ? $"({m.Side})"
+                                : ""))));
+
+            return true;
         }
         catch (Exception ex)
         {
-            Log.Error("Exception while simulating deafen keybind: {Exception}", ex);
+            Log.Error(
+                ex,
+                "Exception while simulating deafen keybind.");
+
+            return false;
         }
     }
 
@@ -290,23 +370,26 @@ public class Deafen : IDisposable
             : _tosuAPI.GetRawBanchoStatus();
     }
 
+    private bool IsPlaying()
+    {
+        return ClientBanchoStatus() == 2 && _tosuAPI.IsCurrentUserPlaying();
+    }
+
     private bool ComputeDeafenState()
     {
-        int status = ClientBanchoStatus();
-        bool isPlaying = status == 2;
-        bool isSpectating = _tosuAPI.GetRawBanchoStatus() == 6;
         bool hasHitObjects = _tosuAPI.GetMaxPlayCombo() > 0;
         bool isHoldingFC = _tosuAPI.IsHoldingFullCombo();
 
-        if (_sharedViewModel.MinCompletionPercentage >= 99 ||
-            isSpectating ||
-            !isPlaying ||
+        if (!IsPlaying() ||
             _tosuAPI.HasFailed())
         {
             _metDeafenConditions = false;
             return false;
         }
 
+        // this is just here because if the Deafen % is too low and or if you start a map and in song select
+        // and your song progress is over the % then it will automatically deafen due to the fact playing state changes immediately
+        // this is the simplest workaround to the problem since it just ensures you've ACTUALLY playing first
         if (!hasHitObjects)
         {
             _metDeafenConditions = false;
@@ -327,9 +410,7 @@ public class Deafen : IDisposable
 
         if (thresholdsMet &&
             (!_sharedViewModel.IsFCRequired || isHoldingFC))
-        {
             _metDeafenConditions = true;
-        }
 
         bool fcRequirementMet =
             !_sharedViewModel.IsFCRequired ||
@@ -338,7 +419,7 @@ public class Deafen : IDisposable
 
         if (!thresholdsMet || !fcRequirementMet)
             return false;
-        
+
         if (_sharedViewModel.IsPauseUndeafenToggleEnabled &&
             _tosuAPI.IsPaused())
             return false;
@@ -348,17 +429,50 @@ public class Deafen : IDisposable
 
         return true;
     }
-
-    /// <summary>
-    ///     Checks the conditions to deafen or undeafen and toggles the deafen state accordingly.
-    /// </summary>
+    
     private void EvaluateDeafenState()
     {
         // bunch of annoying stuff that allows spectating to not be annoying
         if ((DateTime.Now - _startedAt).TotalMilliseconds < 1000)
             return;
 
-        bool isSpectating = _tosuAPI.GetRawBanchoStatus() == 6;
+        bool isPlaying = IsPlaying();
+
+        // this would work a lot better than the jank solution we have with player names
+        // hopefully tosu devs change their mind and bring back the spectate status
+        //bool isSpectating = _tosuAPI.GetRawBanchoStatus() == 6; 
+
+        if (isPlaying && !_wasPlaying)
+        {
+            _wasPlaying = true;
+
+            _metDeafenConditions = false;
+            _desiredDeafenState = _isDeafened;
+            _nextStateChangedAt = DateTime.Now;
+
+            return;
+        }
+
+        if (!isPlaying && _wasPlaying)
+        {
+            _wasPlaying = false;
+
+            _metDeafenConditions = false;
+            _desiredDeafenState = false;
+            _nextStateChangedAt = DateTime.Now;
+            
+            if (_isDeafened) 
+                ApplyDeafenState(false);
+
+            return;
+        }
+
+        if (!isPlaying)
+        {
+            _metDeafenConditions = false;
+            _desiredDeafenState = _isDeafened;
+            return;
+        }
 
         if (!_hasAppliedFirstDeafen)
         {
@@ -367,21 +481,6 @@ public class Deafen : IDisposable
             _nextStateChangedAt = DateTime.Now;
             return;
         }
-
-        if (isSpectating)
-        {
-            _desiredDeafenState = false;
-
-            if (_isDeafened)
-            {
-                Log.Information("Undeafening due to spectating (how did this happen?)");
-                ApplyDeafenToggle();
-            }
-
-            return;
-        }
-
-        // real deafen shi
 
         bool nextState = ComputeDeafenState();
 
@@ -402,44 +501,110 @@ public class Deafen : IDisposable
         if (nextState == _isDeafened)
             return;
 
-        Log.Information(
-            nextState
-                ? "Deafening"
-                : "Undeafening"
-        );
-
-        ApplyDeafenToggle();
+        ApplyDeafenState(nextState);
     }
 
-    /// <summary>
-    ///     Toggles the deafen state by simulating the deafen key press.
-    /// </summary>
-    private void ApplyDeafenToggle()
+    private void ApplyDeafenState(bool desiredState)
+    {
+        _ = ApplyDeafenStateAsync(desiredState);
+    }
+
+    private async Task ApplyDeafenStateAsync(
+        bool nextState)
+    {
+        try
+        {
+
+            if (_settingsHandler.DeafenMethod.Equals(
+                    "disabled",
+                    StringComparison.OrdinalIgnoreCase))
+                return;
+
+            if (_settingsHandler.DeafenMethod.Equals(
+                    "keybind",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                TryDeafen(nextState);
+                return;
+            }
+
+            if (OperatingSystem.IsLinux() &&
+                IsSpecialLinuxDiscordClient())
+            {
+                TryDeafen(nextState);
+            }
+        }
+        catch
+        {
+            // ignored
+        }
+    }
+
+    private bool IsSpecialLinuxDiscordClient()
+    {
+        if (string.IsNullOrWhiteSpace(
+                _settingsHandler.DeafenMethod))
+            return false;
+
+        return _settingsHandler.DeafenMethod
+                   .Equals(
+                       "vesktop-global-shortcuts",
+                       StringComparison.OrdinalIgnoreCase)
+               ||
+               _settingsHandler.DeafenMethod
+                   .Equals(
+                       "equibop",
+                       StringComparison.OrdinalIgnoreCase);
+    }
+
+    // This is the old deafen logic from pre-1.1.5 osuautodeafen, handles everything but RPC
+    private void TryDeafen(bool desiredState)
     {
         lock (_deafenLock)
         {
-            if ((DateTime.Now - _lastToggleAt).TotalMilliseconds < 200)
+            if (_isDeafened == desiredState)
+                return;
+
+            if ((DateTime.Now - _lastToggleAt)
+                .TotalMilliseconds < 200)
                 return;
 
             _lastToggleAt = DateTime.Now;
 
-            if (PlatformHelper.IsLinux && !string.IsNullOrWhiteSpace(_settingsHandler.DiscordClient))
+            if (OperatingSystem.IsLinux() &&
+                IsSpecialLinuxDiscordClient())
+            {
                 if (TryLinuxClientSendShortcut())
                 {
-                    SetDeafened();
+                    SetDeafened(desiredState);
                     return;
                 }
 
-            SimulateDeafenKey();
-            SetDeafened();
+                Log.Warning(
+                    "Linux Discord client deafen command failed");
+
+                return;
+            }
+
+            if (SimulateDeafenKey())
+            {
+                SetDeafened(desiredState);
+            }
         }
     }
 
-    private void SetDeafened()
+    private void SetDeafened(bool value)
     {
-        _isDeafened = !_isDeafened;
-        if (_isDeafened) _deafenEnteredAt = DateTime.Now;
-        Deafened = _isDeafened;
+        if (_isDeafened == value)
+            return;
+
+        _isDeafened = value;
+
+        if (value)
+            _deafenEnteredAt = DateTime.Now;
+
+        Deafened = value;
+
         DeafenStateChanged?.Invoke();
     }
 

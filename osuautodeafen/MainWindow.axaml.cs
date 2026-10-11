@@ -784,8 +784,8 @@ public partial class MainWindow : Window
 
     private void UpdateKeybindCaptureState()
     {
-        if (PlatformHelper.IsLinux)
-            _settingsViewModel.IsKeybindCaptureEnabled = string.IsNullOrWhiteSpace(_settingsHandler?.DiscordClient);
+        if (OperatingSystem.IsLinux())
+            _settingsViewModel.IsKeybindCaptureEnabled = string.IsNullOrWhiteSpace(_settingsHandler?.DeafenMethod);
         else
             _settingsViewModel.IsKeybindCaptureEnabled = true;
     }
@@ -799,14 +799,14 @@ public partial class MainWindow : Window
                 if (_settingsHandler == null)
                     return false;
 
-                string? oldDiscord = _settingsHandler.DiscordClient;
+                string? oldDiscord = _settingsHandler.DeafenMethod;
 
                 if (!_settingsHandler.ReloadFromDisk())
                     return false;
 
                 _settingsHandler.LoadSettings();
 
-                if (oldDiscord != _settingsHandler.DiscordClient)
+                if (oldDiscord != _settingsHandler.DeafenMethod)
                     UpdateKeybindCaptureState();
 
                 return true;

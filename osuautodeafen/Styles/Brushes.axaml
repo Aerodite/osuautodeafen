@@ -1,0 +1,99 @@
+<ResourceDictionary
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:helpers="using:osuautodeafen.Helpers"
+    xmlns:viewModels="using:osuautodeafen.ViewModels"
+    xmlns:settings1="clr-namespace:osuautodeafen.Settings">
+
+    <helpers:NullToBoolConverter x:Key="NullToBoolConverter" />
+    <helpers:BrushToCssConverter x:Key="BrushToCssConverter" />
+    <settings1:ColorBlendConverter x:Key="ColorBlendConverter" />
+    <settings1:CheckBoxBackgroundConverter x:Key="CheckBoxBackgroundConverter" />
+
+    <Color x:Key="BaseBackgroundColor">#171717</Color>
+    <SolidColorBrush
+        x:Key="BaseBackgroundBrush"
+        Color="{StaticResource BaseBackgroundColor}" />
+
+    <SolidColorBrush
+        x:Key="SliderThumbBackground"
+        Color="{Binding AverageColorBrushDim.Color}"
+        x:DataType="viewModels:SharedViewModel" />
+
+    <SolidColorBrush
+        x:Key="SliderThumbBackgroundPointerOver"
+        Color="{Binding AverageColorBrush.Color}"
+        x:DataType="viewModels:SharedViewModel" />
+
+    <SolidColorBrush
+        x:Key="SliderThumbBackgroundPressed"
+        Color="{Binding AverageColorBrush.Color}"
+        x:DataType="viewModels:SharedViewModel" />
+
+    <SolidColorBrush
+        x:Key="SliderTrackValueFill"
+        Color="{Binding AverageColorBrushDim.Color}"
+        x:DataType="viewModels:SharedViewModel" />
+
+    <SolidColorBrush
+        x:Key="SliderTrackValueFillPointerOver"
+        Color="{Binding AverageColorBrush.Color}"
+        x:DataType="viewModels:SharedViewModel" />
+
+    <SolidColorBrush
+        x:Key="SliderTrackValueFillPressed"
+        Color="{Binding AverageColorBrush.Color}"
+        x:DataType="viewModels:SharedViewModel" />
+
+    <SolidColorBrush
+        x:Key="ButtonBackgroundBrush"
+        Color="{Binding AverageColorBrushLight.Color}"
+        x:DataType="viewModels:SharedViewModel" />
+
+    <SolidColorBrush
+        x:Key="ButtonBackgroundBrushPointerOver"
+        Color="{Binding AverageColorBrush.Color}"
+        x:DataType="viewModels:SharedViewModel" />
+
+    <SolidColorBrush
+        x:Key="ButtonBackgroundBrushPressed"
+        Color="{Binding AverageColorBrush.Color}"
+        x:DataType="viewModels:SharedViewModel" />
+
+    <SolidColorBrush
+        x:Key="ButtonBackgroundBrushDisabled"
+        Color="{Binding AverageColorBrushDark.Color}"
+        x:DataType="viewModels:SharedViewModel" />
+
+    <SolidColorBrush
+        x:Key="ButtonBorderBrush"
+        Color="{Binding AverageColorBrush.Color}"
+        x:DataType="viewModels:SharedViewModel" />
+
+    <SolidColorBrush
+        x:Key="ButtonForegroundBrush"
+        Color="{Binding AverageColorBrushDim.Color}"
+        x:DataType="viewModels:SharedViewModel" />
+
+    <SolidColorBrush
+        x:Key="ButtonHighlightBrush"
+        Color="{Binding AverageColorBrush.Color}"
+        x:DataType="viewModels:SharedViewModel" />
+
+    <SolidColorBrush
+        x:Key="CheckBoxBackgroundBrush"
+        Color="{Binding AverageColorBrushLight.Color}"
+        x:DataType="viewModels:SharedViewModel" />
+
+    <SolidColorBrush
+        x:Key="TooltipColorBrush"
+        Color="{Binding AverageColorBrushDim.Color}"
+        x:DataType="viewModels:SharedViewModel" />
+
+    <ExperimentalAcrylicMaterial
+        x:Key="AcrylicMaterial"
+        MaterialOpacity="0.2"
+        TintColor="#171717"
+        TintOpacity="0.25" />
+
+</ResourceDictionary>

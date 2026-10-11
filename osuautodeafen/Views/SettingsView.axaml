@@ -32,6 +32,202 @@
 
     <UserControl.Styles>
 
+        <Style Selector="StackPanel.method-expander">
+            <Setter Property="MaxHeight" Value="0" />
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Margin" Value="0" />
+
+            <Setter Property="RenderTransform">
+                <TranslateTransform Y="-4" />
+            </Setter>
+
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="MaxHeight"
+                                      Duration="0:0:0.18"
+                                      Easing="SineEaseInOut" />
+
+                    <DoubleTransition Property="Opacity"
+                                      Duration="0:0:0.15"
+                                      Easing="SineEaseInOut" />
+
+                    <ThicknessTransition Property="Margin"
+                                         Duration="0:0:0.18"
+                                         Easing="SineEaseInOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <Style Selector="StackPanel.method-expander.open">
+            <Setter Property="MaxHeight" Value="80" />
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+            <Setter Property="Margin" Value="0,10,0,2" />
+
+            <Setter Property="RenderTransform">
+                <TranslateTransform Y="0" />
+            </Setter>
+        </Style>
+        
+        <Style Selector="Button.keybind-button">
+            <Setter Property="Background" Value="#24FFFFFF" />
+            <Setter Property="BorderBrush" Value="#40FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="16,0" />
+            <Setter Property="MinWidth" Value="90" />
+        </Style>
+
+        <Style Selector="Button.keybind-button:pointerover">
+            <Setter Property="Background" Value="#34FFFFFF" />
+            <Setter Property="BorderBrush"
+                    Value="{Binding AverageColorBrush}" 
+                    x:DataType="viewModels:SharedViewModel"/>
+        </Style>
+
+        <Style Selector="ToggleButton.mini-toggle">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="MinWidth" Value="30" />
+            <Setter Property="MinHeight" Value="16" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+
+            <Setter Property="Template">
+                <ControlTemplate>
+
+                    <Border x:Name="Track"
+                            Width="30"
+                            Height="16"
+                            CornerRadius="8"
+                            Background="#22FFFFFF"
+                            BorderBrush="#35FFFFFF"
+                            BorderThickness="1">
+
+                        <Grid Margin="2">
+
+                            <Border x:Name="Knob"
+                                    Width="10"
+                                    Height="10"
+                                    CornerRadius="5"
+                                    Background="#BFFFFFFF"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center" />
+
+                        </Grid>
+
+                    </Border>
+
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="ToggleButton.mini-toggle:checked /template/ Border#Track"
+               x:DataType="viewModels:SharedViewModel">
+            <Setter Property="Background"
+                    Value="{Binding AverageColorBrushLight}" />
+
+            <Setter Property="BorderBrush"
+                    Value="{Binding AverageColorBrush}" />
+        </Style>
+
+        <Style Selector="ToggleButton.mini-toggle:checked /template/ Border#Knob">
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="Background" Value="White" />
+        </Style>
+
+        <Style Selector="ToggleButton.mini-toggle:pointerover /template/ Border#Track"
+               x:DataType="viewModels:SharedViewModel">
+            <Setter Property="BorderBrush"
+                    Value="{Binding AverageColorBrush}" />
+        </Style>
+
+        <Style Selector="ToggleButton.mini-toggle:pressed /template/ Border#Knob">
+            <Setter Property="Opacity" Value="0.75" />
+        </Style>
+
+        <Style Selector="RadioButton.deafen-method-card">
+            <Setter Property="Background" Value="#30181818" />
+            <Setter Property="Foreground" Value="#E0E0E0" />
+            <Setter Property="BorderBrush"
+                    Value="{Binding AverageColorBrushDim}"
+                    x:DataType="viewModels:SharedViewModel" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="MinHeight" Value="46" />
+
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid>
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                Padding="{TemplateBinding Padding}">
+
+                            <ContentPresenter
+                                Content="{TemplateBinding Content}"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Center" />
+
+                        </Border>
+                        
+                        <Border x:Name="SelectedIndicator"
+                                Width="6"
+                                Height="26"
+                                CornerRadius="2"
+                                Background="{Binding AverageColorBrush}"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                Margin="-3,0,0,0"
+                                Opacity="0"
+                                x:DataType="viewModels:SharedViewModel" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        
+        <Style Selector="RadioButton.deafen-method-card:checked /template/ Border#SelectedIndicator">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+
+        <Style Selector="RadioButton.deafen-method-card:pointerover"
+               x:DataType="viewModels:SharedViewModel">
+            <Setter Property="Background"
+                    Value="#48383838" />
+
+            <Setter Property="BorderBrush"
+                    Value="{Binding AverageColorBrush}" />
+
+            <Setter Property="Foreground"
+                    Value="White" />
+        </Style>
+
+        <Style Selector="RadioButton.deafen-method-card:checked">
+            <Setter Property="Background"
+                    Value="{StaticResource ButtonBackgroundBrushDisabled}" />
+
+            <Setter Property="BorderBrush"
+                    Value="{StaticResource ButtonBackgroundBrush}" />
+
+            <Setter Property="BorderThickness"
+                    Value="2" />
+
+            <Setter Property="Foreground"
+                    Value="White" />
+        </Style>
+
+        <Style Selector="RadioButton.deafen-method-card:disabled">
+            <Setter Property="Opacity" Value="0.35" />
+        </Style>
+
         <Style Selector="Button">
             <Setter Property="Background" Value="{StaticResource ButtonBackgroundBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource ButtonBackgroundBrush}" />
@@ -238,10 +434,15 @@
                                 <Svg Path="avares://osuautodeafen/Icons/pause.svg" Width="26" Height="26"
                                      Margin="0,0,5,0"
                                      VerticalAlignment="Center" />
-                                <CheckBox x:Name="PauseUndeafenToggle" Content="Pause Undeafen" Foreground="White"
+                                <CheckBox x:Name="PauseUndeafenToggle"
+                                          Content="Pause Undeafen"
+                                          Foreground="White"
                                           IsChecked="{Binding IsPauseUndeafenToggleEnabled, Mode=TwoWay}"
-                                          HorizontalAlignment="Left" VerticalAlignment="Center"
-                                          Margin="0" Width="125" Classes="custom" />
+                                          HorizontalAlignment="Left"
+                                          VerticalAlignment="Center"
+                                          Margin="0"
+                                          Width="135"
+                                          Classes="custom" />
                             </StackPanel>
 
                             <Button Content="Reset to Default" Click="ResetButton_Click" Margin="0,7,0,0" FontSize="12"
@@ -528,36 +729,258 @@
                                 </Button>
                             </StackPanel>
                             <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
-                            <!--title-->
-                            <TextBlock Text="Discord Settings"
+                            <!-- Discord Settings -->
+                            <TextBlock Text="Deafen Method"
                                        HorizontalAlignment="Center"
                                        Margin="0,0,0,8"
                                        Foreground="White"
                                        FontSize="16" />
-                            <StackPanel HorizontalAlignment="Center">
-                                <StackPanel Orientation="Horizontal" Margin="0,10,10,0"
-                                            PointerEntered="DeafenKeybindPanel_PointerEnter"
-                                            PointerExited="DeafenKeybindPanel_PointerLeave">
-                                    <Svg Path="avares://osuautodeafen/Icons/keyboard.svg" Width="32"
-                                         Height="32" Margin="0,0,5,0" />
-                                    <Button x:Name="DeafenKeybindButton"
-                                            Width="100" Height="40"
-                                            HorizontalAlignment="Left" FontSize="11" Margin="0"
-                                            x:DataType="viewModels:SettingsViewModel"
-                                            Content="{Binding DeafenKeybindDisplay}"
-                                            HorizontalContentAlignment="Center"
-                                            VerticalContentAlignment="Center"
-                                            Click="DeafenKeybindButton_Click"
-                                            IsEnabled="{Binding IsKeybindCaptureEnabled}">
-                                        <!--this should probably include some sort of verification prompt in the near future.. maybe-->
-                                        <Button.Flyout>
-                                            <Flyout>
-                                                <TextBlock Text="{Binding KeybindPrompt}" />
-                                            </Flyout>
-                                        </Button.Flyout>
-                                    </Button>
-                                </StackPanel>
+
+                            <StackPanel HorizontalAlignment="Stretch"
+                                        Margin="10,0">
+
+                                <!--Disabled-->
+                                <RadioButton x:Name="DisabledMethodButton"
+                                             GroupName="DeafenMethod"
+                                             Tag="disabled"
+                                             Classes="deafen-method-card"
+                                             Click="DeafenMethodButton_Click"
+                                             PointerEntered="DisabledMethodButton_OnPointerEntered"
+                                             PointerExited="DisabledMethodButton_OnPointerExited">
+
+                                    <StackPanel>
+                                        <Grid ColumnDefinitions="34,*"
+                                              Margin="2,1">
+
+                                            <Border Width="30"
+                                                    Height="30"
+                                                    CornerRadius="7"
+                                                    Background="#18FFFFFF"
+                                                    VerticalAlignment="Center">
+
+                                                <Svg Path="avares://osuautodeafen/Icons/headphones.svg"
+                                                     Width="18"
+                                                     Height="18"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center" />
+
+                                            </Border>
+
+                                            <StackPanel Grid.Column="1"
+                                                        Margin="8,0,0,0"
+                                                        VerticalAlignment="Center">
+
+                                                <TextBlock Text="Disable Deafening"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+
+                                </RadioButton>
+                                
+                                <Border Height="1"
+                                        Background="{Binding AverageColorBrush}"
+                                        Opacity="0.45"
+                                        Margin="0,4,0,12" />
+
+                                <!-- Keybind -->
+                                <RadioButton x:Name="KeybindMethodButton"
+                                             GroupName="DeafenMethod"
+                                             Tag="keybind"
+                                             Classes="deafen-method-card"
+                                             Click="DeafenMethodButton_Click"
+                                             PointerEntered="KeybindMethodButton_OnPointerEntered"
+                                             PointerExited="KeybindMethodButton_OnPointerExited">
+
+                                    <StackPanel>
+                                        <Grid ColumnDefinitions="34,*"
+                                              Margin="2,1">
+
+                                            <Border Width="30"
+                                                    Height="30"
+                                                    CornerRadius="7"
+                                                    Background="#18FFFFFF"
+                                                    VerticalAlignment="Center">
+
+                                                <Svg Path="avares://osuautodeafen/Icons/keyboard.svg"
+                                                     Width="17"
+                                                     Height="17"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center" />
+
+                                            </Border>
+
+                                            <StackPanel Grid.Column="1"
+                                                        Margin="8,0,0,0"
+                                                        VerticalAlignment="Center">
+
+                                                <TextBlock Text="Keybind"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold" />
+
+                                            </StackPanel>
+
+                                        </Grid>
+
+                                        <StackPanel x:Name="KeybindSettingsPanel"
+                                                    Classes="method-expander">
+
+                                            <Border Height="1"
+                                                    Background="{Binding AverageColorBrush}"
+                                                    Opacity="0.45"
+                                                    Margin="0,0,0,9" />
+
+                                            <Button x:Name="DeafenKeybindButton"
+                                                    Height="30"
+                                                    MinWidth="90"
+                                                    Padding="16,0"
+                                                    HorizontalAlignment="Center"
+                                                    HorizontalContentAlignment="Center"
+                                                    VerticalContentAlignment="Center"
+                                                    FontSize="11"
+                                                    FontWeight="SemiBold"
+                                                    x:DataType="viewModels:SettingsViewModel"
+                                                    Classes="keybind-button"
+                                                    Content="{Binding DeafenKeybindDisplay}"
+                                                    PointerEntered="DeafenKeybindPanel_PointerEnter"
+                                                    PointerExited="DeafenKeybindPanel_PointerLeave"
+                                                    Click="DeafenKeybindButton_Click">
+
+                                                <Button.Flyout>
+                                                    <Flyout>
+                                                        <TextBlock Text="{Binding KeybindPrompt}" />
+                                                    </Flyout>
+                                                </Button.Flyout>
+
+                                            </Button>
+
+                                        </StackPanel>
+
+                                    </StackPanel>
+
+                                </RadioButton>
+                                <Grid x:Name="LinuxDeafenMethods"
+                                      RowDefinitions="Auto,Auto"
+                                      ColumnDefinitions="*,*"
+                                      ColumnSpacing="4">
+
+                                    <!-- Equibop -->
+                                    <RadioButton x:Name="EquibopMethodButton"
+                                                 Grid.Row="0"
+                                                 Grid.Column="0"
+                                                 Padding="2,0"
+                                                 GroupName="DeafenMethod"
+                                                 Tag="equibop"
+                                                 Classes="deafen-method-card"
+                                                 Click="DeafenMethodButton_Click"
+                                                 PointerEntered="EquibopMethodButton_OnPointerEntered"
+                                                 PointerExited="EquibopMethodButton_OnPointerExited">
+
+                                        <Grid ColumnDefinitions="26,*"
+                                              Margin="0">
+
+                                            <Border Width="24"
+                                                    Height="24"
+                                                    CornerRadius="6"
+                                                    Background="#18FFFFFF"
+                                                    Margin="4,0,0,0"
+                                                    VerticalAlignment="Center">
+
+                                                <Svg Path="avares://osuautodeafen/Icons/equibop.svg"
+                                                     Width="18"
+                                                     Height="18"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center" />
+
+                                            </Border>
+
+                                            <TextBlock Grid.Column="1"
+                                                       Margin="2,0,0,0"
+                                                       Text="Equibop"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center" />
+                                        </Grid>
+                                    </RadioButton>
+
+                                    <!-- Vesktop -->
+                                    <RadioButton x:Name="VesktopMethodButton"
+                                                 Grid.Row="0"
+                                                 Grid.Column="1"
+                                                 Padding="2,0"
+                                                 GroupName="DeafenMethod"
+                                                 Tag="vesktop-global-shortcuts"
+                                                 Classes="deafen-method-card"
+                                                 Click="DeafenMethodButton_Click"
+                                                 PointerEntered="VesktopMethodButton_OnPointerEntered"
+                                                 PointerExited="VesktopMethodButton_OnPointerExited">
+
+                                        <Grid ColumnDefinitions="26,*"
+                                              Margin="0">
+
+                                            <Border Width="24"
+                                                    Height="24"
+                                                    Margin="4,0,0,0"
+                                                    CornerRadius="6"
+                                                    Background="#18FFFFFF"
+                                                    VerticalAlignment="Center">
+
+                                                <Svg Path="avares://osuautodeafen/Icons/vesktop.svg"
+                                                     Width="18"
+                                                     Height="18"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center" />
+
+                                            </Border>
+
+                                            <TextBlock Grid.Column="1"
+                                                       Margin="2,0,0,0"
+                                                       Text="Vesktop"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center" />
+                                        </Grid>
+                                    </RadioButton>
+
+                                    <!-- Equibop expanded settings -->
+                                    <StackPanel x:Name="EquibopSettingsPanel"
+                                                Grid.Row="1"
+                                                Grid.Column="0"
+                                                Grid.ColumnSpan="2"
+                                                Classes="method-expander">
+
+                                        <Border Height="1"
+                                                Background="{Binding AverageColorBrush}"
+                                                Opacity="0.6"
+                                                Margin="0,0,0,10" />
+
+                                        <Grid ColumnDefinitions="*,Auto"
+                                              Margin="2,0">
+
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="Route Equibop command"
+                                                           FontSize="10"
+                                                           FontWeight="Normal" />
+                                                <TextBlock Text="through Flatpak"
+                                                           FontSize="10"
+                                                           FontWeight="Normal" />
+                                            </StackPanel>
+
+                                            <ToggleButton x:Name="EquibopFlatpakToggle"
+                                                          Grid.Column="1"
+                                                          Classes="mini-toggle"
+                                                          VerticalAlignment="Center"
+                                                          HorizontalAlignment="Right"
+                                                          IsCheckedChanged="EquibopFlatpakToggle_IsCheckedChanged"
+                                                          PointerEntered="EquibopFlatpakToggle_OnPointerEntered"
+                                                          PointerExited="EquibopFlatpakToggle_OnPointerExited" />
+
+                                        </Grid>
+                                    </StackPanel>
+                                </Grid>
                             </StackPanel>
+
                             <Separator Margin="0,20,0,10" Background="{Binding AverageColorBrush}" />
                             <!--title-->
                             <TextBlock Text="UI Settings"

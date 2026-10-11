@@ -34,6 +34,8 @@ public sealed class SharedViewModel : ViewModelBase
     private readonly TooltipManager _tooltipManager;
 
     private readonly TosuApi _tosuApi;
+    
+    private bool _isFlatpakEnabled;
 
     private bool _IsBreakUndeafenToggleEnabled;
 
@@ -396,6 +398,19 @@ public sealed class SharedViewModel : ViewModelBase
                 OnPropertyChanged();
                 _tooltipManager.UpdateTooltipText(
                     "" + (value ? "Disable" : "Enable") + " an FC being required to deafen", true);
+            }
+        }
+    }
+    
+    public bool IsFlatpakEnabled
+    {
+        get => _isFlatpakEnabled;
+        set
+        {
+            if (_isFlatpakEnabled != value)
+            {
+                _isFlatpakEnabled = value;
+                OnPropertyChanged();
             }
         }
     }
