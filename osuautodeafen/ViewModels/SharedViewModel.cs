@@ -273,10 +273,10 @@ public sealed class SharedViewModel : ViewModelBase
     public ExperimentalAcrylicMaterial TooltipAcrylicMaterial =>
         _tooltipAcrylicMaterial;
     
-    private readonly SolidColorBrush _averageColorBrush = new(Colors.White);
-    private readonly SolidColorBrush _averageColorBrushDim = new(Colors.White);
-    private readonly SolidColorBrush _averageColorBrushDark = new(Colors.White);
-    private readonly SolidColorBrush _averageColorBrushLight = new(Colors.White);
+    private readonly SolidColorBrush _averageColorBrush = new(Colors.Gray);
+    private readonly SolidColorBrush _averageColorBrushDim = new(Colors.Gray);
+    private readonly SolidColorBrush _averageColorBrushDark = new(Colors.Gray);
+    private readonly SolidColorBrush _averageColorBrushLight = new(Colors.Gray);
 
     public SolidColorBrush AverageColorBrush => _averageColorBrush;
     public SolidColorBrush AverageColorBrushDim => _averageColorBrushDim;
