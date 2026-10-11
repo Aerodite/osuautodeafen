@@ -12,71 +12,41 @@ public sealed class UpdateChecker
 {
     public const string CurrentVersion = "1.1.5";
     public const string CurrentVersionNumeric = "115";
+    public string? NewestAvailableVersion { get; private set; }
 
     private static readonly GithubSource UpdateSource = new(
         "https://github.com/Aerodite/osuautodeafen",
         null,
         false);
 
-    private readonly Button? _notificationButton;
-    private readonly ProgressBar? _progressBar;
-
     private readonly UpdateManager _updateManager = new(UpdateSource);
-
-    public UpdateChecker(
-        Button? notificationButton,
-        ProgressBar? progressBar)
-    {
-        _notificationButton = notificationButton;
-        _progressBar = progressBar;
-    }
-
+    
     public bool IsInstalled => _updateManager.IsInstalled;
 
     public UpdateInfo? UpdateInfo { get; private set; }
 
     public async Task CheckForUpdatesAsync()
     {
+        UpdateInfo = null;
+        NewestAvailableVersion = null;
+
         if (!_updateManager.IsInstalled)
         {
             Log.Warning("Update check skipped: Velopack not in use.");
             return;
         }
 
-        UpdateInfo? updateInfo =
-            await _updateManager.CheckForUpdatesAsync();
+        UpdateInfo = await _updateManager.CheckForUpdatesAsync();
 
-        if (updateInfo is null)
+        if (UpdateInfo is null)
         {
             Log.Information("No updates available.");
             return;
         }
 
-        UpdateInfo = updateInfo;
+        NewestAvailableVersion = UpdateInfo.TargetFullRelease.Version.ToString();
 
-        Log.Information(
-            "Update available: {Version}",
-            updateInfo.TargetFullRelease.Version);
-
-        await _updateManager.DownloadUpdatesAsync(updateInfo);
-    }
-
-    public void ShowUpdateNotification()
-    {
-        if (_notificationButton is null ||
-            _progressBar is null)
-        {
-            Log.Warning(
-                "Cannot show update notification: UI controls are unavailable.");
-            return;
-        }
-
-        Log.Debug("Showing update notification.");
-
-        _notificationButton.IsVisible = true;
-
-        _progressBar.Value = 0;
-        _progressBar.Foreground = Brushes.Green;
+        Log.Information("Update available: {Version}", NewestAvailableVersion);
     }
 
     public Task DownloadUpdateAsync(Action<int>? progress = null)

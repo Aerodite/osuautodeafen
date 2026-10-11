@@ -8,6 +8,7 @@
         xmlns:viewModels="clr-namespace:osuautodeafen.ViewModels"
         xmlns:helpers="clr-namespace:osuautodeafen.Helpers"
         xmlns:settings="clr-namespace:osuautodeafen.Settings"
+        xmlns:notifications="clr-namespace:osuautodeafen.Notifications"
         xmlns:progressIndicator="clr-namespace:osuautodeafen.StrainGraph.ProgressIndicator"
         xmlns:acrylic="clr-namespace:Fluid.Avalonia.Acrylic;assembly=Fluid.Avalonia.Acrylic"
         mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="250"
@@ -38,6 +39,13 @@
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="0" />
         </Grid.ColumnDefinitions>
+        
+        <notifications:Notifications
+            x:Name="NotificationsPanel"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Margin="16,48,0,0"
+            ZIndex="98" />
 
         <ContentControl Content="{Binding CurrentPage}" x:DataType="viewModels:SharedViewModel" />
 
@@ -85,9 +93,16 @@
                            Margin="8" />
             </Grid>
         </Canvas>
-
-        <Grid Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Top">
-            <StackPanel x:Name="LogoStackPanel" Margin="0,82,0,0">
+        
+        <Grid Grid.Column="0"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Top"
+              Margin="0,82,0,0"
+              ClipToBounds="False">
+            
+            <StackPanel x:Name="LogoStackPanel"
+                        ZIndex="1">
+                
                 <StackPanel.RenderTransform>
                     <TransformGroup>
                         <TranslateTransform />
@@ -108,7 +123,8 @@
                     <Grid Width="240" Height="72">
                         <Svg Path="avares://osuautodeafen/Resources/autodeafen.svg"
                              Stretch="Uniform"
-                             Css="{Binding AverageColorBrush, Converter={StaticResource BrushToCssConverter}}" />
+                             Css="{Binding AverageColorBrush,
+                                 Converter={StaticResource BrushToCssConverter}}" />
                     </Grid>
                 </StackPanel>
 
@@ -129,9 +145,10 @@
                         <TranslateTransform />
                     </TextBlock.RenderTransform>
                 </TextBlock>
+                
             </StackPanel>
         </Grid>
-
+        
         <Grid Grid.Column="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -238,68 +255,6 @@
                         Grid.Column="0"
                         IsHitTestVisible="False"
                         x:DataType="viewModels:SharedViewModel" />
-            </Grid>
-
-
-            <Grid Grid.Row="2"
-                  x:Name="UpdateNotificationGrid"
-                  HorizontalAlignment="Stretch"
-                  VerticalAlignment="Bottom"
-                  IsVisible="{Binding IsVisible, ElementName=UpdateNotificationBar}">
-
-                <Button x:Name="UpdateNotificationBar"
-                        Classes="update-bar"
-                        IsVisible="False"
-                        HorizontalAlignment="Stretch"
-                        Height="36"
-                        Padding="0"
-                        FontSize="12"
-                        Foreground="White"
-                        x:DataType="viewModels:SharedViewModel"
-                        Click="UpdateNotificationBar_Click">
-
-                    <Grid>
-                        <acrylic:AcrylicSurface
-                            CornerRadius="6"
-                            TintColor="{Binding AverageColorBrushDark}"
-                            BlurRadius="18"
-                            Vibrancy="0.18"
-                            Contrast="1.08"
-                            RefractionAmount="2"
-                            DepthEffect="True"
-                            ChromaticAberration="True"
-                            HighlightEnabled="True"
-                            ShadowEnabled="True"
-                            IsHitTestVisible="False" />
-
-                        <ProgressBar x:Name="UpdateProgressBar"
-                                     Minimum="0"
-                                     Maximum="100"
-                                     Value="{Binding UpdateProgress}"
-                                     Foreground="{Binding AverageColorBrush}"
-                                     Background="Transparent"
-                                     BorderThickness="0"
-                                     IsHitTestVisible="False"
-                                     VerticalAlignment="Stretch"
-                                     HorizontalAlignment="Stretch"
-                                     Opacity="0.65">
-
-                            <ProgressBar.Transitions>
-                                <Transitions>
-                                    <DoubleTransition Property="Value"
-                                                      Duration="0:0:0.20" />
-                                </Transitions>
-                            </ProgressBar.Transitions>
-                        </ProgressBar>
-
-                        <TextBlock Text="A new update is available!"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   FontWeight="SemiBold"
-                                   Foreground="White"
-                                   IsHitTestVisible="False" />
-                    </Grid>
-                </Button>
             </Grid>
 
         </Grid>

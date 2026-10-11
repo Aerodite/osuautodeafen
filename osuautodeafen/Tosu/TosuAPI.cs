@@ -19,17 +19,29 @@ namespace osuautodeafen.Tosu;
 
 public class TosuApi : IDisposable
 {
-    private static readonly Lock ConnectionLock = new();
     private readonly SemaphoreSlim _connectLock = new(1, 1);
     private readonly List<byte> _dynamicBuffer;
-    private readonly string _errorMessage = "";
     private readonly StringBuilder _messageAccumulator = new();
     private readonly SettingsHandler _settingsHandler;
+    
+    public event Action<bool>? ConnectionStateChanged;
+
+    private bool _isConnected;
+
+    public bool IsTosuConnected => _isConnected;
 
     private readonly Subject<TosuState> _stateStream = new();
-    private readonly Timer? _timer;
     private string? _modNames;
     private ClientWebSocket _webSocket;
+    
+    private void SetConnectionState(bool connected)
+    {
+        if (_isConnected == connected)
+            return;
+
+        _isConnected = connected;
+        ConnectionStateChanged?.Invoke(connected);
+    }
 
     public TosuApi(SettingsHandler settingsHandler)
     {
@@ -46,13 +58,8 @@ public class TosuApi : IDisposable
 
     public IObservable<TosuState> StateStream => _stateStream;
 
-    public bool? IsWebsocketConnected => _webSocket.State == WebSocketState.Open;
-
-    private GraphData Graph { get; } = null!;
-
     public void Dispose()
     {
-        _timer?.Dispose();
         if (_webSocket.State == WebSocketState.Open)
             try
             {
@@ -67,27 +74,45 @@ public class TosuApi : IDisposable
         _webSocket.Dispose();
     }
 
-    private async Task InitializeConnectionAsync(CancellationToken cancellationToken = default)
+    private async Task InitializeConnectionAsync(
+        CancellationToken cancellationToken = default)
     {
-        TimeSpan delay = TimeSpan.FromSeconds(1);
-        TimeSpan maxDelay = TimeSpan.FromSeconds(4);
+        TimeSpan delay = TimeSpan.FromSeconds(2);
 
         while (!cancellationToken.IsCancellationRequested)
+        {
             try
             {
                 await ConnectAsync(cancellationToken);
-                delay = TimeSpan.FromSeconds(1);
 
                 await ReceiveAsync(cancellationToken);
+                
+                SetConnectionState(false);
+            }
+            catch (OperationCanceledException)
+                when (cancellationToken.IsCancellationRequested)
+            {
+                break;
             }
             catch (Exception ex)
             {
-                Log.Error("Tosu connection lost. Attempting reconnect in " + delay + "s");
+                SetConnectionState(false);
 
-                await Task.Delay(delay, cancellationToken);
-
-                delay = TimeSpan.FromSeconds(Math.Min(delay.TotalSeconds * 2, maxDelay.TotalSeconds));
+                Log.Warning(ex, "Tosu connection lost. Reconnecting...");
             }
+
+            try
+            {
+                await Task.Delay(delay, cancellationToken);
+            }
+            catch (OperationCanceledException)
+                when (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+        }
+
+        SetConnectionState(false);
     }
 
     /// <summary>
@@ -122,6 +147,7 @@ public class TosuApi : IDisposable
                 cancellationToken);
 
             Log.Information("Connected to Tosu WebSocket");
+            SetConnectionState(true);
         }
         finally
         {

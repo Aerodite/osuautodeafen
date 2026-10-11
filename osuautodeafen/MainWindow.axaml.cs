@@ -24,6 +24,7 @@ using osuautodeafen.Background;
 using osuautodeafen.Helpers;
 using osuautodeafen.Logging;
 using osuautodeafen.Logo;
+using osuautodeafen.Notifications;
 using osuautodeafen.Settings;
 using osuautodeafen.Settings.Keybinds;
 using osuautodeafen.Settings.Presets;
@@ -41,15 +42,18 @@ using KeyFrame = Avalonia.Animation.KeyFrame;
 
 namespace osuautodeafen;
 
+// TODO
+// work should probably be done to split out a large chunk of mainwindow into it's own class(es),
+// this file is getting kinda big just due to the fact we need all of these setting handlers (settingsview.axaml.cs isn't much better)
+// i'd be lying if i said i knew a better solution though
+
 public partial class MainWindow : Window
 {
     private const double BeatsPerRotation = 4;
 
     private const double HoverAngle = 15;
     private const double NormalAngle = 0;
-
-    private static Button? _updateNotificationBarButton;
-    private static ProgressBar? _updateProgressBar;
+    
     private readonly HomeView HomeView;
 
     public readonly SettingsView SettingsView;
@@ -152,10 +156,9 @@ public partial class MainWindow : Window
 
         InitializeComponent();
 
-        _updateChecker = new UpdateChecker(UpdateNotificationBar, UpdateProgressBar);
+        _updateChecker = new UpdateChecker();
 
-        _updateNotificationBarButton = UpdateNotificationBar;
-        _updateProgressBar = UpdateProgressBar;
+        NotificationsPanel.SetUpdateChecker(_updateChecker);
 
         string appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen");
@@ -201,6 +204,13 @@ public partial class MainWindow : Window
             _tooltipManager,
             _settingsViewModel
         );
+        
+        _viewModel.NotificationRequested += (type, title, description, duration) =>
+            NotificationsPanel.ShowNotificationAsync(
+                type,
+                title,
+                description,
+                duration);
 
         _breakPeriod = new BreakPeriodCalculator();
 
@@ -232,11 +242,21 @@ public partial class MainWindow : Window
 
         InitializeLogo();
 
-        Opened += async (_, __) =>
+        Opened += async (_, _) =>
         {
-            await _updateChecker.CheckForUpdatesAsync();
-            if (_updateChecker.UpdateInfo != null)
-                _updateChecker.ShowUpdateNotification();
+            try
+            {
+                await _updateChecker.CheckForUpdatesAsync();
+
+                if (_updateChecker.UpdateInfo != null)
+                {
+                    await NotificationsPanel.SetUpdateAvailableAsync(true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to check for updates");
+            }
         };
 
         _deafenController = new Deafen.Deafen(_tosuApi, _settingsHandler, _viewModel);
@@ -357,6 +377,8 @@ public partial class MainWindow : Window
             _isLogoDragging = dragging;
             UpdateVersionPanelVisibility();
         };
+        
+        UpdateTosuWarning(_viewModel.ShowTosuWarning);
 
         CheckBox? FCToggle = SettingsView.FindControl<CheckBox>("FCToggle");
         StackPanel? undeafenPanel = SettingsView.FindControl<StackPanel>("UndeafenOnMissPanel");
@@ -1030,19 +1052,6 @@ public partial class MainWindow : Window
         return newTask;
     }
 
-    /*
-        we need to start handling all of this slider bullshit somewhere else bro istg
-        ESPECIALLY for tooltips because holy hell they are kind of a mess
-        i tried making custom tooltips in https://github.com/Aerodite/osuautodeafen/commit/3adb7ab579152bbdc3fb624077bb82c628db6dfc
-        but that ultimately ended up being a buggy mess.
-
-        maybe we could grab from the really simple new tooltip system used in the straingraph by TooltipManager.cs,
-        but honestly i feel like that entire system might need to be expanded upon because those tooltips are pretty barebones
-    */
-    /*
-     10/20/25 update: yes we are now using TooltipManager.cs for all of these tooltips hiphiphurray
-     */
-
     private void SettingsButton_PointerEnter(object sender, PointerEventArgs e)
     {
         if (sender is not Border) return;
@@ -1134,6 +1143,9 @@ public partial class MainWindow : Window
                     _settingsHandler?.SaveSetting("Behavior", "IsFCRequired", _viewModel.IsFCRequired);
                     Log.Information("Saved new FCRequirementToggle state " + _viewModel.IsFCRequired +
                                     logFinishingText);
+                    break;
+                case nameof(SharedViewModel.ShowTosuWarning):
+                    UpdateTosuWarning(_viewModel.ShowTosuWarning);
                     break;
             }
         }
@@ -1358,66 +1370,10 @@ public partial class MainWindow : Window
             flyout?.Hide();
         }
     }
-
-    private async Task DownloadUpdateWithProgressAsync()
+    
+    public Task ShowUpdateNotificationAsync()
     {
-        int minDisplayMs = 1500;
-        Stopwatch sw = Stopwatch.StartNew();
-        Log.Information("Starting update download...");
-        if (_updateChecker?.UpdateInfo == null)
-            return;
-
-        if (_updateProgressBar != null)
-            _updateProgressBar.Value = 0;
-
-        var progress = new Action<int>(p =>
-        {
-            if (_updateProgressBar != null)
-                _updateProgressBar.Value = p;
-        });
-
-        Stopwatch displaySw = Stopwatch.StartNew();
-        await _updateChecker.DownloadUpdateAsync(progress);
-        displaySw.Stop();
-
-        // sorry guys sunk cost fallacy this took too long to implement
-        if (_updateProgressBar != null && _updateProgressBar.Value < 100)
-        {
-            int steps = 30;
-            double start = _updateProgressBar.Value;
-            double end = 100;
-            int remainingMs = minDisplayMs - (int)displaySw.ElapsedMilliseconds;
-            if (remainingMs < 0) remainingMs = 0;
-            remainingMs /= 5;
-            int delayPerStep = remainingMs / steps;
-
-            for (int i = 1; i <= steps; i++)
-            {
-                _updateProgressBar.Value = start + (end - start) * i / steps;
-                await Task.Delay(delayPerStep);
-            }
-        }
-        else
-        {
-            if (_updateProgressBar != null)
-                _updateProgressBar.Value = 100;
-        }
-
-        if (_updateNotificationBarButton != null)
-        {
-            _updateNotificationBarButton.IsEnabled = true;
-            _updateNotificationBarButton.Background = Brushes.Green;
-        }
-
-        sw.Stop();
-        Log.Information("Update download completed in {SwElapsedMilliseconds}ms", sw.ElapsedMilliseconds);
-    }
-
-    private async void UpdateNotificationBar_Click(object sender, RoutedEventArgs e)
-    {
-        await DownloadUpdateWithProgressAsync();
-        if (_updateChecker?.UpdateInfo != null)
-            _updateChecker?.ApplyUpdateAndRestart();
+        return NotificationsPanel.SetUpdateAvailableAsync(true);
     }
 
     private void LogoPanel_PointerEnter(object sender, PointerEventArgs e)
@@ -1486,7 +1442,14 @@ public partial class MainWindow : Window
                 versionPanel.IsVisible = false;
         });
     }
+    
+    private void UpdateTosuWarning(bool show)
+    {
+        var panel = this.FindControl<Notifications.Notifications>("NotificationsPanel");
 
+        panel?.SetTosuDisconnected(show);
+    }
+    
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);
