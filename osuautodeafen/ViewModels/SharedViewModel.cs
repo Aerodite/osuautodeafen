@@ -264,7 +264,7 @@ public sealed class SharedViewModel : ViewModelBase
 
     public ExperimentalAcrylicMaterial TooltipAcrylicMaterial { get; } = new()
     {
-        TintColor = Colors.White,
+        TintColor = Colors.Gray,
         TintOpacity = 0.25,
         MaterialOpacity = 0.2
     };
