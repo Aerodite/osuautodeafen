@@ -30,14 +30,12 @@ namespace osuautodeafen.Views;
 
 public partial class SettingsView : UserControl
 {
-    private static Button? _updateNotificationBarButton;
-    private static ProgressBar? _updateProgressBar;
     private readonly KeybindHelper _keybindHelper = new();
     private readonly Dictionary<(string Section, string Key), object> _pendingSettings = new();
     private readonly SettingsHandler _settingsHandler;
     private readonly SemaphoreSlim _updateCheckLock = new(1, 1);
 
-    private readonly UpdateChecker _updateChecker = new(_updateNotificationBarButton, _updateProgressBar);
+    private readonly UpdateChecker _updateChecker = new();
     private DispatcherTimer? _BESaveTimer;
     private BackgroundManager? _backgroundManager;
     private ChartManager _chartManager;
@@ -1101,26 +1099,41 @@ public partial class SettingsView : UserControl
             await Task.Delay(1000);
 
             await _updateChecker.CheckForUpdatesAsync();
-            if (_updateChecker?.IsInstalled == false)
+
+            if (!_updateChecker.IsInstalled)
             {
                 button.Content = "Velopack not installed...";
                 await Task.Delay(1000);
+
                 button.Content = "Please reinstall osuautodeafen";
                 await Task.Delay(1000);
+
                 button.Content = "Check for Updates";
                 return;
             }
 
-            if (_updateChecker?.UpdateInfo == null)
+            if (_updateChecker.UpdateInfo == null)
             {
                 button.Content = "No updates found";
                 await Task.Delay(1000);
+
                 button.Content = "Check for Updates";
                 return;
             }
 
             button.Content = "Update available!";
-            _updateChecker.ShowUpdateNotification();
+            
+            if (TopLevel.GetTopLevel(this) is MainWindow mainWindow)
+            {
+                await mainWindow.ShowUpdateNotificationAsync();
+            }
+
+            await Task.Delay(1000);
+            button.Content = "Check for Updates";
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to check for updates");
         }
         finally
         {

@@ -45,7 +45,7 @@
             HorizontalAlignment="Left"
             VerticalAlignment="Top"
             Margin="16,48,0,0"
-            ZIndex="100" />
+            ZIndex="98" />
 
         <ContentControl Content="{Binding CurrentPage}" x:DataType="viewModels:SharedViewModel" />
 
@@ -255,68 +255,6 @@
                         Grid.Column="0"
                         IsHitTestVisible="False"
                         x:DataType="viewModels:SharedViewModel" />
-            </Grid>
-
-
-            <Grid Grid.Row="2"
-                  x:Name="UpdateNotificationGrid"
-                  HorizontalAlignment="Stretch"
-                  VerticalAlignment="Bottom"
-                  IsVisible="{Binding IsVisible, ElementName=UpdateNotificationBar}">
-
-                <Button x:Name="UpdateNotificationBar"
-                        Classes="update-bar"
-                        IsVisible="False"
-                        HorizontalAlignment="Stretch"
-                        Height="36"
-                        Padding="0"
-                        FontSize="12"
-                        Foreground="White"
-                        x:DataType="viewModels:SharedViewModel"
-                        Click="UpdateNotificationBar_Click">
-
-                    <Grid>
-                        <acrylic:AcrylicSurface
-                            CornerRadius="6"
-                            TintColor="{Binding AverageColorBrushDark}"
-                            BlurRadius="18"
-                            Vibrancy="0.18"
-                            Contrast="1.08"
-                            RefractionAmount="2"
-                            DepthEffect="True"
-                            ChromaticAberration="True"
-                            HighlightEnabled="True"
-                            ShadowEnabled="True"
-                            IsHitTestVisible="False" />
-
-                        <ProgressBar x:Name="UpdateProgressBar"
-                                     Minimum="0"
-                                     Maximum="100"
-                                     Value="{Binding UpdateProgress}"
-                                     Foreground="{Binding AverageColorBrush}"
-                                     Background="Transparent"
-                                     BorderThickness="0"
-                                     IsHitTestVisible="False"
-                                     VerticalAlignment="Stretch"
-                                     HorizontalAlignment="Stretch"
-                                     Opacity="0.65">
-
-                            <ProgressBar.Transitions>
-                                <Transitions>
-                                    <DoubleTransition Property="Value"
-                                                      Duration="0:0:0.20" />
-                                </Transitions>
-                            </ProgressBar.Transitions>
-                        </ProgressBar>
-
-                        <TextBlock Text="A new update is available!"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   FontWeight="SemiBold"
-                                   Foreground="White"
-                                   IsHitTestVisible="False" />
-                    </Grid>
-                </Button>
             </Grid>
 
         </Grid>

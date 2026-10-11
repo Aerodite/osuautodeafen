@@ -19,7 +19,7 @@
                 Opacity="0">
 
             <Border.RenderTransform>
-                <TranslateTransform X="-260" />
+                <TranslateTransform X="-170" />
             </Border.RenderTransform>
 
             <acrylic:AcrylicSurface
@@ -44,11 +44,11 @@
                             Background="#33FF987D"
                             VerticalAlignment="Center">
 
-                            <Svg Path="avares://osuautodeafen/Icons/warning.svg"
-                                 Width="24"
-                                 Height="24"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center" />
+                        <Svg Path="avares://osuautodeafen/Icons/warning.svg"
+                             Width="24"
+                             Height="24"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
                     </Border>
 
                     <StackPanel Grid.Column="1"
@@ -68,6 +68,108 @@
                     </StackPanel>
                 </Grid>
             </acrylic:AcrylicSurface>
+        </Border>
+
+        <Border x:Name="UpdateNotificationPill"
+                Width="170"
+                HorizontalAlignment="Left"
+                CornerRadius="10"
+                ClipToBounds="True"
+                IsVisible="False"
+                Opacity="0"
+                PointerEntered="UpdateButton_PointerEnter"
+                PointerExited="UpdateButton_PointerExit">
+
+            <Border.RenderTransform>
+                <TranslateTransform X="-240" />
+            </Border.RenderTransform>
+
+            <acrylic:AcrylicInteractiveSurface
+                CornerRadius="10"
+                TintColor="#202E35"
+                BlurRadius="12"
+                Vibrancy="0.12"
+                HighlightEnabled="True"
+                ShadowEnabled="True"
+                RevealBorderEnabled="True"
+                RevealBorderIntensity="0.2"
+                RevealBorderRadius="72"
+                InteractiveHighlightEnabled="True"
+                IsInteractive="False"
+                HorizontalAlignment="Stretch">
+
+                <Button x:Name="UpdateNotificationButton"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Padding="0"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
+                        HorizontalAlignment="Stretch"
+                        Click="UpdateNotification_Click">
+
+                    <Grid ClipToBounds="True">
+
+                        <ProgressBar x:Name="UpdateProgressBar"
+                                     Minimum="0"
+                                     Maximum="100"
+                                     Value="0"
+                                     IsVisible="False"
+                                     IsHitTestVisible="False"
+                                     HorizontalAlignment="Stretch"
+                                     VerticalAlignment="Stretch"
+                                     Foreground="#554DB6FF"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     CornerRadius="0">
+
+                            <ProgressBar.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Value"
+                                                      Duration="0:0:0.20" />
+                                </Transitions>
+                            </ProgressBar.Transitions>
+                        </ProgressBar>
+
+                        <Grid Margin="10,8"
+                              ColumnDefinitions="Auto,*"
+                              ColumnSpacing="9"
+                              IsHitTestVisible="False">
+
+                            <Border Grid.Column="0"
+                                    Width="28"
+                                    Height="28"
+                                    CornerRadius="8"
+                                    Background="#334DB6FF">
+
+                                <Svg Path="avares://osuautodeafen/Icons/download.svg"
+                                     Width="24"
+                                     Height="24"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center" />
+                            </Border>
+
+                            <StackPanel Grid.Column="1"
+                                        Spacing="2"
+                                        VerticalAlignment="Center">
+
+                                <TextBlock x:Name="UpdateTitle"
+                                           Text="Update available!"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="#E0F2FF" />
+
+                                <TextBlock x:Name="UpdateDescription"
+                                           Text="Click to install update"
+                                           FontSize="10"
+                                           Foreground="#CCE0F2FF"
+                                           TextWrapping="Wrap" />
+
+                            </StackPanel>
+                        </Grid>
+
+                    </Grid>
+                </Button>
+            </acrylic:AcrylicInteractiveSurface>
         </Border>
 
     </StackPanel>

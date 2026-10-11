@@ -47,9 +47,7 @@ public partial class MainWindow : Window
 
     private const double HoverAngle = 15;
     private const double NormalAngle = 0;
-
-    private static Button? _updateNotificationBarButton;
-    private static ProgressBar? _updateProgressBar;
+    
     private readonly HomeView HomeView;
 
     public readonly SettingsView SettingsView;
@@ -152,10 +150,9 @@ public partial class MainWindow : Window
 
         InitializeComponent();
 
-        _updateChecker = new UpdateChecker(UpdateNotificationBar, UpdateProgressBar);
+        _updateChecker = new UpdateChecker();
 
-        _updateNotificationBarButton = UpdateNotificationBar;
-        _updateProgressBar = UpdateProgressBar;
+        NotificationsPanel.SetUpdateChecker(_updateChecker);
 
         string appPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "osuautodeafen");
@@ -232,11 +229,21 @@ public partial class MainWindow : Window
 
         InitializeLogo();
 
-        Opened += async (_, __) =>
+        Opened += async (_, _) =>
         {
-            await _updateChecker.CheckForUpdatesAsync();
-            if (_updateChecker.UpdateInfo != null)
-                _updateChecker.ShowUpdateNotification();
+            try
+            {
+                await _updateChecker.CheckForUpdatesAsync();
+
+                if (_updateChecker.UpdateInfo != null)
+                {
+                    await NotificationsPanel.SetUpdateAvailableAsync(true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to check for updates");
+            }
         };
 
         _deafenController = new Deafen.Deafen(_tosuApi, _settingsHandler, _viewModel);
@@ -1363,66 +1370,10 @@ public partial class MainWindow : Window
             flyout?.Hide();
         }
     }
-
-    private async Task DownloadUpdateWithProgressAsync()
+    
+    public Task ShowUpdateNotificationAsync()
     {
-        int minDisplayMs = 1500;
-        Stopwatch sw = Stopwatch.StartNew();
-        Log.Information("Starting update download...");
-        if (_updateChecker?.UpdateInfo == null)
-            return;
-
-        if (_updateProgressBar != null)
-            _updateProgressBar.Value = 0;
-
-        var progress = new Action<int>(p =>
-        {
-            if (_updateProgressBar != null)
-                _updateProgressBar.Value = p;
-        });
-
-        Stopwatch displaySw = Stopwatch.StartNew();
-        await _updateChecker.DownloadUpdateAsync(progress);
-        displaySw.Stop();
-
-        // sorry guys sunk cost fallacy this took too long to implement
-        if (_updateProgressBar != null && _updateProgressBar.Value < 100)
-        {
-            int steps = 30;
-            double start = _updateProgressBar.Value;
-            double end = 100;
-            int remainingMs = minDisplayMs - (int)displaySw.ElapsedMilliseconds;
-            if (remainingMs < 0) remainingMs = 0;
-            remainingMs /= 5;
-            int delayPerStep = remainingMs / steps;
-
-            for (int i = 1; i <= steps; i++)
-            {
-                _updateProgressBar.Value = start + (end - start) * i / steps;
-                await Task.Delay(delayPerStep);
-            }
-        }
-        else
-        {
-            if (_updateProgressBar != null)
-                _updateProgressBar.Value = 100;
-        }
-
-        if (_updateNotificationBarButton != null)
-        {
-            _updateNotificationBarButton.IsEnabled = true;
-            _updateNotificationBarButton.Background = Brushes.Green;
-        }
-
-        sw.Stop();
-        Log.Information("Update download completed in {SwElapsedMilliseconds}ms", sw.ElapsedMilliseconds);
-    }
-
-    private async void UpdateNotificationBar_Click(object sender, RoutedEventArgs e)
-    {
-        await DownloadUpdateWithProgressAsync();
-        if (_updateChecker?.UpdateInfo != null)
-            _updateChecker?.ApplyUpdateAndRestart();
+        return NotificationsPanel.SetUpdateAvailableAsync(true);
     }
 
     private void LogoPanel_PointerEnter(object sender, PointerEventArgs e)
