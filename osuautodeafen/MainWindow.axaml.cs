@@ -357,6 +357,8 @@ public partial class MainWindow : Window
             _isLogoDragging = dragging;
             UpdateVersionPanelVisibility();
         };
+        
+        UpdateTosuWarning(_viewModel.ShowTosuWarning);
 
         CheckBox? FCToggle = SettingsView.FindControl<CheckBox>("FCToggle");
         StackPanel? undeafenPanel = SettingsView.FindControl<StackPanel>("UndeafenOnMissPanel");
@@ -1135,6 +1137,9 @@ public partial class MainWindow : Window
                     Log.Information("Saved new FCRequirementToggle state " + _viewModel.IsFCRequired +
                                     logFinishingText);
                     break;
+                case nameof(SharedViewModel.ShowTosuWarning):
+                    UpdateTosuWarning(_viewModel.ShowTosuWarning);
+                    break;
             }
         }
         catch (Exception ex)
@@ -1486,7 +1491,14 @@ public partial class MainWindow : Window
                 versionPanel.IsVisible = false;
         });
     }
+    
+    private void UpdateTosuWarning(bool show)
+    {
+        var panel = this.FindControl<Notifications.Notifications>("NotificationsPanel");
 
+        panel?.SetTosuDisconnected(show);
+    }
+    
     private void MainTimer_Tick(object? sender, EventArgs? e)
     {
         _breakPeriod.UpdateBreakPeriodState(_tosuApi);

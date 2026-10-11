@@ -5,11 +5,13 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using osuautodeafen.Background;
 using osuautodeafen.Changelog;
 using osuautodeafen.Settings;
@@ -81,8 +83,11 @@ public sealed class SharedViewModel : ViewModelBase
     private IBrush _updateBarBackground = Brushes.Gray;
 
     private int _updateProgress;
-
-    private string _updateStatusMessage;
+    
+    
+    private bool _isTosuConnected;
+    private bool _showTosuWarning;
+    private CancellationTokenSource? _tosuWarningCts;
 
     private string _updateUrl = "https://github.com/Aerodite/osuautodeafen/releases/latest";
 
@@ -93,10 +98,14 @@ public sealed class SharedViewModel : ViewModelBase
         HomeView? homeView,
         SettingsView? settingsView)
     {
-        _settingsHandler = settingsHandler
-                           ?? throw new ArgumentNullException(nameof(settingsHandler));
+        _settingsHandler = settingsHandler ?? throw new ArgumentNullException(nameof(settingsHandler));
         _tosuApi = tosuApi;
         _tooltipManager = tooltipManager;
+        
+        _tosuApi.ConnectionStateChanged += OnTosuConnectionStateChanged;
+
+        OnTosuConnectionStateChanged(
+            _tosuApi.IsTosuConnected);
 
         HomePage = homeView!;
         SettingsPage = settingsView!;
@@ -108,6 +117,71 @@ public sealed class SharedViewModel : ViewModelBase
         Task.Run(UpdateCompletionPercentageAsync);
 
         CreateAndShowChangelog();
+    }
+    
+    private void OnTosuConnectionStateChanged(bool connected)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            IsTosuConnected = connected;
+            _ = UpdateTosuWarningAsync(connected);
+        });
+    }
+
+    private async Task UpdateTosuWarningAsync(bool connected)
+    {
+        _tosuWarningCts?.Cancel();
+        _tosuWarningCts?.Dispose();
+
+        _tosuWarningCts = new CancellationTokenSource();
+        CancellationToken token = _tosuWarningCts.Token;
+
+        if (connected)
+        {
+            ShowTosuWarning = false;
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(2500, token);
+
+            if (!token.IsCancellationRequested && !IsTosuConnected)
+                ShowTosuWarning = true;
+        }
+        catch (OperationCanceledException)
+        {
+            // ignored
+        }
+    }
+    
+    public bool IsTosuConnected
+    {
+        get => _isTosuConnected;
+        private set
+        {
+            if (_isTosuConnected == value)
+                return;
+
+            _isTosuConnected = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsTosuDisconnected));
+        }
+    }
+
+    public bool IsTosuDisconnected => !IsTosuConnected;
+
+    public bool ShowTosuWarning
+    {
+        get => _showTosuWarning;
+        private set
+        {
+            if (_showTosuWarning == value)
+                return;
+
+            _showTosuWarning = value;
+            OnPropertyChanged();
+        }
     }
 
     public ChangelogViewModel? Changelog { get; private set; }

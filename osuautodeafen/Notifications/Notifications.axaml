@@ -1,0 +1,74 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:acrylic="clr-namespace:Fluid.Avalonia.Acrylic;assembly=Fluid.Avalonia.Acrylic"
+             xmlns:local="clr-namespace:osuautodeafen.Notifications"
+             mc:Ignorable="d"
+             x:Class="osuautodeafen.Notifications.Notifications">
+
+    <StackPanel Spacing="8">
+        
+        <Border x:Name="TosuWarningPill"
+                Width="170"
+                HorizontalAlignment="Left"
+                CornerRadius="10"
+                ClipToBounds="True"
+                IsHitTestVisible="True"
+                IsVisible="False"
+                Opacity="0">
+
+            <Border.RenderTransform>
+                <TranslateTransform X="-260" />
+            </Border.RenderTransform>
+
+            <acrylic:AcrylicSurface
+                CornerRadius="10"
+                TintColor="#352520"
+                BlurRadius="12"
+                Vibrancy="0.12"
+                HighlightEnabled="True"
+                ShadowEnabled="True"
+                RevealBorderEnabled="True"
+                RevealBorderIntensity="0.2"
+                RevealBorderRadius="72">
+
+                <Grid Margin="10,8"
+                      ColumnDefinitions="Auto,*"
+                      ColumnSpacing="9">
+
+                    <Border Grid.Column="0"
+                            Width="28"
+                            Height="28"
+                            CornerRadius="8"
+                            Background="#33FF987D"
+                            VerticalAlignment="Center">
+
+                            <Svg Path="avares://osuautodeafen/Icons/warning.svg"
+                                 Width="24"
+                                 Height="24"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center" />
+                    </Border>
+
+                    <StackPanel Grid.Column="1"
+                                Spacing="2"
+                                VerticalAlignment="Center">
+
+                        <TextBlock Text="Tosu disconnected!"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="#FFE0D0" />
+
+                        <TextBlock Text="Please relaunch Tosu"
+                                   FontSize="10"
+                                   Foreground="#CCFFE0D0"
+                                   TextWrapping="Wrap" />
+
+                    </StackPanel>
+                </Grid>
+            </acrylic:AcrylicSurface>
+        </Border>
+
+    </StackPanel>
+</UserControl>
