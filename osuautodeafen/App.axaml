@@ -23,11 +23,7 @@
             <helpers:StringIsNotNullOrEmptyConverter x:Key="StringIsNotNullOrEmptyConverter" />
 
             <Color x:Key="BaseBackgroundColor">#171717</Color>
-
-            <ExperimentalAcrylicMaterial x:Key="AcrylicMaterial"
-                                         MaterialOpacity="0.2"
-                                         TintColor="{StaticResource BaseBackgroundColor}"
-                                         TintOpacity="0.25" />
+            
         </ResourceDictionary>
     </Application.Resources>
 </Application>

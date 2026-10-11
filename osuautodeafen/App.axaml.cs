@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using AvaloniaUI.DiagnosticsSupport;
 
 namespace osuautodeafen;
 
@@ -18,7 +19,7 @@ public class App : Application
 
         base.OnFrameworkInitializationCompleted();
 #if DEBUG
-        this.AttachDevTools();
+        this.AttachDeveloperTools();
 #endif
     }
 }

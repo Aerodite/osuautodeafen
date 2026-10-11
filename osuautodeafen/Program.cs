@@ -1,6 +1,7 @@
 ﻿using System;
 using Avalonia;
 using Avalonia.Rendering.Composition;
+using Fluid.Avalonia.Acrylic;
 using Serilog;
 using Velopack;
 
@@ -44,6 +45,7 @@ internal class Program
             .UsePlatformDetect()
             .UseSkia()
             .WithInterFont() 
+            .UseAcrylicPerformanceDefaults()
             .With(new SkiaOptions
             {
                 MaxGpuResourceSizeBytes = 256 * 1024 * 1024 // 256mb
