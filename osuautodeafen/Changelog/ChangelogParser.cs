@@ -14,7 +14,7 @@ using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 using osuautodeafen.ViewModels;
 using AvaloniaInline = Avalonia.Controls.Documents.Inline;
-using Inline = Markdig.Syntax.Inlines.Inline;
+using MarkdownInline = Markdig.Syntax.Inlines.Inline;
 
 namespace osuautodeafen.Changelog;
 
@@ -28,263 +28,123 @@ public static class ChangelogParser
     public static List<ChangelogViewModel.ChangelogEntry> Parse(string markdown, string changelogVersion)
     {
         MarkdownDocument doc = Markdown.Parse(markdown, Pipeline);
-
-        ChangelogViewModel.ChangelogEntry entry = new(
+        
+        var entry = new ChangelogViewModel.ChangelogEntry(
             $"v{changelogVersion}",
-            new List<ChangelogViewModel.ChangelogSection>()
-        );
-
-        ChangelogViewModel.ChangelogSection? currentSection = null;
+            new List<ChangelogViewModel.ChangelogSection>());
+        
+        var section = NewSection(entry, string.Empty);
 
         foreach (Block block in doc)
-            switch (block)
+        {
+            if (block is HeadingBlock heading)
             {
-                case HeadingBlock h:
-                    currentSection = new ChangelogViewModel.ChangelogSection(
-                        GetInlineText(h.Inline),
-                        new List<ChangelogViewModel.ChangelogBlock>()
-                    );
-                    entry.Sections.Add(currentSection);
-                    break;
-
-                case ParagraphBlock p when currentSection != null:
-                    ParseParagraph(p, currentSection, changelogVersion);
-                    break;
-
-                case ListBlock list when currentSection != null:
-                    ParseList(list, currentSection);
-                    break;
-
-                case QuoteBlock quote when currentSection != null:
-                    currentSection.Blocks.Add(
-                        new ChangelogViewModel.QuoteBlockModel(
-                            GetQuoteText(quote)
-                        )
-                    );
-                    break;
-
-                case FencedCodeBlock code when currentSection != null:
-                    currentSection.Blocks.Add(
-                        new ChangelogViewModel.CodeBlockModel(
-                            code.Lines.ToString(),
-                            code.Info
-                        )
-                    );
-                    break;
-
-                case HtmlBlock html when currentSection != null:
-                    TryParseHtmlImage(html.Lines.ToString(), currentSection);
-                    break;
-
-                case ThematicBreakBlock when currentSection != null:
-                    currentSection.Blocks.Add(
-                        new ChangelogViewModel.DividerBlockModel()
-                    );
-                    break;
+                section = NewSection(entry, GetInlineText(heading.Inline));
+                continue;
             }
+
+            ParseBlock(block, section, changelogVersion);
+        }
 
         return new List<ChangelogViewModel.ChangelogEntry> { entry };
     }
 
-    private static void TryParseHtmlImage(
-        string html,
-        ChangelogViewModel.ChangelogSection section)
+    private static ChangelogViewModel.ChangelogSection NewSection(
+        ChangelogViewModel.ChangelogEntry entry, string title)
     {
-        foreach (Match match in Regex.Matches(
-                     html,
-                     @"<img[^>]*src\s*=\s*[""'](?<url>[^""']+)[""']",
-                     RegexOptions.IgnoreCase))
-        {
-            string url = match.Groups["url"].Value;
-
-            if (IsImageUrl(url))
-                section.Blocks.Add(
-                    new ChangelogViewModel.ImageBlockModel(url)
-                );
-        }
+        var section = new ChangelogViewModel.ChangelogSection(
+            title, new List<ChangelogViewModel.ChangelogBlock>());
+        entry.Sections.Add(section);
+        return section;
     }
 
-    private static void ParseParagraph(
-        ParagraphBlock p,
+    private static void ParseBlock(
+        Block block,
         ChangelogViewModel.ChangelogSection section,
-        string changelogVersion)
+        string version)
     {
-        LinkInline? image = p.Inline?
-            .Descendants<LinkInline>()
-            .FirstOrDefault(l => l.IsImage && l.Url != null);
-
-        if (image != null)
+        switch (block)
         {
-            section.Blocks.Add(
-                new ChangelogViewModel.ImageBlockModel(image.Url!)
-            );
-            return;
+            case ParagraphBlock paragraph:
+                ParseParagraph(paragraph, section, version);
+                break;
+            case ListBlock list:
+                ParseList(list, section, version);
+                break;
+            case QuoteBlock quote:
+                section.Blocks.Add(new ChangelogViewModel.QuoteBlockModel(GetQuoteText(quote)));
+                break;
+            case FencedCodeBlock code:
+                section.Blocks.Add(new ChangelogViewModel.CodeBlockModel(
+                    code.Lines.ToString(), code.Info));
+                break;
+            case HtmlBlock html:
+                ParseHtmlImages(html.Lines.ToString(), section);
+                break;
+            case ThematicBreakBlock:
+                section.Blocks.Add(new ChangelogViewModel.DividerBlockModel());
+                break;
+            case ListItemBlock item:
+                foreach (Block child in item)
+                    ParseBlock(child, section, version);
+                break;
         }
-
-        string flatText = GetInlineText(p.Inline);
-
-        if (TryParseMedia(flatText, section, changelogVersion))
-            return;
-
-        if (p.Inline?.Any(i => i is LinkInline { IsImage: false } || i is AutolinkInline) == true)
-        {
-            section.Blocks.Add(
-                new ChangelogViewModel.InlineTextBlockModel(
-                    ParseInlineParts(p.Inline!)
-                ));
-            return;
-        }
-
-        section.Blocks.Add(
-            new ChangelogViewModel.TextBlockModel(flatText));
-    }
-
-    private static IReadOnlyList<AvaloniaInline> ParseInlineParts(ContainerInline inline)
-    {
-        var inlines = new List<AvaloniaInline>();
-
-        foreach (Inline child in inline)
-            switch (child)
-            {
-                case LiteralInline literal:
-                    inlines.Add(new Run(
-                        literal.Content.Text.Substring(
-                            literal.Content.Start,
-                            literal.Content.Length))
-                    {
-                        Foreground = Brushes.White
-                    });
-                    break;
-
-
-                case EmphasisInline emphasis:
-                    foreach (AvaloniaInline sub in ParseInlineParts(emphasis))
-                        inlines.Add(sub);
-                    break;
-
-                case LinkInline link when !link.IsImage:
-                    inlines.Add(CreateLinkInline(
-                        GetInlineText(link),
-                        link.Url!));
-                    break;
-
-                case AutolinkInline autoLink:
-                    inlines.Add(CreateLinkInline(
-                        autoLink.Url,
-                        autoLink.Url));
-                    break;
-
-                case LineBreakInline:
-                    inlines.Add(new LineBreak());
-                    break;
-            }
-
-        return inlines;
-    }
-
-    private static InlineUIContainer CreateLinkInline(string text, string url)
-    {
-        TextBlock textBlock = new()
-        {
-            Text = text,
-            Foreground = Brushes.MediumPurple,
-            TextDecorations = TextDecorations.Underline
-        };
-
-        Button button = new()
-        {
-            Padding = new Thickness(0),
-            Background = Brushes.Transparent,
-            BorderThickness = new Thickness(0),
-            Cursor = new Cursor(StandardCursorType.Hand),
-            Content = textBlock,
-            Tag = url
-        };
-
-        button.Click += (_, _) =>
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = url,
-                UseShellExecute = true
-            });
-
-        return new InlineUIContainer
-        {
-            Child = button,
-            BaselineAlignment = BaselineAlignment.Center
-        };
-    }
-
-    private static bool TryParseMedia(
-        string text,
-        ChangelogViewModel.ChangelogSection section,
-        string changelogVersion)
-    {
-        if (!Uri.TryCreate(text, UriKind.Absolute, out _))
-            return false;
-
-        if (IsVideoUrl(text))
-        {
-            section.Blocks.Add(
-                new ChangelogViewModel.VideoPreviewBlockModel(text, changelogVersion)
-            );
-            return true;
-        }
-
-        if (IsImageUrl(text))
-        {
-            section.Blocks.Add(
-                new ChangelogViewModel.ImageBlockModel(text)
-            );
-            return true;
-        }
-
-        return false;
     }
 
     private static void ParseList(
         ListBlock list,
-        ChangelogViewModel.ChangelogSection section)
+        ChangelogViewModel.ChangelogSection section,
+        string version)
     {
         foreach (ListItemBlock item in list)
         {
-            ParagraphBlock? paragraph =
-                item.Descendants<ParagraphBlock>().FirstOrDefault();
+            bool bulletCreated = false;
 
-            if (paragraph == null)
-                continue;
+            foreach (Block child in item)
+            {
+                if (child is ParagraphBlock paragraph && !bulletCreated)
+                {
+                    string text = GetInlineText(paragraph.Inline);
+                    string[] lines = text.Split(new[] { '\n' }, 2);
 
-            section.Blocks.Add(
-                ParseBullet(paragraph)
-            );
+                    section.Blocks.Add(ParseBullet(paragraph, lines[0].Trim()));
+                    bulletCreated = true;
+
+                    if (lines.Length > 1 && !string.IsNullOrWhiteSpace(lines[1]))
+                        section.Blocks.Add(new ChangelogViewModel.TextBlockModel(lines[1].Trim()));
+                }
+                else
+                {
+                    ParseBlock(child, section, version);
+                }
+            }
         }
     }
 
     private static ChangelogViewModel.BulletBlockModel ParseBullet(
-        ParagraphBlock paragraph)
+        ParagraphBlock paragraph, string text)
     {
-        string text = GetInlineText(paragraph.Inline);
-
         Match shortMatch = Regex.Match(text, @"\(#(?<pr>\d+)\)");
         if (shortMatch.Success)
         {
             string pr = shortMatch.Groups["pr"].Value;
-            string url = $"https://github.com/Aerodite/osuautodeafen/pull/{pr}";
-
             return new ChangelogViewModel.BulletBlockModel(
-                text,
-                $"#{pr}",
-                url
-            );
+                text, $"#{pr}", $"https://github.com/Aerodite/osuautodeafen/pull/{pr}");
+        }
+        
+        Match urlMatch = Regex.Match(text,
+            @"https?://github\.com/Aerodite/osuautodeafen/pull/(?<pr>\d+)");
+        if (urlMatch.Success)
+        {
+            string pr = urlMatch.Groups["pr"].Value;
+            return new ChangelogViewModel.BulletBlockModel(
+                text.Replace(urlMatch.Value, $"(#{pr})"),
+                $"#{pr}", urlMatch.Value);
         }
 
-        LinkInline? link = paragraph
-            .Inline?
+        LinkInline? link = paragraph.Inline?
             .Descendants<LinkInline>()
-            .FirstOrDefault(l =>
-                !l.IsImage &&
-                l.Url != null &&
-                l.Url.Contains("/pull/"));
+            .FirstOrDefault(l => !l.IsImage && l.Url != null && l.Url.Contains("/pull/"));
 
         if (link != null)
         {
@@ -292,79 +152,200 @@ public static class ChangelogParser
             if (match.Success)
             {
                 string pr = match.Groups["pr"].Value;
-
-                string replaced = text.Replace(
-                    link.Url!,
-                    $"(#{pr})"
-                );
-
                 return new ChangelogViewModel.BulletBlockModel(
-                    replaced,
-                    $"#{pr}",
-                    link.Url
-                );
+                    text.Replace(GetInlineText(link), $"(#{pr})"),
+                    $"#{pr}", link.Url);
             }
         }
 
         return new ChangelogViewModel.BulletBlockModel(text, null, null);
     }
 
-    private static string GetQuoteText(QuoteBlock quote)
+    private static void ParseParagraph(
+        ParagraphBlock paragraph,
+        ChangelogViewModel.ChangelogSection section,
+        string version)
     {
-        StringBuilder sb = new();
+        if (paragraph.Inline == null)
+            return;
 
-        foreach (Block block in quote)
-            if (block is ParagraphBlock p)
-                sb.AppendLine(GetInlineText(p.Inline));
+        LinkInline? image = paragraph.Inline.Descendants<LinkInline>()
+            .FirstOrDefault(link => link.IsImage && !string.IsNullOrWhiteSpace(link.Url));
+        if (image != null)
+        {
+            section.Blocks.Add(new ChangelogViewModel.ImageBlockModel(image.Url!));
+            return;
+        }
 
-        return sb.ToString().Trim();
+        string text = GetInlineText(paragraph.Inline);
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+
+        if (TryParseMedia(text, section, version))
+            return;
+
+        var inlines = ParseInlineParts(paragraph.Inline);
+        if (inlines.Any(i => i is InlineUIContainer))
+            section.Blocks.Add(new ChangelogViewModel.InlineTextBlockModel(inlines));
+        else
+            section.Blocks.Add(new ChangelogViewModel.TextBlockModel(text));
     }
 
-    private static string GetInlineText(ContainerInline? inline)
+    private static IReadOnlyList<AvaloniaInline> ParseInlineParts(ContainerInline container)
     {
-        if (inline == null)
-            return string.Empty;
-
-        StringBuilder sb = new();
-
-        foreach (Inline child in inline)
+        var result = new List<AvaloniaInline>();
+        foreach (MarkdownInline child in container)
+        {
             switch (child)
             {
                 case LiteralInline literal:
-                    sb.Append(
-                        literal.Content.Text.Substring(
-                            literal.Content.Start,
-                            literal.Content.Length
-                        )
-                    );
+                    result.Add(new Run { Text = literal.Content.ToString(), Foreground = Brushes.White });
                     break;
-
+                case EmphasisInline emphasis:
+                    result.AddRange(ParseInlineParts(emphasis));
+                    break;
+                case LinkInline link when !link.IsImage && !string.IsNullOrWhiteSpace(link.Url):
+                    result.Add(CreateLinkInline(GetInlineText(link), link.Url!));
+                    break;
+                case AutolinkInline autolink:
+                    result.Add(CreateLinkInline(autolink.Url, autolink.Url));
+                    break;
                 case LineBreakInline:
-                    sb.Append('\n');
+                    result.Add(new LineBreak());
                     break;
-
-                case LinkInline link when !link.IsImage:
-                    sb.Append(GetInlineText(link));
+                case CodeInline code:
+                    result.Add(new Run { Text = code.Content, Foreground = Brushes.White });
+                    break;
+                case HtmlInline html:
+                    break;
+                case ContainerInline nested:
+                    result.AddRange(ParseInlineParts(nested));
                     break;
             }
+        }
+        return result;
+    }
 
+    private static InlineUIContainer CreateLinkInline(string text, string url)
+    {
+        var button = new Button
+        {
+            Padding = new Thickness(0),
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Tag = url,
+            Content = new TextBlock
+            {
+                Text = text,
+                Foreground = Brushes.MediumPurple,
+                TextDecorations = TextDecorations.Underline
+            }
+        };
+
+        button.Click += (_, _) => OpenUrl(url);
+        return new InlineUIContainer
+        {
+            Child = button,
+            BaselineAlignment = BaselineAlignment.Center
+        };
+    }
+
+    private static void OpenUrl(string url)
+    {
+        try
+        {
+            using Process? process = Process.Start(new ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to open changelog link: {ex}");
+        }
+    }
+
+    private static void ParseHtmlImages(
+        string html, ChangelogViewModel.ChangelogSection section)
+    {
+        foreach (Match match in Regex.Matches(html,
+                     @"<img\b[^>]*\bsrc\s*=\s*[""'](?<url>[^""']+)[""']",
+                     RegexOptions.IgnoreCase))
+        {
+            string url = match.Groups["url"].Value;
+            if (IsImageUrl(url))
+                section.Blocks.Add(new ChangelogViewModel.ImageBlockModel(url));
+        }
+    }
+
+    private static string GetQuoteText(QuoteBlock quote)
+    {
+        var sb = new StringBuilder();
+        foreach (Block block in quote)
+            if (block is ParagraphBlock paragraph)
+                sb.AppendLine(GetInlineText(paragraph.Inline));
         return sb.ToString().Trim();
     }
 
-    private static bool IsVideoUrl(string url)
+    private static string GetInlineText(ContainerInline? container)
     {
-        return url.EndsWith(".mp4") ||
-               url.EndsWith(".webm") ||
-               url.Contains("github.com/user-attachments");
+        if (container == null)
+            return string.Empty;
+
+        var sb = new StringBuilder();
+        foreach (MarkdownInline child in container)
+        {
+            switch (child)
+            {
+                case LiteralInline literal:
+                    sb.Append(literal.Content.ToString());
+                    break;
+                case LineBreakInline:
+                    sb.Append('\n');
+                    break;
+                case LinkInline link when !link.IsImage:
+                    sb.Append(GetInlineText(link));
+                    break;
+                case AutolinkInline autolink:
+                    sb.Append(autolink.Url);
+                    break;
+                case CodeInline code:
+                    sb.Append(code.Content);
+                    break;
+                case ContainerInline nested:
+                    sb.Append(GetInlineText(nested));
+                    break;
+            }
+        }
+        return sb.ToString().Trim();
     }
 
-    private static bool IsImageUrl(string url)
+    private static bool TryParseMedia(
+        string text, ChangelogViewModel.ChangelogSection section, string version)
     {
-        return url.EndsWith(".png") ||
-               url.EndsWith(".jpg") ||
-               url.EndsWith(".jpeg") ||
-               url.EndsWith(".gif") ||
-               url.Contains("github.com/user-attachments") ||
-               url.EndsWith(".webp");
+        if (!Uri.TryCreate(text, UriKind.Absolute, out _))
+            return false;
+        if (IsVideoUrl(text))
+        {
+            section.Blocks.Add(new ChangelogViewModel.VideoPreviewBlockModel(text, version));
+            return true;
+        }
+        if (IsImageUrl(text))
+        {
+            section.Blocks.Add(new ChangelogViewModel.ImageBlockModel(text));
+            return true;
+        }
+        return false;
     }
+
+    private static bool IsVideoUrl(string url) =>
+        url.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) ||
+        url.EndsWith(".webm", StringComparison.OrdinalIgnoreCase) ||
+        url.Contains("github.com/user-attachments", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsImageUrl(string url) =>
+        new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp" }
+            .Any(ext => url.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
 }
