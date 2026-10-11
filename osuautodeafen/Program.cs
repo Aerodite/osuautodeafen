@@ -24,7 +24,7 @@ internal class Program
         {
             Log.Information("Initializing osuautodeafen");
 
-            VelopackApp.Build().Run();
+            VelopackApp.Build().SetAutoApplyOnStartup(false).Run();
 
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }

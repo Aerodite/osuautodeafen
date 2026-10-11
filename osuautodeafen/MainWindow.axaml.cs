@@ -775,7 +775,7 @@ public partial class MainWindow : Window
                 g => _ = OnGraphDataUpdated(g),
                 ex => Log.Error(ex, "StateStream error"));
 
-        _infoPanelLog.LogToInfoPanel("Velopack: " + _updateChecker!.Mgr.IsInstalled, false, "Velopack", order: 2);
+        _infoPanelLog.LogToInfoPanel("Velopack: " + _updateChecker!.IsInstalled, false, "Velopack", order: 2);
     }
 
     public static TooltipManager Tooltips { get; private set; } = null!;
@@ -1375,7 +1375,7 @@ public partial class MainWindow : Window
         });
 
         Stopwatch displaySw = Stopwatch.StartNew();
-        await _updateChecker.Mgr.DownloadUpdatesAsync(_updateChecker.UpdateInfo, progress);
+        await _updateChecker.DownloadUpdateAsync(progress);
         displaySw.Stop();
 
         // sorry guys sunk cost fallacy this took too long to implement
@@ -1415,7 +1415,7 @@ public partial class MainWindow : Window
     {
         await DownloadUpdateWithProgressAsync();
         if (_updateChecker?.UpdateInfo != null)
-            _updateChecker?.Mgr.ApplyUpdatesAndRestart(_updateChecker.UpdateInfo);
+            _updateChecker?.ApplyUpdateAndRestart();
     }
 
     private void LogoPanel_PointerEnter(object sender, PointerEventArgs e)

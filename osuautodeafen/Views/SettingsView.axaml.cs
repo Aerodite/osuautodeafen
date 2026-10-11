@@ -1100,7 +1100,7 @@ private static void SetExpanderState(
             await Task.Delay(1000);
 
             await _updateChecker.CheckForUpdatesAsync();
-            if (_updateChecker?.Mgr.IsInstalled == false)
+            if (_updateChecker?.IsInstalled == false)
             {
                 button.Content = "Velopack not installed...";
                 await Task.Delay(1000);

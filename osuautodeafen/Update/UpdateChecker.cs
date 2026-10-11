@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Serilog;
@@ -7,43 +8,44 @@ using Velopack.Sources;
 
 namespace osuautodeafen.Update;
 
-public class UpdateChecker
+public sealed class UpdateChecker
 {
-    /// <summary>
-    ///     The current version of osuautodeafen
-    /// </summary>
-    public const string CurrentVersion = "1.1.5";
+    public const string CurrentVersion = "1.1.3";
+    public const string CurrentVersionNumeric = "113";
+    
+    private static readonly GithubSource UpdateSource = new(
+        "https://github.com/Aerodite/osuautodeafen",
+        null,
+        false);
+    
+    public bool IsInstalled => _updateManager.IsInstalled;
+    
+    private readonly UpdateManager _updateManager = new(UpdateSource);
+    private readonly Button? _notificationButton;
+    private readonly ProgressBar? _progressBar;
+    
+    public UpdateInfo? UpdateInfo { get; private set; }
 
-    public const string CurrentVersionNumeric = "115";
-
-    private static readonly GithubSource UpdateSource = new("https://github.com/Aerodite/osuautodeafen",
-        null, false);
-
-    public readonly UpdateManager Mgr = new(UpdateSource);
-
-    private readonly Button? _updateNotificationBarButton;
-    private readonly ProgressBar? _updateProgressBar;
-    public UpdateInfo? UpdateInfo;
-
-    public UpdateChecker(Button? notificationBar, ProgressBar? progressBar)
+    public UpdateChecker(
+        Button? notificationButton,
+        ProgressBar? progressBar)
     {
-        _updateNotificationBarButton = notificationBar;
-        _updateProgressBar = progressBar;
+        _notificationButton = notificationButton;
+        _progressBar = progressBar;
     }
 
-    /// <summary>
-    ///     Checks for updates and downloads them if a new version is available
-    /// </summary>
     public async Task CheckForUpdatesAsync()
     {
-        if (!Mgr.IsInstalled)
+        if (!_updateManager.IsInstalled)
         {
             Log.Warning("Update check skipped: Velopack not in use.");
             return;
         }
 
-        UpdateInfo? updateInfo = await Mgr.CheckForUpdatesAsync();
-        if (updateInfo == null)
+        UpdateInfo? updateInfo =
+            await _updateManager.CheckForUpdatesAsync();
+
+        if (updateInfo is null)
         {
             Log.Information("No updates available.");
             return;
@@ -51,19 +53,44 @@ public class UpdateChecker
 
         UpdateInfo = updateInfo;
 
-        Log.Information("Update available.");
-        await Mgr.DownloadUpdatesAsync(UpdateInfo);
+        Log.Information(
+            "Update available: {Version}",
+            updateInfo.TargetFullRelease.Version);
+
+        await _updateManager.DownloadUpdatesAsync(updateInfo);
     }
 
-    /// <summary>
-    ///     Attempts to show the update prompt
-    /// </summary>
     public void ShowUpdateNotification()
     {
-        Log.Debug("Showing Update Notification");
+        if (_notificationButton is null ||
+            _progressBar is null)
+        {
+            Log.Warning(
+                "Cannot show update notification: UI controls are unavailable.");
+            return;
+        }
 
-        _updateNotificationBarButton.IsVisible = true;
-        _updateProgressBar.Value = 0;
-        _updateProgressBar.Foreground = Brushes.Green;
+        Log.Debug("Showing update notification.");
+
+        _notificationButton.IsVisible = true;
+
+        _progressBar.Value = 0;
+        _progressBar.Foreground = Brushes.Green;
+    }
+    
+    public Task DownloadUpdateAsync(Action<int>? progress = null)
+    {
+        if (UpdateInfo is null)
+            return Task.CompletedTask;
+
+        return _updateManager.DownloadUpdatesAsync(UpdateInfo, progress);
+    }
+
+    public void ApplyUpdateAndRestart()
+    {
+        if (UpdateInfo is null)
+            return;
+
+        _updateManager.ApplyUpdatesAndRestart(UpdateInfo);
     }
 }
