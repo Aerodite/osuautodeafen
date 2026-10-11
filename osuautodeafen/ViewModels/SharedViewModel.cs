@@ -14,6 +14,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using osuautodeafen.Background;
 using osuautodeafen.Changelog;
+using osuautodeafen.Notifications;
 using osuautodeafen.Settings;
 using osuautodeafen.Settings.Presets;
 using osuautodeafen.StrainGraph;
@@ -117,6 +118,19 @@ public sealed class SharedViewModel : ViewModelBase
         Task.Run(UpdateCompletionPercentageAsync);
 
         CreateAndShowChangelog();
+    }
+    
+    public event Func<NotificationType, string, string, TimeSpan?, Task>?
+        NotificationRequested;
+
+    public Task ShowNotificationAsync(
+        NotificationType type,
+        string title,
+        string description,
+        TimeSpan? duration = null)
+    {
+        return NotificationRequested?.Invoke(type, title, description, duration)
+               ?? Task.CompletedTask;
     }
     
     private void OnTosuConnectionStateChanged(bool connected)

@@ -15,6 +15,7 @@ using IniParser.Model;
 using osuautodeafen.Background;
 using osuautodeafen.Helpers;
 using osuautodeafen.Logo;
+using osuautodeafen.Notifications;
 using osuautodeafen.Settings;
 using osuautodeafen.Settings.Keybinds;
 using osuautodeafen.Settings.Presets;
@@ -1102,12 +1103,10 @@ public partial class SettingsView : UserControl
 
             if (!_updateChecker.IsInstalled)
             {
-                button.Content = "Velopack not installed...";
-                await Task.Delay(1000);
-
-                button.Content = "Please reinstall osuautodeafen";
-                await Task.Delay(1000);
-
+                await _viewModel.ShowNotificationAsync(NotificationType.Error,
+                    "Failed to check for updates",
+                    "osuautodeafen can't reach Velopack, please reinstall osuautodeafen",
+                    TimeSpan.FromSeconds(10));
                 button.Content = "Check for Updates";
                 return;
             }

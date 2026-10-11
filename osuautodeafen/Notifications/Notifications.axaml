@@ -9,6 +9,9 @@
 
     <StackPanel Spacing="8">
         
+        <StackPanel x:Name="CustomNotifications"
+                    Spacing="8" />
+        
         <Border x:Name="TosuWarningPill"
                 Width="170"
                 HorizontalAlignment="Left"

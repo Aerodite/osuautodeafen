@@ -24,6 +24,7 @@ using osuautodeafen.Background;
 using osuautodeafen.Helpers;
 using osuautodeafen.Logging;
 using osuautodeafen.Logo;
+using osuautodeafen.Notifications;
 using osuautodeafen.Settings;
 using osuautodeafen.Settings.Keybinds;
 using osuautodeafen.Settings.Presets;
@@ -40,6 +41,11 @@ using Animation = Avalonia.Animation.Animation;
 using KeyFrame = Avalonia.Animation.KeyFrame;
 
 namespace osuautodeafen;
+
+// TODO
+// work should probably be done to split out a large chunk of mainwindow into it's own class(es),
+// this file is getting kinda big just due to the fact we need all of these setting handlers (settingsview.axaml.cs isn't much better)
+// i'd be lying if i said i knew a better solution though
 
 public partial class MainWindow : Window
 {
@@ -198,6 +204,13 @@ public partial class MainWindow : Window
             _tooltipManager,
             _settingsViewModel
         );
+        
+        _viewModel.NotificationRequested += (type, title, description, duration) =>
+            NotificationsPanel.ShowNotificationAsync(
+                type,
+                title,
+                description,
+                duration);
 
         _breakPeriod = new BreakPeriodCalculator();
 
@@ -1038,19 +1051,6 @@ public partial class MainWindow : Window
         _toggleQueues[target] = newTask;
         return newTask;
     }
-
-    /*
-        we need to start handling all of this slider bullshit somewhere else bro istg
-        ESPECIALLY for tooltips because holy hell they are kind of a mess
-        i tried making custom tooltips in https://github.com/Aerodite/osuautodeafen/commit/3adb7ab579152bbdc3fb624077bb82c628db6dfc
-        but that ultimately ended up being a buggy mess.
-
-        maybe we could grab from the really simple new tooltip system used in the straingraph by TooltipManager.cs,
-        but honestly i feel like that entire system might need to be expanded upon because those tooltips are pretty barebones
-    */
-    /*
-     10/20/25 update: yes we are now using TooltipManager.cs for all of these tooltips hiphiphurray
-     */
 
     private void SettingsButton_PointerEnter(object sender, PointerEventArgs e)
     {
