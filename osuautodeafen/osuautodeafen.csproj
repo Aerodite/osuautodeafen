@@ -55,6 +55,10 @@
         <AvaloniaResource Include="Icons\equibop.svg"/>
         <None Remove="Icons\vesktop.svg"/>
         <AvaloniaResource Include="Icons\vesktop.svg"/>
+        <None Remove="Icons\warning.svg" />
+        <AvaloniaResource Include="Icons\warning.svg" />
+        <None Remove="Icons\download.svg" />
+        <AvaloniaResource Include="Icons\download.svg" />
     </ItemGroup>
 
     <ItemGroup>
